@@ -2,9 +2,9 @@
   "project": "google/mozc",
   "revision": "c7538e6f8ee56ff94789494106ad5d6d658cd4f6",
   "source": "https://github.com/google/mozc/tree/c7538e6f8ee56ff94789494106ad5d6d658cd4f6/src/data/dictionary_oss",
-  "readings": 623954,
-  "entries": 841197,
-  "bytes": 27755933,
-  "sha256": "07c69aa616928d5bc0c4b67ab2d95d8aae259b666ec201b57e926620204a4700",
-  "filters": "hiragana readings, length <= 16, cost <= 8500, best 6 distinct surfaces per reading"
+  "readings": 114798,
+  "entries": 246497,
+  "bytes": 5634894,
+  "sha256": "5b7dd823a7318ca90958a4014a2f7f112320c2c7aa245694f03393ec867c6032",
+  "filters": "hiragana <=16; best cost <=5500 (<=7500 for <=3 kana); best 6 surfaces with cost <=8500"
 }

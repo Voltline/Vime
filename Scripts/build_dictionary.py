@@ -60,6 +60,9 @@ def main():
     lines = []
     count = 0
     for reading in sorted(entries, key=lambda text: text.encode("utf-8")):
+        best_cost = min(entries[reading].values())
+        if best_cost > 5500 and not (len(reading) <= 3 and best_cost <= 7500):
+            continue
         values = sorted(entries[reading].items(), key=lambda item: (item[1], item[0]))[:6]
         count += len(values)
         lines.append("\t".join([reading] + [part for surface, cost in values for part in (surface, str(cost))]))
@@ -70,11 +73,11 @@ def main():
     manifest_path.write_text(json.dumps({
         "project": "google/mozc", "revision": revision,
         "source": f"https://github.com/google/mozc/tree/{revision}/src/data/dictionary_oss",
-        "readings": len(entries), "entries": count, "bytes": len(payload),
+        "readings": len(lines), "entries": count, "bytes": len(payload),
         "sha256": hashlib.sha256(payload).hexdigest(),
-        "filters": "hiragana readings, length <= 16, cost <= 8500, best 6 distinct surfaces per reading",
+        "filters": "hiragana <=16; best cost <=5500 (<=7500 for <=3 kana); best 6 surfaces with cost <=8500",
     }, indent=2) + "\n")
-    print(f"Built {len(entries):,} readings / {count:,} candidates / {len(payload):,} bytes", flush=True)
+    print(f"Built {len(lines):,} readings / {count:,} candidates / {len(payload):,} bytes", flush=True)
 
 
 if __name__ == "__main__":

@@ -33,3 +33,6 @@ go.sum
 *pb2.py
 *pb2_grpc.py
 *.pem
+
+# Local keyboard test screenshots
+/Artifacts/**/*.png

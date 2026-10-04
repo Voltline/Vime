@@ -1,0 +1,104 @@
+{
+  "date": "2026-10-04",
+  "doubleN": {
+    "kanna": "かんな",
+    "konnichiha": "こんにちは",
+    "kannya": "かんにゃ",
+    "standaloneNN": "ん",
+    "trailingNEditable": true,
+    "bulkAndPerKeyMatch": true,
+    "candidateReadingMetadataVerified": true
+  },
+  "backspace": {
+    "unit": "displayed kana; unresolved consonants one character",
+    "nanimo": "なにも → なに",
+    "nanim": "なにm → なに",
+    "immediatePredictionVerified": true
+  },
+  "layout": {
+    "prolonged": "second row, right of L, Japanese mode",
+    "bottomKeys": 6,
+    "spaceWidthAt440pt": 136.5,
+    "newGapAndRightEdgeResolved": true,
+    "fullGridRepeated": false
+  },
+  "benchmark": {
+    "configuration": "Debug",
+    "warmupPasses": 1,
+    "measuredPasses": 3,
+    "words": [
+      "nihongo",
+      "nani",
+      "nanim",
+      "nanimo",
+      "arigat"
+    ],
+    "publicationsPerSide": 84,
+    "primaryMetric": "candidatePublication; whole refresh callback including candidate text and actual frame/label layout",
+    "simulator": {
+      "before": {
+        "count": 84,
+        "maxMs": 6.0997083492111415,
+        "meanMs": 3.47452381122691,
+        "p95Ms": 5.143249989487231
+      },
+      "after": {
+        "count": 84,
+        "maxMs": 4.424624989042059,
+        "meanMs": 1.923571924548707,
+        "p95Ms": 2.6954166823998094
+      }
+    },
+    "iPhone16ProMax": {
+      "before": {
+        "count": 84,
+        "maxMs": 4.4607500021811575,
+        "meanMs": 2.017589285969734,
+        "p95Ms": 3.3276666654273868
+      },
+      "after": {
+        "count": 84,
+        "maxMs": 1.6353333339793608,
+        "meanMs": 0.9005233130751765,
+        "p95Ms": 1.3310833310242742
+      }
+    }
+  },
+  "fastInput": {
+    "burstKeys": 35,
+    "interleavedKeys": 35,
+    "interleavedIntervalMs": 20,
+    "rawAndEveryMarkedTextVerified": true,
+    "latestSentencePredictionVerified": true,
+    "lostKeys": 0,
+    "physicalDeviceReport": "input-pipeline-unified-device-after.json",
+    "physicalCandidatePublications": 29,
+    "physicalTypeToMarkedP95Ms": 0.5787083355244249,
+    "limitation": "Automated shared keyboard tests and user-confirmed typing in a third-party App; human miss rate not statistically quantified."
+  },
+  "tests": {
+    "simulatorUnique": 15,
+    "simulatorFocusedRerun": 1,
+    "physicalDevice": 4,
+    "failures": 0,
+    "resultBundles": [
+      "/private/tmp/VimeRemainingFixes.xcresult",
+      "/private/tmp/VimeInterleavedTyping.xcresult",
+      "/private/tmp/VimeRemainingDeviceFixesRetry.xcresult"
+    ]
+  },
+  "deployment": {
+    "configuration": "Release",
+    "physicalDevice": "iPhone 16 Pro Max",
+    "bundleID": "com.Voltline.Vime",
+    "installed": true,
+    "installationPath": "/private/var/containers/Bundle/Application/9AE00B5A-3C49-48BA-968E-428295CAA84A/Vime.app",
+    "humanExtensionAcceptance": {
+      "result": "passed",
+      "userFeedback": "都正常，输入顺畅",
+      "scope": "second-row prolonged key, kanna/konnichiha readings, fast typing in another App",
+      "runningExtensionMatchesInstalledBundle": true,
+      "processIdentifier": 5975
+    }
+  }
+}

@@ -1,0 +1,77 @@
+{
+  "date": "2026-10-04",
+  "runtime": "iOS 27.0 simulator",
+  "configuration": "Debug",
+  "testCount": 23,
+  "failures": 0,
+  "letterCoverage": {
+    "layouts": [
+      {
+        "width": 375.0,
+        "compact": false,
+        "stepPt": 2,
+        "sampledPoints": 13160
+      },
+      {
+        "width": 440.0,
+        "compact": false,
+        "stepPt": 2,
+        "sampledPoints": 18040
+      },
+      {
+        "width": 680.0,
+        "compact": true,
+        "stepPt": 2,
+        "sampledPoints": 19040
+      }
+    ],
+    "totalSampledPoints": 50240,
+    "unresolved": 0,
+    "nonunique": 0,
+    "misrouted": 0,
+    "wrongBodyOwner": 0
+  },
+  "renderedGapCoverage": [
+    {
+      "width": 375.0,
+      "checkedGapPixels": 59,
+      "baselineAlpha": 0,
+      "fixedAlpha": 3,
+      "alphaMaximum": 255
+    },
+    {
+      "width": 440.0,
+      "checkedGapPixels": 59,
+      "baselineAlpha": 0,
+      "fixedAlpha": 3,
+      "alphaMaximum": 255
+    },
+    {
+      "width": 680.0,
+      "checkedGapPixels": 59,
+      "baselineAlpha": 0,
+      "fixedAlpha": 3,
+      "alphaMaximum": 255
+    }
+  ],
+  "sourceReferences": [
+    "https://developer.apple.com/forums/thread/702798",
+    "https://github.com/lime-ime/limeime/blob/master/docs/IOS_CANDI_TOUCH.md"
+  ],
+  "resultBundle": "/private/tmp/VimeTouchFinalAudit.xcresult",
+  "physicalTypingAcceptance": {
+    "device": "iPhone 16 Pro Max",
+    "userConfirmed": "键缝都响应，死区消失了",
+    "runningExtensionMatchesInstalledBuild": true,
+    "missRateQuantified": false
+  },
+  "builds": {
+    "Debug_iPhoneOS": "succeeded",
+    "Release_iPhoneSimulator": "succeeded"
+  },
+  "deployment": {
+    "installedOnConnectediPhone": true,
+    "bundleIdentifier": "com.Voltline.Vime",
+    "preservedExistingData": true
+  }
+}

@@ -6,14 +6,117 @@
 	objectVersion = 110;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		C10000000000000000000001 /* VimeKeyboard.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = C10000000000000000000002 /* VimeKeyboard.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		E10000000000000000000001 /* KanaKanjiConverterModuleWithDefaultDictionary in Frameworks */ = {isa = PBXBuildFile; productRef = E20000000000000000000001 /* KanaKanjiConverterModuleWithDefaultDictionary */; };
+		E10000000000000000000002 /* KanaKanjiConverterModuleWithDefaultDictionary in Frameworks */ = {isa = PBXBuildFile; productRef = E20000000000000000000002 /* KanaKanjiConverterModuleWithDefaultDictionary */; };
+		E10000000000000000000003 /* KanaKanjiConverterModuleWithDefaultDictionary in Frameworks */ = {isa = PBXBuildFile; productRef = E20000000000000000000003 /* KanaKanjiConverterModuleWithDefaultDictionary */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		C10000000000000000000003 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B2ED4C003071EF7600C73DB0 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C10000000000000000000004;
+			remoteInfo = VimeKeyboard;
+		};
+		D1000000000000000000000A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B2ED4C003071EF7600C73DB0 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B2ED4C073071EF7600C73DB0;
+			remoteInfo = Vime;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		C10000000000000000000005 /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			dstPath = "";
+			dstSubfolder = PlugIns;
+			files = (
+				C10000000000000000000001 /* VimeKeyboard.appex in Embed App Extensions */,
+			);
+			name = "Embed App Extensions";
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		B2ED4C083071EF7600C73DB0 /* Vime.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Vime.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		C10000000000000000000002 /* VimeKeyboard.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = VimeKeyboard.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		D10000000000000000000001 /* VimeKeyboardTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; path = VimeKeyboardTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		C10000000000000000000006 /* Exceptions for "Keyboard" folder in "VimeKeyboard" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = C10000000000000000000004 /* VimeKeyboard */;
+		};
+		D10000000000000000000002 /* Exceptions for "Keyboard" folder in "VimeKeyboardTests" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = D10000000000000000000004 /* VimeKeyboardTests */;
+		};
+		F10000000000000000000001 /* Exceptions for "Shared" folder in "Vime" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Resources/DictionarySource.json,
+				Resources/JapaneseLexicon.tsv,
+			);
+			target = B2ED4C073071EF7600C73DB0 /* Vime */;
+		};
+		F10000000000000000000002 /* Exceptions for "Shared" folder in "VimeKeyboard" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Resources/DictionarySource.json,
+				Resources/JapaneseLexicon.tsv,
+			);
+			target = C10000000000000000000004 /* VimeKeyboard */;
+		};
+		F10000000000000000000003 /* Exceptions for "Shared" folder in "VimeKeyboardTests" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Resources/DictionarySource.json,
+				Resources/JapaneseLexicon.tsv,
+			);
+			target = D10000000000000000000004 /* VimeKeyboardTests */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		B2ED4C0A3071EF7600C73DB0 /* Vime */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = Vime;
+			sourceTree = "<group>";
+		};
+		C10000000000000000000007 /* Keyboard */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				C10000000000000000000006 /* Exceptions for "Keyboard" folder in "VimeKeyboard" target */,
+				D10000000000000000000002 /* Exceptions for "Keyboard" folder in "VimeKeyboardTests" target */,
+			);
+			path = Keyboard;
+			sourceTree = "<group>";
+		};
+		C10000000000000000000008 /* Shared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				F10000000000000000000001 /* Exceptions for "Shared" folder in "Vime" target */,
+				F10000000000000000000002 /* Exceptions for "Shared" folder in "VimeKeyboard" target */,
+				F10000000000000000000003 /* Exceptions for "Shared" folder in "VimeKeyboardTests" target */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		D10000000000000000000003 /* Tests/UIKit */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Tests/UIKit;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -22,6 +125,19 @@
 		B2ED4C053071EF7600C73DB0 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
+				E10000000000000000000001 /* KanaKanjiConverterModuleWithDefaultDictionary in Frameworks */,
+			);
+		};
+		C10000000000000000000009 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+				E10000000000000000000002 /* KanaKanjiConverterModuleWithDefaultDictionary in Frameworks */,
+			);
+		};
+		D10000000000000000000007 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+				E10000000000000000000003 /* KanaKanjiConverterModuleWithDefaultDictionary in Frameworks */,
 			);
 		};
 /* End PBXFrameworksBuildPhase section */
@@ -31,6 +147,9 @@
 			isa = PBXGroup;
 			children = (
 				B2ED4C0A3071EF7600C73DB0 /* Vime */,
+				C10000000000000000000007 /* Keyboard */,
+				C10000000000000000000008 /* Shared */,
+				D10000000000000000000003 /* Tests/UIKit */,
 				B2ED4C093071EF7600C73DB0 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -39,6 +158,8 @@
 			isa = PBXGroup;
 			children = (
 				B2ED4C083071EF7600C73DB0 /* Vime.app */,
+				C10000000000000000000002 /* VimeKeyboard.appex */,
+				D10000000000000000000001 /* VimeKeyboardTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -53,16 +174,72 @@
 				B2ED4C043071EF7600C73DB0 /* Sources */,
 				B2ED4C053071EF7600C73DB0 /* Frameworks */,
 				B2ED4C063071EF7600C73DB0 /* Resources */,
+				C10000000000000000000005 /* Embed App Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				C10000000000000000000013 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				B2ED4C0A3071EF7600C73DB0 /* Vime */,
+				C10000000000000000000008 /* Shared */,
+			);
+			name = Vime;
+			packageProductDependencies = (
+				E20000000000000000000001 /* KanaKanjiConverterModuleWithDefaultDictionary */,
+			);
+			productName = Vime;
+			productReference = B2ED4C083071EF7600C73DB0 /* Vime.app */;
+			productType = "com.apple.product-type.application";
+		};
+		C10000000000000000000004 /* VimeKeyboard */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C10000000000000000000010 /* Build configuration list for PBXNativeTarget "VimeKeyboard" */;
+			buildPhases = (
+				C10000000000000000000011 /* Sources */,
+				C10000000000000000000009 /* Frameworks */,
+				C10000000000000000000012 /* Resources */,
 			);
 			buildRules = (
 			);
 			fileSystemSynchronizedGroups = (
-				B2ED4C0A3071EF7600C73DB0 /* Vime */,
+				C10000000000000000000007 /* Keyboard */,
+				C10000000000000000000008 /* Shared */,
 			);
-			name = Vime;
-			productName = Vime;
-			productReference = B2ED4C083071EF7600C73DB0 /* Vime.app */;
-			productType = "com.apple.product-type.application";
+			name = VimeKeyboard;
+			packageProductDependencies = (
+				E20000000000000000000002 /* KanaKanjiConverterModuleWithDefaultDictionary */,
+			);
+			productName = VimeKeyboard;
+			productReference = C10000000000000000000002 /* VimeKeyboard.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		D10000000000000000000004 /* VimeKeyboardTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D10000000000000000000005 /* Build configuration list for PBXNativeTarget "VimeKeyboardTests" */;
+			buildPhases = (
+				D10000000000000000000006 /* Sources */,
+				D10000000000000000000007 /* Frameworks */,
+				D10000000000000000000008 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				D10000000000000000000009 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				C10000000000000000000007 /* Keyboard */,
+				C10000000000000000000008 /* Shared */,
+				D10000000000000000000003 /* Tests/UIKit */,
+			);
+			name = VimeKeyboardTests;
+			packageProductDependencies = (
+				E20000000000000000000003 /* KanaKanjiConverterModuleWithDefaultDictionary */,
+			);
+			productName = VimeKeyboardTests;
+			productReference = D10000000000000000000001 /* VimeKeyboardTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
 		};
 /* End PBXNativeTarget section */
 
@@ -80,26 +257,42 @@
 				};
 			};
 			buildConfigurationList = B2ED4C033071EF7600C73DB0 /* Build configuration list for PBXProject "Vime" */;
-			developmentRegion = en;
+			developmentRegion = "zh-Hans";
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
 				Base,
+				"zh-Hans",
 			);
 			mainGroup = B2ED4BFF3071EF7600C73DB0;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				E30000000000000000000001 /* XCRemoteSwiftPackageReference "AzooKeyKanaKanjiConverter" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = B2ED4C093071EF7600C73DB0 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
 				B2ED4C073071EF7600C73DB0 /* Vime */,
+				C10000000000000000000004 /* VimeKeyboard */,
+				D10000000000000000000004 /* VimeKeyboardTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		B2ED4C063071EF7600C73DB0 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
+		C10000000000000000000012 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
+		D10000000000000000000008 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			files = (
 			);
@@ -112,7 +305,30 @@
 			files = (
 			);
 		};
+		C10000000000000000000011 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
+		D10000000000000000000006 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		C10000000000000000000013 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C10000000000000000000004 /* VimeKeyboard */;
+			targetProxy = C10000000000000000000003 /* PBXContainerItemProxy */;
+		};
+		D10000000000000000000009 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B2ED4C073071EF7600C73DB0 /* Vime */;
+			targetProxy = D1000000000000000000000A /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		B2ED4C113071EF7700C73DB0 /* Debug configuration for PBXProject "Vime" */ = {
@@ -168,7 +384,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
@@ -226,7 +442,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
@@ -306,6 +522,98 @@
 			};
 			name = Release;
 		};
+		C10000000000000000000014 /* Debug configuration for PBXNativeTarget "VimeKeyboard" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 8R5Q4A3RC7;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Keyboard/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.Voltline.Vime.Keyboard;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		C10000000000000000000015 /* Release configuration for PBXNativeTarget "VimeKeyboard" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 8R5Q4A3RC7;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Keyboard/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.Voltline.Vime.Keyboard;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		D1000000000000000000000B /* Debug configuration for PBXNativeTarget "VimeKeyboardTests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 8R5Q4A3RC7;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.Voltline.Vime.KeyboardTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Vime.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Vime";
+			};
+			name = Debug;
+		};
+		D1000000000000000000000C /* Release configuration for PBXNativeTarget "VimeKeyboardTests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 8R5Q4A3RC7;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.Voltline.Vime.KeyboardTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Vime.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Vime";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -325,7 +633,52 @@
 			);
 			defaultConfigurationName = Release;
 		};
+		C10000000000000000000010 /* Build configuration list for PBXNativeTarget "VimeKeyboard" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C10000000000000000000014 /* Debug configuration for PBXNativeTarget "VimeKeyboard" */,
+				C10000000000000000000015 /* Release configuration for PBXNativeTarget "VimeKeyboard" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		D10000000000000000000005 /* Build configuration list for PBXNativeTarget "VimeKeyboardTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D1000000000000000000000B /* Debug configuration for PBXNativeTarget "VimeKeyboardTests" */,
+				D1000000000000000000000C /* Release configuration for PBXNativeTarget "VimeKeyboardTests" */,
+			);
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		E30000000000000000000001 /* XCRemoteSwiftPackageReference "AzooKeyKanaKanjiConverter" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/azooKey/AzooKeyKanaKanjiConverter";
+			requirement = {
+				kind = revision;
+				revision = d59a28e4c7ca049aef04f29a91eae9677a7753f2;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		E20000000000000000000001 /* KanaKanjiConverterModuleWithDefaultDictionary */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E30000000000000000000001 /* XCRemoteSwiftPackageReference "AzooKeyKanaKanjiConverter" */;
+			productName = KanaKanjiConverterModuleWithDefaultDictionary;
+		};
+		E20000000000000000000002 /* KanaKanjiConverterModuleWithDefaultDictionary */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E30000000000000000000001 /* XCRemoteSwiftPackageReference "AzooKeyKanaKanjiConverter" */;
+			productName = KanaKanjiConverterModuleWithDefaultDictionary;
+		};
+		E20000000000000000000003 /* KanaKanjiConverterModuleWithDefaultDictionary */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E30000000000000000000001 /* XCRemoteSwiftPackageReference "AzooKeyKanaKanjiConverter" */;
+			productName = KanaKanjiConverterModuleWithDefaultDictionary;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = B2ED4C003071EF7600C73DB0 /* Project object */;
 	validationLevel = 1;
