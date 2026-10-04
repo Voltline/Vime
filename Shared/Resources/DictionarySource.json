@@ -1,0 +1,10 @@
+{
+  "project": "google/mozc",
+  "revision": "c7538e6f8ee56ff94789494106ad5d6d658cd4f6",
+  "source": "https://github.com/google/mozc/tree/c7538e6f8ee56ff94789494106ad5d6d658cd4f6/src/data/dictionary_oss",
+  "readings": 623954,
+  "entries": 841197,
+  "bytes": 27755933,
+  "sha256": "07c69aa616928d5bc0c4b67ab2d95d8aae259b666ec201b57e926620204a4700",
+  "filters": "hiragana readings, length <= 16, cost <= 8500, best 6 distinct surfaces per reading"
+}
