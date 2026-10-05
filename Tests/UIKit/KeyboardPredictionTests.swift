@@ -3,7 +3,7 @@ import XCTest
 @MainActor
 final class KeyboardPredictionTests: XCTestCase {
     func testEveryRomanKeyRequestsPredictionIncludingUnresolvedSuffix() async {
-        let session = KeyboardSession(asynchronousCandidates: true)
+        let session = KeyboardSession(asynchronousCandidates: true, memoryDirectoryURL: isolatedLearningDirectory())
         let first = expectation(description: "nani")
         session.onCandidatesChange = { first.fulfill() }
         for c in "nani" { _ = session.type(String(c)) }
@@ -94,13 +94,13 @@ final class KeyboardPredictionTests: XCTestCase {
 
     func testDoubleNCandidatesUseCorrectReading() {
         let session = KeyboardSession()
-        for (raw, kana) in [("kanna", "かんな"), ("konnichiha", "こんにちは")] {
+        for (raw, literal, kana) in [("kanna", "かんあ", "かんな"), ("konnichiha", "こんいちは", "こんにちは")] {
             session.reset(); _ = session.type(raw)
-            XCTAssertEqual(session.preedit, kana)
+            XCTAssertEqual(session.preedit, literal)
             XCTAssertTrue(session.candidates.contains(kana))
             let reading = RomajiConverter.katakana(kana)
             XCTAssertTrue(session.candidateSnapshots.contains {
-                $0.source == .conversion && $0.remainingComposition.isEmpty
+                $0.source == .readingAlternative && $0.remainingComposition.isEmpty
                     && $0.candidate.data.map(\.ruby).joined() == reading
             }, "Full conversion must have the correct reading: \(raw)")
         }

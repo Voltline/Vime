@@ -1,0 +1,116 @@
+{
+  "date": "2026-10-05",
+  "priority": "Preserve literal n input; offer alternate readings only as candidates.",
+  "rootCause": {
+    "inputLayer": "The previous nn overlap rewrite turned rennai into れんない. renai stayed れない but had no 恋愛 candidate.",
+    "fix": "Remove live input rewriting. Query up to four n boundary readings off-main, sharing dictionary caches in an independent converter session. Keep exact whole-word results with a small ranking penalty, at most three alternatives. Alternate queries use N_best=3 with prediction disabled; literal prediction is unchanged."
+  },
+  "nExamples": [
+    {
+      "raw": "renai",
+      "preedit": "れない",
+      "candidate": "恋愛"
+    },
+    {
+      "raw": "rennai",
+      "preedit": "れんあい",
+      "candidate": "恋愛"
+    },
+    {
+      "raw": "konna",
+      "preedit": "こんあ",
+      "firstCandidate": "こんな"
+    },
+    {
+      "raw": "konichiha",
+      "preedit": "こにちは",
+      "firstCandidate": "こんにちは"
+    },
+    {
+      "raw": "konnichiha",
+      "preedit": "こんいちは",
+      "firstCandidate": "こんにちは"
+    },
+    {
+      "raw": "nn",
+      "preedit": "ん"
+    },
+    {
+      "raw": "na / nya",
+      "preedit": "な / にゃ"
+    }
+  ],
+  "features": {
+    "horizontalCursor": "Single-finger sweep beyond 60 scaled pt enters cursor mode; hide keys until end/cancel.",
+    "spaceCursor": "Stable 350 ms hold, then horizontal and vertical movement; short space retains original behavior.",
+    "deleteLine": "Upward delete gesture commits line prefix deletion on release. Short backspace defers to release; repeat begins after 420 ms.",
+    "katakana": "Canonical katakana is normally reserved at index 3 (index 0 in katakana mode).",
+    "expandedCandidates": "Original candidate strip and divider hidden while expanded; restored on close.",
+    "symbols": {
+      "emojiVersion": "18.0",
+      "emojiSequences": 3972,
+      "emojiGroups": 10,
+      "kaomoji": 160,
+      "kaomojiGroups": 8,
+      "source": "https://www.unicode.org/Public/18.0.0/emoji/emoji-test.txt",
+      "implementation": "UICollectionView reused cells; both an explicit return button and header arrow."
+    },
+    "themes": [
+      "system",
+      "sakura",
+      "ocean",
+      "midnight"
+    ]
+  },
+  "validation": {
+    "simulator": {
+      "initialTargetedTests": 18,
+      "failures": 0,
+      "afterQueryOptimizationTests": 9,
+      "optimizedFailures": 0,
+      "result": "/private/tmp/VimeNLean.xcresult"
+    },
+    "device": {
+      "model": "iPhone 16 Pro Max",
+      "initialTargetedTests": 10,
+      "failures": 0,
+      "afterQueryOptimizationTests": 5,
+      "optimizedFailures": 0,
+      "result": "/private/tmp/VimeNLeanDevice.xcresult"
+    },
+    "inputPipeline": {
+      "keys": 70,
+      "allKeysPreserved": true,
+      "everyKeyMarkedTextImmediate": true,
+      "latestSentenceCandidateCorrect": true
+    },
+    "warmDevice": {
+      "samples": 84,
+      "measurement": "Same attached UIWindow, one warmup pass plus three measured passes of nihongo/nani/nanim/nanimo/arigat; publication includes label measurement and actual layout.",
+      "candidatePublicationP95Ms": 1.4720833278261125,
+      "typeToMarkedP95Ms": 0.2775000029942021,
+      "candidateComputeP95Ms": 18.720625012065284
+    },
+    "coverage": "No full keyboard grid rescan and no per-emoji UI testing. Targeted gesture lifecycle and existing sticky/alternate/repeat behavior only.",
+    "release": {
+      "build": "succeeded",
+      "install": "succeeded",
+      "installationContainer": "07192D99-653D-43A0-9EAD-20D87A5DC604",
+      "emojiCatalogBundledInAppAndExtension": true
+    },
+    "manual": {
+      "nPriorityFix": "User confirmed 符合预期 in another App with system extension.",
+      "newFeatures": "User reloaded the final Release extension, tried cursor/space/delete gestures, symbol exit and theme switching, and confirmed 都正常."
+    },
+    "screenshots": "Rendered test images stay in /private/tmp result bundles. No test screenshot is Git tracked; /Artifacts/**/*.png ignored."
+  },
+  "limitations": [
+    "Extension vertical navigation follows explicit newline lines within host context; it cannot see host soft-wrap coordinates. App sandbox can move by rendered lines.",
+    "Line-prefix deletion is newline-based and bounded to 64 proxy context chunks; host context availability can limit very long lines.",
+    "N reading alternatives are bounded to complete single-word readings; no whole-sentence spelling rewrite.",
+    "Additional alternate-reading computation runs off-main and adds conversion cost; publication and preedit remain independent.",
+    "Emoji glyph rendering depends on the iOS font; some Unicode 18 entries may be missing. No search/recents yet.",
+    "Four preset color themes, no custom image themes.",
+    "Automated shared-view tests do not quantify human error rate or prove every third-party host behaves identically."
+  ]
+}

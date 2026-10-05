@@ -8,16 +8,22 @@ final class KeyboardViewController: UIInputViewController {
     private var knownAfter: String?
     private var knownSelected: String?
     private var isApplyingEdits = false
+    private let cursorLayout = KeyboardProxyCursorLayout()
     private lazy var host = KeyboardHostConnection(
         setMarkedText: { [weak self] in self?.textDocumentProxy.setMarkedText($0, selectedRange: $1) },
         unmarkText: { [weak self] in self?.textDocumentProxy.unmarkText() },
         insertText: { [weak self] in self?.textDocumentProxy.insertText($0) },
-        deleteBackward: { [weak self] in self?.textDocumentProxy.deleteBackward() }
+        deleteBackward: { [weak self] in self?.textDocumentProxy.deleteBackward() },
+        moveCursor: { [weak self] in self?.moveCursor(horizontal: $0, vertical: $1) },
+        deleteToLineStart: { [weak self] in self?.deleteLinePrefix() ?? "" },
+        undoAnchor: { [weak self] in self?.deletionUndoAnchor() }
     )
 
     override func viewDidLoad() {
         super.viewDidLoad()
         keyboard.hasFullAccess = hasFullAccess
+        keyboard.showsFooter = needsInputModeSwitchKey
+        keyboard.needsGlobe = needsInputModeSwitchKey
         keyboard.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(keyboard)
         NSLayoutConstraint.activate([
@@ -26,16 +32,29 @@ final class KeyboardViewController: UIInputViewController {
             keyboard.topAnchor.constraint(equalTo: view.topAnchor),
             keyboard.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
-        let height = view.heightAnchor.constraint(equalToConstant: KeyboardMetrics(width: 440, compact: false, showsFooter: false).height)
+        // Seed the host with the actual preferred height, including the saved
+        // factor/footer, rather than a different temporary keyboard height.
+        let height = view.heightAnchor.constraint(equalToConstant: keyboard.preferredHeight(for: view.bounds.width))
+        height.identifier = "vime.keyboard.height"
         height.priority = .init(999)
         height.isActive = true
         heightConstraint = height
         keyboard.inputModeListAction = #selector(switchInputMode(_:event:))
         keyboard.inputModeListTarget = self
+        keyboard.leftContextProvider = { [weak self] in
+            guard let self else { return nil }
+            var left = self.textDocumentProxy.documentContextBeforeInput
+            if let mark = self.host.markedText, left?.hasSuffix(mark) == true {
+                left = left.map { String($0.dropLast(mark.count)) }
+            }
+            return left
+        }
         keyboard.onEdit = { [weak self] edits in self?.apply(edits) }
         keyboard.onMarkedTextChange = { [weak self] in self?.updateMarkedText($0) }
         keyboard.onSwitchKeyboard = { [weak self] in self?.advanceToNextInputMode() }
         keyboard.onDismiss = { [weak self] in self?.dismissKeyboard() }
+        host.onUndoAvailabilityChange = { [weak self] in self?.keyboard.canUndoLineDeletion = $0 }
+        keyboard.onHeightChange = { [weak self] in self?.view.setNeedsLayout() }
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -43,6 +62,7 @@ final class KeyboardViewController: UIInputViewController {
         host.abandon()
         keyboard.resetComposition()
         keyboard.hasFullAccess = hasFullAccess
+        keyboard.reloadHeightPreference()
         updateTraits()
         rememberContext()
     }
@@ -53,7 +73,8 @@ final class KeyboardViewController: UIInputViewController {
         keyboard.compact = traitCollection.userInterfaceIdiom == .phone && landscape
         keyboard.showsFooter = needsInputModeSwitchKey
         keyboard.needsGlobe = needsInputModeSwitchKey
-        heightConstraint?.constant = keyboard.preferredHeight(for: view.bounds.width)
+        let preferred = keyboard.preferredHeight(for: view.bounds.width)
+        if heightConstraint?.constant != preferred { heightConstraint?.constant = preferred }
     }
 
     override func viewWillDisappear(_ animated: Bool) {
@@ -106,6 +127,39 @@ final class KeyboardViewController: UIInputViewController {
         defer { isApplyingEdits = false }
         host.apply(edits)
         rememberContext()
+    }
+
+    private func moveCursor(horizontal: Int, vertical: Int) {
+        let proxy = textDocumentProxy
+        if horizontal == 0 && vertical == 0 {
+            cursorLayout.beginGesture(before: proxy.documentContextBeforeInput ?? "",
+                after: proxy.documentContextAfterInput ?? "", width: keyboard.bounds.width - 48)
+            return
+        }
+        let offset = cursorLayout.moveInGesture(horizontal: horizontal, vertical: vertical)
+        if offset != 0 { proxy.adjustTextPosition(byCharacterOffset: offset) }
+    }
+
+    private func deletionUndoAnchor() -> KeyboardUndoAnchor {
+        let proxy = textDocumentProxy
+        return KeyboardUndoAnchor(document: String(describing: ObjectIdentifier(proxy as AnyObject)),
+            before: proxy.documentContextBeforeInput, after: proxy.documentContextAfterInput, selection: proxy.selectedText)
+    }
+
+    private func deleteLinePrefix() -> String {
+        var deleted = textDocumentProxy.selectedText ?? ""
+        if !deleted.isEmpty { textDocumentProxy.deleteBackward() }
+        // Re-read after each bounded context chunk so long explicit lines are
+        // handled without crossing a newline or reconstructing host content.
+        for _ in 0..<64 {
+            guard let before = textDocumentProxy.documentContextBeforeInput, !before.isEmpty else { break }
+            let prefix = before.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline).last ?? ""
+            guard !prefix.isEmpty else { break }
+            for _ in prefix { textDocumentProxy.deleteBackward() }
+            deleted = prefix + deleted
+            if before.contains(where: \.isNewline) { break }
+        }
+        return deleted
     }
 
     private func updateMarkedText(_ text: String?) {

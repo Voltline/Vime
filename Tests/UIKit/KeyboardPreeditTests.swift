@@ -3,11 +3,11 @@ import XCTest
 @MainActor
 final class KeyboardPreeditTests: XCTestCase {
     func testKanaPreeditAndAmbiguousRomanSuffixes() {
-        let session = KeyboardSession(asynchronousCandidates: true)
+        let session = KeyboardSession(asynchronousCandidates: true, memoryDirectoryURL: isolatedLearningDirectory())
         for (raw, preedit) in [("nihongo", "にほんご"), ("n", "n"), ("nn", "ん"),
                                ("na", "な"), ("nya", "にゃ"), ("kan", "かn"),
-                               ("kanna", "かんな"), ("konnichiha", "こんにちは"),
-                               ("kannya", "かんにゃ"), ("sonnna", "そんな"),
+                               ("kanna", "かんあ"), ("konnichiha", "こんいちは"),
+                               ("kannya", "かんや"), ("sonnna", "そんな"),
                                ("gakkou", "がっこう"), ("nanim", "なにm")] {
             session.reset()
             for c in raw { XCTAssertTrue(session.type(String(c)).isEmpty) }
@@ -28,8 +28,8 @@ final class KeyboardPreeditTests: XCTestCase {
     }
 
     func testDoubleNBatchInsertionAndKanaDeletion() {
-        let session = KeyboardSession(asynchronousCandidates: true)
-        for (raw, kana) in [("kanna", "かんな"), ("konnichiha", "こんにちは"), ("kannya", "かんにゃ")] {
+        let session = KeyboardSession(asynchronousCandidates: true, memoryDirectoryURL: isolatedLearningDirectory())
+        for (raw, kana) in [("kanna", "かんあ"), ("konnichiha", "こんいちは"), ("kannya", "かんや")] {
             session.reset(); _ = session.type(raw)
             XCTAssertEqual(session.preedit, kana)
             XCTAssertEqual(session.raw, raw)

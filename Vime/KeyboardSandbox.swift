@@ -25,8 +25,33 @@ struct KeyboardSandbox: UIViewRepresentable {
             setMarkedText: { [weak view] in view?.setMarkedText($0, selectedRange: $1) },
             unmarkText: { [weak view] in view?.unmarkText() },
             insertText: { [weak view] in view?.insertText($0) },
-            deleteBackward: { [weak view] in view?.deleteBackward() }
+            deleteBackward: { [weak view] in view?.deleteBackward() },
+            moveCursor: { [weak view, weak coordinator = context.coordinator] horizontal, vertical in
+                guard let view, let coordinator else { return }
+                KeyboardTextNavigation.move(in: view, horizontal: horizontal, vertical: vertical, preferredX: &coordinator.cursorX)
+            },
+            deleteToLineStart: { [weak view] in view.map { KeyboardTextNavigation.deleteLinePrefix(in: $0) } ?? "" },
+            undoAnchor: { [weak view] in
+                guard let view else { return nil }
+                let range = view.selectedRange
+                let text = view.text as NSString
+                return KeyboardUndoAnchor(document: String(describing: ObjectIdentifier(view)),
+                    before: text.substring(to: range.location), after: text.substring(from: NSMaxRange(range)),
+                    selection: range.length == 0 ? nil : text.substring(with: range))
+            }
         )
+        context.coordinator.host?.onUndoAvailabilityChange = { [weak keyboard] in keyboard?.canUndoLineDeletion = $0 }
+        keyboard.onHeightChange = { [weak input, weak view] in
+            input?.invalidateIntrinsicContentSize()
+            input?.setNeedsLayout()
+            view?.reloadInputViews()
+        }
+        keyboard.leftContextProvider = { [weak view] in
+            guard let view else { return nil }
+            let end = view.markedTextRange?.start ?? view.selectedTextRange?.start ?? view.endOfDocument
+            let range = view.textRange(from: view.beginningOfDocument, to: end)
+            return range.flatMap { view.text(in: $0) }
+        }
         keyboard.onEdit = { [weak view, weak coordinator = context.coordinator] edits in
             guard let view, let coordinator else { return }
             coordinator.performKeyboardEdit(in: view) { coordinator.host?.apply(edits) }
@@ -47,6 +72,7 @@ struct KeyboardSandbox: UIViewRepresentable {
 
     func updateUIView(_ uiView: UITextView, context: Context) {
         context.coordinator.parent = self
+        context.coordinator.keyboard?.reloadHeightPreference()
         if uiView.text != text {
             context.coordinator.host?.abandon()
             uiView.text = text
@@ -68,6 +94,7 @@ struct KeyboardSandbox: UIViewRepresentable {
         var editingFromKeyboard = false
         var lastFocusRequest = 0
         var knownSelection = NSRange(location: 0, length: 0)
+        var cursorX: CGFloat?
         init(_ parent: KeyboardSandbox) { self.parent = parent }
 
         func performKeyboardEdit(in view: UITextView, _ edit: () -> Void) {
@@ -78,7 +105,10 @@ struct KeyboardSandbox: UIViewRepresentable {
             editingFromKeyboard = false
         }
 
-        func textViewDidChange(_ textView: UITextView) { parent.text = textView.text }
+        func textViewDidChange(_ textView: UITextView) {
+            if !editingFromKeyboard { host?.abandon(); keyboard?.resetComposition() }
+            parent.text = textView.text
+        }
         func textViewDidChangeSelection(_ textView: UITextView) {
             if !editingFromKeyboard && textView.selectedRange != knownSelection {
                 host?.abandon()
@@ -99,8 +129,11 @@ final class SandboxInputView: UIInputView {
     let keyboard: KeyboardView
     init(keyboard: KeyboardView) {
         self.keyboard = keyboard
-        super.init(frame: keyboard.frame, inputViewStyle: .keyboard)
+        let frame = CGRect(origin: keyboard.frame.origin,
+            size: CGSize(width: keyboard.bounds.width, height: keyboard.preferredHeight(for: keyboard.bounds.width)))
+        super.init(frame: frame, inputViewStyle: .keyboard)
         allowsSelfSizing = true
+        keyboard.frame = bounds
         addSubview(keyboard)
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }

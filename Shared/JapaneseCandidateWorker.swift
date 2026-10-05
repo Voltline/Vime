@@ -8,9 +8,11 @@ import KanaKanjiConverterModuleWithDefaultDictionary
 final class JapaneseCandidateWorker {
     private nonisolated final class Storage: @unchecked Sendable {
         private var cachedEngine: JapaneseCandidateEngine?
+        let memoryDirectoryURL: URL?
+        init(memoryDirectoryURL: URL?) { self.memoryDirectoryURL = memoryDirectoryURL }
         var engine: JapaneseCandidateEngine {
             if let cachedEngine { return cachedEngine }
-            let engine = JapaneseCandidateEngine()
+            let engine = JapaneseCandidateEngine(memoryDirectoryURL: memoryDirectoryURL, learningEnabled: true)
             cachedEngine = engine
             return engine
         }
@@ -22,31 +24,53 @@ final class JapaneseCandidateWorker {
         var isCancelled: Bool { lock.lock(); defer { lock.unlock() }; return cancelled }
     }
     private let queue = DispatchQueue(label: "com.Voltline.Vime.candidates", qos: .userInitiated)
-    private let storage = Storage()
+    private let storage: Storage
+    init(memoryDirectoryURL: URL? = nil) { storage = Storage(memoryDirectoryURL: memoryDirectoryURL) }
     private var pending: Request?
 
-    func candidates(for composing: ComposingText, katakana: Bool, revision: Int,
-                    completion: @escaping @MainActor @Sendable ([CandidateSnapshot], TimeInterval?) -> Void) {
+    func candidates(for composing: ComposingText, katakana: Bool, revision: Int, leftContext: String?, continuity: CandidateContinuity?,
+                    completion: @escaping @MainActor @Sendable ([CandidateSnapshot], TimeInterval?, Bool) -> Void) {
         pending?.cancel()
         let request = Request()
         pending = request
         let storage = self.storage
+        let queue = self.queue
         let requestStartedAt = KeyboardPerformance.start()
         queue.async {
             guard !request.isCancelled else { return }
+            storage.engine.reconcileContext(leftContext)
+            storage.engine.seedContinuity(continuity)
             let computeStartedAt = KeyboardPerformance.start()
-            let values = storage.engine.candidates(for: composing, katakana: katakana, revision: revision)
+            let values = storage.engine.candidates(for: composing, katakana: katakana, revision: revision, includeCorrections: false)
             KeyboardPerformance.record(.candidateCompute, since: computeStartedAt)
             KeyboardPerformance.record(.candidateRequestToResult, since: requestStartedAt)
             let readyAt = KeyboardPerformance.start()
             guard !request.isCancelled else { return }
-            DispatchQueue.main.async { completion(values, readyAt) }
+            DispatchQueue.main.async { completion(values, readyAt, false) }
+            // Normal prediction is delivered first. New input cancels this
+            // supplementary search before it starts; running search checks every query.
+            queue.async {
+                guard !request.isCancelled else { return }
+                let correctionStartedAt = KeyboardPerformance.start()
+                let expanded = storage.engine.addingCorrections(to: values, for: composing, katakana: katakana,
+                    revision: revision, cancelled: { request.isCancelled })
+                KeyboardPerformance.record(.correctionCompute, since: correctionStartedAt)
+                guard !request.isCancelled, expanded.map(\.presentation) != values.map(\.presentation) else { return }
+                KeyboardPerformance.record(.correctionRequestToResult, since: requestStartedAt)
+                let readyAt = KeyboardPerformance.start()
+                DispatchQueue.main.async { completion(expanded, readyAt, true) }
+            }
         }
     }
 
-    func complete(_ candidate: Candidate) {
+    func complete(_ candidate: CandidateSnapshot) {
         let storage = self.storage
-        queue.async { storage.engine.complete(candidate) }
+        let queue = self.queue
+        queue.async {
+            storage.engine.complete(candidate)
+            // Persistence occurs on confirmation boundaries, never on keystrokes.
+            queue.async { storage.engine.flushLearning() }
+        }
     }
 
     func cancelPending() {
@@ -54,11 +78,21 @@ final class JapaneseCandidateWorker {
         pending = nil
     }
 
-    func reset() {
+    func reset(preservingContext: Bool = false) {
         cancelPending()
         let storage = self.storage
-        queue.async { storage.engine.reset() }
+        queue.async { storage.engine.reset(preservingContext: preservingContext); storage.engine.flushLearning() }
     }
 
-    deinit { pending?.cancel() }
+    func clearLearning() {
+        cancelPending()
+        let storage = self.storage
+        queue.async { storage.engine.clearLearning() }
+    }
+
+    deinit {
+        pending?.cancel()
+        let storage = self.storage
+        queue.async { storage.engine.flushLearning() }
+    }
 }

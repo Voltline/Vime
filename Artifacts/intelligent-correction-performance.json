@@ -1,0 +1,90 @@
+{
+  "correctionWarmFootprintMB": 74.79936981201172,
+  "endFootprintMB": 74.79936981201172,
+  "idleCorrectionToUIP95Ms": 248.25366667937487,
+  "measurement": "Attached real UIWindow and UITextView, one warm pass plus ten measured passes of shitsuka/nihongoo/kikoro. Type every Roman key, wait for the supplementary correction, no forced selection.",
+  "normalWarmFootprintMB": 74.22124481201172,
+  "peakFootprintMB": 74.79936981201172,
+  "readingIndexBytes": 4910128,
+  "samples": 30,
+  "timings": {
+    "baseConversion": {
+      "count": 100,
+      "maxMs": 188.958916667616,
+      "meanMs": 22.733380418503657,
+      "p95Ms": 182.29095835704356
+    },
+    "candidateButtonConfiguration": {
+      "count": 256,
+      "maxMs": 0.21100000594742596,
+      "meanMs": 0.04520214883996232,
+      "p95Ms": 0.12974999845027924
+    },
+    "candidateCompute": {
+      "count": 100,
+      "maxMs": 214.4489583442919,
+      "meanMs": 33.33812916651368,
+      "p95Ms": 206.38254165533
+    },
+    "candidatePublication": {
+      "count": 60,
+      "maxMs": 2.332749980269,
+      "meanMs": 1.8179500014715206,
+      "p95Ms": 2.259666653117165
+    },
+    "candidateRequestToResult": {
+      "count": 100,
+      "maxMs": 234.81916665332392,
+      "meanMs": 38.04591458465438,
+      "p95Ms": 226.18800000054762
+    },
+    "candidateReranking": {
+      "count": 130,
+      "maxMs": 2.079416677588597,
+      "meanMs": 0.9416628203605517,
+      "p95Ms": 1.9983749953098595
+    },
+    "candidateTitleMeasurement": {
+      "count": 256,
+      "maxMs": 0.17887502326630056,
+      "meanMs": 0.04414664772411925,
+      "p95Ms": 0.11854164768010378
+    },
+    "candidateUIUpdate": {
+      "count": 256,
+      "maxMs": 2.330000017536804,
+      "meanMs": 0.3860236004129547,
+      "p95Ms": 2.1452916553243995
+    },
+    "contextEvaluation": {
+      "count": 100,
+      "maxMs": 0.0013333337847143412,
+      "meanMs": 0.0007662511779926717,
+      "p95Ms": 0.001166685251519084
+    },
+    "correctionCompute": {
+      "count": 50,
+      "maxMs": 19.954791670897976,
+      "meanMs": 10.275638332823291,
+      "p95Ms": 19.628000009106472
+    },
+    "correctionRequestToResult": {
+      "count": 30,
+      "maxMs": 249.80491664609872,
+      "meanMs": 126.10562221962027,
+      "p95Ms": 244.7599166771397
+    },
+    "resultToCandidateUI": {
+      "count": 60,
+      "maxMs": 2.363833336858079,
+      "meanMs": 1.8424229162822787,
+      "p95Ms": 2.2894999710842967
+    },
+    "typeToMarked": {
+      "count": 220,
+      "maxMs": 0.28879166347905993,
+      "meanMs": 0.1845721586670896,
+      "p95Ms": 0.2449583262205124
+    }
+  }
+}

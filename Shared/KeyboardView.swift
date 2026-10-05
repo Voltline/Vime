@@ -1,18 +1,21 @@
 import UIKit
 
-private enum KeyboardPalette {
+enum KeyboardPalette {
+    static var theme = KeyboardTheme.system
     static let background = UIColor { $0.userInterfaceStyle == .dark ? UIColor(white: 0.12, alpha: 1) : UIColor(red: 232 / 255, green: 233 / 255, blue: 236 / 255, alpha: 1) }
-    static let key = UIColor { $0.userInterfaceStyle == .dark ? UIColor(white: 0.28, alpha: 1) : .white }
-    static let utility = UIColor { $0.userInterfaceStyle == .dark ? UIColor(white: 0.21, alpha: 1) : UIColor(red: 196 / 255, green: 200 / 255, blue: 206 / 255, alpha: 1) }
-    static let accent = UIColor(red: 0.08, green: 0.65, blue: 0.39, alpha: 1)
-    static let pressed = UIColor { $0.userInterfaceStyle == .dark ? UIColor(white: 0.40, alpha: 1) : UIColor(white: 0.85, alpha: 1) }
+    static var key: UIColor { theme.key }
+    static var utility: UIColor { theme.utility }
+    static var accent: UIColor { theme.accent }
+    static var text: UIColor { theme.text }
+    static var pressed: UIColor { theme == .midnight ? UIColor(white: 0.40, alpha: 1) : UIColor { $0.userInterfaceStyle == .dark ? UIColor(white: 0.40, alpha: 1) : UIColor(white: 0.85, alpha: 1) } }
 }
 
 /// The visual selection follows the text width, independently of the button's
 /// hit area or a wider cell in the expanded candidate panel.
 private final class CandidateButton: UIButton {
     private let fill = UIView()
-    private var presentedText = ""
+    private let annotation = UILabel()
+    private var presentedPresentation: CandidatePresentation?
     private var presentedIndex: Int?
     private var presentedHighlight: Bool?
     private var measuredTextWidth: CGFloat = 0
@@ -25,18 +28,26 @@ private final class CandidateButton: UIButton {
         fill.isUserInteractionEnabled = false
         fill.backgroundColor = KeyboardPalette.key
         insertSubview(fill, at: 0)
+        annotation.font = .systemFont(ofSize: 10)
+        annotation.isUserInteractionEnabled = false
+        annotation.lineBreakMode = .byTruncatingTail
+        addSubview(annotation)
         backgroundColor = KeyboardTouchBacking.color
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    func present(_ text: String, index: Int, highlighted: Bool, cornerRadius: CGFloat) {
+    func present(_ presentation: CandidatePresentation, index: Int, highlighted: Bool, cornerRadius: CGFloat) {
         tag = index
-        let needsMeasurement = text != presentedText || presentedIndex != index
-        if text != presentedText {
-            presentedText = text
-            setTitle(text, for: .normal)
-            accessibilityLabel = "候选词：" + text
+        let needsMeasurement = presentation.text != presentedPresentation?.text
+            || presentation.annotation != presentedPresentation?.annotation || presentedIndex != index
+        if presentation != presentedPresentation {
+            if presentation.text != presentedPresentation?.text { setTitle(presentation.text, for: .normal) }
+            presentedPresentation = presentation
+            annotation.text = presentation.annotation
+            annotation.isHidden = presentation.annotation == nil
+            accessibilityLabel = presentation.accessibilityLabel
+            accessibilityHint = presentation.correction == nil ? "点击确认候选词" : "点击采用建议读音"
             invalidateIntrinsicContentSize()
         }
         if presentedIndex != index {
@@ -46,12 +57,15 @@ private final class CandidateButton: UIButton {
         }
         if presentedHighlight != highlighted {
             presentedHighlight = highlighted
-            setTitleColor(highlighted ? KeyboardPalette.accent : .label, for: .normal)
+            setTitleColor(highlighted ? KeyboardPalette.accent : KeyboardPalette.text, for: .normal)
             fill.isHidden = !highlighted
         }
+        annotation.textColor = highlighted ? KeyboardPalette.accent : .secondaryLabel
         if needsMeasurement {
             let startedAt = KeyboardPerformance.start()
-            measuredTextWidth = (text as NSString).size(withAttributes: [.font: titleLabel!.font!]).width
+            let mainWidth = (presentation.text as NSString).size(withAttributes: [.font: titleLabel!.font!]).width
+            let noteWidth = ((presentation.annotation ?? "") as NSString).size(withAttributes: [.font: annotation.font!]).width
+            measuredTextWidth = max(mainWidth, noteWidth)
             KeyboardPerformance.record(.candidateTitleMeasurement, since: startedAt)
         }
         fill.layer.cornerRadius = cornerRadius
@@ -67,6 +81,16 @@ private final class CandidateButton: UIButton {
     override func layoutSubviews() {
         super.layoutSubviews()
         fill.frame = CGRect(x: 6, y: 0, width: min(max(0, bounds.width - 12), ceil(measuredTextWidth) + 12), height: bounds.height)
+        if !annotation.isHidden {
+            let small = bounds.height < 30
+            titleLabel?.frame = CGRect(x: 12, y: 0, width: max(0, bounds.width - 24), height: small ? 17 : 22)
+            annotation.frame = CGRect(x: 12, y: small ? 17 : 22, width: max(0, bounds.width - 24), height: small ? 9 : 12)
+        }
+    }
+    func applyTheme() {
+        fill.backgroundColor = KeyboardPalette.key
+        setTitleColor(presentedHighlight == true ? KeyboardPalette.accent : KeyboardPalette.text, for: .normal)
+        annotation.textColor = presentedHighlight == true ? KeyboardPalette.accent : .secondaryLabel
     }
 }
 
@@ -84,7 +108,10 @@ final class KeyboardKey: UIButton {
     var hint: String? { didSet { hintLabel.text = hint; setNeedsLayout() } }
     private var usedAlternate = false
     var repeats = false
+    var isUtility = false
+    private var resolvedRepeatOccurred = false
     var showsPreview = false
+    weak var previewContainer: UIView?
     var fillColor: UIColor = KeyboardPalette.key { didSet { updateAppearance() } }
     private var repeatTimer: Timer?
     private var delayTimer: Timer?
@@ -103,8 +130,8 @@ final class KeyboardKey: UIButton {
         hintLabel.textAlignment = .center
         hintLabel.isUserInteractionEnabled = false
         addSubview(hintLabel)
-        setTitleColor(.label, for: .normal)
-        tintColor = .label
+        setTitleColor(KeyboardPalette.text, for: .normal)
+        tintColor = KeyboardPalette.text
         if let title { setTitle(title, for: .normal); accessibilityLabel = title }
         if let symbol { setImage(UIImage(systemName: symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 20, weight: .regular)), for: .normal) }
         addTarget(self, action: #selector(down), for: .touchDown)
@@ -170,11 +197,12 @@ final class KeyboardKey: UIButton {
         return swipe.alternate
     }
 
-    func beginResolvedPress() {
+    func beginResolvedPress(deferRepeatingAction: Bool = false) {
         let startedAt = KeyboardPerformance.start()
         swipe.reset()
+        if !isHighlighted { resolvedRepeatOccurred = false }
         isHighlighted = true
-        down()
+        pressDown(deferred: deferRepeatingAction)
         KeyboardPerformance.record(.touchDownToVisual, since: startedAt)
     }
 
@@ -184,7 +212,7 @@ final class KeyboardKey: UIButton {
         else { preview?.removeFromSuperview(); preview = nil }
     }
 
-    func finishResolvedPress(cancelled: Bool, alternate: Bool, stillPressed: Bool) {
+    func finishResolvedPress(cancelled: Bool, alternate: Bool, stillPressed: Bool, deferredRepeat: Bool = false) {
         KeyboardTouchDiagnostics.record("KeyboardKey.resolvedRelease", view: self,
             detail: "cancelled=\(cancelled) alternate=\(alternate) stillPressed=\(stillPressed)")
         if !stillPressed {
@@ -197,6 +225,7 @@ final class KeyboardKey: UIButton {
             if alternate { alternateAction?() }
             else { action?() }
         }
+        if !cancelled && repeats && deferredRepeat && !resolvedRepeatOccurred { action?() }
     }
 
     override func accessibilityActivate() -> Bool {
@@ -214,13 +243,20 @@ final class KeyboardKey: UIButton {
 
     private func showPreview(_ text: String, alternate: Bool) {
         let bubble = preview ?? UILabel()
-        let container = superview?.superview ?? self
-        bubble.frame = convert(CGRect(x: -8, y: -48, width: bounds.width + 16, height: 44), to: container)
+        let container = previewContainer ?? superview?.superview ?? self
+        var rect = convert(CGRect(x: -8, y: -48, width: bounds.width + 16, height: 44), to: container)
+        // Compact keyboards can have less than 48 pt above the first row.
+        // Keep the preview within our own input view rather than its clipped edge.
+        rect.origin.y = max(container.bounds.minY, rect.minY)
+        rect.origin.x = min(max(container.bounds.minX, rect.minX), max(container.bounds.minX, container.bounds.maxX - rect.width))
+        bubble.frame = rect
         bubble.text = text
         bubble.font = .systemFont(ofSize: alternate ? 27 : 30, weight: alternate ? .medium : .regular)
         bubble.textAlignment = .center
-        bubble.textColor = alternate ? KeyboardPalette.accent : .label
-        bubble.backgroundColor = KeyboardPalette.key
+        bubble.textColor = alternate ? KeyboardPalette.accent : KeyboardPalette.text
+        bubble.alpha = 1
+        bubble.backgroundColor = KeyboardPalette.key.withAlphaComponent(1)
+        bubble.isOpaque = true
         bubble.layer.cornerRadius = 8
         bubble.layer.masksToBounds = true
         bubble.isUserInteractionEnabled = false
@@ -235,18 +271,26 @@ final class KeyboardKey: UIButton {
     private func updateAppearance() { backgroundColor = isHighlighted ? KeyboardPalette.pressed : fillColor }
 
     @objc private func down() {
+        pressDown(deferred: false)
+    }
+
+    private func pressDown(deferred: Bool) {
         KeyboardTouchDiagnostics.record("KeyboardKey.touchDown", view: self)
         usedAlternate = false
         feedback?()
         if repeats {
-            action?()
+            if !deferred { action?() }
             // Two fingers can own this key. Keep one repeat stream and don't
             // overwrite an active timer, which would leave it uncancellable.
             guard isHighlighted || isTracking, delayTimer == nil, repeatTimer == nil else { return }
             let delay = Timer(timeInterval: 0.42, repeats: false) { [weak self] _ in
                 guard let self else { return }
                 self.delayTimer = nil
-                let timer = Timer(timeInterval: 0.065, repeats: true) { [weak self] _ in self?.feedback?(); self?.action?() }
+                if deferred { self.resolvedRepeatOccurred = true; self.action?() }
+                guard self.isHighlighted || self.isTracking else { return }
+                let timer = Timer(timeInterval: 0.065, repeats: true) { [weak self] _ in
+                    self?.resolvedRepeatOccurred = true; self?.feedback?(); self?.action?()
+                }
                 self.repeatTimer = timer
                 RunLoop.main.add(timer, forMode: .common)
             }
@@ -303,13 +347,26 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
     var onDismiss: (() -> Void)?
     var onCompositionChange: ((String) -> Void)?
     var onMarkedTextChange: ((String?) -> Void)?
+    var onHeightChange: (() -> Void)?
+    var heightFactor: CGFloat = 1 {
+        didSet {
+            guard oldValue != heightFactor else { return }
+            stopInteractions(); setNeedsLayout(); invalidateIntrinsicContentSize(); onHeightChange?()
+        }
+    }
+    var canUndoLineDeletion = false { didSet { if oldValue != canUndoLineDeletion { refresh() } } }
+    func reloadHeightPreference() {
+        let settings = KeyboardPreferences()
+        settings.reloadSharedHeight()
+        heightFactor = CGFloat(settings.heightFactor)
+    }
     weak var inputModeListTarget: AnyObject? { didSet { configureGlobe() } }
     var inputModeListAction: Selector? { didSet { configureGlobe() } }
     var needsGlobe = false { didSet { if oldValue != needsGlobe { configureGlobe() } } }
     var showsFooter = true { didSet { if oldValue != showsFooter { setNeedsLayout(); invalidateIntrinsicContentSize() } } }
     var compact = false { didSet { if oldValue != compact { setNeedsLayout(); invalidateIntrinsicContentSize() } } }
     func preferredHeight(for width: CGFloat) -> CGFloat {
-        KeyboardMetrics(width: width > 0 ? width : 440, compact: compact, showsFooter: showsFooter).height
+        KeyboardMetrics(width: width > 0 ? width : 440, compact: compact, showsFooter: showsFooter, heightFactor: heightFactor).height
     }
     var returnKeyType: UIReturnKeyType = .default { didSet { if oldValue != returnKeyType { refresh() } } }
     var keyboardType: UIKeyboardType = .default {
@@ -324,7 +381,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
 
     private enum Page { case letters, numbers, symbols }
     private let session: KeyboardSession
-    private var displayedCandidates: [String] = []
+    private var displayedCandidates: [CandidatePresentation] = []
     private var displayedSelection: Int?
     private var page: Page = .letters
     private var shifted = false
@@ -344,14 +401,20 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
     private let brandButton = UIButton(type: .custom)
     private let globeButton = UIButton(type: .custom)
     private let modeButton = UIButton(type: .system)
+    private let undoButton = UIButton(type: .system)
     private let settingsButton = UIButton(type: .system)
     private let expandButton = UIButton(type: .system)
     private let cancelButton = UIButton(type: .system)
     private let divider = UIView()
+    private let panelTitle = UILabel()
+    private let gestureHint = UILabel()
+    private let deletePrompt = KeyboardDeletePrompt()
+    private let previewOverlay = UIView()
     private let keysContainer = KeyboardTouchSurface()
     private let panelScroll = UIScrollView()
     private var panelCandidates: [UIButton] = []
     private var settingsPanel: UIView?
+    private var symbolPanel: KeyboardSymbolPanel?
     private var rows: [[(KeyboardKey, CGFloat)]] = []
     private var letterKeys: [KeyboardKey] = []
     private var shiftKey: KeyboardKey?
@@ -366,6 +429,8 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
     init(frame: CGRect, session: KeyboardSession) {
         self.session = session
         super.init(frame: frame)
+        heightFactor = CGFloat(preferences.heightFactor)
+        KeyboardPalette.theme = preferences.theme
         session.onCandidatesChange = { [weak self] in
             guard let self else { return }
             self.onMarkedTextChange?(self.session.preedit)
@@ -397,6 +462,11 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
         modeButton.tintColor = .secondaryLabel
         modeButton.addTarget(self, action: #selector(toggleKana), for: .touchUpInside)
         modeButton.accessibilityLabel = "切换平假名和片假名"
+        header.addSubview(undoButton)
+        undoButton.setImage(UIImage(systemName: "arrow.uturn.backward"), for: .normal)
+        undoButton.accessibilityLabel = "撤回刚才的删行"
+        undoButton.accessibilityIdentifier = "vime.delete.undo"
+        undoButton.addAction(UIAction { [weak self] _ in self?.apply([.undoLineDeletion]) }, for: .touchUpInside)
         settingsButton.isHidden = true
         header.addSubview(settingsButton)
         settingsButton.setImage(UIImage(systemName: "gearshape"), for: .normal)
@@ -420,8 +490,46 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
         cancelButton.accessibilityLabel = "取消当前输入"
         cancelButton.addTarget(self, action: #selector(cancelComposition), for: .touchUpInside)
         addSubview(divider)
+        panelTitle.font = .systemFont(ofSize: 16, weight: .medium)
+        panelTitle.isUserInteractionEnabled = false
+        header.addSubview(panelTitle)
+        gestureHint.font = .systemFont(ofSize: 18, weight: .medium)
+        gestureHint.textAlignment = .center
+        gestureHint.isUserInteractionEnabled = false
+        gestureHint.isHidden = true
+        gestureHint.accessibilityIdentifier = "vime.gesture.hint"
+        addSubview(gestureHint)
+        addSubview(deletePrompt)
+        deletePrompt.isHidden = true
+        previewOverlay.isUserInteractionEnabled = false
+        previewOverlay.accessibilityIdentifier = "vime.key.preview.overlay"
+        previewOverlay.layer.zPosition = 1
+        addSubview(previewOverlay)
+        keysContainer.onGestureChange = { [weak self] gesture in
+            guard let self else { return }
+            if gesture == .horizontalCursor || gesture == .spaceCursor {
+                self.confirmComposition()
+                // A zero move starts a new caret gesture and resets its column.
+                self.onEdit?([.moveCursor(horizontal: 0, vertical: 0)])
+            }
+            for row in self.rows { for (key, _) in row { key.alpha = gesture == .horizontalCursor || gesture == .spaceCursor ? 0 : 1 } }
+            self.gestureHint.text = gesture == .spaceCursor ? "上下左右移动光标" : "左右移动光标"
+            self.gestureHint.isHidden = gesture == nil || gesture == .deleteLine
+            self.bringSubviewToFront(self.gestureHint)
+        }
+        keysContainer.onCursorMove = { [weak self] x, y in self?.onEdit?([.moveCursor(horizontal: x, vertical: y)]) }
+        keysContainer.onDeletePressChange = { [weak self] held in
+            guard let self else { return }
+            self.deletePrompt.isHidden = !held
+            self.layoutIfNeeded(); self.bringSubviewToFront(self.deletePrompt)
+        }
+        keysContainer.onDeleteArmedChange = { [weak self] in self?.deletePrompt.armed = $0 }
+        keysContainer.onDeleteLine = { [weak self] in
+            guard let self else { return }; self.apply(self.session.confirmAll() + [.deleteToLineStart])
+        }
         divider.isHidden = true
         rebuildKeys()
+        applyTheme()
         refresh()
     }
 
@@ -461,24 +569,29 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
         super.layoutSubviews()
         let width = bounds.width
         guard width > 0 else { return }
-        let metrics = KeyboardMetrics(width: width, compact: compact, showsFooter: showsFooter)
+        let metrics = KeyboardMetrics(width: width, compact: compact, showsFooter: showsFooter, heightFactor: heightFactor)
         let scale = metrics.scale
         let xScale = width / 440
         let headerHeight = metrics.headerHeight
         header.frame = CGRect(x: 0, y: 0, width: width, height: headerHeight)
         let diameter: CGFloat = compact ? 30 : 34.5 * scale
-        let centerY: CGFloat = compact ? 19 : 28 * scale
+        let centerY = KeyboardMetrics.toolbarTopInset + diameter / 2
         brandButton.frame = CGRect(x: 12 * xScale, y: centerY - diameter / 2, width: diameter, height: diameter)
         modeButton.frame = CGRect(x: width - 92 * xScale, y: centerY - diameter / 2, width: diameter, height: diameter)
+        undoButton.frame = CGRect(x: width - 138 * xScale, y: centerY - diameter / 2, width: diameter, height: diameter)
         expandButton.frame = CGRect(x: width - 46 * xScale, y: centerY - diameter / 2, width: diameter, height: diameter)
-        for button in [brandButton, modeButton, expandButton] { button.layer.cornerRadius = diameter / 2 }
+        for button in [brandButton, undoButton, modeButton, expandButton] { button.layer.cornerRadius = diameter / 2 }
         candidateScroll.frame = CGRect(x: 4 * xScale, y: centerY - (compact ? 13 : 17 * scale), width: width - 55 * xScale, height: compact ? 26 : 34 * scale)
         layoutCandidateStrip()
         cancelButton.frame = .zero
+        panelTitle.frame = CGRect(x: 12 * xScale, y: 0, width: width - 65 * xScale, height: headerHeight)
         divider.frame = CGRect(x: width - 51 * xScale, y: centerY - 12 * scale, width: 0.5, height: 24 * scale)
         keysContainer.frame = bounds
         let body = CGRect(x: 0, y: headerHeight, width: width, height: metrics.contentHeight - headerHeight)
+        gestureHint.frame = body
         panelScroll.frame = body
+        symbolPanel?.frame = bounds
+        previewOverlay.frame = bounds
         settingsPanel?.frame = body
         for (rowIndex, row) in rows.enumerated() {
             for (column, pair) in row.enumerated() {
@@ -494,9 +607,19 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
             }
         }
         updateTouchBounds(metrics: metrics)
-        globeButton.isHidden = !showsFooter
+        if let key = rows.flatMap({ $0 }).first(where: { $0.0.repeats })?.0 {
+            let promptWidth = 112 * scale
+            let h = metrics.keyHeight + 10 * scale
+            deletePrompt.frame = CGRect(x: max(0, key.frame.maxX - promptWidth),
+                y: max(metrics.headerHeight, key.frame.minY - h - 6 * scale), width: promptWidth, height: h)
+        }
+        globeButton.isHidden = !showsFooter || emojiOpen
         globeButton.frame = CGRect(x: 22 * xScale, y: metrics.contentHeight + (compact ? 0 : 17 * scale), width: 40 * scale, height: compact ? 34 : 40 * scale)
         bringSubviewToFront(header)
+        if !deletePrompt.isHidden { bringSubviewToFront(deletePrompt) }
+        // Candidate refreshes and layout changes must never raise a sibling
+        // above held key previews. This overlay also stays transparent to input.
+        bringSubviewToFront(previewOverlay)
         let columns = width > 600 ? 5 : 3
         let cellWidth = (width - 20) / CGFloat(columns)
         for (index, button) in panelCandidates.enumerated() {
@@ -533,9 +656,11 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
 
     private func key(_ title: String, utility: Bool = false, weight: CGFloat = 1, action: @escaping () -> Void) -> (KeyboardKey, CGFloat) {
         let button = KeyboardKey(title: title)
+        button.previewContainer = previewOverlay
         button.action = action
         button.feedback = { [weak self] in self?.playFeedback() }
         if utility {
+            button.isUtility = true
             button.fillColor = KeyboardPalette.utility
             button.titleLabel?.font = .systemFont(ofSize: 16)
         }
@@ -545,7 +670,9 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
 
     private func symbol(_ name: String, label: String, weight: CGFloat, action: @escaping () -> Void) -> (KeyboardKey, CGFloat) {
         let button = KeyboardKey(symbol: name)
+        button.previewContainer = previewOverlay
         button.accessibilityLabel = label
+        button.isUtility = true
         button.fillColor = KeyboardPalette.utility
         button.action = action
         button.feedback = { [weak self] in self?.playFeedback() }
@@ -726,6 +853,11 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
         refresh()
     }
 
+    var leftContextProvider: (() -> String?)? {
+        get { session.leftContextProvider }
+        set { session.leftContextProvider = newValue }
+    }
+
     func resetComposition() {
         session.reset()
         expanded = false
@@ -753,21 +885,25 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
         }
         languageKey?.accessibilityValue = session.mode == .english ? "英文" : "日语"
         let composing = session.isComposing
-        brandButton.isHidden = composing
-        modeButton.isHidden = composing
+        header.isHidden = emojiOpen
+        undoButton.isHidden = !canUndoLineDeletion || composing || expanded || settingsOpen || emojiOpen
+        brandButton.isHidden = composing || expanded || emojiOpen
+        modeButton.isHidden = composing || expanded || emojiOpen
         settingsButton.isHidden = true
-        candidateScroll.isHidden = !composing
+        candidateScroll.isHidden = !composing || expanded || emojiOpen || settingsOpen
         expandButton.isHidden = false
         cancelButton.isHidden = true
         modeButton.setTitle(session.mode.label, for: .normal)
         accessibilityValue = composing ? "输入中：" + (session.preedit ?? "") : session.mode.label
         expandButton.backgroundColor = composing ? KeyboardTouchBacking.color : KeyboardPalette.key
-        divider.isHidden = !composing
+        divider.isHidden = !composing || expanded || emojiOpen || settingsOpen
+        panelTitle.isHidden = !expanded
+        panelTitle.text = "候选词"
         divider.backgroundColor = .separator
-        let candidatesChanged = displayedCandidates != session.candidates
+        let candidatesChanged = displayedCandidates != session.candidatePresentations
         let selectionChanged = displayedSelection != session.selectedIndex
         if candidatesChanged || selectionChanged {
-            displayedCandidates = session.candidates
+            displayedCandidates = session.candidatePresentations
             displayedSelection = session.selectedIndex
             while stripButtons.count > displayedCandidates.count {
                 let button = stripButtons.removeLast()
@@ -781,7 +917,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
                 candidateRow.addSubview(button)
             }
             for (index, button) in stripButtons.enumerated() {
-                presentCandidate(button, text: displayedCandidates[index], index: index)
+                presentCandidate(button, presentation: displayedCandidates[index], index: index)
             }
             // Frames and label layout are published here and included in timing.
             // A one-dimensional strip needs no changing Auto Layout graph.
@@ -793,14 +929,18 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
         // The retained list may belong to the previous input revision. Keep
         // its appearance, but never let a stale tap discard the newer letters.
         stripButtons.forEach { $0.isUserInteractionEnabled = session.candidatesAreCurrent }
-        expandButton.setImage(UIImage(systemName: expanded ? "chevron.up" : "chevron.down"), for: .normal)
+        let panelOpen = expanded || settingsOpen || emojiOpen
+        expandButton.setImage(UIImage(systemName: panelOpen ? "chevron.up" : "chevron.down"), for: .normal)
+        expandButton.accessibilityLabel = panelOpen ? "返回键盘" : composing ? "展开候选词" : "收起键盘"
+        expandButton.accessibilityIdentifier = panelOpen ? "vime.panel.close" : "vime.candidates.expand"
         let hidesKeys = expanded || settingsOpen || emojiOpen
         if hidesKeys { keysContainer.cancelAllPresses() }
         keysContainer.isHidden = hidesKeys
-        panelScroll.isHidden = (!expanded && !emojiOpen) || settingsOpen
+        panelScroll.isHidden = !expanded || settingsOpen || emojiOpen
+        symbolPanel?.isHidden = !emojiOpen
         settingsPanel?.isHidden = !settingsOpen
         if expanded { rebuildCandidatePanel() }
-        else if emojiOpen { rebuildEmojiPanel() }
+        else if emojiOpen { showSymbolPanel() }
         spaceKey?.setTitle(composing ? (session.selectedIndex == nil ? "変換" : "次候補") : "", for: .normal)
         returnKey?.setTitle(composing ? "確定" : returnTitle, for: .normal)
         setNeedsLayout()
@@ -831,17 +971,17 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
         }
     }
 
-    private func candidateButton(_ text: String, index: Int) -> CandidateButton {
+    private func candidateButton(_ presentation: CandidatePresentation, index: Int) -> CandidateButton {
         let button = CandidateButton(frame: .zero)
-        presentCandidate(button, text: text, index: index)
+        presentCandidate(button, presentation: presentation, index: index)
         button.addTarget(self, action: #selector(selectCandidate(_:)), for: .touchUpInside)
         return button
     }
 
-    private func presentCandidate(_ button: CandidateButton, text: String, index: Int) {
+    private func presentCandidate(_ button: CandidateButton, presentation: CandidatePresentation, index: Int) {
         let configurationStartedAt = KeyboardPerformance.start()
         defer { KeyboardPerformance.record(.candidateButtonConfiguration, since: configurationStartedAt) }
-        button.present(text, index: index, highlighted: index == (session.selectedIndex ?? 0),
+        button.present(presentation, index: index, highlighted: index == (session.selectedIndex ?? 0),
                        cornerRadius: 6.2 * KeyboardMetrics(width: bounds.width, compact: compact, showsFooter: showsFooter).scale)
     }
 
@@ -852,7 +992,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
 
     private func rebuildCandidatePanel() {
         for button in panelCandidates { button.removeFromSuperview() }
-        panelCandidates = session.candidates.enumerated().map { index, value in
+        panelCandidates = session.candidatePresentations.enumerated().map { index, value in
             let button = candidateButton(value, index: index)
             button.backgroundColor = .clear
             button.isUserInteractionEnabled = session.candidatesAreCurrent
@@ -871,7 +1011,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
         }
         let active = shifted
         shiftKey?.setImage(UIImage(systemName: capsLocked && session.mode == .english ? "capslock.fill" : active ? "shift.fill" : "shift"), for: .normal)
-        shiftKey?.tintColor = .label
+        shiftKey?.tintColor = KeyboardPalette.text
     }
 
     private func shift() {
@@ -940,21 +1080,18 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
         refresh()
     }
 
-    private func rebuildEmojiPanel() {
-        for button in panelCandidates { button.removeFromSuperview() }
-        panelCandidates = ["😀", "😄", "😊", "🥰", "😍", "🥺", "😂", "😭", "😅", "🤔", "😎", "🙃", "👍", "👏", "🙏", "🙌", "❤️", "✨", "🎉", "🌸", "🍵", "🍣", "🐱", "🐶", "🌙", "☀️", "🎵", "💪", "👌", "✅"].map { emoji in
-            let button = UIButton(type: .system)
-            button.setTitle(emoji, for: .normal)
-            button.titleLabel?.font = .systemFont(ofSize: 28)
-            button.backgroundColor = KeyboardPalette.key
-            button.layer.cornerRadius = 6
-            button.addAction(UIAction { [weak self] _ in
-                guard let self else { return }
-                self.onEdit?([.insert(emoji)])
-            }, for: .touchUpInside)
-            panelScroll.addSubview(button)
-            return button
+    private func showSymbolPanel() {
+        if symbolPanel == nil {
+            let panel = KeyboardSymbolPanel()
+            panel.onSelect = { [weak self] text in
+                guard let self else { return }; self.playFeedback(); self.apply(self.session.insertLiteral(text))
+            }
+            panel.onClose = { [weak self] in self?.headerArrow() }
+            addSubview(panel); symbolPanel = panel
+            panel.applyTheme()
         }
+        symbolPanel?.isHidden = false
+        setNeedsLayout()
     }
 
     @objc private func toggleKana() {
@@ -1031,6 +1168,16 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
             self.preferences.nineKeyNumbers = layout.selectedSegmentIndex == 0; self.rebuildKeys()
         }, for: .valueChanged)
         stack.addArrangedSubview(layout)
+        let themes = KeyboardTheme.allCases
+        let skin = UISegmentedControl(items: themes.map(\.title))
+        skin.selectedSegmentIndex = themes.firstIndex(of: preferences.theme) ?? 0
+        skin.accessibilityLabel = "键盘皮肤"; skin.accessibilityIdentifier = "vime.setting.theme"
+        skin.addAction(UIAction { [weak self, weak skin] _ in
+            guard let self, let skin, themes.indices.contains(skin.selectedSegmentIndex) else { return }
+            self.preferences.theme = themes[skin.selectedSegmentIndex]
+            self.applyTheme()
+        }, for: .valueChanged)
+        stack.addArrangedSubview(skin)
         addSwitch("显示长音键 ー", value: preferences.prolongedKey, id: "vime.setting.prolonged") { [weak self] value in
             guard let self else { return }; self.preferences.prolongedKey = value; self.rebuildKeys()
         }
@@ -1048,5 +1195,30 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
             ? "声音与振动已启用。静音会关闭按键声；振动强度受设备硬件限制。\n日语转换在设备上离线完成。"
             : "启用声音和振动：设置 → 通用 → 键盘 → 键盘 → Vime 日本語 → 允许完全访问。\n无需完全访问也能离线输入。"
         stack.addArrangedSubview(note)
+    }
+
+    private func applyTheme() {
+        KeyboardPalette.theme = preferences.theme
+        overrideUserInterfaceStyle = preferences.theme == .midnight ? .dark : .unspecified
+        backgroundColor = preferences.theme.background
+        for row in rows {
+            for (key, _) in row {
+                key.fillColor = key.isUtility ? KeyboardPalette.utility : KeyboardPalette.key
+                key.setTitleColor(KeyboardPalette.text, for: .normal)
+                key.tintColor = KeyboardPalette.text
+            }
+        }
+        for button in stripButtons + spareCandidateButtons { button.applyTheme() }
+        for button in panelCandidates {
+            (button as? CandidateButton)?.applyTheme()
+            button.tintColor = KeyboardPalette.text
+        }
+        for button in [brandButton, undoButton, modeButton, expandButton] { button.backgroundColor = KeyboardPalette.key }
+        undoButton.tintColor = KeyboardPalette.accent
+        deletePrompt.applyTheme()
+        panelTitle.textColor = KeyboardPalette.text
+        gestureHint.textColor = KeyboardPalette.text
+        settingsPanel?.tintColor = KeyboardPalette.accent
+        symbolPanel?.applyTheme()
     }
 }

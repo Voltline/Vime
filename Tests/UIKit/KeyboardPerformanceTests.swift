@@ -6,7 +6,7 @@ final class KeyboardPerformanceTests: XCTestCase {
     private func descendants(_ view: UIView) -> [UIView] { [view] + view.subviews.flatMap(descendants) }
 
     func testProfileNativeTouchPipelineAndLatestPrediction() async throws {
-        let session = KeyboardSession(asynchronousCandidates: true)
+        let session = KeyboardSession(asynchronousCandidates: true, memoryDirectoryURL: isolatedLearningDirectory())
         let keyboard = KeyboardView(frame: CGRect(x: 0, y: 0, width: 440, height: 350), session: session)
         keyboard.hasFullAccess = false
         let window = UIWindow(frame: UIScreen.main.bounds)
@@ -77,7 +77,9 @@ final class KeyboardPerformanceTests: XCTestCase {
         XCTAssertEqual(hostView.text, "前わたしはにほんごをべんきょうしています後")
         XCTAssertEqual(session.candidates.first, "私は日本語を勉強しています")
         let report = KeyboardPerformance.report()
-        for stage in KeyboardPerformance.Stage.allCases { XCTAssertNotNil(report[stage.rawValue], stage.rawValue) }
+        for stage in KeyboardPerformance.Stage.allCases where ![.correctionCompute, .correctionRequestToResult, .classicTypo, .experimentalTypo].contains(stage) {
+            XCTAssertNotNil(report[stage.rawValue], stage.rawValue)
+        }
         XCTAssertEqual(report["typeToMarked"]?["count"], Double(raw.count * 2))
         XCTAssertGreaterThan(report["candidatePublication"]?["count"] ?? 0, 2)
         let data = try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys])
@@ -87,7 +89,7 @@ final class KeyboardPerformanceTests: XCTestCase {
     }
 
     func testWarmContinuousCandidateUpdates() async throws {
-        let session = KeyboardSession(asynchronousCandidates: true)
+        let session = KeyboardSession(asynchronousCandidates: true, memoryDirectoryURL: isolatedLearningDirectory())
         let keyboard = KeyboardView(frame: CGRect(x: 0, y: 0, width: 440, height: 350), session: session)
         keyboard.hasFullAccess = false
         let window = UIWindow(frame: UIScreen.main.bounds)

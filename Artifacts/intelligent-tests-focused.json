@@ -1,0 +1,45 @@
+{
+  "devicesAndConfigurations" : [
+    {
+      "device" : {
+        "architecture" : "arm64",
+        "deviceId" : "A2FDF3DF-7FE6-4682-B859-D3FE697C76C3",
+        "deviceName" : "Vime Keyboard QA",
+        "modelName" : "iPhone 16 Pro Max",
+        "osBuildNumber" : "24A434",
+        "osVersion" : "27.0",
+        "platform" : "iOS Simulator"
+      },
+      "expectedFailures" : 0,
+      "failedTests" : 0,
+      "passedTests" : 13,
+      "skippedTests" : 0,
+      "testPlanConfiguration" : {
+        "configurationId" : "1",
+        "configurationName" : "Test Scheme Action"
+      }
+    }
+  ],
+  "environmentDescription" : "Vime · Built with macOS 27.2",
+  "expectedFailures" : 0,
+  "failedTests" : 0,
+  "finishTime" : 1791178142.796,
+  "passedTests" : 13,
+  "result" : "Passed",
+  "runtimeWarnings" : [
+
+  ],
+  "skippedTests" : 0,
+  "startTime" : 1791178072.084,
+  "statistics" : [
+
+  ],
+  "testFailures" : [
+
+  ],
+  "title" : "Test - Vime",
+  "topInsights" : [
+
+  ],
+  "totalTestCount" : 13
+}

@@ -1,0 +1,50 @@
+{
+  "candidateButtonConfiguration" : {
+    "count" : 256,
+    "maxMs" : 0.2252916747238487,
+    "meanMs" : 0.045736489482806064,
+    "p95Ms" : 0.13191666221246123
+  },
+  "candidateCompute" : {
+    "count" : 84,
+    "maxMs" : 22.352583328029141,
+    "meanMs" : 9.968969743308012,
+    "p95Ms" : 20.492499985266477
+  },
+  "candidatePublication" : {
+    "count" : 84,
+    "maxMs" : 2.4767083523329347,
+    "meanMs" : 1.4725639897127014,
+    "p95Ms" : 1.9423333287704736
+  },
+  "candidateRequestToResult" : {
+    "count" : 84,
+    "maxMs" : 22.365875018294901,
+    "meanMs" : 9.980728175876374,
+    "p95Ms" : 20.502916653640568
+  },
+  "candidateTitleMeasurement" : {
+    "count" : 256,
+    "maxMs" : 0.20008333376608789,
+    "meanMs" : 0.041509277366458264,
+    "p95Ms" : 0.12345833238214254
+  },
+  "candidateUIUpdate" : {
+    "count" : 183,
+    "maxMs" : 2.4716666666790843,
+    "meanMs" : 0.72106261514356274,
+    "p95Ms" : 1.8554583366494626
+  },
+  "resultToCandidateUI" : {
+    "count" : 84,
+    "maxMs" : 3.3482916769571602,
+    "meanMs" : 1.5389667674926819,
+    "p95Ms" : 1.9949166744481772
+  },
+  "typeToMarked" : {
+    "count" : 84,
+    "maxMs" : 0.49129166291095316,
+    "meanMs" : 0.33102380811691373,
+    "p95Ms" : 0.43837502016685903
+  }
+}

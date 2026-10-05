@@ -236,7 +236,7 @@ final class KeyboardTouchTests: XCTestCase {
         defer { surface.cancelAllPresses(); delete.key.stopTracking() }
         surface.beginPress(id: 1, at: center)
         surface.beginPress(id: 2, at: center)
-        XCTAssertEqual(deletions, 2)
+        XCTAssertEqual(deletions, 0, "A short press waits for release so upward deletion can take ownership")
         surface.endPress(id: 1, at: center)
         XCTAssertTrue(delete.key.isHighlighted)
         surface.endPress(id: 2, at: center)
@@ -244,8 +244,9 @@ final class KeyboardTouchTests: XCTestCase {
         XCTAssertEqual(deletions, 2, "No timer may restart deletion after both fingers have released")
         delete.key.action = { [weak surface] in deletions += 1; surface?.cancelAllPresses() }
         surface.beginPress(id: 3, at: center)
-        XCTAssertFalse(delete.key.isHighlighted)
+        XCTAssertTrue(delete.key.isHighlighted)
         try await Task.sleep(for: .milliseconds(600))
+        XCTAssertFalse(delete.key.isHighlighted)
         XCTAssertEqual(deletions, 3, "A host callback cancelling touch down must not schedule a new repeat")
     }
 

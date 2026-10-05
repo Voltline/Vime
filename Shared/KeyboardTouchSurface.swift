@@ -10,6 +10,12 @@ enum KeyboardTouchBacking {
 /// A single geometric resolver owns the key plane. UIKit's view order is not
 /// used to choose between neighboring keys, and release need not hit a button.
 final class KeyboardTouchSurface: UIView {
+    nonisolated enum Gesture: Equatable, Sendable { case horizontalCursor, spaceCursor, deleteLine }
+    var onGestureChange: ((Gesture?) -> Void)?
+    var onCursorMove: ((Int, Int) -> Void)?
+    var onDeleteLine: (() -> Void)?
+    var onDeletePressChange: ((Bool) -> Void)?
+    var onDeleteArmedChange: ((Bool) -> Void)?
     struct Region {
         let key: KeyboardKey
         let body: CGRect
@@ -19,6 +25,7 @@ final class KeyboardTouchSurface: UIView {
     private struct Press {
         var key: KeyboardKey
         var origin: CGPoint
+        var initialOrigin: CGPoint
         var swipe = KeySwipeSelection()
         var alternateLocked = false
         var sequence: Int
@@ -31,6 +38,11 @@ final class KeyboardTouchSurface: UIView {
     private var interactionBounds = CGRect.null
     private var presses: [AnyHashable: Press] = [:]
     private var nextSequence = 0
+    private var gesture: Gesture?
+    private var gestureOwner: AnyHashable?
+    private var cursorPoint = CGPoint.zero
+    private var spaceTimer: Timer?
+    private var deleteArmed = false
     private(set) var releaseStartedAt: TimeInterval?
 
     override init(frame: CGRect) {
@@ -65,14 +77,24 @@ final class KeyboardTouchSurface: UIView {
     // internally so geometry/lifecycle tests do not synthesize private UITouch.
     @discardableResult
     func beginPress(id: AnyHashable, at point: CGPoint) -> Bool {
-        guard presses[id] == nil, let key = resolvedKey(at: point) else {
+        guard gesture == nil, presses[id] == nil, let key = resolvedKey(at: point) else {
             KeyboardTouchDiagnostics.record("surface.touchDown", point: point, view: self, detail: "duplicate/unresolved")
             return false
         }
         KeyboardTouchDiagnostics.record("surface.touchDown", point: point, view: self, result: key)
-        presses[id] = Press(key: key, origin: point, sequence: nextSequence)
+        presses[id] = Press(key: key, origin: point, initialOrigin: point, sequence: nextSequence)
         nextSequence += 1
-        key.beginResolvedPress()
+        key.beginResolvedPress(deferRepeatingAction: key.repeats)
+        if key.repeats { onDeleteArmedChange?(false) }
+        spaceTimer?.invalidate(); spaceTimer = nil
+        if key.accessibilityIdentifier == "vime.key.space", presses.count == 1 {
+            let timer = Timer(timeInterval: 0.35, repeats: false) { [weak self] _ in
+                guard let self, self.presses.count == 1, self.gesture == nil,
+                      let press = self.presses[id], !press.alternateLocked else { return }
+                self.startGesture(.spaceCursor, owner: id, at: press.origin)
+            }
+            spaceTimer = timer; RunLoop.main.add(timer, forMode: .common)
+        }
         return true
     }
 
@@ -82,6 +104,34 @@ final class KeyboardTouchSurface: UIView {
 
     private func updatePress(id: AnyHashable, to point: CGPoint, allowsTransfer: Bool) {
         guard var press = presses[id] else { return }
+        if gestureOwner == id {
+            if gesture == .deleteLine {
+                let armed = point.y <= press.initialOrigin.y - 18 * scale && abs(point.x - press.initialOrigin.x) < 80 * scale
+                if armed != deleteArmed { deleteArmed = armed; onDeleteArmedChange?(armed) }
+                return
+            }
+            let x = Int((point.x - cursorPoint.x) / (8 * scale))
+            let y = gesture == .spaceCursor ? Int((point.y - cursorPoint.y) / (24 * scale)) : 0
+            if x != 0 || y != 0 {
+                cursorPoint.x += CGFloat(x) * 8 * scale
+                cursorPoint.y += CGFloat(y) * 24 * scale
+                onCursorMove?(x, y)
+            }
+            return
+        }
+        let initial = CGPoint(x: point.x - press.initialOrigin.x, y: point.y - press.initialOrigin.y)
+        if allowsTransfer, presses.count == 1 {
+            if press.key.repeats, initial.y <= -30 * scale, abs(initial.x) < 30 * scale {
+                startGesture(.deleteLine, owner: id, at: point); return
+            }
+            if !press.key.repeats, !press.alternateLocked, abs(initial.x) >= 60 * scale,
+               abs(initial.x) > abs(initial.y) * 1.6 {
+                startGesture(.horizontalCursor, owner: id, at: point)
+                onCursorMove?(initial.x > 0 ? 1 : -1, 0)
+                return
+            }
+            if hypot(initial.x, initial.y) > 12 * scale { spaceTimer?.invalidate(); spaceTimer = nil }
+        }
         let delta = CGPoint(x: point.x - press.origin.x, y: point.y - press.origin.y)
         if press.key.alternateAction != nil {
             press.swipe.move(x: Double(delta.x), y: Double(delta.y))
@@ -104,7 +154,7 @@ final class KeyboardTouchSurface: UIView {
             press.swipe.reset()
             presses[id] = press
             finish(previous, cancelled: true)
-            neighbor.beginResolvedPress()
+            neighbor.beginResolvedPress(deferRepeatingAction: neighbor.repeats)
         }
         presses[id] = press
         press.key.presentResolvedPress(alternate: press.swipe.alternate)
@@ -115,7 +165,17 @@ final class KeyboardTouchSurface: UIView {
         // Include the final sample for swipe selection, but don't reinterpret
         // the lift-off/rolling motion as a deliberate move to another key.
         if !cancelled { updatePress(id: id, to: point, allowsTransfer: false) }
+        spaceTimer?.invalidate(); spaceTimer = nil
+        if gestureOwner == id {
+            if let press = presses.removeValue(forKey: id) { finish(press, cancelled: true) }
+            let delete = gesture == .deleteLine && deleteArmed && !cancelled
+            gesture = nil; gestureOwner = nil; onGestureChange?(nil)
+            deleteArmed = false; onDeletePressChange?(false)
+            if delete { onDeleteLine?() }
+            return
+        }
         guard let press = presses.removeValue(forKey: id) else { return }
+        if press.key.repeats { onDeletePressChange?(presses.values.contains { $0.key.repeats }) }
         // Remove ownership before invoking an action: switching layouts may
         // cancel the remaining touches and remove these same key objects.
         let draggedAway = !press.alternateLocked
@@ -129,7 +189,8 @@ final class KeyboardTouchSurface: UIView {
 
     private func finish(_ press: Press, cancelled: Bool) {
         let stillPressed = presses.values.contains { $0.key === press.key }
-        press.key.finishResolvedPress(cancelled: cancelled, alternate: press.swipe.alternate, stillPressed: stillPressed)
+        press.key.finishResolvedPress(cancelled: cancelled, alternate: press.swipe.alternate,
+            stillPressed: stillPressed, deferredRepeat: press.key.repeats)
         // Actions can rebuild the layout/cancel every other touch. Re-read the
         // owners after the action before restoring a held finger's preview.
         if let remaining = presses.values.filter({ $0.key === press.key }).max(by: { $0.sequence < $1.sequence }) {
@@ -141,7 +202,22 @@ final class KeyboardTouchSurface: UIView {
         KeyboardTouchDiagnostics.record("surface.cancelAll", view: self, detail: "active=\(presses.count)")
         let active = Array(presses.values)
         presses.removeAll()
+        spaceTimer?.invalidate(); spaceTimer = nil
+        deleteArmed = false; onDeletePressChange?(false)
+        if gesture != nil { gesture = nil; gestureOwner = nil; onGestureChange?(nil) }
         for press in active { finish(press, cancelled: true) }
+    }
+
+    private func startGesture(_ value: Gesture, owner: AnyHashable, at point: CGPoint) {
+        guard let press = presses[owner] else { return }
+        spaceTimer?.invalidate(); spaceTimer = nil
+        press.key.stopTracking()
+        press.key.isHighlighted = false
+        gesture = value; gestureOwner = owner; cursorPoint = point
+        if value == .deleteLine {
+            deleteArmed = true; onDeleteArmedChange?(true); onDeletePressChange?(true)
+        }
+        onGestureChange?(value)
     }
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {

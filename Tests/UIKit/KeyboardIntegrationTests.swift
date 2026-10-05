@@ -219,7 +219,7 @@ final class KeyboardIntegrationTests: XCTestCase {
         for c in "nihongo" { _ = baseline.type(String(c)) }
         let baselineMilliseconds = (ProcessInfo.processInfo.systemUptime - start) * 1000 / 7
 
-        let session = KeyboardSession(asynchronousCandidates: true)
+        let session = KeyboardSession(asynchronousCandidates: true, memoryDirectoryURL: isolatedLearningDirectory())
         let keyboard = KeyboardView(frame: CGRect(x: 0, y: 0, width: 440, height: 350), session: session)
         let view = UITextView()
         view.text = "前"; view.selectedRange = NSRange(location: 1, length: 0)

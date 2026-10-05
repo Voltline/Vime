@@ -16,6 +16,9 @@ enum KeyboardEdit: Equatable {
     case insert(String)
     case deleteBackward
     case returnKey
+    case moveCursor(horizontal: Int, vertical: Int)
+    case deleteToLineStart
+    case undoLineDeletion
 }
 
 /// Owns conversion state independently of the host's marked-text range.
@@ -31,19 +34,25 @@ final class KeyboardSession {
     private var candidatesPending = false
     private var pendingSpaces = 0
     var onCandidatesChange: (() -> Void)?
+    /// Host supplies the actual left context excluding its owned marked range.
+    var leftContextProvider: (() -> String?)?
+    private var committedLeftContext = ""
+    private var lastPublishedInput = ""
     private var composing = ComposingText()
     var raw: String { composing.input.compactMap { if case .character(let c) = $0.piece { return String(c) }; return nil }.joined() }
     private(set) var mode: InputMode = .hiragana
     private(set) var candidateSnapshots: [CandidateSnapshot] = []
     var candidates: [String] { candidateSnapshots.map(\.text) }
+    var candidatePresentations: [CandidatePresentation] { candidateSnapshots.map(\.presentation) }
     var candidatesAreCurrent: Bool { !candidatesPending }
     private(set) var selectedIndex: Int?
     private var previousJapaneseMode: InputMode = .hiragana
 
     // Synchronous mode is used by deterministic conversion tests only.
-    init(asynchronousCandidates: Bool = false) {
-        engine = asynchronousCandidates ? nil : JapaneseCandidateEngine()
-        worker = asynchronousCandidates ? JapaneseCandidateWorker() : nil
+    init(asynchronousCandidates: Bool = false, memoryDirectoryURL: URL? = nil) {
+        engine = asynchronousCandidates ? nil : JapaneseCandidateEngine(memoryDirectoryURL: memoryDirectoryURL,
+            learningEnabled: memoryDirectoryURL != nil)
+        worker = asynchronousCandidates ? JapaneseCandidateWorker(memoryDirectoryURL: memoryDirectoryURL) : nil
     }
 
     var isComposing: Bool { !composing.isEmpty }
@@ -98,6 +107,7 @@ final class KeyboardSession {
         }
         guard !candidates.isEmpty else { return confirm() }
         selectedIndex = selectedIndex.map { ($0 + 1) % candidates.count } ?? 0
+        worker?.cancelPending()
         return []
     }
 
@@ -109,13 +119,13 @@ final class KeyboardSession {
         guard candidatesAreCurrent, candidates.indices.contains(index) else { return [] }
         let snapshot = candidateSnapshots[index]
         guard snapshot.revision == revision else { return [] }
+        engine?.complete(snapshot)
+        worker?.complete(snapshot)
+        committedLeftContext = String((committedLeftContext + snapshot.text).suffix(96))
         composing = snapshot.remainingComposition
-        if composing.isEmpty { reset() }
-        else {
-            engine?.complete(snapshot.candidate)
-            worker?.complete(snapshot.candidate)
-            refresh()
-        }
+        if composing.isEmpty { reset(preservingContext: true) }
+        else { refresh(leftContextOverride: committedLeftContext) }
+        engine?.flushLearning()
         return [.insert(snapshot.text)]
     }
 
@@ -123,7 +133,8 @@ final class KeyboardSession {
         guard isComposing else { return [] }
         if let selectedIndex { return choose(selectedIndex) }
         let text = selectedText ?? PreeditPresentation.kana(for: PreeditPresentation.finalized(composing), mode: mode)
-        reset()
+        committedLeftContext = String((committedLeftContext + text).suffix(96))
+        reset(preservingContext: true)
         return [.insert(text)]
     }
 
@@ -158,22 +169,37 @@ final class KeyboardSession {
         setMode(mode == .katakana ? .hiragana : .katakana)
     }
 
-    func reset() {
+    func reset(preservingContext: Bool = false) {
         revision += 1
         candidatesPending = false
         pendingSpaces = 0
         composing = ComposingText()
-        engine?.reset()
-        worker?.reset()
+        if !preservingContext { committedLeftContext = "" }
+        engine?.reset(preservingContext: preservingContext)
+        worker?.reset(preservingContext: preservingContext)
         candidateSnapshots = []
+        lastPublishedInput = ""
         selectedIndex = nil
     }
 
-    private func refresh(boundary: Bool = false) {
+    func clearLearning() {
+        reset()
+        engine?.clearLearning(); worker?.clearLearning()
+    }
+
+    private func refresh(boundary: Bool = false, leftContextOverride: String? = nil) {
         revision += 1
         pendingSpaces = 0
         selectedIndex = nil
+        // Partial confirmation requests its remainder before the host applies the
+        // returned insert edit. Use the expected committed prefix for that request.
+        let leftContext: String?
+        if let leftContextOverride { leftContext = leftContextOverride }
+        else if let provider = leftContextProvider { leftContext = provider() }
+        else { leftContext = committedLeftContext }
+        committedLeftContext = String((leftContext ?? "").suffix(96))
         guard let worker else {
+            engine?.reconcileContext(leftContext)
             if isComposing { candidateRequestCount += 1 }
             candidateSnapshots = engine?.candidates(for: boundary ? PreeditPresentation.finalized(composing) : composing,
                 katakana: mode == .katakana, revision: revision) ?? []
@@ -190,17 +216,29 @@ final class KeyboardSession {
         candidatesPending = true
         candidateRequestCount += 1
         let requestedRevision = revision
+        let requestedInput = raw
+        let continuity = candidateSnapshots.first.map { CandidateContinuity(surface: $0.text, reading: $0.reading, input: lastPublishedInput) }
         worker.candidates(for: boundary ? PreeditPresentation.finalized(composing) : composing,
-                          katakana: mode == .katakana, revision: requestedRevision) { [weak self] values, resultReadyAt in
-            guard let self, self.revision == requestedRevision, self.isComposing else { return }
-            self.candidatesPending = false
-            self.candidateResultReadyAt = resultReadyAt
-            self.candidateSnapshots = values
-            if self.pendingSpaces > 0, !values.isEmpty {
-                self.selectedIndex = (self.pendingSpaces - 1) % values.count
-            }
-            self.pendingSpaces = 0
-            self.onCandidatesChange?()
+                          katakana: mode == .katakana, revision: requestedRevision, leftContext: leftContext, continuity: continuity) { [weak self] values, resultReadyAt, supplementary in
+            if let self, self.revision == requestedRevision { self.lastPublishedInput = requestedInput }
+            self?.acceptCandidateUpdate(values, revision: requestedRevision, readyAt: resultReadyAt, supplementary: supplementary)
         }
+    }
+
+    func acceptCandidateUpdate(_ values: [CandidateSnapshot], revision requestedRevision: Int,
+                               readyAt: TimeInterval? = nil, supplementary: Bool) {
+        guard revision == requestedRevision, isComposing,
+              values.allSatisfy({ $0.revision == requestedRevision }) else { return }
+        // Selection freezes the complete list, including metadata and order.
+        // A queued late correction can never change the user's selected text.
+        if supplementary && (candidatesPending || selectedIndex != nil || pendingSpaces > 0) { return }
+        candidatesPending = false
+        candidateResultReadyAt = readyAt
+        candidateSnapshots = values
+        if !supplementary {
+            if pendingSpaces > 0, !values.isEmpty { selectedIndex = (pendingSpaces - 1) % values.count }
+            pendingSpaces = 0
+        }
+        onCandidatesChange?()
     }
 }

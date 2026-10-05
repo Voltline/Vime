@@ -1,0 +1,72 @@
+{
+  "correctionWarmFootprintMB" : 45.815017700195312,
+  "endFootprintMB" : 49.486892700195312,
+  "idleCorrectionToUIP95Ms" : 380.19816667656414,
+  "measurement" : "Attached real UIWindow and UITextView, one warm pass plus ten measured passes of shitsuka\/nihongoo\/kikoro. Type every Roman key, wait for the supplementary correction, no forced selection.",
+  "normalWarmFootprintMB" : 44.440017700195312,
+  "peakFootprintMB" : 49.486892700195312,
+  "readingIndexBytes" : 4910128,
+  "samples" : 30,
+  "timings" : {
+    "candidateButtonConfiguration" : {
+      "count" : 256,
+      "maxMs" : 0.39583334000781178,
+      "meanMs" : 0.05477718070778792,
+      "p95Ms" : 0.1784583437256515
+    },
+    "candidateCompute" : {
+      "count" : 99,
+      "maxMs" : 201.38191667501815,
+      "meanMs" : 30.139707492469256,
+      "p95Ms" : 198.77200000337325
+    },
+    "candidatePublication" : {
+      "count" : 60,
+      "maxMs" : 4.4682083535008132,
+      "meanMs" : 2.1486381946791275,
+      "p95Ms" : 2.5708333414513618
+    },
+    "candidateRequestToResult" : {
+      "count" : 99,
+      "maxMs" : 215.72245832066983,
+      "meanMs" : 33.830320287961513,
+      "p95Ms" : 212.16033332166262
+    },
+    "candidateTitleMeasurement" : {
+      "count" : 256,
+      "maxMs" : 0.34041667822748423,
+      "meanMs" : 0.051273275516905414,
+      "p95Ms" : 0.16145833069458604
+    },
+    "candidateUIUpdate" : {
+      "count" : 256,
+      "maxMs" : 2.8262499836273491,
+      "meanMs" : 0.45054264353439066,
+      "p95Ms" : 2.2779999999329448
+    },
+    "correctionCompute" : {
+      "count" : 30,
+      "maxMs" : 22.672041668556631,
+      "meanMs" : 14.792275003856048,
+      "p95Ms" : 18.363874987699091
+    },
+    "correctionRequestToResult" : {
+      "count" : 30,
+      "maxMs" : 379.13587500224821,
+      "meanMs" : 260.08877360921662,
+      "p95Ms" : 375.59224999858998
+    },
+    "resultToCandidateUI" : {
+      "count" : 60,
+      "maxMs" : 4.5041250123176724,
+      "meanMs" : 2.1815506935430071,
+      "p95Ms" : 2.6070833555422723
+    },
+    "typeToMarked" : {
+      "count" : 220,
+      "maxMs" : 0.57329167611896992,
+      "meanMs" : 0.20182670559734106,
+      "p95Ms" : 0.2632916730362922
+    }
+  }
+}

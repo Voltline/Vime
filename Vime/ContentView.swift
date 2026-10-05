@@ -6,6 +6,7 @@ struct ContentView: View {
     @State private var focusRequest = 0
     @State private var showingGuide = false
     @State private var showingNotices = false
+    @State private var showingHeightEditor = false
     private let green = Color(red: 0.08, green: 0.65, blue: 0.39)
 
     var body: some View {
@@ -73,6 +74,18 @@ struct ContentView: View {
                         .tint(green)
                     }
 
+                    Button { showingHeightEditor = true } label: {
+                        HStack {
+                            Label("调整键盘高度", systemImage: "arrow.up.and.down")
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                        }
+                        .font(.subheadline.weight(.medium))
+                        .padding(18)
+                        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
+                    }
+                    .tint(green)
+
                     VStack(alignment: .leading, spacing: 16) {
                         Text("在其他 App 中使用").font(.headline)
                         HStack(alignment: .top, spacing: 10) {
@@ -116,6 +129,7 @@ struct ContentView: View {
             .scrollDismissesKeyboard(.interactively)
             .sheet(isPresented: $showingGuide) { guide }
             .sheet(isPresented: $showingNotices) { notices }
+            .sheet(isPresented: $showingHeightEditor) { KeyboardHeightEditor() }
         }
     }
 

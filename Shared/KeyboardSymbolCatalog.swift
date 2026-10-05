@@ -1,0 +1,33 @@
+import Foundation
+
+enum KeyboardSymbolCatalog {
+    struct Item: Decodable { let text: String; let name: String }
+    struct Group: Decodable { let name: String; let items: [Item] }
+    struct Catalog: Decodable { let version: String; let groups: [Group] }
+    static let emoji: Catalog = {
+        guard let url = Bundle.main.url(forResource: "EmojiCatalog", withExtension: "json"),
+              let data = try? Data(contentsOf: url), let catalog = try? JSONDecoder().decode(Catalog.self, from: data)
+        else { return Catalog(version: "", groups: []) }
+        return catalog
+    }()
+    static func title(for name: String) -> String {
+        ["Smileys & Emotion": "表情", "People & Body": "人物", "Component": "组件",
+         "Animals & Nature": "自然", "Food & Drink": "饮食", "Travel & Places": "出行",
+         "Activities": "活动", "Objects": "物品", "Symbols": "符号", "Flags": "旗帜"][name] ?? name
+    }
+    static let kaomoji: [Group] = [
+        group("开心", "(^_^) | (＾▽＾) | (≧▽≦) | (´▽`) | (o^▽^o) | (⌒▽⌒) | (´∀`) | (✧∀✧) | ヽ(・∀・)ﾉ | ＼(＾▽＾)／ | (☆▽☆) | (⌒ω⌒) | (*^ω^) | (o´∀`o) | (≧◡≦) | (*´▽`*) | (◕‿◕) | (´｡• ω •｡`) | (๑˃ᴗ˂)ﻭ | (❁´◡`❁)"),
+        group("难过", "(T_T) | (╥_╥) | (´；ω；`) | (｡•́︿•̀｡) | (っ˘̩╭╮˘̩)っ | (ಥ_ಥ) | (；＿；) | (｡•́︵•̀｡) | (ノ_<。) | (μ_μ) | (╯︵╰,) | (个_个) | (ಡ‸ಡ) | (ಥ﹏ಥ) | (つω`｡) | (｡T ω T｡) | (ノωヽ) | (´-ω-`) | (◞‸◟) | (ಥωಥ)"),
+        group("惊讶", "(ﾟдﾟ) | (°ロ°) | (⊙_⊙) | Σ(°△°；) | (O_O) | (・о・) | (⊙ω⊙) | (ʘᗩʘ) | (°〇°) | (゜ロ゜) | (ﾉﾟ0ﾟ)ﾉ | (⊙﹏⊙) | (＠_＠) | (°◇°;) | (☉_☉) | (；￣Д￣) | (･o･;) | (￣□￣) | (⊙△⊙) | (°□°)"),
+        group("加油", "(ง •̀_•́)ง | (๑•̀ㅂ•́)و✧ | ٩(๑❛ᴗ❛๑)۶ | (•̀ᴗ•́)و | (ง'̀-'́)ง | (☞ﾟヮﾟ)☞ | (ノ´∀`)ノ | ୧(๑•̀⌄•́๑)૭ | (๑˃̵ᴗ˂̵)و | (☆ω☆) | (｀・ω・´) | ( •̀ ω •́ )✧ | (ง ͠° ͟ل͜ ͡°)ง | (ﾉ◕ヮ◕)ﾉ*:･ﾟ✧ | ᕦ(ò_óˇ)ᕤ | (๑•̀ω•́๑) | (￣^￣)ゞ | (oゝω・o) | (๑•̀ㅁ•́๑)✧ | (≧ω≦)"),
+        group("问候", "(｡･ω･)ﾉﾞ | (・∀・)ノ | (＾ω＾) | ( ´ ▽ ` )ﾉ | ヾ(・ω・) | (￣▽￣)ノ | (｡•̀ᴗ-)✧ | (o´ω`o)ﾉ | (⌒‿⌒) | (＾-＾) | (￣ω￣) | (・ω<) | (´• ω •`)ﾉ | (｡･∀･)ﾉ | (^人^) | (人´∀`) | (〃＾▽＾〃) | ( ˘ω˘ ) | (o･ω･o) | ( ´ ▽ ` )"),
+        group("生气", "(＃`Д´) | (╬ Ò﹏Ó) | (｀Д´) | (￣へ￣) | (눈_눈) | (¬_¬) | (ಠ_ಠ) | (￢_￢) | (；¬д¬) | (＃￣0￣) | (；￣皿￣) | (｀皿´＃) | (╬ಠ益ಠ) | (＃｀ω´) | ( •̀_•́ ) | (งಠ_ಠ)ง | (¬‿¬) | (ノಠ益ಠ)ノ | (҂ `з´ ) | (ಠ益ಠ)"),
+        group("害羞", "(⁄ ⁄•⁄ω⁄•⁄ ⁄) | (〃ω〃) | (*/ω＼*) | (´,,•ω•,,`) | (｡・//ε//・｡) | (⁄ ⁄>⁄ ▽ ⁄<⁄ ⁄) | (〃▽〃) | (//ω//) | (๑´ㅂ`๑) | (´艸`) | (*/▽＼*) | (｡ﾉω＼｡) | (´ε` ) | (♡°▽°♡) | (♡˙︶˙♡) | (´｡• ᵕ •｡`) | (♥ω♥) | (´,,•∀•,,`) | (〃∀〃) | (っ˘з(˘⌣˘ )"),
+        group("小动物", "(=^･ω･^=) | (=^-ω-^=) | (=｀ω´=) | (=^･ｪ･^=) | ฅ(＾・ω・＾ฅ) | (=①ω①=) | (◕ᴥ◕) | ʕ•ᴥ•ʔ | ʕ•ﻌ•ʔ | ʕ´•ᴥ•`ʔ | U・ᴥ・U | U^ｪ^U | (U・x・U) | (ᵔᴥᵔ) | (・Θ・) | (•ө•) | (･`ω´･) | ／(=･ x ･=)＼ | (ᵔ◡ᵔ) | (≚ᄌ≚)"),
+    ]
+    private static func group(_ name: String, _ values: String) -> Group {
+        Group(name: name, items: values.split(separator: "|").map {
+            let text = $0.trimmingCharacters(in: .whitespaces); return Item(text: text, name: text)
+        })
+    }
+}

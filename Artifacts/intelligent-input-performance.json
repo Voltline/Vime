@@ -1,0 +1,86 @@
+{
+  "baseConversion": {
+    "count": 24,
+    "maxMs": 119.48399999528192,
+    "meanMs": 16.412520830878446,
+    "p95Ms": 37.74629166582599
+  },
+  "candidateButtonConfiguration": {
+    "count": 182,
+    "maxMs": 17.207208351464942,
+    "meanMs": 0.1344771068773468,
+    "p95Ms": 0.08066667942330241
+  },
+  "candidateCompute": {
+    "count": 24,
+    "maxMs": 250.2106666797772,
+    "meanMs": 50.6948750007723,
+    "p95Ms": 142.6590000046417
+  },
+  "candidatePublication": {
+    "count": 12,
+    "maxMs": 19.190916646039113,
+    "meanMs": 3.058979166477608,
+    "p95Ms": 4.903250024653971
+  },
+  "candidateRequestToResult": {
+    "count": 24,
+    "maxMs": 328.2688750186935,
+    "meanMs": 58.74577603996537,
+    "p95Ms": 145.04545833915472
+  },
+  "candidateReranking": {
+    "count": 24,
+    "maxMs": 0.6905000191181898,
+    "meanMs": 0.5229722228250466,
+    "p95Ms": 0.6582083296962082
+  },
+  "candidateTitleMeasurement": {
+    "count": 150,
+    "maxMs": 17.20141666010022,
+    "meanMs": 0.15498694575702152,
+    "p95Ms": 0.06995833246037364
+  },
+  "candidateUIUpdate": {
+    "count": 83,
+    "maxMs": 19.189750018995255,
+    "meanMs": 0.4769513048287706,
+    "p95Ms": 1.4267500082496554
+  },
+  "contextEvaluation": {
+    "count": 24,
+    "maxMs": 0.0013333337847143412,
+    "meanMs": 0.0008645850660589834,
+    "p95Ms": 0.0011250085663050413
+  },
+  "correctionCompute": {
+    "count": 12,
+    "maxMs": 6.662500003585592,
+    "meanMs": 1.5243958405335434,
+    "p95Ms": 6.022541667334735
+  },
+  "resultToCandidateUI": {
+    "count": 12,
+    "maxMs": 19.203875010134652,
+    "meanMs": 3.079374995043812,
+    "p95Ms": 4.928291658870876
+  },
+  "touchDownToVisual": {
+    "count": 70,
+    "maxMs": 0.25874999118968844,
+    "meanMs": 0.10644345269871078,
+    "p95Ms": 0.18324999837204814
+  },
+  "touchUpToType": {
+    "count": 70,
+    "maxMs": 0.040083337808027864,
+    "meanMs": 0.022836310173650936,
+    "p95Ms": 0.029333343263715506
+  },
+  "typeToMarked": {
+    "count": 70,
+    "maxMs": 12.343166687060148,
+    "meanMs": 0.8974517857755667,
+    "p95Ms": 1.1812916782218963
+  }
+}

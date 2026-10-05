@@ -6,7 +6,7 @@ final class KeyboardEngineDiagnosticsTests: XCTestCase {
     func testRecordPinnedEngineManualAndAutoMix() throws {
         let directory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         var records: [[String: Any]] = []
-        let words = ["nihongo", "nani", "nanim", "nanimo", "arigat", "arigato", "ohayou", "konnichiha", "konnich", "konnichi", "gakk", "gakkou"]
+        let words = ["yo-r", "yo-roppa", "yo-roppajin", "be-to-ben", "shizuka", "shitsuka", "ko-hi-", "konpyu-ta-", "piano", "nihongo", "nani", "nanim", "nanimo", "arigat", "arigato", "ohayou", "konnichiha", "konnich", "konnichi", "gakk", "gakkou"]
         func snapshot(_ candidate: Candidate) -> [String: Any] {
             ["text": candidate.text, "score": String(describing: candidate.value), "composingCount": String(describing: candidate.composingCount),
              "data": candidate.data.map { ["word": $0.word, "ruby": $0.ruby] }, "inputable": candidate.inputable]
@@ -24,7 +24,7 @@ final class KeyboardEngineDiagnosticsTests: XCTestCase {
                 var result: ConversionResult?
                 var durations: [Double] = []
                 for c in word {
-                    composing.insertAtCursorPosition(String(c), inputStyle: .roman2kana)
+                    RomajiConverter.insert(String(c).replacingOccurrences(of: "-", with: "ー"), into: &composing)
                     let start = ProcessInfo.processInfo.systemUptime
                     result = converter.requestCandidates(composing, options: options)
                     durations.append((ProcessInfo.processInfo.systemUptime - start) * 1000)

@@ -1,8 +1,27 @@
 import Foundation
 
 struct KeyboardPreferences {
+    static let appGroup = "group.com.Voltline.Vime"
+    static let heightRange = 0.85...1.60
     private let defaults: UserDefaults
-    init(defaults: UserDefaults = .standard) { self.defaults = defaults }
+    private let heightDefaults: UserDefaults
+    init(defaults: UserDefaults = .standard, heightDefaults: UserDefaults? = nil) {
+        self.defaults = defaults
+        self.heightDefaults = heightDefaults ?? (defaults === UserDefaults.standard
+            && FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: Self.appGroup) != nil
+            ? UserDefaults(suiteName: Self.appGroup) : nil) ?? defaults
+    }
+    var heightFactor: Double {
+        get {
+            let value = heightDefaults.object(forKey: "vime.heightFactor") as? Double ?? 1
+            return value.isFinite ? min(Self.heightRange.upperBound, max(Self.heightRange.lowerBound, value)) : 1
+        }
+        nonmutating set {
+            heightDefaults.set(newValue.isFinite ? min(Self.heightRange.upperBound, max(Self.heightRange.lowerBound, newValue)) : 1,
+                               forKey: "vime.heightFactor")
+        }
+    }
+    func reloadSharedHeight() { heightDefaults.synchronize() }
     var sound: Bool {
         get { defaults.object(forKey: "vime.sound") as? Bool ?? true }
         nonmutating set { defaults.set(newValue, forKey: "vime.sound") }
@@ -23,6 +42,10 @@ struct KeyboardPreferences {
     var previews: Bool {
         get { defaults.object(forKey: "vime.previews") as? Bool ?? true }
         nonmutating set { defaults.set(newValue, forKey: "vime.previews") }
+    }
+    var theme: KeyboardTheme {
+        get { KeyboardTheme(rawValue: defaults.string(forKey: "vime.theme") ?? "") ?? .system }
+        nonmutating set { defaults.set(newValue.rawValue, forKey: "vime.theme") }
     }
 }
 

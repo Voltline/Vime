@@ -7,6 +7,8 @@ nonisolated enum KeyboardPerformance {
         case touchDownToVisual, touchUpToType, typeToMarked
         case candidateRequestToResult, candidateCompute, resultToCandidateUI, candidateUIUpdate
         case candidateButtonConfiguration, candidateTitleMeasurement, candidatePublication
+        case correctionCompute, correctionRequestToResult
+        case baseConversion, candidateReranking, classicTypo, experimentalTypo, contextEvaluation
     }
 
     private final class Storage: @unchecked Sendable {

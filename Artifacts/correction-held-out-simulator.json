@@ -1,0 +1,235 @@
+{
+  "cases" : [
+    {
+      "elapsedMs" : 35.74241665774025,
+      "expectedReading" : "たべもの",
+      "raw" : "tavemono",
+      "recalled" : true,
+      "suggestions" : [
+        "たべもの",
+        "たべもの",
+        "たべもの"
+      ]
+    },
+    {
+      "elapsedMs" : 21.122499980265275,
+      "expectedReading" : "のみもの",
+      "raw" : "nomimno",
+      "recalled" : true,
+      "suggestions" : [
+        "のみもの",
+        "のみもの",
+        "のみもの"
+      ]
+    },
+    {
+      "elapsedMs" : 61.041708337143064,
+      "expectedReading" : "だいすき",
+      "raw" : "daisukii",
+      "recalled" : true,
+      "suggestions" : [
+        "だいすき",
+        "だいすき"
+      ]
+    },
+    {
+      "elapsedMs" : 16.498874989338219,
+      "expectedReading" : "あした",
+      "raw" : "asihta",
+      "recalled" : true,
+      "suggestions" : [
+        "あした",
+        "あした"
+      ]
+    },
+    {
+      "elapsedMs" : 38.735041656764224,
+      "expectedReading" : "でんしゃ",
+      "raw" : "dnesha",
+      "recalled" : true,
+      "suggestions" : [
+        "でんしゃ",
+        "でんしゃ",
+        "でんしゃ"
+      ]
+    },
+    {
+      "elapsedMs" : 82.935249985894188,
+      "expectedReading" : "そして",
+      "raw" : "soshitee",
+      "recalled" : false,
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "elapsedMs" : 50.625583331566304,
+      "expectedReading" : "それから",
+      "raw" : "sirekara",
+      "recalled" : true,
+      "suggestions" : [
+        "それから"
+      ]
+    },
+    {
+      "elapsedMs" : 30.073083325987682,
+      "expectedReading" : "やさしい",
+      "raw" : "yasahii",
+      "recalled" : false,
+      "suggestions" : [
+        "やしい",
+        "やしい",
+        "やしい"
+      ]
+    },
+    {
+      "elapsedMs" : 26.823624997632578,
+      "expectedReading" : "はじめて",
+      "raw" : "haijmete",
+      "recalled" : true,
+      "suggestions" : [
+        "はじめて",
+        "はじめて",
+        "はじめて"
+      ]
+    },
+    {
+      "elapsedMs" : 61.413708317559212,
+      "expectedReading" : "しんかんせん",
+      "raw" : "shinknasenn",
+      "recalled" : true,
+      "suggestions" : [
+        "しんかんせん",
+        "しんかんせん",
+        "しんかんせん"
+      ]
+    },
+    {
+      "negative" : true,
+      "raw" : "tabemono",
+      "suggestions" : [
+
+      ],
+      "unwantedSuggestion" : false
+    },
+    {
+      "negative" : true,
+      "raw" : "nomimono",
+      "suggestions" : [
+
+      ],
+      "unwantedSuggestion" : false
+    },
+    {
+      "negative" : true,
+      "raw" : "daisuki",
+      "suggestions" : [
+
+      ],
+      "unwantedSuggestion" : false
+    },
+    {
+      "negative" : true,
+      "raw" : "ashita",
+      "suggestions" : [
+
+      ],
+      "unwantedSuggestion" : false
+    },
+    {
+      "negative" : true,
+      "raw" : "densha",
+      "suggestions" : [
+
+      ],
+      "unwantedSuggestion" : false
+    },
+    {
+      "negative" : true,
+      "raw" : "soshite",
+      "suggestions" : [
+
+      ],
+      "unwantedSuggestion" : false
+    },
+    {
+      "negative" : true,
+      "raw" : "sorekara",
+      "suggestions" : [
+
+      ],
+      "unwantedSuggestion" : false
+    },
+    {
+      "negative" : true,
+      "raw" : "yasashii",
+      "suggestions" : [
+
+      ],
+      "unwantedSuggestion" : false
+    },
+    {
+      "negative" : true,
+      "raw" : "hajimete",
+      "suggestions" : [
+
+      ],
+      "unwantedSuggestion" : false
+    },
+    {
+      "negative" : true,
+      "raw" : "shinkansenn",
+      "suggestions" : [
+
+      ],
+      "unwantedSuggestion" : false
+    },
+    {
+      "negative" : true,
+      "raw" : "yukari",
+      "suggestions" : [
+
+      ],
+      "unwantedSuggestion" : false
+    },
+    {
+      "negative" : true,
+      "raw" : "hinata",
+      "suggestions" : [
+
+      ],
+      "unwantedSuggestion" : false
+    },
+    {
+      "negative" : true,
+      "raw" : "sakurai",
+      "suggestions" : [
+
+      ],
+      "unwantedSuggestion" : false
+    },
+    {
+      "negative" : true,
+      "raw" : "tsurugi",
+      "suggestions" : [
+
+      ],
+      "unwantedSuggestion" : false
+    },
+    {
+      "negative" : true,
+      "raw" : "amefurashi",
+      "suggestions" : [
+        "あめぐらし",
+        "あめぐらし",
+        "あめぐらし"
+      ],
+      "unwantedSuggestion" : true
+    }
+  ],
+  "falseSuggestionCount" : 1,
+  "falseSuggestionRate" : 0.066666666666666666,
+  "negativeCount" : 15,
+  "positiveCount" : 10,
+  "recallCount" : 8
+}

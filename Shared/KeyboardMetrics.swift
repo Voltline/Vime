@@ -5,13 +5,16 @@ import CoreGraphics
 /// These coordinates keep the small letter keys and the asymmetric bottom row
 /// independent of labels, locale, and the host's return-key type.
 struct KeyboardMetrics {
+    /// Owned by the keyboard, never inferred from a host view's safe-area margin.
+    static let toolbarTopInset: CGFloat = 8
     let width: CGFloat
     let compact: Bool
     let showsFooter: Bool
+    var heightFactor: CGFloat = 1
     var scale: CGFloat { min(width / 440, 1.3) }
     var headerHeight: CGFloat { compact ? 38 : 56 * scale }
-    var keyHeight: CGFloat { compact ? 33 : 46.5 * scale }
-    var rowStep: CGFloat { compact ? 38 : 56 * scale }
+    var keyHeight: CGFloat { (compact ? 33 : 46.5 * scale) * heightFactor }
+    var rowStep: CGFloat { (compact ? 38 : 56 * scale) * heightFactor }
     var contentHeight: CGFloat { headerHeight + rowStep * 3 + keyHeight + 1.5 * scale }
     var footerHeight: CGFloat { showsFooter ? (compact ? 36 : 78 * scale) : 0 }
     var height: CGFloat { contentHeight + footerHeight }

@@ -1,0 +1,313 @@
+{
+  "automaticRewriteCount" : 0,
+  "cases" : [
+    {
+      "elapsedMs" : 14.534375004586764,
+      "expectedReading" : "しずか",
+      "queries" : 1,
+      "raw" : "shitsuka",
+      "recalled" : true,
+      "suggestions" : [
+        "しずか",
+        "しずか"
+      ]
+    },
+    {
+      "elapsedMs" : 32.771416663308628,
+      "expectedReading" : "しずかなばしょ",
+      "queries" : 1,
+      "raw" : "shitsukanabasho",
+      "recalled" : true,
+      "suggestions" : [
+        "しずかなばしょ",
+        "しずかなばしょ",
+        "しずかなばしょ"
+      ]
+    },
+    {
+      "elapsedMs" : 142.00416665698867,
+      "expectedReading" : "こころ",
+      "queries" : 1,
+      "raw" : "kikoro",
+      "recalled" : true,
+      "suggestions" : [
+        "こころ",
+        "こころ",
+        "こころ"
+      ]
+    },
+    {
+      "elapsedMs" : 164.66824999952223,
+      "expectedReading" : "こころがいたい",
+      "queries" : 1,
+      "raw" : "kikorogaitai",
+      "recalled" : true,
+      "suggestions" : [
+        "こころがいたい",
+        "こころがいたい",
+        "こころがいたい"
+      ]
+    },
+    {
+      "elapsedMs" : 11.674749999656342,
+      "expectedReading" : "にほんご",
+      "queries" : 1,
+      "raw" : "nihngo",
+      "recalled" : true,
+      "suggestions" : [
+        "にほんご",
+        "にほんご",
+        "にほんご"
+      ]
+    },
+    {
+      "elapsedMs" : 10.126124994712882,
+      "expectedReading" : "にほんご",
+      "queries" : 0,
+      "raw" : "nihongoo",
+      "recalled" : true,
+      "suggestions" : [
+        "にほんご",
+        "にほんご"
+      ]
+    },
+    {
+      "elapsedMs" : 6.7620833433466032,
+      "expectedReading" : "にほんご",
+      "queries" : 0,
+      "raw" : "nihogno",
+      "recalled" : true,
+      "suggestions" : [
+        "にほんご",
+        "にほんご",
+        "にほんご"
+      ]
+    },
+    {
+      "elapsedMs" : 62.407208330114372,
+      "expectedReading" : "たかい",
+      "queries" : 5,
+      "raw" : "takaai",
+      "recalled" : false,
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "elapsedMs" : 14.144208340439945,
+      "expectedReading" : "さくら",
+      "queries" : 1,
+      "raw" : "sakrua",
+      "recalled" : true,
+      "suggestions" : [
+        "さくら",
+        "さくら",
+        "さくら"
+      ]
+    },
+    {
+      "elapsedMs" : 4.5590833324240521,
+      "expectedReading" : "さくら",
+      "queries" : 0,
+      "raw" : "skura",
+      "recalled" : true,
+      "suggestions" : [
+        "さくら",
+        "さくら",
+        "さくら"
+      ]
+    },
+    {
+      "elapsedMs" : 14.949916672776453,
+      "expectedReading" : "ともだち",
+      "queries" : 1,
+      "raw" : "tomofachi",
+      "recalled" : true,
+      "suggestions" : [
+        "ともだち",
+        "ともだち",
+        "ともだち"
+      ]
+    },
+    {
+      "elapsedMs" : 39.893249995657243,
+      "expectedReading" : "これはなんですか",
+      "queries" : 1,
+      "raw" : "kirehanandesuka",
+      "recalled" : true,
+      "suggestions" : [
+        "これはなんですか"
+      ]
+    },
+    {
+      "negative" : true,
+      "raw" : "ki",
+      "unwantedSuggestion" : false
+    },
+    {
+      "negative" : true,
+      "raw" : "ko",
+      "unwantedSuggestion" : false
+    },
+    {
+      "negative" : true,
+      "raw" : "shizuka",
+      "unwantedSuggestion" : false
+    },
+    {
+      "negative" : true,
+      "raw" : "nihongo",
+      "unwantedSuggestion" : false
+    },
+    {
+      "negative" : true,
+      "raw" : "sakura",
+      "unwantedSuggestion" : false
+    },
+    {
+      "negative" : true,
+      "raw" : "kirei",
+      "unwantedSuggestion" : false
+    },
+    {
+      "negative" : true,
+      "raw" : "kiru",
+      "unwantedSuggestion" : false
+    },
+    {
+      "negative" : true,
+      "raw" : "koru",
+      "unwantedSuggestion" : false
+    },
+    {
+      "negative" : true,
+      "raw" : "kinou",
+      "unwantedSuggestion" : false
+    },
+    {
+      "negative" : true,
+      "raw" : "konoha",
+      "unwantedSuggestion" : false
+    },
+    {
+      "negative" : true,
+      "raw" : "koromo",
+      "unwantedSuggestion" : false
+    },
+    {
+      "negative" : true,
+      "raw" : "kikaku",
+      "unwantedSuggestion" : false
+    },
+    {
+      "negative" : true,
+      "raw" : "kokoro",
+      "unwantedSuggestion" : false
+    },
+    {
+      "negative" : true,
+      "raw" : "kasoku",
+      "unwantedSuggestion" : false
+    },
+    {
+      "negative" : true,
+      "raw" : "renai",
+      "unwantedSuggestion" : false
+    },
+    {
+      "negative" : true,
+      "raw" : "rennai",
+      "unwantedSuggestion" : false
+    },
+    {
+      "negative" : true,
+      "raw" : "tarou",
+      "unwantedSuggestion" : false
+    },
+    {
+      "negative" : true,
+      "raw" : "shiori",
+      "unwantedSuggestion" : false
+    },
+    {
+      "negative" : true,
+      "raw" : "yorozu",
+      "unwantedSuggestion" : false
+    },
+    {
+      "negative" : true,
+      "raw" : "tsumugi",
+      "unwantedSuggestion" : false
+    },
+    {
+      "negative" : true,
+      "raw" : "gakkou",
+      "unwantedSuggestion" : false
+    },
+    {
+      "negative" : true,
+      "raw" : "benkyou",
+      "unwantedSuggestion" : false
+    },
+    {
+      "negative" : true,
+      "raw" : "utsukushii",
+      "unwantedSuggestion" : false
+    },
+    {
+      "negative" : true,
+      "raw" : "watashihanihongowobenkyoushiteimasu",
+      "unwantedSuggestion" : false
+    },
+    {
+      "negative" : true,
+      "raw" : "kokorogaitai",
+      "unwantedSuggestion" : false
+    },
+    {
+      "negative" : true,
+      "raw" : "korehanandesuka",
+      "unwantedSuggestion" : false
+    },
+    {
+      "negative" : true,
+      "raw" : "shizukanabasho",
+      "unwantedSuggestion" : false
+    },
+    {
+      "negative" : true,
+      "raw" : "ashitagakkouniiku",
+      "unwantedSuggestion" : false
+    },
+    {
+      "negative" : true,
+      "raw" : "watashihanihongowohanashimasu",
+      "unwantedSuggestion" : false
+    },
+    {
+      "negative" : true,
+      "raw" : "nihongowobenkyousuru",
+      "unwantedSuggestion" : false
+    },
+    {
+      "negative" : true,
+      "raw" : "kazokutoasobu",
+      "unwantedSuggestion" : false
+    },
+    {
+      "negative" : true,
+      "raw" : "kinounotomodachi",
+      "unwantedSuggestion" : false
+    },
+    {
+      "negative" : true,
+      "raw" : "kochiranohougaii",
+      "unwantedSuggestion" : false
+    }
+  ],
+  "falseSuggestionCount" : 0,
+  "falseSuggestionRate" : 0,
+  "negativeCount" : 33,
+  "positiveCount" : 12,
+  "recallCount" : 11
+}

@@ -1,0 +1,185 @@
+{
+  "date": "2026-10-05",
+  "scope": "Offline one-error Japanese spelling and near-sound suggestions; preserve normal conversion, literal preedit and confirmation.",
+  "implementation": {
+    "dictionaryRevision": "d59a28e4c7ca049aef04f29a91eae9677a7753f2",
+    "sharedDictionaryCache": true,
+    "queryState": "One converter, independent normal/n-alternative/correction sessions. Each alternative/correction query clears its session state before querying.",
+    "normalPrediction": "autoMix, published before supplementary suggestions.",
+    "pauseAfterNormalResultMs": 140,
+    "maximumInputElements": 40,
+    "readingLengthRange": [
+      3,
+      24
+    ],
+    "maximumGeneratedVariants": 384,
+    "maximumDictionaryQueries": 24,
+    "maximumAddedCandidates": 3,
+    "softSearchBudgetMs": 60,
+    "cacheEntries": 96,
+    "errorTypes": [
+      "neighboringKey",
+      "missingLetter",
+      "extraLetter",
+      "transposition",
+      "phonetic"
+    ],
+    "ranking": "Error cost, original fallback spans, lexical and left/right connection gain; final full-ruby/full-consumption real-dictionary evidence plus normalized lattice score margin.",
+    "index": {
+      "bytes": 4910128,
+      "readings": 245506,
+      "dictionaryEntries": 487204,
+      "sourceSHA256": "0f2244de6e95ba513fd551f154a9c2bc4ea35e83c0f4b22422db9e74d02c6e71",
+      "binarySHA256": "226310c50e1ace5c915c42c4cd35fb45dbd0026243b025c0d942a0731f505841",
+      "generator": "Scripts/generate_correction_readings.py"
+    },
+    "models": "Classic typo, Zenzai and experimental LM APIs stay disabled. No network, persistent learning or whole-word example mapping."
+  },
+  "semantics": {
+    "target": "shitsuka retains literal preedit しつか, suggests real 静か/しずか with reading annotation しずか.",
+    "shortLegalInputs": "ki/ko receive no generic correction.",
+    "consumption": "Full correction consumes original query input elements, including separators, not modified-query composingCount.",
+    "return": "Without selection, Return confirms literal kana.",
+    "metadata": "Candidate strip, expanded panel and VoiceOver refresh source/reading even for unchanged body; dedup uses text plus consumption.",
+    "selection": "Space selection freezes full list; stale revision or ended composition rejects late results.",
+    "preserved": [
+      "n reading alternatives",
+      "katakana entry",
+      "visible kana backspace",
+      "unresolved consonant prediction",
+      "marked text"
+    ]
+  },
+  "additionalRootCause": "A long sentence with two n separator alternatives stalled upstream incremental lattice replacement. Clearing only the alternative session before each unrelated query resolved this; shared dictionary caching remains.",
+  "validation": {
+    "simulator": {
+      "targetedTests": 25,
+      "failures": 0,
+      "resultBundle": "/private/tmp/VimeCorrectionFinalSim.xcresult"
+    },
+    "device": {
+      "model": "iPhone 16 Pro Max",
+      "targetedTests": 11,
+      "failures": 0,
+      "resultBundle": "/private/tmp/VimeCorrectionFinalDevice2.xcresult"
+    },
+    "sampling": "Only related input/prediction/host/correction/performance tests. No repeated keyboard coverage grid or per-emoji scan.",
+    "uiRegression": "User confirmed emoji bottom clear, space cursor can move up then down, and ordinary backspace has no popup.",
+    "localImagesOnly": true,
+    "initialDeviceAttempt": "Installation connection closed before tests started; reconnected and completed same tests successfully."
+  },
+  "measurements": {
+    "simulator": {
+      "developmentCorpus": {
+        "positiveCount": 12,
+        "recallCount": 11,
+        "negativeCount": 33,
+        "falseSuggestionCount": 0,
+        "falseSuggestionRate": 0
+      },
+      "independentCorpus": {
+        "positiveCount": 10,
+        "recallCount": 8,
+        "negativeCount": 15,
+        "falseSuggestionCount": 1,
+        "falseSuggestionRate": 0.06666666666666667
+      },
+      "developmentCorpusMaxRecordedSearchMs": 195.1052499935031,
+      "normalWarm84": {
+        "before": {
+          "candidateCompute": 20.492499985266477,
+          "candidateRequestToResult": 20.50291665364057,
+          "candidatePublication": 1.9423333287704736,
+          "typeToMarked": 0.43837502016685903
+        },
+        "after": {
+          "candidateCompute": 19.700291653862223,
+          "candidateRequestToResult": 19.709291664185002,
+          "candidatePublication": 2.003583329496905,
+          "typeToMarked": 0.4261666617821902
+        }
+      },
+      "idleCorrection30": {
+        "correctionComputeP95Ms": 18.36387498769909,
+        "correctionRequestToResultP95Ms": 375.59224999859,
+        "firstKeyToCorrectionUIP95Ms": 380.19816667656414,
+        "candidatePublicationP95Ms": 2.5708333414513618,
+        "markedTextP95Ms": 0.2632916730362922,
+        "markedKeyCount": 220,
+        "peakTestHostFootprintMB": 49.48689270019531,
+        "endTestHostFootprintMB": 49.48689270019531
+      },
+      "rapidInput70": {
+        "keptAllKeys": true,
+        "immediateMarkedTextEveryKey": true,
+        "latestSentenceCorrect": true,
+        "markedTextP95Ms": 1.266041654162109,
+        "touchDownVisualP95Ms": 0.30399998649954796
+      }
+    },
+    "device": {
+      "developmentCorpus": {
+        "positiveCount": 12,
+        "recallCount": 11,
+        "negativeCount": 33,
+        "falseSuggestionCount": 0,
+        "falseSuggestionRate": 0
+      },
+      "independentCorpus": {
+        "positiveCount": 10,
+        "recallCount": 9,
+        "negativeCount": 15,
+        "falseSuggestionCount": 1,
+        "falseSuggestionRate": 0.06666666666666667
+      },
+      "developmentCorpusMaxRecordedSearchMs": 164.66824999952223,
+      "normalWarm84": {
+        "before": {
+          "candidateCompute": 20.55037500394974,
+          "candidateRequestToResult": 20.569458341924474,
+          "candidatePublication": 3.206499997759238,
+          "typeToMarked": 0.4398749879328534
+        },
+        "after": {
+          "candidateCompute": 17.80779166438151,
+          "candidateRequestToResult": 17.81624999421183,
+          "candidatePublication": 1.352999999653548,
+          "typeToMarked": 0.19362499006092548
+        }
+      },
+      "idleCorrection30": {
+        "correctionComputeP95Ms": 41.7824583419133,
+        "correctionRequestToResultP95Ms": 363.1323750014417,
+        "firstKeyToCorrectionUIP95Ms": 368.9107500104001,
+        "candidatePublicationP95Ms": 3.7627916608471423,
+        "markedTextP95Ms": 0.8257083391072229,
+        "markedKeyCount": 220,
+        "peakTestHostFootprintMB": 44.470619201660156,
+        "endTestHostFootprintMB": 32.486244201660156
+      },
+      "rapidInput70": {
+        "keptAllKeys": true,
+        "immediateMarkedTextEveryKey": true,
+        "latestSentenceCorrect": true,
+        "markedTextP95Ms": 0.8084166620392352,
+        "touchDownVisualP95Ms": 0.17316667072009295
+      }
+    },
+    "method": "Debug, real attached UIWindow/UITextView, actual bundled dictionary. Before/after normal benchmark: one warm pass then three equal passes, 84 publications each. Idle correction: one warm plus ten measured passes, 30 publications across shitsuka/nihongoo/kikoro, 220 Roman keys. Rapid input: 35 burst plus 35 paced at 20 ms. New correction words and normal warm words are different workloads; do not compare their p95 as a regression. Observed warm variation is not proof of a causal speedup. Memory is test host phys_footprint, not a measured extension memory ceiling."
+  },
+  "knownLimitations": [
+    "Independent legitimate-word corpus has 1/15 unnecessary suggestion: amefurashi suggests amegurashi. This is an optional suggestion, not automatic rewriting. Small synthetic corpora do not estimate human error rates.",
+    "takaai is protected as a legitimate surname reading and misses intended takai; yasahii suggests yashii instead of expected yasashii. Simulator also misses soshitee within the time budget; device resolves it.",
+    "Single-error search only, bounded length, skip unfinished trailing consonants. No partial correction consumption or submitted-host-paragraph language context.",
+    "60 ms is a soft budget checked before querying; one upstream synchronous query cannot be interrupted and can exceed it. Already running work may postpone a newer candidate calculation; main-thread preedit stays immediate.",
+    "Estimated soft-wrap cursor navigation still depends on truncated proxy context and approximate host font/width."
+  ],
+  "release": {
+    "build": "succeeded",
+    "AppAndExtensionCorrectionIndexVerified": true,
+    "AppAndExtensionEmojiCatalogVerified": true,
+    "AppGroupProfilesVerified": true,
+    "install": "not completed: IXRemoteErrorDomain 6 interrupted the Release update; device then unavailable. Awaiting requested reconnection.",
+    "manualCorrectionCheck": "pending final Release installation; device automated tests passed on final source."
+  }
+}

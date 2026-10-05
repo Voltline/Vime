@@ -1,0 +1,61 @@
+{
+  "date": "2026-10-05",
+  "scope": "Opaque key previews above candidates; stable toolbar/symbol top spacing and correct initial input-view height.",
+  "rootCause": {
+    "preview": "A key raised its preview above the header, then keyboard layout raised the header above the held preview. Candidate text painted over the already-opaque background. Reproduced by candidate publication and relayout during a held Q press.",
+    "topSpacing": "Normal toolbar used a center-based inset (10.75 pt by default); symbol close/picker used y=0/2. There was no common top spacing. Also the extension initially requested a fixed 272 pt without saved factor/footer and corrected it only later.",
+    "intermittentExternalPadding": "Not reproduced under automated host presentation. The simulator did not present its software keyboard in the attempted native input-view probe. Do not equate attached-view tests with real extension host validation."
+  },
+  "changes": {
+    "preview": "Dedicated noninteractive previewOverlay with zPosition=1, raised last on layout. Weak key reference to overlay. Explicit alpha=1 and solid background. Compact first-row preview stays within own input-view bounds.",
+    "spacing": "KeyboardMetrics.toolbarTopInset=8 shared by main toolbar and symbol controls; remains constant through saved height changes and panel reopen.",
+    "initialHeight": "Extension seeds footer and globe requirement before preferred-height constraint; no repeated constant update when unchanged. Sandbox input view also starts at actual saved preferred height."
+  },
+  "files": [
+    "Shared/KeyboardView.swift",
+    "Shared/KeyboardMetrics.swift",
+    "Shared/KeyboardSymbolPanel.swift",
+    "Keyboard/KeyboardViewController.swift",
+    "Vime/KeyboardSandbox.swift",
+    "Tests/UIKit/KeyboardPresentationTests.swift",
+    "README.md",
+    "Docs/KeyboardImplementation.md"
+  ],
+  "validation": {
+    "before": {
+      "result": "/private/tmp/VimePresentationBefore2.xcresult",
+      "previewOrderingFailureReproduced": true,
+      "symbolEdgeFlushObserved": true
+    },
+    "after": {
+      "result": "/private/tmp/VimePresentationAfter.xcresult",
+      "passed": 4,
+      "coverage": [
+        "Held opaque preview across candidate publication and layout",
+        "Symbol top inset across height resize and panel reopen",
+        "Existing panel exclusivity and symbol exit",
+        "Native 70-key burst/interleaved input, immediate marked text, latest sentence"
+      ]
+    },
+    "finalHeightAndTouch": {
+      "result": "/private/tmp/VimePresentationHeightTouch.xcresult",
+      "passed": 3,
+      "coverage": [
+        "Initial extension height matches saved preference/footer, repeated layout stable",
+        "Height drag/shared preference reaches extension",
+        "Sticky ownership/neighbor movement/alternate original-key lock/cancellation"
+      ]
+    },
+    "uniqueTargetedTests": 6,
+    "fullGridRepeated": false,
+    "perEmojiScanRepeated": false,
+    "localVisualChecks": "Opaque preview over candidates and fixed symbol top spacing inspected. Screenshots kept only in local xcresult/tmp; no screenshot added to Git.",
+    "device": "Not run for this UI change: iPhone unavailable. Prior correction-device tests remain valid for unchanged engine semantics; they do not validate this new UI.",
+    "manualExtension": "Awaiting device connection and installation."
+  },
+  "release": {
+    "build": "in progress after final height initialization refinement",
+    "includesPreviousOfflineCorrection": true,
+    "install": "pending device connection"
+  }
+}

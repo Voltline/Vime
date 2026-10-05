@@ -1,0 +1,57 @@
+{
+  "date": "2026-10-05",
+  "scope": "Soft-wrap vertical cursor movement, compact full-area symbol panel, delete callout and one-step undo, shared keyboard height editor.",
+  "rootCause": {
+    "verticalCursor": "The previous extension resolver only recognized explicit newline rows. A paragraph with soft wraps therefore always produced zero vertical offset, although the long-space gesture entered cursor mode.",
+    "fix": "Reuse a TextKit UITextView to estimate wraps from proxy context, 17 pt system font and keyboard width minus 48 pt. Preserve preferred x and send the resulting UTF-16 offset to UITextDocumentProxy. The App sandbox uses the actual host UITextView geometry."
+  },
+  "features": {
+    "symbolPanel": "No large external title. Panel fills KeyboardView.bounds; old header and globe footer are hidden. Only return, mode and category controls remain; nine emoji columns at 440 pt.",
+    "deleteCallout": "White card with red trash prompt above the backspace key, shown only after entering the upward deletion gesture. Ordinary press/repeat shows no floating prompt. Sliding back or cancelling disarms deletion without a stray backspace.",
+    "deleteUndo": "One in-memory deletion record, checked against document identity and before/after/selection context. Button appears left of kana mode. New input, navigation, external change or leaving the keyboard clears it.",
+    "heightEditor": "Main App offers a real keyboard preview with a draggable upper grip, save/cancel and reset. Scale range 0.85 to 1.60 affects key height and row spacing. App Group shares the value with the extension, reloaded on viewWillAppear.",
+    "appGroup": "group.com.Voltline.Vime",
+    "entitlements": "Configuration/Vime.entitlements, both App and extension in Debug and Release."
+  },
+  "validation": {
+    "simulator": {
+      "targetedTests": 9,
+      "failures": 0,
+      "result": "/private/tmp/VimeRefinementsTests.xcresult",
+      "coverage": "Seven feature tests plus existing sticky/alternate touch test and 70-key native input/prediction pipeline."
+    },
+    "device": {
+      "model": "iPhone 16 Pro Max",
+      "targetedTests": 4,
+      "failures": 0,
+      "result": "/private/tmp/VimeRefinementsDevice.xcresult",
+      "coverage": "Soft-wrap navigation calculation and shared-view gesture, delete/undo/cancellation, panel layout/exit, height drag/shared preferences/extension controller reload."
+    },
+    "visual": "Inspected local rendered delete callout, emoji panel and height preview. Images stay in /private/tmp; no test screenshot added to Git.",
+    "sampling": "One representative keyboard gap checked after resizing; no full keyboard grid or per-emoji tests repeated.",
+    "release": {
+      "build": "succeeded",
+      "appAndExtensionProfilesContainSharedGroup": true,
+      "emojiCatalogBundledInAppAndExtension": true,
+      "install": "succeeded",
+      "installationContainer": "B99A9680-66DB-4999-ACA5-67BDF7FB9E4B"
+    },
+    "manual": {
+      "reportedScenario": "User confirmed vertical movement fails in automatically wrapped paragraphs without return characters.",
+      "newBuildHostValidation": "User confirmed features basically normal, then reported emoji bottom glass and inability to move back down. Follow-up Release fixed scroll-edge policies and retained per-gesture proxy text; user confirmed all three UI/navigation fixes normal, including no popup on ordinary delete.",
+      "followupInstallationContainer": "F9E7C1CD-638B-43FD-81DF-D6644A065D7C"
+    }
+  },
+  "followup": {
+    "emojiRootCause": "New collection/category scroll views omitted the four-edge hiding policy already used by candidate scroll views. Apply .never inset adjustment and hide all four scroll edge effects.",
+    "cursorRootCause": "Rebuilding proxy layout every movement loses traversed text if after-context is nil/truncated after an upward move. Keep text and caret position for the duration of each gesture, permitting a downward retrace.",
+    "validation": "Three targeted tests including existing warm performance benchmark passed on simulator and device. One additional simulator delete/undo test passed after restricting popup to upward gesture. Real extension manually confirmed by user."
+  },
+  "limitations": [
+    "Extension soft-wrap movement is approximate: public proxy APIs expose text context but not host font, input width or caret geometry. Host context truncation also affects row estimates.",
+    "Line-prefix deletion still uses explicit newline boundaries, up to 64 context chunks. It does not claim to delete only one visual soft-wrap row.",
+    "Height sharing requires full access. Other preferences remain separate in the App and extension.",
+    "Undo is intentionally one-step and only valid while the deletion anchor is unchanged; removed text is never persisted.",
+    "Shared-view/device unit tests do not prove exact row placement in every third-party App."
+  ]
+}
