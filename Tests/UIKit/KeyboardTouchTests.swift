@@ -228,12 +228,12 @@ final class KeyboardTouchTests: XCTestCase {
     }
 
     func testOverlappingDeleteTouchesCannotLeaveAnOrphanedRepeatTimer() async throws {
-        let (_, surface) = makeKeyboard()
+        let (keyboard, surface) = makeKeyboard()
         let delete = try XCTUnwrap(surface.regions.first { $0.key.repeats })
         let center = CGPoint(x: delete.body.midX, y: delete.body.midY)
         var deletions = 0
         delete.key.action = { deletions += 1 }; delete.key.feedback = {}
-        defer { surface.cancelAllPresses(); delete.key.stopTracking() }
+        defer { keyboard.stopInteractions(); delete.key.stopTracking() }
         surface.beginPress(id: 1, at: center)
         surface.beginPress(id: 2, at: center)
         XCTAssertEqual(deletions, 0, "A short press waits for release so upward deletion can take ownership")
@@ -403,7 +403,7 @@ final class KeyboardTouchTests: XCTestCase {
         var deletions = 0
         delete.key.action = { deletions += 1 }; delete.key.feedback = {}
         surface.beginPress(id: 1, at: deletePoint)
-        XCTAssertEqual(deletions, 1, "Delete remains immediate on touch down")
+        XCTAssertEqual(deletions, 0, "A short delete commits on release so a line swipe can take ownership")
         surface.endPress(id: 1, at: deletePoint)
         try await Task.sleep(for: .milliseconds(510))
         XCTAssertEqual(deletions, 1, "Release stops delayed repeat")
@@ -413,6 +413,6 @@ final class KeyboardTouchTests: XCTestCase {
         XCTAssertFalse(delete.key.isHighlighted)
         XCTAssertFalse(keyboard.hitTest(center, with: nil) === surface, "A settings panel owns its own touches")
         try await Task.sleep(for: .milliseconds(510))
-        XCTAssertEqual(deletions, 2, "Opening a panel cancels a held delete")
+        XCTAssertEqual(deletions, 1, "Opening a panel cancels a held delete before it commits")
     }
 }

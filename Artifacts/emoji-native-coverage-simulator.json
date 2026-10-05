@@ -1,0 +1,109 @@
+{
+  "groups" : [
+    {
+      "availableCount" : 171,
+      "backgroundLoadMs" : 0.24691666476428509,
+      "catalogCount" : 172,
+      "group" : "Smileys & Emotion",
+      "unavailable" : [
+        "cracking face"
+      ]
+    },
+    {
+      "availableCount" : 2418,
+      "backgroundLoadMs" : 21.656458353390917,
+      "catalogCount" : 2430,
+      "group" : "People & Body",
+      "unavailable" : [
+        "leftwards thumb sign",
+        "leftwards thumb sign: light skin tone",
+        "leftwards thumb sign: medium-light skin tone",
+        "leftwards thumb sign: medium skin tone",
+        "leftwards thumb sign: medium-dark skin tone",
+        "leftwards thumb sign: dark skin tone",
+        "rightwards thumb sign",
+        "rightwards thumb sign: light skin tone",
+        "rightwards thumb sign: medium-light skin tone",
+        "rightwards thumb sign: medium skin tone",
+        "rightwards thumb sign: medium-dark skin tone",
+        "rightwards thumb sign: dark skin tone"
+      ]
+    },
+    {
+      "availableCount" : 9,
+      "backgroundLoadMs" : 0.12204167433083057,
+      "catalogCount" : 9,
+      "group" : "Component",
+      "unavailable" : [
+
+      ]
+    },
+    {
+      "availableCount" : 160,
+      "backgroundLoadMs" : 1.1863333347719163,
+      "catalogCount" : 161,
+      "group" : "Animals & Nature",
+      "unavailable" : [
+        "monarch butterfly"
+      ]
+    },
+    {
+      "availableCount" : 131,
+      "backgroundLoadMs" : 0.99595831125043333,
+      "catalogCount" : 132,
+      "group" : "Food & Drink",
+      "unavailable" : [
+        "pickle"
+      ]
+    },
+    {
+      "availableCount" : 219,
+      "backgroundLoadMs" : 1.6310833452735096,
+      "catalogCount" : 221,
+      "group" : "Travel & Places",
+      "unavailable" : [
+        "lighthouse",
+        "meteor"
+      ]
+    },
+    {
+      "availableCount" : 85,
+      "backgroundLoadMs" : 0.61054166872054338,
+      "catalogCount" : 85,
+      "group" : "Activities",
+      "unavailable" : [
+
+      ]
+    },
+    {
+      "availableCount" : 266,
+      "backgroundLoadMs" : 1.8321249808650464,
+      "catalogCount" : 268,
+      "group" : "Objects",
+      "unavailable" : [
+        "eraser",
+        "net with handle"
+      ]
+    },
+    {
+      "availableCount" : 224,
+      "backgroundLoadMs" : 2.0397500193212181,
+      "catalogCount" : 224,
+      "group" : "Symbols",
+      "unavailable" : [
+
+      ]
+    },
+    {
+      "availableCount" : 270,
+      "backgroundLoadMs" : 1.9539583299774677,
+      "catalogCount" : 270,
+      "group" : "Flags",
+      "unavailable" : [
+
+      ]
+    }
+  ],
+  "os" : "27.0",
+  "version" : "18.0"
+}

@@ -100,6 +100,8 @@ final class KeyboardKey: UIButton {
     var touchBounds: CGRect?
     var action: (() -> Void)?
     var feedback: (() -> Void)?
+    /// Recheck the host before each repeat, including accessibility activation.
+    var canRepeat: (() -> Bool)?
     var alternateAction: (() -> Void)?
     var alternateTitle: String?
     private var swipe = KeySwipeSelection()
@@ -225,10 +227,11 @@ final class KeyboardKey: UIButton {
             if alternate { alternateAction?() }
             else { action?() }
         }
-        if !cancelled && repeats && deferredRepeat && !resolvedRepeatOccurred { action?() }
+        if !cancelled && repeats && deferredRepeat && !resolvedRepeatOccurred && repeatIsAllowed { action?() }
     }
 
     override func accessibilityActivate() -> Bool {
+        guard !repeats || repeatIsAllowed else { return true }
         feedback?()
         action?()
         return true
@@ -277,6 +280,7 @@ final class KeyboardKey: UIButton {
     private func pressDown(deferred: Bool) {
         KeyboardTouchDiagnostics.record("KeyboardKey.touchDown", view: self)
         usedAlternate = false
+        guard !repeats || repeatIsAllowed else { return }
         feedback?()
         if repeats {
             if !deferred { action?() }
@@ -286,10 +290,13 @@ final class KeyboardKey: UIButton {
             let delay = Timer(timeInterval: 0.42, repeats: false) { [weak self] _ in
                 guard let self else { return }
                 self.delayTimer = nil
+                guard self.repeatIsAllowed else { self.resolvedRepeatOccurred = true; self.stopTracking(); return }
                 if deferred { self.resolvedRepeatOccurred = true; self.action?() }
                 guard self.isHighlighted || self.isTracking else { return }
                 let timer = Timer(timeInterval: 0.065, repeats: true) { [weak self] _ in
-                    self?.resolvedRepeatOccurred = true; self?.feedback?(); self?.action?()
+                    guard let self else { return }
+                    guard self.repeatIsAllowed else { self.stopTracking(); return }
+                    self.resolvedRepeatOccurred = true; self.feedback?(); self.action?()
                 }
                 self.repeatTimer = timer
                 RunLoop.main.add(timer, forMode: .common)
@@ -300,6 +307,8 @@ final class KeyboardKey: UIButton {
             showPreview(title, alternate: false)
         }
     }
+
+    private var repeatIsAllowed: Bool { canRepeat?() ?? true }
 
     @objc private func up() {
         KeyboardTouchDiagnostics.record("KeyboardKey.touchUpInside", view: self)
@@ -348,6 +357,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
     var onCompositionChange: ((String) -> Void)?
     var onMarkedTextChange: ((String?) -> Void)?
     var onHeightChange: (() -> Void)?
+    var deletionAvailabilityProvider: (() -> Bool)?
     var heightFactor: CGFloat = 1 {
         didSet {
             guard oldValue != heightFactor else { return }
@@ -416,6 +426,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
     private var settingsPanel: UIView?
     private var symbolPanel: KeyboardSymbolPanel?
     private var rows: [[(KeyboardKey, CGFloat)]] = []
+    private var rebuildingKeys = false
     private var letterKeys: [KeyboardKey] = []
     private var shiftKey: KeyboardKey?
     private var spaceKey: KeyboardKey?
@@ -448,7 +459,9 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
         panelScroll.isHidden = true
         header.addSubview(brandButton)
         brandButton.backgroundColor = KeyboardPalette.key
-        brandButton.setImage(KeyboardGlyphs.settings(), for: .normal)
+        brandButton.setImage(KeyboardGlyphs.logo(), for: .normal)
+        brandButton.tintColor = UIColor(cgColor: VimeLogo.blue)
+        brandButton.accessibilityIdentifier = "vime.brand.settings"
         brandButton.accessibilityLabel = "键盘设置"
         brandButton.addTarget(self, action: #selector(toggleSettings), for: .touchUpInside)
         addSubview(globeButton)
@@ -528,6 +541,10 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
             guard let self else { return }; self.apply(self.session.confirmAll() + [.deleteToLineStart])
         }
         divider.isHidden = true
+        for button in [brandButton, modeButton, undoButton, settingsButton, expandButton, cancelButton] {
+            button.addTarget(self, action: #selector(toolbarFeedback), for: .touchDown)
+        }
+        configureGlobe()
         rebuildKeys()
         applyTheme()
         refresh()
@@ -567,6 +584,9 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
 
     override func layoutSubviews() {
         super.layoutSubviews()
+        // Cancelling a delete during a page change can synchronously request
+        // layout. Do not lay out the old rows using the new page's geometry.
+        guard !rebuildingKeys else { return }
         let width = bounds.width
         guard width > 0 else { return }
         let metrics = KeyboardMetrics(width: width, compact: compact, showsFooter: showsFooter, heightFactor: heightFactor)
@@ -681,6 +701,8 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
     }
 
     private func rebuildKeys() {
+        rebuildingKeys = true
+        defer { rebuildingKeys = false; setNeedsLayout() }
         keysContainer.cancelAllPresses()
         keysContainer.regions = []
         for row in rows { for (button, _) in row { button.stopTracking(); button.removeFromSuperview() } }
@@ -733,21 +755,24 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
             let values = [["#+=", "1", "2", "3", "删除"],
                           ["+", "4", "5", "6", "-"],
                           ["/", "7", "8", "9", "*"],
-                          ["ABC", "。", "0", ".", "换行"]]
+                          ["ABC", "符号", "0", ".", "换行"]]
             for (r, values) in values.enumerated() {
                 rows.append(values.map { value in
                     if value == "删除" { return deleteKey(weight: 1) }
-                    let item = key(value, utility: ["ABC", "#+=", "换行"].contains(value)) { [weak self] in
+                    let item = key(value, utility: ["ABC", "#+=", "符号", "换行"].contains(value)) { [weak self] in
                         guard let self else { return }
                         switch value {
                         case "ABC": self.page = .letters; self.rebuildKeys()
                         case "#+=": self.page = .symbols; self.rebuildKeys()
+                        case "符号": self.openSymbolPanel(mode: .symbols)
                         case "换行": self.apply(self.session.enter())
                         default: self.apply(self.session.insertLiteral(value))
                         }
                     }
                     item.0.accessibilityIdentifier = "vime.number." + value
-                    if r == 3 && value == "换行" { returnKey = item.0 }
+                    if r == 3 && value == "换行" {
+                        returnKey = item.0; item.0.accessibilityIdentifier = "vime.key.return"
+                    }
                     return item
                 })
             }
@@ -787,12 +812,14 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
         }]
         let emoji = symbol("face.smiling", label: "表情", weight: 1) { [weak self] in self?.toggleEmoji() }
         bottom.append(emoji)
-        let comma = key(",", weight: 1) { [weak self] in
+        let comma = key(page == .letters ? "," : "符号", utility: page != .letters, weight: 1) { [weak self] in
             guard let self else { return }
+            if self.page != .letters { self.openSymbolPanel(mode: .symbols); return }
             self.apply(self.session.insertLiteral(self.session.mode == .english ? "," : "、"))
         }
-        comma.0.hint = "°"
-        comma.0.alternateTitle = "。"
+        comma.0.accessibilityIdentifier = page == .letters ? "vime.key.comma" : "vime.key.symbols"
+        comma.0.hint = page == .letters ? "°" : nil
+        comma.0.alternateTitle = page == .letters ? "。" : nil
         comma.0.alternateAction = { [weak self] in
             guard let self else { return }
             self.apply(self.session.insertLiteral("。"))
@@ -837,11 +864,17 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
     private func deleteKey(weight: CGFloat) -> (KeyboardKey, CGFloat) {
         let item = symbol("delete.left", label: "删除", weight: weight) { [weak self] in
             guard let self else { return }
+            guard self.hasDeletableContent else { return }
             self.apply(self.session.backspace())
         }
         item.0.accessibilityIdentifier = "vime.key.delete"
         item.0.repeats = true
+        item.0.canRepeat = { [weak self] in self?.hasDeletableContent ?? false }
         return item
+    }
+
+    private var hasDeletableContent: Bool {
+        session.isComposing || (deletionAvailabilityProvider?() ?? true)
     }
 
     private func apply(_ edits: [KeyboardEdit]) {
@@ -943,6 +976,9 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
         else if emojiOpen { showSymbolPanel() }
         spaceKey?.setTitle(composing ? (session.selectedIndex == nil ? "変換" : "次候補") : "", for: .normal)
         returnKey?.setTitle(composing ? "確定" : returnTitle, for: .normal)
+        let actionReturn = !composing && [.send, .search, .go, .done, .next, .join, .route, .continue].contains(returnKeyType)
+        returnKey?.fillColor = actionReturn ? UIColor(cgColor: VimeLogo.blue) : KeyboardPalette.utility
+        returnKey?.setTitleColor(actionReturn ? .white : KeyboardPalette.text, for: .normal)
         setNeedsLayout()
     }
 
@@ -1039,6 +1075,8 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
         generator.prepare()
     }
 
+    @objc private func toolbarFeedback() { playFeedback() }
+
     private func configureScroll(_ scroll: UIScrollView) {
         scroll.backgroundColor = KeyboardTouchBacking.color
         scroll.contentInsetAdjustmentBehavior = .never
@@ -1060,6 +1098,9 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
         if needsGlobe, let target = inputModeListTarget, let selector = inputModeListAction {
             globeButton.addTarget(target, action: selector, for: .allTouchEvents)
         } else { globeButton.addTarget(self, action: #selector(switchKeyboard), for: .touchUpInside) }
+        // Configuring the system input-mode selector removes old touch targets;
+        // reinstall feedback each time so the globe still has a native click.
+        globeButton.addTarget(self, action: #selector(toolbarFeedback), for: .touchDown)
     }
 
     @objc private func switchKeyboard() { confirmComposition(); onSwitchKeyboard?() }
@@ -1072,17 +1113,23 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
     }
 
     private func toggleEmoji() {
+        openSymbolPanel(mode: .emoji)
+    }
+
+    private func openSymbolPanel(mode: KeyboardSymbolPanel.Mode) {
         apply(session.confirm())
-        emojiOpen.toggle()
+        emojiOpen = true
         expanded = false
         settingsOpen = false
         panelScroll.setContentOffset(.zero, animated: false)
         refresh()
+        symbolPanel?.selectMode(mode)
     }
 
     private func showSymbolPanel() {
         if symbolPanel == nil {
             let panel = KeyboardSymbolPanel()
+            panel.onFeedback = { [weak self] in self?.playFeedback() }
             panel.onSelect = { [weak self] text in
                 guard let self else { return }; self.playFeedback(); self.apply(self.session.insertLiteral(text))
             }
@@ -1220,5 +1267,6 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
         gestureHint.textColor = KeyboardPalette.text
         settingsPanel?.tintColor = KeyboardPalette.accent
         symbolPanel?.applyTheme()
+        refresh()
     }
 }

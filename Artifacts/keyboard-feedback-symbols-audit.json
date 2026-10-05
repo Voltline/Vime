@@ -1,0 +1,43 @@
+{
+  "date": "2026-10-05",
+  "scope": "feedback-brand-symbols-emoji",
+  "fullRegression": {
+    "total": 65,
+    "passed": 65,
+    "failed": 0,
+    "resultBundle": "/tmp/vime-feedback-final-full.xcresult"
+  },
+  "featuresAndTouchRegression": {
+    "passed": 24,
+    "failed": 0,
+    "resultBundle": "/tmp/vime-feedback-final-focused.xcresult"
+  },
+  "emojiClusterRegression": {
+    "passed": 13,
+    "failed": 0,
+    "resultBundle": "/tmp/vime-feedback-emoji-final.xcresult"
+  },
+  "physicalDevice": {
+    "model": "iPhone 13 Pro",
+    "build": "Passed with isolated temporary DerivedData",
+    "test": "Not run: device locked; stopped waiting"
+  },
+  "symbols": {
+    "groups": 11,
+    "categoryEntries": 507,
+    "arrows": 52
+  },
+  "emoji": {
+    "catalogCount": 3972,
+    "missingUnicodeEntries": 0,
+    "availableOnIOS27Simulator": 3953,
+    "unsupportedNewEntries": 19
+  },
+  "audibleSoundAndPhysicalHaptics": "Pending manual device confirmation",
+  "inputAndCandidates": "All existing regression tests passed; no candidate/preedit engine changes",
+  "rootInputViewFinalRegression": {
+    "passed": 4,
+    "failed": 0,
+    "resultBundle": "/tmp/vime-feedback-root-final.xcresult"
+  }
+}

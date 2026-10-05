@@ -7,7 +7,7 @@ enum KeyboardTheme: String, CaseIterable {
     }
     var accent: UIColor {
         switch self {
-        case .system: UIColor(red: 0.08, green: 0.65, blue: 0.39, alpha: 1)
+        case .system: UIColor(cgColor: VimeLogo.blue)
         case .sakura: UIColor(red: 0.72, green: 0.18, blue: 0.38, alpha: 1)
         case .ocean: UIColor(red: 0.06, green: 0.42, blue: 0.74, alpha: 1)
         case .midnight: UIColor(red: 0.55, green: 0.68, blue: 1, alpha: 1)

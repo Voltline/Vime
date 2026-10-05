@@ -1,0 +1,9 @@
+{
+  "source": "https://www.unicode.org/Public/emoji/latest/emoji-test.txt",
+  "version": "18.0",
+  "unicodeCount": 3972,
+  "bundledCount": 3972,
+  "missing": [],
+  "extra": [],
+  "sourceSHA256": "8f3735cda1f92a779d78af67cf86066bb1f07143dc22f2ac29394d9bc57ab21a"
+}

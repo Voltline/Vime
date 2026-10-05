@@ -7,18 +7,17 @@ struct ContentView: View {
     @State private var showingGuide = false
     @State private var showingNotices = false
     @State private var showingHeightEditor = false
-    private let green = Color(red: 0.08, green: 0.65, blue: 0.39)
+    private let blue = Color(uiColor: UIColor(cgColor: VimeLogo.blue))
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     HStack(alignment: .center, spacing: 15) {
-                        Text("あ")
-                            .font(.system(size: 37, weight: .medium))
-                            .foregroundStyle(.white)
+                        Image(uiImage: KeyboardGlyphs.logo(size: 68, appIcon: true))
+                            .resizable()
                             .frame(width: 68, height: 68)
-                            .background(green, in: RoundedRectangle(cornerRadius: 18))
+                            .clipShape(RoundedRectangle(cornerRadius: 18))
                         VStack(alignment: .leading, spacing: 5) {
                             Text("Vime").font(.system(size: 30, weight: .semibold))
                             Text("日语，轻松打出来。")
@@ -63,7 +62,7 @@ struct ContentView: View {
                         .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14))
                         Text(composition.isEmpty ? "nihongo → にほんご → 日本語" : "正在输入：\(composition)")
                             .font(.caption)
-                            .foregroundStyle(composition.isEmpty ? Color.secondary : green)
+                            .foregroundStyle(composition.isEmpty ? Color.secondary : blue)
                         Button { focusRequest += 1 } label: {
                             Text("开始试打")
                                 .font(.system(size: 16, weight: .medium))
@@ -71,7 +70,7 @@ struct ContentView: View {
                                 .padding(.vertical, 13)
                         }
                         .buttonStyle(.borderedProminent)
-                        .tint(green)
+                        .tint(blue)
                     }
 
                     Button { showingHeightEditor = true } label: {
@@ -84,12 +83,12 @@ struct ContentView: View {
                         .padding(18)
                         .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                     }
-                    .tint(green)
+                    .tint(blue)
 
                     VStack(alignment: .leading, spacing: 16) {
                         Text("在其他 App 中使用").font(.headline)
                         HStack(alignment: .top, spacing: 10) {
-                            Image(systemName: "plus.circle").foregroundStyle(green)
+                            Image(systemName: "plus.circle").foregroundStyle(blue)
                             Text("前往系统设置，添加 Vime 日本語键盘，然后通过地球键切换。")
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
@@ -102,7 +101,7 @@ struct ContentView: View {
                             }
                             .font(.subheadline.weight(.medium))
                         }
-                        .tint(green)
+                        .tint(blue)
                     }
                     .padding(18)
                     .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
@@ -127,6 +126,7 @@ struct ContentView: View {
             .background(Color(uiColor: .systemGroupedBackground))
             .navigationBarTitleDisplayMode(.inline)
             .scrollDismissesKeyboard(.interactively)
+            .tint(blue)
             .sheet(isPresented: $showingGuide) { guide }
             .sheet(isPresented: $showingNotices) { notices }
             .sheet(isPresented: $showingHeightEditor) { KeyboardHeightEditor() }
@@ -153,7 +153,7 @@ struct ContentView: View {
                 }
                 Section("开始输入") {
                     Text("打开任意支持第三方键盘的 App，长按地球键，选择「Vime 日本語」。")
-                    Text("基本输入无需完全访问。按键声和振动请进入「设置 → 通用 → 键盘 → 键盘 → Vime 日本語」，开启「允许完全访问」。点击键盘左上角的调节图标，可设置声音、振动强度、数字布局和长音键。")
+                    Text("基本输入无需完全访问。按键声和振动请进入「设置 → 通用 → 键盘 → 键盘 → Vime 日本語」，开启「允许完全访问」。点击键盘左上角的 Vime 标志，可设置声音、振动强度、数字布局和长音键。")
                 }
                 Section("系统限制") {
                     Text("密码输入框和部分 App 会使用系统键盘。数字、电话和邮箱输入框会根据系统允许的方式切换布局。")

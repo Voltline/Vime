@@ -18,7 +18,7 @@ struct KeyboardSandbox: UIViewRepresentable {
         view.accessibilityLabel = "日语试打输入框"
         let width = view.window?.bounds.width ?? UIScreen.main.bounds.width
         let keyboard = KeyboardView(frame: CGRect(x: 0, y: 0, width: width, height: KeyboardMetrics(width: width, compact: false, showsFooter: true).height))
-        let input = SandboxInputView(keyboard: keyboard)
+        let input = KeyboardInputView(keyboard: keyboard)
         context.coordinator.keyboard = keyboard
         context.coordinator.input = input
         context.coordinator.host = KeyboardHostConnection(
@@ -51,6 +51,10 @@ struct KeyboardSandbox: UIViewRepresentable {
             let end = view.markedTextRange?.start ?? view.selectedTextRange?.start ?? view.endOfDocument
             let range = view.textRange(from: view.beginningOfDocument, to: end)
             return range.flatMap { view.text(in: $0) }
+        }
+        keyboard.deletionAvailabilityProvider = { [weak view] in
+            guard let view else { return false }
+            return view.selectedRange.length > 0 || view.selectedRange.location > 0
         }
         keyboard.onEdit = { [weak view, weak coordinator = context.coordinator] edits in
             guard let view, let coordinator else { return }
@@ -90,7 +94,7 @@ struct KeyboardSandbox: UIViewRepresentable {
         var parent: KeyboardSandbox
         var keyboard: KeyboardView?
         var host: KeyboardHostConnection?
-        var input: SandboxInputView?
+        var input: KeyboardInputView?
         var editingFromKeyboard = false
         var lastFocusRequest = 0
         var knownSelection = NSRange(location: 0, length: 0)
@@ -121,25 +125,5 @@ struct KeyboardSandbox: UIViewRepresentable {
             keyboard?.resetComposition()
             keyboard?.stopInteractions()
         }
-    }
-}
-
-/// UIKit supplies the keyboard material and system shape. No painted outer frame.
-final class SandboxInputView: UIInputView {
-    let keyboard: KeyboardView
-    init(keyboard: KeyboardView) {
-        self.keyboard = keyboard
-        let frame = CGRect(origin: keyboard.frame.origin,
-            size: CGSize(width: keyboard.bounds.width, height: keyboard.preferredHeight(for: keyboard.bounds.width)))
-        super.init(frame: frame, inputViewStyle: .keyboard)
-        allowsSelfSizing = true
-        keyboard.frame = bounds
-        addSubview(keyboard)
-    }
-    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
-    override var intrinsicContentSize: CGSize { keyboard.intrinsicContentSize }
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        keyboard.frame = bounds
     }
 }

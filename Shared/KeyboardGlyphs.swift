@@ -1,16 +1,14 @@
 import UIKit
 
 enum KeyboardGlyphs {
-    static func settings() -> UIImage {
-        UIGraphicsImageRenderer(size: CGSize(width: 26, height: 26)).image { _ in
-            let path = UIBezierPath()
-            for (y, knob) in [(7.0, 10.0), (13.0, 17.0), (19.0, 8.0)] {
-                path.move(to: CGPoint(x: 4, y: y)); path.addLine(to: CGPoint(x: 22, y: y))
-                let circle = UIBezierPath(ovalIn: CGRect(x: knob - 2.5, y: y - 2.5, width: 5, height: 5))
-                UIColor.systemGreen.setFill(); circle.fill()
+    static func logo(size: CGFloat = 32, appIcon: Bool = false) -> UIImage {
+        UIGraphicsImageRenderer(size: CGSize(width: size, height: size)).image { renderer in
+            let rect = CGRect(x: 0, y: 0, width: size, height: size)
+            if appIcon {
+                UIColor(cgColor: VimeLogo.blue).setFill(); renderer.fill(rect)
             }
-            path.lineWidth = 1.8; path.lineCapStyle = .round
-            UIColor.systemGreen.setStroke(); path.stroke()
+            VimeLogo.draw(in: renderer.cgContext, rect: rect,
+                          color: appIcon ? UIColor.white.cgColor : VimeLogo.blue)
         }.withRenderingMode(.alwaysOriginal)
     }
 

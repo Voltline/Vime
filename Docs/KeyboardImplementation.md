@@ -26,7 +26,7 @@ iOS 26 新增 UIScrollView 的 [topEdgeEffect](https://developer.apple.com/docum
 
 Apple 的 [Open Access 配置](https://developer.apple.com/documentation/uikit/configuring-open-access-for-a-custom-keyboard) 定义扩展授权方式。Info.plist 声明 RequestsOpenAccess，运行时通过 hasFullAccess 控制声音/振动；转换本身无需此授权。
 
-按键声使用 System Sound Services 的系统按键点击音（1104），静音会抑制它；振动使用 UIImpactFeedbackGenerator，0 关闭、1...5 逐级增加，最高 heavy/intensity 1.0。硬件效果不能在模拟器衡量。声音默认开、振动默认中。设置同时提供数字九宫格/全键盘、长音键和普通预览。主 App 试打与扩展的偏好分别保存在各自的 UserDefaults 容器。
+按键声使用 Apple 官方的 UIDevice.playInputClick()，由扩展和试打区共用的 KeyboardInputView 在真正的 input view 根视图实现 UIInputViewAudioFeedback；遵循系统按键声音与静音设置，不使用固定 SystemSoundID。振动使用 UIImpactFeedbackGenerator，0 关闭、1...5 逐级增加，最高 heavy/intensity 1.0。硬件效果不能在模拟器衡量。声音默认开、振动默认中。设置同时提供数字九宫格/全键盘、长音键和普通预览。主 App 试打与扩展的偏好分别保存在各自的 UserDefaults 容器。
 
 上滑符号通过键盘统一触摸跟踪实现：超过 18 pt 的上滑进入符号预览，滑回可撤销选择，松手才提交，系统取消不提交。没有长按替代符号手势；退格仍支持长按连续删除。
 
@@ -98,9 +98,9 @@ konna 可优先选择 こんな，konichiha/konnichiha 可选择 こんにちは
 
 展开候选时隐藏原候选 scroll/divider，只显示面板和返回箭头；收起后恢复单行候选。纯片假名候选在最终去重后预留通常第四位，避免被 15 个候选上限截断，首选词保持原有排序。
 
-Emoji 使用 [Unicode 18.0 的 emoji-test.txt](https://www.unicode.org/Public/18.0.0/emoji/emoji-test.txt) 生成的 3,972 个 fully-qualified/component 序列，覆盖肤色变体、组合及旗帜，许可附在 ThirdPartyNotices。脚本只在开发时运行，资源随 App 和扩展捆绑。颜文字为八类共 160 个。KeyboardSymbolPanel 用 UICollectionView 复用屏幕内单元，不一次创建几千个 UIButton；分类可横向滚动，内容纵向滚动，顶部提供 Emoji/颜文字切换和明确的返回按钮。后续界面修复移除了外层标题和箭头，保留面板自己的返回按钮。
+Emoji 使用 [Unicode 18.0 的 emoji-test.txt](https://www.unicode.org/Public/18.0.0/emoji/emoji-test.txt) 生成的 3,972 个 fully-qualified/component 序列，覆盖肤色变体、组合及旗帜，许可附在 ThirdPartyNotices。脚本只在开发时运行，资源随 App 和扩展捆绑。颜文字为八类共 160 个。KeyboardSymbolPanel 用 UICollectionView 复用屏幕内单元，不一次创建几千个 UIButton；分类可横向滚动，内容纵向滚动，顶部提供 Emoji/颜文字/符号切换和明确的返回按钮。后续界面修复移除了外层标题和箭头，保留面板自己的返回按钮。
 
-KeyboardTheme 提供系统、樱花、海蓝、深夜四种配色，设置后立即更新现有按键、候选与符号面板，并保存在各自 UserDefaults。系统/樱花/海蓝跟随明暗，深夜固定深色；不改变布局和触摸分区。当前未提供自定义图片皮肤、Emoji 搜索或最近使用列表；较新 Emoji 的显示仍取决于系统字体。
+KeyboardTheme 提供系统、樱花、海蓝、深夜四种配色，设置后立即更新现有按键、候选与符号面板，并保存在各自 UserDefaults。系统/樱花/海蓝跟随明暗，深夜固定深色；不改变布局和触摸分区。当前未提供自定义图片皮肤、Emoji 搜索或最近使用列表；完整目录经后台 CoreText 整个序列塑形检测，只有能形成完整 AppleColorEmoji 图形簇的项进入网格（混合肤色组合允许多个同原点的叠加字形）；未知或拆分的 ZWJ 序列被排除，按分类缓存结果，revision 防止旧分类覆盖新分类。
 
 本轮先跑 18 项模拟器和 10 项实机定向回归，均通过。实机测量发现 n 的备选查询也执行了无法选中的预测分支，随后将备选限定 N_best=3、关闭备选预测；原查询 autoMix 逐键预测保持原值。只重跑相关的 9 项模拟器、5 项实机测试，仍全部通过。相同预热基准的最终 84 次实机发布 p95 为 1.472 ms，typeToMarked p95 为 0.278 ms，后台 candidateCompute p95 为 18.721 ms。额外读音查询有计算成本，但仍在后台串行队列，不阻塞输入；不能把短词预热结果当作长句的延迟保证。实机 70 键突发/交错输入的每键草稿和完整句子正确。
 

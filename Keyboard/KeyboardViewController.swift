@@ -19,6 +19,8 @@ final class KeyboardViewController: UIInputViewController {
         undoAnchor: { [weak self] in self?.deletionUndoAnchor() }
     )
 
+    override func loadView() { inputView = KeyboardInputView(keyboard: keyboard) }
+
     override func viewDidLoad() {
         super.viewDidLoad()
         keyboard.hasFullAccess = hasFullAccess
@@ -48,6 +50,15 @@ final class KeyboardViewController: UIInputViewController {
                 left = left.map { String($0.dropLast(mark.count)) }
             }
             return left
+        }
+        keyboard.deletionAvailabilityProvider = { [weak self] in
+            guard let self else { return false }
+            let proxy = self.textDocumentProxy
+            if proxy.selectedText?.isEmpty == false { return true }
+            if let before = proxy.documentContextBeforeInput { return !before.isEmpty }
+            // Some hosts redact context. Preserve deletion when UIKit reports
+            // text, while an explicitly empty prefix means the caret is at start.
+            return proxy.hasText
         }
         keyboard.onEdit = { [weak self] edits in self?.apply(edits) }
         keyboard.onMarkedTextChange = { [weak self] in self?.updateMarkedText($0) }
