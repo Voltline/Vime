@@ -6,7 +6,7 @@ struct ContentView: View {
     @State private var focusRequest = 0
     @State private var showingGuide = false
     @State private var showingNotices = false
-    @State private var showingHeightEditor = false
+    @State private var showingSettings = false
     private let blue = Color(uiColor: UIColor(cgColor: VimeLogo.blue))
 
     var body: some View {
@@ -73,9 +73,9 @@ struct ContentView: View {
                         .tint(blue)
                     }
 
-                    Button { showingHeightEditor = true } label: {
+                    Button { showingSettings = true } label: {
                         HStack {
-                            Label("调整键盘高度", systemImage: "arrow.up.and.down")
+                            Label("键盘设置", systemImage: "slider.horizontal.3")
                             Spacer()
                             Image(systemName: "chevron.right")
                         }
@@ -129,7 +129,7 @@ struct ContentView: View {
             .tint(blue)
             .sheet(isPresented: $showingGuide) { guide }
             .sheet(isPresented: $showingNotices) { notices }
-            .sheet(isPresented: $showingHeightEditor) { KeyboardHeightEditor() }
+            .sheet(isPresented: $showingSettings) { KeyboardSettingsView() }
         }
     }
 
@@ -153,7 +153,7 @@ struct ContentView: View {
                 }
                 Section("开始输入") {
                     Text("打开任意支持第三方键盘的 App，长按地球键，选择「Vime 日本語」。")
-                    Text("基本输入无需完全访问。按键声和振动请进入「设置 → 通用 → 键盘 → 键盘 → Vime 日本語」，开启「允许完全访问」。点击键盘左上角的 Vime 标志，可设置声音、振动强度、数字布局和长音键。")
+                    Text("基本输入无需完全访问。按键声和振动请进入「设置 → 通用 → 键盘 → 键盘 → Vime 日本語」，开启「允许完全访问」。点击键盘左上角的 Vime 标志，可快速设置声音、振动强度和数字布局。智能输入、皮肤、长音键、按键预览与高度请在 Vime App 的「键盘设置」中调整；重新打开键盘后生效。")
                 }
                 Section("系统限制") {
                     Text("密码输入框和部分 App 会使用系统键盘。数字、电话和邮箱输入框会根据系统允许的方式切换布局。")
@@ -183,7 +183,7 @@ struct ContentView: View {
     private var licenseText: String {
         guard let url = Bundle.main.url(forResource: "ThirdPartyNotices", withExtension: "txt"),
               let text = try? String(contentsOf: url, encoding: .utf8) else { return "开源词典许可文件未找到。" }
-        return "Vime 使用 azooKey 开源日语转换引擎及其默认词典。日语转换离线完成，不加载神经模型。\n\n" + text
+        return "Vime 使用 azooKey 开源日语转换引擎及其默认词典。同时使用 SentencePiece 分词与 Vime 本地日语模型。转换、智能排序和词联想均在设备上离线完成。\n\n" + text
     }
 }
 

@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A81000000000000000000001 /* VimeSentencePiece in Frameworks */ = {isa = PBXBuildFile; productRef = A82000000000000000000001 /* VimeSentencePiece */; };
+		A81000000000000000000002 /* VimeSentencePiece in Frameworks */ = {isa = PBXBuildFile; productRef = A82000000000000000000002 /* VimeSentencePiece */; };
+		A81000000000000000000003 /* VimeSentencePiece in Frameworks */ = {isa = PBXBuildFile; productRef = A82000000000000000000003 /* VimeSentencePiece */; };
 		C10000000000000000000001 /* VimeKeyboard.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = C10000000000000000000002 /* VimeKeyboard.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		E10000000000000000000001 /* KanaKanjiConverterModuleWithDefaultDictionary in Frameworks */ = {isa = PBXBuildFile; productRef = E20000000000000000000001 /* KanaKanjiConverterModuleWithDefaultDictionary */; };
 		E10000000000000000000002 /* KanaKanjiConverterModuleWithDefaultDictionary in Frameworks */ = {isa = PBXBuildFile; productRef = E20000000000000000000002 /* KanaKanjiConverterModuleWithDefaultDictionary */; };
@@ -126,18 +129,21 @@
 			isa = PBXFrameworksBuildPhase;
 			files = (
 				E10000000000000000000001 /* KanaKanjiConverterModuleWithDefaultDictionary in Frameworks */,
+				A81000000000000000000001 /* VimeSentencePiece in Frameworks */,
 			);
 		};
 		C10000000000000000000009 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
 				E10000000000000000000002 /* KanaKanjiConverterModuleWithDefaultDictionary in Frameworks */,
+				A81000000000000000000002 /* VimeSentencePiece in Frameworks */,
 			);
 		};
 		D10000000000000000000007 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
 				E10000000000000000000003 /* KanaKanjiConverterModuleWithDefaultDictionary in Frameworks */,
+				A81000000000000000000003 /* VimeSentencePiece in Frameworks */,
 			);
 		};
 /* End PBXFrameworksBuildPhase section */
@@ -188,6 +194,7 @@
 			name = Vime;
 			packageProductDependencies = (
 				E20000000000000000000001 /* KanaKanjiConverterModuleWithDefaultDictionary */,
+				A82000000000000000000001 /* VimeSentencePiece */,
 			);
 			productName = Vime;
 			productReference = B2ED4C083071EF7600C73DB0 /* Vime.app */;
@@ -210,6 +217,7 @@
 			name = VimeKeyboard;
 			packageProductDependencies = (
 				E20000000000000000000002 /* KanaKanjiConverterModuleWithDefaultDictionary */,
+				A82000000000000000000002 /* VimeSentencePiece */,
 			);
 			productName = VimeKeyboard;
 			productReference = C10000000000000000000002 /* VimeKeyboard.appex */;
@@ -236,6 +244,7 @@
 			name = VimeKeyboardTests;
 			packageProductDependencies = (
 				E20000000000000000000003 /* KanaKanjiConverterModuleWithDefaultDictionary */,
+				A82000000000000000000003 /* VimeSentencePiece */,
 			);
 			productName = VimeKeyboardTests;
 			productReference = D10000000000000000000001 /* VimeKeyboardTests.xctest */;
@@ -268,6 +277,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				E30000000000000000000001 /* XCRemoteSwiftPackageReference "AzooKeyKanaKanjiConverter" */,
+				A83000000000000000000001 /* XCLocalSwiftPackageReference "Dependencies/VimeSentencePiece" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = B2ED4C093071EF7600C73DB0 /* Products */;
@@ -384,7 +394,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
@@ -442,7 +452,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
@@ -534,7 +544,7 @@
 				DEVELOPMENT_TEAM = 8R5Q4A3RC7;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Keyboard/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -560,7 +570,7 @@
 				DEVELOPMENT_TEAM = 8R5Q4A3RC7;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Keyboard/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -583,7 +593,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = 8R5Q4A3RC7;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -604,7 +614,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = 8R5Q4A3RC7;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -655,6 +665,13 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		A83000000000000000000001 /* XCLocalSwiftPackageReference "Dependencies/VimeSentencePiece" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Dependencies/VimeSentencePiece;
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCRemoteSwiftPackageReference section */
 		E30000000000000000000001 /* XCRemoteSwiftPackageReference "AzooKeyKanaKanjiConverter" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -667,6 +684,21 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		A82000000000000000000001 /* VimeSentencePiece */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A83000000000000000000001 /* XCLocalSwiftPackageReference "Dependencies/VimeSentencePiece" */;
+			productName = VimeSentencePiece;
+		};
+		A82000000000000000000002 /* VimeSentencePiece */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A83000000000000000000001 /* XCLocalSwiftPackageReference "Dependencies/VimeSentencePiece" */;
+			productName = VimeSentencePiece;
+		};
+		A82000000000000000000003 /* VimeSentencePiece */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A83000000000000000000001 /* XCLocalSwiftPackageReference "Dependencies/VimeSentencePiece" */;
+			productName = VimeSentencePiece;
+		};
 		E20000000000000000000001 /* KanaKanjiConverterModuleWithDefaultDictionary */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = E30000000000000000000001 /* XCRemoteSwiftPackageReference "AzooKeyKanaKanjiConverter" */;

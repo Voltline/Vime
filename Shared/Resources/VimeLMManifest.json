@@ -1,0 +1,21 @@
+{
+  "format": "vime_ios_lm_v1",
+  "minimum_ios": 18,
+  "vocab_size": 16384,
+  "context_length": 128,
+  "compute_units": "CPU_ONLY",
+  "tokenizer_sha256": "d9f1ba1e456ce72dd9c06a62b12e804cf14090c30179e6078cd51d03063b2982",
+  "compiled_files_sha256": {
+    "metadata.json": "c5faa993ad94d66b3527660762144f6257c6f6ad736e85d2a1703695a201ab73",
+    "model.mil": "e9767f7f39f6bada201126a2a16fe9748a19ece6d4e4c057d09df6794fa78b07",
+    "coremldata.bin": "d33efaa716008829dce06715005e975c973b44c2aa66e045f0e356097f716006",
+    "weights/weight.bin": "d3a063455371e624cf208fb6ed76fc9ac6addd8c2f87eaebf4653649f85b8109",
+    "analytics/coremldata.bin": "d7e3d32b96d21603a87c286d254abe395338f28aa93cc1c209616158a8ecd393"
+  },
+  "source_manifest_sha256": "a9d516233fa57aaadd09477e2e909760972ff49b5577919f8a441c489f5c2245",
+  "bundle_manifest_sha256": "4284cdc5491513cc817633081677b363b14f59c0b4ffb78cdf7fcfb221f71b3c",
+  "kind": "linear8_fp32_compute",
+  "quantization": "weight-only symmetric INT8, block32; FP32 computation",
+  "strict_fp32_logits_alignment_passed": false,
+  "quality_review": "dev top1 122/137, no top1 changes; AJIMEE top1 124/200, 2 acceptable spelling changes. Physical device validation pending."
+}

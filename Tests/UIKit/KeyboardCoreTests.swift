@@ -2,6 +2,34 @@ import XCTest
 
 @MainActor
 final class KeyboardCoreTests: XCTestCase {
+    func testSharedPreferencesMigrateWithoutOverwritingExistingChoices() throws {
+        let legacyName = "vime.preferences.legacy.\(UUID().uuidString)"
+        let sharedName = "vime.preferences.shared.\(UUID().uuidString)"
+        let legacy = try XCTUnwrap(UserDefaults(suiteName: legacyName))
+        let shared = try XCTUnwrap(UserDefaults(suiteName: sharedName))
+        defer {
+            legacy.removePersistentDomain(forName: legacyName)
+            shared.removePersistentDomain(forName: sharedName)
+        }
+        legacy.set(false, forKey: "vime.sound")
+        legacy.set("midnight", forKey: "vime.theme")
+        shared.set("system", forKey: "vime.theme")
+        let app = KeyboardPreferences(defaults: legacy, sharedDefaults: shared)
+        XCTAssertFalse(app.sound)
+        XCTAssertEqual(app.theme, .system)
+        app.candidateRanking = .engine
+        app.phraseSuggestions = false
+        app.heightFactor = 1.2
+        let keyboard = KeyboardPreferences(defaults: legacy, sharedDefaults: shared)
+        XCTAssertEqual(keyboard.snapshot, app.snapshot)
+        XCTAssertEqual(keyboard.candidateRanking, .engine)
+        XCTAssertFalse(keyboard.phraseSuggestions)
+        XCTAssertEqual(keyboard.heightFactor, 1.2)
+        keyboard.sound = true
+        XCTAssertTrue(app.sound)
+        XCTAssertTrue(KeyboardPreferences(defaults: legacy, sharedDefaults: shared).sound)
+    }
+
     func testRomajiAndVisibleKanaDeletion() {
         let session = KeyboardSession()
         for (raw, kana) in [("nihongo", "にほんご"), ("shi", "し"), ("si", "し"), ("chi", "ち"),

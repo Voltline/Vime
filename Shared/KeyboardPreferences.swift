@@ -5,11 +5,38 @@ struct KeyboardPreferences {
     static let heightRange = 0.85...1.60
     private let defaults: UserDefaults
     private let heightDefaults: UserDefaults
-    init(defaults: UserDefaults = .standard, heightDefaults: UserDefaults? = nil) {
-        self.defaults = defaults
-        self.heightDefaults = heightDefaults ?? (defaults === UserDefaults.standard
+    init(defaults: UserDefaults = .standard, heightDefaults: UserDefaults? = nil, sharedDefaults: UserDefaults? = nil) {
+        let shared = sharedDefaults ?? (defaults === UserDefaults.standard
             && FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: Self.appGroup) != nil
-            ? UserDefaults(suiteName: Self.appGroup) : nil) ?? defaults
+            ? UserDefaults(suiteName: Self.appGroup) : nil)
+        self.defaults = shared ?? defaults
+        self.heightDefaults = heightDefaults ?? shared ?? defaults
+        // Preserve each existing shared choice; migrate legacy per-process values
+        // only when the corresponding App Group key has never been set.
+        if let shared, shared !== defaults {
+            for key in Self.sharedKeys where shared.object(forKey: key) == nil {
+                if let value = defaults.object(forKey: key) { shared.set(value, forKey: key) }
+            }
+        }
+    }
+    private static let sharedKeys = ["vime.sound", "vime.hapticLevel", "vime.nineKeyNumbers",
+        "vime.prolongedKey", "vime.previews", "vime.theme", "vime.candidateRanking", "vime.phraseSuggestions"]
+    var store: UserDefaults { defaults }
+    struct Snapshot: Equatable {
+        let heightFactor: Double
+        let sound: Bool
+        let hapticLevel: Int
+        let nineKeyNumbers: Bool
+        let prolongedKey: Bool
+        let previews: Bool
+        let theme: KeyboardTheme
+        let candidateRanking: CandidateRankingMode
+        let phraseSuggestions: Bool
+    }
+    var snapshot: Snapshot {
+        Snapshot(heightFactor: heightFactor, sound: sound, hapticLevel: hapticLevel,
+            nineKeyNumbers: nineKeyNumbers, prolongedKey: prolongedKey, previews: previews,
+            theme: theme, candidateRanking: candidateRanking, phraseSuggestions: phraseSuggestions)
     }
     var heightFactor: Double {
         get {
@@ -21,7 +48,6 @@ struct KeyboardPreferences {
                                forKey: "vime.heightFactor")
         }
     }
-    func reloadSharedHeight() { heightDefaults.synchronize() }
     var sound: Bool {
         get { defaults.object(forKey: "vime.sound") as? Bool ?? true }
         nonmutating set { defaults.set(newValue, forKey: "vime.sound") }
@@ -46,6 +72,26 @@ struct KeyboardPreferences {
     var theme: KeyboardTheme {
         get { KeyboardTheme(rawValue: defaults.string(forKey: "vime.theme") ?? "") ?? .system }
         nonmutating set { defaults.set(newValue.rawValue, forKey: "vime.theme") }
+    }
+    var candidateRanking: CandidateRankingMode {
+        get { CandidateRankingMode(rawValue: defaults.string(forKey: "vime.candidateRanking") ?? "") ?? .languageModel }
+        nonmutating set { defaults.set(newValue.rawValue, forKey: "vime.candidateRanking") }
+    }
+    var phraseSuggestions: Bool {
+        get { defaults.object(forKey: "vime.phraseSuggestions") as? Bool ?? true }
+        nonmutating set { defaults.set(newValue, forKey: "vime.phraseSuggestions") }
+    }
+}
+
+/// Order of full dictionary conversions. The engine order already contains
+/// AzooKey learning and Vime's feature reranker; the LM order replaces it.
+nonisolated enum CandidateRankingMode: String, CaseIterable, Sendable {
+    case engine, languageModel
+    var title: String {
+        switch self {
+        case .engine: "词典排序"
+        case .languageModel: "智能排序"
+        }
     }
 }
 

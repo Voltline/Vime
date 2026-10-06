@@ -1,4 +1,5 @@
 import Foundation
+import os
 import KanaKanjiConverterModuleWithDefaultDictionary
 
 /// The converter and its dictionary caches belong exclusively to this queue.
@@ -8,6 +9,27 @@ import KanaKanjiConverterModuleWithDefaultDictionary
 final class JapaneseCandidateWorker {
     private nonisolated final class Storage: @unchecked Sendable {
         private var cachedEngine: JapaneseCandidateEngine?
+        private var cachedLanguageModel: VimeLanguageModel?
+        private var attemptedLanguageModel = false
+        func releaseLanguageModel() {
+            cachedLanguageModel = nil
+            attemptedLanguageModel = false
+        }
+        var languageModel: VimeLanguageModel? {
+            if !attemptedLanguageModel {
+                attemptedLanguageModel = true
+                let log = Logger(subsystem: "com.Voltline.Vime", category: "LanguageModel")
+                let started = ProcessInfo.processInfo.systemUptime
+                do {
+                    try autoreleasepool { cachedLanguageModel = try VimeLanguageModel() }
+                    let milliseconds = Int((ProcessInfo.processInfo.systemUptime - started) * 1000)
+                    log.notice("Model loaded in \(milliseconds) ms; footprint \(VimeLanguageModel.footprintMB()) MB")
+                } catch {
+                    log.error("Model unavailable (\(String(describing: error), privacy: .public)); retaining dictionary candidates.")
+                }
+            }
+            return cachedLanguageModel
+        }
         let memoryDirectoryURL: URL?
         init(memoryDirectoryURL: URL?) { self.memoryDirectoryURL = memoryDirectoryURL }
         var engine: JapaneseCandidateEngine {
@@ -29,6 +51,7 @@ final class JapaneseCandidateWorker {
     private var pending: Request?
 
     func candidates(for composing: ComposingText, katakana: Bool, revision: Int, leftContext: String?, continuity: CandidateContinuity?,
+                    ranking: CandidateRankingMode = .languageModel,
                     completion: @escaping @MainActor @Sendable ([CandidateSnapshot], TimeInterval?, Bool) -> Void) {
         pending?.cancel()
         let request = Request()
@@ -51,15 +74,45 @@ final class JapaneseCandidateWorker {
             // supplementary search before it starts; running search checks every query.
             queue.async {
                 guard !request.isCancelled else { return }
+                let sentence = VimeLanguageModel.sentenceContext(leftContext ?? "")
+                let rerank = { (values: [CandidateSnapshot]) -> [CandidateSnapshot] in
+                    guard ranking == .languageModel, !request.isCancelled,
+                          VimeLanguageModel.rerankingSlots(values, katakana: katakana).count > 1 else { return values }
+                    return storage.languageModel?.rerank(values, context: sentence, katakana: katakana,
+                        cancelled: { request.isCancelled }) ?? values
+                }
+                let ranked = rerank(values)
+                guard !request.isCancelled else { return }
+                if ranked.map(\.presentation) != values.map(\.presentation) {
+                    let readyAt = KeyboardPerformance.start()
+                    DispatchQueue.main.async { completion(ranked, readyAt, true) }
+                }
                 let correctionStartedAt = KeyboardPerformance.start()
-                let expanded = storage.engine.addingCorrections(to: values, for: composing, katakana: katakana,
+                let corrected = storage.engine.addingCorrections(to: values, for: composing, katakana: katakana,
                     revision: revision, cancelled: { request.isCancelled })
                 KeyboardPerformance.record(.correctionCompute, since: correctionStartedAt)
-                guard !request.isCancelled, expanded.map(\.presentation) != values.map(\.presentation) else { return }
+                guard !request.isCancelled, corrected.map(\.presentation) != values.map(\.presentation) else { return }
+                let expanded = rerank(corrected)
+                guard !request.isCancelled, expanded.map(\.presentation) != ranked.map(\.presentation) else { return }
                 KeyboardPerformance.record(.correctionRequestToResult, since: requestStartedAt)
                 let readyAt = KeyboardPerformance.start()
                 DispatchQueue.main.async { completion(expanded, readyAt, true) }
             }
+        }
+    }
+
+    /// LM next-word prediction for the unfinished sentence. Shares the serial queue and
+    /// the cancellation slot with candidate requests, so typing stops the search.
+    func suggestions(prompt: String, completion: @escaping @MainActor @Sendable ([String]) -> Void) {
+        pending?.cancel()
+        let request = Request()
+        pending = request
+        let storage = self.storage
+        queue.async {
+            guard !request.isCancelled, let model = storage.languageModel,
+                  let words = try? model.nextWords(prompt: prompt, cancelled: { request.isCancelled }),
+                  !request.isCancelled, !words.isEmpty else { return }
+            DispatchQueue.main.async { completion(words) }
         }
     }
 
@@ -76,6 +129,12 @@ final class JapaneseCandidateWorker {
     func cancelPending() {
         pending?.cancel()
         pending = nil
+    }
+
+    func disableLanguageModel() {
+        cancelPending()
+        let storage = self.storage
+        queue.async { storage.releaseLanguageModel() }
     }
 
     func reset(preservingContext: Bool = false) {

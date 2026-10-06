@@ -413,9 +413,14 @@ final class KeyboardFeatureTests: XCTestCase {
         defer { keyboard.stopInteractions(); window.isHidden = true }
         let settings = try XCTUnwrap(descendants(keyboard).first { $0.accessibilityLabel == "键盘设置" } as? UIButton)
         settings.sendActions(for: .touchUpInside); keyboard.layoutIfNeeded()
-        let choice = try XCTUnwrap(descendants(keyboard).first { $0.accessibilityIdentifier == "vime.setting.theme" } as? UISegmentedControl)
-        choice.selectedSegmentIndex = try XCTUnwrap(KeyboardTheme.allCases.firstIndex(of: .midnight))
-        choice.sendActions(for: .valueChanged)
+        XCTAssertNotNil(descendants(keyboard).first { $0.accessibilityIdentifier == "vime.setting.numbers" })
+        for id in ["theme", "ranking", "suggestions", "prolonged", "previews"] {
+            XCTAssertNil(descendants(keyboard).first { $0.accessibilityIdentifier == "vime.setting.\(id)" })
+        }
+        // The containing app writes the same preferences; existing keys should
+        // adopt the new theme on keyboard re-entry.
+        KeyboardPreferences().theme = .midnight
+        keyboard.reloadPreferences()
         XCTAssertEqual(KeyboardPreferences().theme, .midnight)
         XCTAssertEqual(keyboard.overrideUserInterfaceStyle, .dark)
         XCTAssertEqual(surface.regions.first?.key.titleColor(for: .normal), .white)

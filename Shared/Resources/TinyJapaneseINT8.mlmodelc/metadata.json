@@ -1,0 +1,84 @@
+[
+  {
+    "metadataOutputVersion" : "3.0",
+    "shortDescription" : "Frozen TinyGPT; mixed FP16\/FP32 weights, FP32 computation; no KV cache.",
+    "outputSchema" : [
+      {
+        "hasShapeFlexibility" : "0",
+        "isOptional" : "0",
+        "dataType" : "Float32",
+        "formattedType" : "MultiArray (Float32)",
+        "shortDescription" : "",
+        "shape" : "[]",
+        "name" : "logits",
+        "type" : "MultiArray"
+      }
+    ],
+    "storagePrecision" : "Mixed (Float16, Float32, Int8)",
+    "modelParameters" : [
+
+    ],
+    "specificationVersion" : 9,
+    "mlProgramOperationTypeHistogram" : {
+      "Ios18.softmax" : 4,
+      "Ios18.mul" : 4,
+      "Range1d" : 1,
+      "Ios18.matmul" : 8,
+      "Split" : 4,
+      "Ios18.greaterEqual" : 6,
+      "Select" : 6,
+      "Ios18.gather" : 3,
+      "Ios18.add" : 19,
+      "Ios18.layerNorm" : 9,
+      "Ios18.reshape" : 8,
+      "Shape" : 1,
+      "Ios18.linear" : 17,
+      "Ios18.gelu" : 4,
+      "Ios18.concat" : 2,
+      "Ios18.transpose" : 8,
+      "Ios18.cast" : 1,
+      "Ios18.sliceByIndex" : 2,
+      "Ios18.squeeze" : 12,
+      "Ios18.constexprBlockwiseShiftScale" : 18
+    },
+    "computePrecision" : "Mixed (Float16, Float32, Int32)",
+    "isUpdatable" : "0",
+    "stateSchema" : [
+
+    ],
+    "availability" : {
+      "macOS" : "15.0",
+      "tvOS" : "18.0",
+      "visionOS" : "2.0",
+      "watchOS" : "11.0",
+      "iOS" : "18.0",
+      "macCatalyst" : "18.0"
+    },
+    "modelType" : {
+      "name" : "MLModelType_mlProgram"
+    },
+    "inputSchema" : [
+      {
+        "dataType" : "Int32",
+        "hasShapeFlexibility" : "1",
+        "isOptional" : "0",
+        "shapeFlexibility" : "1 × 1...128",
+        "shapeRange" : "[[1, 1], [1, 128]]",
+        "formattedType" : "MultiArray (Int32 1 × 16)",
+        "type" : "MultiArray",
+        "shape" : "[1, 16]",
+        "name" : "input_ids",
+        "shortDescription" : ""
+      }
+    ],
+    "userDefinedMetadata" : {
+      "com.github.apple.coremltools.conversion_date" : "2026-10-06",
+      "precision_recipe" : "fp16_weights_fp32_compute_preserve_positions_qkv_v1",
+      "com.github.apple.coremltools.source" : "milinternal",
+      "com.github.apple.coremltools.version" : "9.0",
+      "bundle_manifest_sha256" : "4284cdc5491513cc817633081677b363b14f59c0b4ffb78cdf7fcfb221f71b3c"
+    },
+    "generatedClassName" : "model",
+    "method" : "predict"
+  }
+]

@@ -47,6 +47,27 @@ final class KeyboardSession {
     var candidatesAreCurrent: Bool { !candidatesPending }
     private(set) var selectedIndex: Int?
     private var previousJapaneseMode: InputMode = .hiragana
+    /// Set by the view from KeyboardPreferences.
+    var candidateRanking: CandidateRankingMode = .languageModel
+    var phraseSuggestions = false
+    func updateIntelligence(ranking: CandidateRankingMode, suggestionsEnabled: Bool) {
+        guard ranking != candidateRanking || suggestionsEnabled != phraseSuggestions else { return }
+        candidateRanking = ranking
+        phraseSuggestions = suggestionsEnabled
+        clearSuggestions()
+        if ranking == .engine && !suggestionsEnabled { worker?.disableLanguageModel() }
+        if isComposing { refresh() }
+        else { onCandidatesChange?() }
+    }
+    /// LM continuations shown in the candidate strip while nothing is composing.
+    private(set) var suggestions: [String] = []
+    private var suggestionGeneration = 0
+    var stripPresentations: [CandidatePresentation] {
+        isComposing ? candidatePresentations : suggestions.map {
+            CandidatePresentation(text: $0, source: .prediction, consumedInputCount: 0, correction: nil)
+        }
+    }
+    var showsStrip: Bool { isComposing || !suggestions.isEmpty }
 
     // Synchronous mode is used by deterministic conversion tests only.
     init(asynchronousCandidates: Bool = false, memoryDirectoryURL: URL? = nil) {
@@ -72,6 +93,7 @@ final class KeyboardSession {
 
     func type(_ text: String) -> [KeyboardEdit] {
         inputStartedAt = KeyboardPerformance.start()
+        clearSuggestions()
         if mode == .english { return [.insert(text)] }
         var edits: [KeyboardEdit] = []
         // Preserve the word boundary even when typing resumes before a queued
@@ -83,6 +105,7 @@ final class KeyboardSession {
     }
 
     func backspace() -> [KeyboardEdit] {
+        clearSuggestions()
         if selectedIndex != nil || pendingSpaces > 0 {
             selectedIndex = nil
             pendingSpaces = 0
@@ -95,7 +118,7 @@ final class KeyboardSession {
     }
 
     func space() -> [KeyboardEdit] {
-        guard isComposing else { return [.insert(" ")] }
+        guard isComposing else { clearSuggestions(); return [.insert(" ")] }
         // Only an explicit conversion boundary resolves ambiguous n. Normal
         // per-key requests never add a separator or mutate the live composition.
         if composing.convertTarget.hasSuffix("n"), selectedIndex == nil {
@@ -112,7 +135,8 @@ final class KeyboardSession {
     }
 
     func enter() -> [KeyboardEdit] {
-        isComposing ? confirm() : [.returnKey]
+        guard isComposing else { clearSuggestions(); return [.returnKey] }
+        return confirm()
     }
 
     func choose(_ index: Int) -> [KeyboardEdit] {
@@ -123,10 +147,23 @@ final class KeyboardSession {
         worker?.complete(snapshot)
         committedLeftContext = String((committedLeftContext + snapshot.text).suffix(96))
         composing = snapshot.remainingComposition
-        if composing.isEmpty { reset(preservingContext: true) }
+        if composing.isEmpty { reset(preservingContext: true); requestSuggestions() }
         else { refresh(leftContextOverride: committedLeftContext) }
         engine?.flushLearning()
         return [.insert(snapshot.text)]
+    }
+
+    func chooseStrip(_ index: Int) -> [KeyboardEdit] {
+        isComposing ? choose(index) : chooseSuggestion(index)
+    }
+
+    func chooseSuggestion(_ index: Int) -> [KeyboardEdit] {
+        guard !isComposing, suggestions.indices.contains(index) else { return [] }
+        let text = suggestions[index]
+        committedLeftContext = String((committedLeftContext + text).suffix(96))
+        clearSuggestions()
+        requestSuggestions()
+        return [.insert(text)]
     }
 
     func confirm() -> [KeyboardEdit] {
@@ -135,11 +172,16 @@ final class KeyboardSession {
         let text = selectedText ?? PreeditPresentation.kana(for: PreeditPresentation.finalized(composing), mode: mode)
         committedLeftContext = String((committedLeftContext + text).suffix(96))
         reset(preservingContext: true)
+        requestSuggestions()
         return [.insert(text)]
     }
 
     func insertLiteral(_ text: String) -> [KeyboardEdit] {
-        confirmAll() + [.insert(text)]
+        let edits = confirmAll()
+        committedLeftContext = String((committedLeftContext + text).suffix(96))
+        clearSuggestions()
+        requestSuggestions()
+        return edits + [.insert(text)]
     }
 
     func confirmAll() -> [KeyboardEdit] {
@@ -158,6 +200,7 @@ final class KeyboardSession {
         let edits = confirmAll()
         if newMode != .english { previousJapaneseMode = newMode }
         mode = newMode
+        if mode == .english { clearSuggestions() }
         return edits
     }
 
@@ -170,6 +213,7 @@ final class KeyboardSession {
     }
 
     func reset(preservingContext: Bool = false) {
+        clearSuggestions()
         revision += 1
         candidatesPending = false
         pendingSpaces = 0
@@ -185,6 +229,26 @@ final class KeyboardSession {
     func clearLearning() {
         reset()
         engine?.clearLearning(); worker?.clearLearning()
+    }
+
+    private func clearSuggestions() {
+        worker?.cancelPending()
+        suggestionGeneration += 1
+        suggestions = []
+    }
+
+    /// Continue the unfinished sentence after a commit. A sentence-final commit
+    /// leaves no prompt, so nothing is requested.
+    private func requestSuggestions() {
+        guard phraseSuggestions, mode != .english, !isComposing, let worker else { return }
+        let prompt = VimeLanguageModel.sentenceContext(committedLeftContext)
+        guard !prompt.isEmpty else { return }
+        let generation = suggestionGeneration
+        worker.suggestions(prompt: prompt) { [weak self] texts in
+            guard let self, self.suggestionGeneration == generation, !self.isComposing, self.mode != .english else { return }
+            self.suggestions = texts
+            self.onCandidatesChange?()
+        }
     }
 
     private func refresh(boundary: Bool = false, leftContextOverride: String? = nil) {
@@ -219,7 +283,8 @@ final class KeyboardSession {
         let requestedInput = raw
         let continuity = candidateSnapshots.first.map { CandidateContinuity(surface: $0.text, reading: $0.reading, input: lastPublishedInput) }
         worker.candidates(for: boundary ? PreeditPresentation.finalized(composing) : composing,
-                          katakana: mode == .katakana, revision: requestedRevision, leftContext: leftContext, continuity: continuity) { [weak self] values, resultReadyAt, supplementary in
+                          katakana: mode == .katakana, revision: requestedRevision, leftContext: leftContext, continuity: continuity,
+                          ranking: candidateRanking) { [weak self] values, resultReadyAt, supplementary in
             if let self, self.revision == requestedRevision { self.lastPublishedInput = requestedInput }
             self?.acceptCandidateUpdate(values, revision: requestedRevision, readyAt: resultReadyAt, supplementary: supplementary)
         }

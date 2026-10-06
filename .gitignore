@@ -36,3 +36,8 @@ go.sum
 
 # Local keyboard test screenshots
 /Artifacts/**/*.png
+
+# Local Xcode and Swift package state
+xcuserdata/
+.build/
+.swiftpm/xcode/

@@ -351,6 +351,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
     }
     var enableInputClicksWhenVisible: Bool { preferences.sound }
     let preferences = KeyboardPreferences()
+    private var appliedPreferences: KeyboardPreferences.Snapshot?
     var onEdit: (([KeyboardEdit]) -> Void)?
     var onSwitchKeyboard: (() -> Void)?
     var onDismiss: (() -> Void)?
@@ -366,9 +367,26 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
     }
     var canUndoLineDeletion = false { didSet { if oldValue != canUndoLineDeletion { refresh() } } }
     func reloadHeightPreference() {
-        let settings = KeyboardPreferences()
-        settings.reloadSharedHeight()
-        heightFactor = CGFloat(settings.heightFactor)
+        reloadPreferences()
+    }
+    func reloadPreferences() {
+        let next = preferences.snapshot
+        let previous = appliedPreferences
+        guard next != previous else { return }
+        appliedPreferences = next
+        heightFactor = CGFloat(next.heightFactor)
+        session.updateIntelligence(ranking: next.candidateRanking, suggestionsEnabled: next.phraseSuggestions)
+        if next.nineKeyNumbers != previous?.nineKeyNumbers || next.prolongedKey != previous?.prolongedKey {
+            rebuildKeys()
+        }
+        if next.previews != previous?.previews {
+            for key in letterKeys { key.showsPreview = next.previews }
+        }
+        if next.theme != previous?.theme { applyTheme() }
+        if settingsPanel != nil {
+            settingsPanel?.removeFromSuperview(); settingsPanel = nil
+            createSettingsPanel(); refresh()
+        }
     }
     weak var inputModeListTarget: AnyObject? { didSet { configureGlobe() } }
     var inputModeListAction: Selector? { didSet { configureGlobe() } }
@@ -442,6 +460,9 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
         super.init(frame: frame)
         heightFactor = CGFloat(preferences.heightFactor)
         KeyboardPalette.theme = preferences.theme
+        session.candidateRanking = preferences.candidateRanking
+        session.phraseSuggestions = preferences.phraseSuggestions
+        appliedPreferences = preferences.snapshot
         session.onCandidatesChange = { [weak self] in
             guard let self else { return }
             self.onMarkedTextChange?(self.session.preedit)
@@ -918,25 +939,27 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
         }
         languageKey?.accessibilityValue = session.mode == .english ? "英文" : "日语"
         let composing = session.isComposing
+        // Composition candidates and LM suggestions share the strip.
+        let strip = session.showsStrip
         header.isHidden = emojiOpen
-        undoButton.isHidden = !canUndoLineDeletion || composing || expanded || settingsOpen || emojiOpen
-        brandButton.isHidden = composing || expanded || emojiOpen
-        modeButton.isHidden = composing || expanded || emojiOpen
+        undoButton.isHidden = !canUndoLineDeletion || strip || expanded || settingsOpen || emojiOpen
+        brandButton.isHidden = strip || expanded || emojiOpen
+        modeButton.isHidden = strip || expanded || emojiOpen
         settingsButton.isHidden = true
-        candidateScroll.isHidden = !composing || expanded || emojiOpen || settingsOpen
+        candidateScroll.isHidden = !strip || expanded || emojiOpen || settingsOpen
         expandButton.isHidden = false
         cancelButton.isHidden = true
         modeButton.setTitle(session.mode.label, for: .normal)
         accessibilityValue = composing ? "输入中：" + (session.preedit ?? "") : session.mode.label
         expandButton.backgroundColor = composing ? KeyboardTouchBacking.color : KeyboardPalette.key
-        divider.isHidden = !composing || expanded || emojiOpen || settingsOpen
+        divider.isHidden = !strip || expanded || emojiOpen || settingsOpen
         panelTitle.isHidden = !expanded
         panelTitle.text = "候选词"
         divider.backgroundColor = .separator
-        let candidatesChanged = displayedCandidates != session.candidatePresentations
+        let candidatesChanged = displayedCandidates != session.stripPresentations
         let selectionChanged = displayedSelection != session.selectedIndex
         if candidatesChanged || selectionChanged {
-            displayedCandidates = session.candidatePresentations
+            displayedCandidates = session.stripPresentations
             displayedSelection = session.selectedIndex
             while stripButtons.count > displayedCandidates.count {
                 let button = stripButtons.removeLast()
@@ -1017,13 +1040,13 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
     private func presentCandidate(_ button: CandidateButton, presentation: CandidatePresentation, index: Int) {
         let configurationStartedAt = KeyboardPerformance.start()
         defer { KeyboardPerformance.record(.candidateButtonConfiguration, since: configurationStartedAt) }
-        button.present(presentation, index: index, highlighted: index == (session.selectedIndex ?? 0),
+        button.present(presentation, index: index, highlighted: session.isComposing && index == (session.selectedIndex ?? 0),
                        cornerRadius: 6.2 * KeyboardMetrics(width: bounds.width, compact: compact, showsFooter: showsFooter).scale)
     }
 
     @objc private func selectCandidate(_ sender: UIButton) {
         playFeedback()
-        apply(session.choose(sender.tag))
+        apply(session.chooseStrip(sender.tag))
     }
 
     private func rebuildCandidatePanel() {
@@ -1215,28 +1238,10 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
             self.preferences.nineKeyNumbers = layout.selectedSegmentIndex == 0; self.rebuildKeys()
         }, for: .valueChanged)
         stack.addArrangedSubview(layout)
-        let themes = KeyboardTheme.allCases
-        let skin = UISegmentedControl(items: themes.map(\.title))
-        skin.selectedSegmentIndex = themes.firstIndex(of: preferences.theme) ?? 0
-        skin.accessibilityLabel = "键盘皮肤"; skin.accessibilityIdentifier = "vime.setting.theme"
-        skin.addAction(UIAction { [weak self, weak skin] _ in
-            guard let self, let skin, themes.indices.contains(skin.selectedSegmentIndex) else { return }
-            self.preferences.theme = themes[skin.selectedSegmentIndex]
-            self.applyTheme()
-        }, for: .valueChanged)
-        stack.addArrangedSubview(skin)
-        addSwitch("显示长音键 ー", value: preferences.prolongedKey, id: "vime.setting.prolonged") { [weak self] value in
-            guard let self else { return }; self.preferences.prolongedKey = value; self.rebuildKeys()
-        }
-        addSwitch("按键预览", value: preferences.previews, id: "vime.setting.previews") { [weak self] value in
-            guard let self else { return }; self.preferences.previews = value
-            for key in self.letterKeys { key.showsPreview = value }
-        }
-#if DEBUG
-        addSwitch("触摸诊断（开发版）", value: KeyboardTouchDiagnostics.enabled, id: "vime.setting.touchDiagnostics") {
-            KeyboardTouchDiagnostics.setEnabled($0)
-        }
-#endif
+        let more = UILabel(); more.numberOfLines = 0; more.font = .systemFont(ofSize: 13)
+        more.textColor = .secondaryLabel
+        more.text = "更多设置请打开 Vime App：智能输入、皮肤、长音键、按键预览与键盘高度。"
+        stack.addArrangedSubview(more)
         let note = UILabel(); note.numberOfLines = 0; note.font = .systemFont(ofSize: 12); note.textColor = .secondaryLabel
         note.text = hasFullAccess
             ? "声音与振动已启用。静音会关闭按键声；振动强度受设备硬件限制。\n日语转换在设备上离线完成。"
