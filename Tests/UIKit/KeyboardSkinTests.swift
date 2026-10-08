@@ -45,6 +45,33 @@ final class KeyboardSkinTests: XCTestCase {
         key.applySkin(nil, key: "letter.a"); key.layoutIfNeeded()
         XCTAssertFalse(key.hasSkinArtwork)
     }
+    func testArtworkCaptionsStayVisibleAtNormalAndCompactHeights() throws {
+        var document = KeyboardSkinDocument(); document.style.font = "handwritten"
+        let image = UIGraphicsImageRenderer(size: CGSize(width: 30, height: 20)).image { ctx in
+            UIColor.orange.setFill(); ctx.fill(CGRect(x: 0, y: 0, width: 30, height: 20))
+        }
+        document.images["art"] = try XCTUnwrap(image.pngData())
+        for id in ["return", "space", "letter.q"] { document.keyImages[id] = "art" }
+        let skin = KeyboardSkinAppearance(document)
+        for (id, width, titles) in [("return", 86.4, ["换行", "发送", "確定", "下一项"]),
+                                    ("space", 136.5, ["変換", "次候補"]), ("letter.q", 36.8, ["Q"])] {
+            for height in [46.5, 33.0, 28.05] {
+                let key = KeyboardKey(); key.frame = CGRect(x: 0, y: 0, width: width, height: height)
+                key.applySkin(skin, key: id)
+                key.applySkinMetrics(size: id == "letter.q" ? 23 : 16.5, scale: 1)
+                for title in titles {
+                    key.setTitle(title, for: .normal); key.setNeedsLayout(); key.layoutIfNeeded()
+                    let label = try XCTUnwrap(key.titleLabel)
+                    let art = try XCTUnwrap(key.subviews.compactMap { $0 as? UIImageView }.first { $0 !== key.imageView && $0.image != nil })
+                    XCTAssertTrue(key.bounds.contains(label.frame), title)
+                    XCTAssertGreaterThanOrEqual(label.frame.height + 0.5, label.font.lineHeight, title)
+                    if !art.isHidden { XCTAssertFalse(art.frame.intersects(label.frame), title) }
+                    XCTAssertEqual(key.title(for: .normal), title)
+                }
+            }
+        }
+    }
+
     func testSelectedSkinReloadsAndRendersKeyboard() throws {
         var document = KeyboardSkinDocument(); document.style.pattern = "diamonds"
         // Optional local fixture for visual review; not shipped with the App.

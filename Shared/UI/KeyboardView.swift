@@ -122,9 +122,12 @@ final class KeyboardKey: UIButton {
     private var preview: UILabel?
     private let artwork = UIImageView()
     private var skin: KeyboardSkinAppearance?
+    private var skinKeyID = ""
+    private var isSkinLetter: Bool { skinKeyID.hasPrefix("letter.") || skinKeyID == "letter" }
     var hasSkinArtwork: Bool { artwork.image != nil }
     func applySkin(_ skin: KeyboardSkinAppearance?, key: String) {
         self.skin = skin
+        skinKeyID = key
         artwork.image = skin?.image(for: key) ?? (key.hasPrefix("letter.") ? skin?.image(for: "letter") : nil)
         artwork.contentMode = .scaleAspectFit; artwork.isUserInteractionEnabled = false
         if artwork.superview == nil { insertSubview(artwork, at: 0) }
@@ -134,7 +137,13 @@ final class KeyboardKey: UIButton {
     func applySkinMetrics(size: CGFloat, scale: CGFloat) {
         if let skin {
             layer.cornerRadius = skin.document.style.cornerRadius * scale
-            titleLabel?.font = skin.font(size: hasSkinArtwork ? min(size, 18 * scale) : size)
+            var font = hasSkinArtwork && !isSkinLetter ? UIFont.systemFont(ofSize: size)
+                : skin.font(size: hasSkinArtwork ? min(size, 18 * scale) : size)
+            if hasSkinArtwork {
+                let available = max(1, isSkinLetter ? bounds.height * 0.40 : bounds.height - 4)
+                if font.lineHeight > available { font = font.withSize(font.pointSize * available / font.lineHeight) }
+            }
+            titleLabel?.font = font
         }
     }
 
@@ -177,15 +186,34 @@ final class KeyboardKey: UIButton {
         hintLabel.frame = CGRect(x: 0, y: 2, width: bounds.width, height: 11)
         if hint != nil { titleLabel?.center.y = bounds.height * 0.59 }
         imageView?.isHidden = hasSkinArtwork
+        titleLabel?.adjustsFontSizeToFitWidth = hasSkinArtwork
         if hasSkinArtwork {
-            titleLabel?.textAlignment = .center
-            let letter = accessibilityIdentifier?.hasPrefix("vime.key.") == true
-                && title(for: .normal)?.count == 1 && !isUtility
-            artwork.frame = letter ? CGRect(x: 0, y: 0, width: bounds.width, height: bounds.height * 0.62) : bounds.insetBy(dx: 2, dy: 2)
-            if letter { titleLabel?.frame = CGRect(x: 0, y: bounds.height * 0.60, width: bounds.width, height: bounds.height * 0.40) }
-            else if title(for: .normal)?.isEmpty == false {
-                titleLabel?.frame = CGRect(x: 0, y: bounds.height * 0.68, width: bounds.width, height: bounds.height * 0.30)
-                artwork.frame.size.height = bounds.height * 0.70
+            let content = bounds.insetBy(dx: 2, dy: 2)
+            artwork.isHidden = false
+            artwork.frame = content
+            if let title = title(for: .normal), !title.isEmpty, let label = titleLabel {
+                label.textAlignment = .center
+                label.minimumScaleFactor = 0.65
+                let gap: CGFloat = 2
+                let height = min(content.height, ceil(label.font.lineHeight) + 2)
+                let width = ceil((title as NSString).size(withAttributes: [.font: label.font!]).width) + 2
+                // Wide action keys keep useful artwork beside a full-height caption.
+                // Letter keys keep captions below; reserve actual font height and a gap.
+                if !isSkinLetter && content.width >= width + gap + 24 {
+                    label.frame = CGRect(x: content.maxX - width, y: content.midY - height / 2,
+                                         width: width, height: height)
+                    artwork.frame.size.width = label.frame.minX - gap - content.minX
+                } else {
+                    label.frame = CGRect(x: content.minX, y: content.maxY - height,
+                                         width: content.width, height: height)
+                    artwork.frame.size.height = max(0, label.frame.minY - gap - content.minY)
+                    // At small heights, the action name takes priority over decoration.
+                    if artwork.frame.height < 10 {
+                        artwork.isHidden = true
+                        label.frame = content
+                    }
+                }
+                bringSubviewToFront(label)
             }
             hintLabel.isHidden = true
         } else { hintLabel.isHidden = false }

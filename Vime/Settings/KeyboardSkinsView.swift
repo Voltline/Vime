@@ -236,7 +236,9 @@ private struct SkinPreview: UIViewRepresentable {
             guard document != doc else { return }; document = doc
             let appearance = KeyboardSkinAppearance(doc); canvas.appearance = appearance
             for (index, key) in keys.enumerated() {
-                key.textColor = KeyboardSkinAppearance.color(doc.palette.text); key.font = appearance.font(size: 16)
+                key.textColor = KeyboardSkinAppearance.color(doc.palette.text)
+                let font = appearance.font(size: 16)
+                key.font = font.lineHeight > 22 ? font.withSize(font.pointSize * 22 / font.lineHeight) : font
                 pictures[index].image = appearance.image(for: "letter." + letters[index].lowercased()) ?? appearance.image(for: "letter")
                 key.backgroundColor = KeyboardSkinAppearance.color(doc.palette.key).withAlphaComponent(doc.style.keyOpacity)
                 key.layer.cornerRadius = doc.style.cornerRadius; key.clipsToBounds = true
@@ -253,7 +255,7 @@ private struct SkinPreview: UIViewRepresentable {
                     let rect = CGRect(x: offset + CGFloat(column) * width, y: 6 + CGFloat(row) * 65, width: width - 3, height: 59)
                     let decorated = pictures[index].image != nil
                     keys[index].frame = decorated ? CGRect(x: rect.minX, y: rect.minY + 37, width: rect.width, height: 22) : rect
-                    pictures[index].frame = CGRect(x: rect.minX, y: rect.minY, width: rect.width, height: 37)
+                    pictures[index].frame = CGRect(x: rect.minX, y: rect.minY, width: rect.width, height: 35)
                     index += 1
                 }
             }
