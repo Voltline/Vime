@@ -23,6 +23,7 @@ final class KeyboardViewController: UIInputViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        VimeExtensionAudit.start()
         keyboard.hasFullAccess = hasFullAccess
         keyboard.showsFooter = needsInputModeSwitchKey
         keyboard.needsGlobe = needsInputModeSwitchKey

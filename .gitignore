@@ -41,3 +41,7 @@ go.sum
 xcuserdata/
 .build/
 .swiftpm/xcode/
+
+# V2 model/tokenizer payload is transferred in vimeml-v21-mac-results.zip.
+/Shared/Resources/TinyJapaneseV21INT8.mlmodelc/
+/Shared/Resources/VimeJapaneseTokenizerV2.model

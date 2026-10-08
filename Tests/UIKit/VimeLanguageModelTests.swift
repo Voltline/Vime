@@ -13,7 +13,7 @@ final class VimeLanguageModelTests: XCTestCase {
         let scoring: [Score]
     }
     private func fixtures() throws -> Fixtures {
-        let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "VimeLMFixtures", withExtension: "json"))
+        let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "VimeLMFixturesV21", withExtension: "json"))
         return try JSONDecoder().decode(Fixtures.self, from: Data(contentsOf: url))
     }
     func testNativeSentencePieceMatchesFrozenCorpusAndUnicode() throws {

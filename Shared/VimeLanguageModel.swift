@@ -37,6 +37,11 @@ nonisolated final class VimeSentenceTokenizer {
 nonisolated final class VimeLanguageModel {
     enum Failure: Error { case resources, integrity, tokenizer, ineligible, tensor, cancelled }
     struct Manifest: Decodable {
+        let format: String
+        let architecture: String?
+        let model_version: String?
+        let special_ids: [String: Int]?
+        let compute_units: String?
         let minimum_ios: Int
         let vocab_size: Int
         let context_length: Int
@@ -47,11 +52,25 @@ nonisolated final class VimeLanguageModel {
     private let model: MLModel
     static let vocabulary = 16384
     static let contextLength = 128
-    init(bundle: Bundle = .main, computeUnits: MLComputeUnits = .cpuOnly) throws {
-        guard let modelURL = bundle.url(forResource: "TinyJapaneseINT8", withExtension: "mlmodelc"),
-              let tokenizerURL = bundle.url(forResource: "VimeJapaneseTokenizer", withExtension: "model"),
-              let manifestURL = bundle.url(forResource: "VimeLMManifest", withExtension: "json") else { throw Failure.resources }
+    /// V1 resources stay intact for an explicit rollback. A failed V2 identity
+    /// check uses the worker's dictionary fallback, never a mismatched tokenizer.
+    enum ResourceVersion: Equatable { case v1, v21 }
+    let resourceVersion: ResourceVersion
+    let modelVersion: String
+    init(bundle: Bundle = .main, computeUnits: MLComputeUnits = .cpuOnly,
+         resourceVersion: ResourceVersion = .v21) throws {
+        self.resourceVersion = resourceVersion
+        let v21 = resourceVersion == .v21
+        guard let modelURL = bundle.url(forResource: v21 ? "TinyJapaneseV21INT8" : "TinyJapaneseINT8", withExtension: "mlmodelc"),
+              let tokenizerURL = bundle.url(forResource: v21 ? "VimeJapaneseTokenizerV2" : "VimeJapaneseTokenizer", withExtension: "model"),
+              let manifestURL = bundle.url(forResource: v21 ? "VimeLMManifestV21" : "VimeLMManifest", withExtension: "json") else { throw Failure.resources }
         let manifest = try JSONDecoder().decode(Manifest.self, from: Data(contentsOf: manifestURL))
+        guard manifest.format == (v21 ? "vime_ios_lm_v2" : "vime_ios_lm_v1"),
+              !v21 || (manifest.architecture == "tiny_gpt_v2" && manifest.compute_units == "CPU_ONLY"
+                       && manifest.special_ids == ["pad": 0, "unk": 1, "bos": 2, "eos": 3]
+                       && manifest.model_version != nil),
+              !v21 || computeUnits == .cpuOnly else { throw Failure.integrity }
+        modelVersion = manifest.model_version ?? "1-int8-b32"
         guard manifest.minimum_ios == 18, manifest.vocab_size == Self.vocabulary,
               manifest.context_length == Self.contextLength,
               try Self.sha256(tokenizerURL) == manifest.tokenizer_sha256,
@@ -118,6 +137,8 @@ nonisolated final class VimeLanguageModel {
     /// Exactly the frozen scorer: joint encoding, common prefix, full-vocabulary log-softmax,
     /// BOS=2, right PAD=0, summed suffix scores, no candidate-final EOS or truncation.
     func scores(context: String, candidates: [String], cancelled: () -> Bool = { false }) throws -> [Double] {
+        let started = KeyboardPerformance.start()
+        defer { KeyboardPerformance.record(.lmCandidateScoring, since: started) }
         guard !candidates.isEmpty, Set(candidates.map { Data($0.utf8) }).count == candidates.count,
               candidates.allSatisfy({ !$0.isEmpty }) else { throw Failure.ineligible }
         let contextTokens = try tokenizer.encode(context)
@@ -187,6 +208,8 @@ nonisolated final class VimeLanguageModel {
     /// 1 + count × (maxTokens − 1) forward passes.
     func nextWords(prompt: String, count: Int = 5, maxTokens: Int = 3, extendProbability: Double = 0.4,
                    cancelled: () -> Bool = { false }) throws -> [String] {
+        let started = KeyboardPerformance.start()
+        defer { KeyboardPerformance.record(.lmNextWords, since: started) }
         guard !prompt.isEmpty, (1...8).contains(count), (1...4).contains(maxTokens) else { throw Failure.ineligible }
         let content = try tokenizer.encode(prompt)
         guard Self.exactText(try tokenizer.decode(content), prompt),
