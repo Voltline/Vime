@@ -20,7 +20,7 @@ struct KeyboardPreferences {
         }
     }
     private static let sharedKeys = ["vime.sound", "vime.hapticLevel", "vime.nineKeyNumbers",
-        "vime.prolongedKey", "vime.previews", "vime.theme", "vime.candidateRanking", "vime.phraseSuggestions"]
+        "vime.prolongedKey", "vime.previews", "vime.theme", "vime.candidateRanking", "vime.phraseSuggestions", "vime.customSkinID", "vime.skinRevision"]
     var store: UserDefaults { defaults }
     struct Snapshot: Equatable {
         let heightFactor: Double
@@ -30,13 +30,15 @@ struct KeyboardPreferences {
         let prolongedKey: Bool
         let previews: Bool
         let theme: KeyboardTheme
+        let customSkinID: String
+        let skinRevision: Int
         let candidateRanking: CandidateRankingMode
         let phraseSuggestions: Bool
     }
     var snapshot: Snapshot {
         Snapshot(heightFactor: heightFactor, sound: sound, hapticLevel: hapticLevel,
             nineKeyNumbers: nineKeyNumbers, prolongedKey: prolongedKey, previews: previews,
-            theme: theme, candidateRanking: candidateRanking, phraseSuggestions: phraseSuggestions)
+            theme: theme, customSkinID: customSkinID, skinRevision: skinRevision, candidateRanking: candidateRanking, phraseSuggestions: phraseSuggestions)
     }
     var heightFactor: Double {
         get {
@@ -72,6 +74,14 @@ struct KeyboardPreferences {
     var theme: KeyboardTheme {
         get { KeyboardTheme(rawValue: defaults.string(forKey: "vime.theme") ?? "") ?? .system }
         nonmutating set { defaults.set(newValue.rawValue, forKey: "vime.theme") }
+    }
+    var customSkinID: String {
+        get { defaults.string(forKey: "vime.customSkinID") ?? "" }
+        nonmutating set { defaults.set(newValue, forKey: "vime.customSkinID") }
+    }
+    var skinRevision: Int {
+        get { defaults.integer(forKey: "vime.skinRevision") }
+        nonmutating set { defaults.set(newValue, forKey: "vime.skinRevision") }
     }
     var candidateRanking: CandidateRankingMode {
         get { CandidateRankingMode(rawValue: defaults.string(forKey: "vime.candidateRanking") ?? "") ?? .languageModel }

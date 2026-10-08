@@ -191,7 +191,10 @@ nonisolated final class VimeLanguageModel {
         let stop = { cancelled() || ProcessInfo.processInfo.systemUptime - started > 0.250 }
         guard let sums = try? scores(context: context, candidates: slots.map { values[$0].text }, cancelled: stop),
               !stop() else { return values }
-        let order = sums.indices.sorted { sums[$0] == sums[$1] ? $0 < $1 : sums[$0] > sums[$1] }
+        let personalized = sums.indices.map { sums[$0] + values[slots[$0]].userPreferenceScore }
+        let order = personalized.indices.sorted {
+            personalized[$0] == personalized[$1] ? $0 < $1 : personalized[$0] > personalized[$1]
+        }
         var result = values
         for (i, slot) in slots.enumerated() { result[slot] = values[slots[order[i]]] }
         return result

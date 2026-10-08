@@ -2,7 +2,7 @@ import Foundation
 import KanaKanjiConverterModuleWithDefaultDictionary
 
 nonisolated enum CandidateSource: String, Codable, Sendable {
-    case conversion, prediction, scriptVariant, readingAlternative, typoCorrection
+    case conversion, prediction, scriptVariant, readingAlternative, typoCorrection, userHistory, contextPrediction
     // Compatibility for existing callers; diagnostics use the canonical source.
     static let kana = Self.scriptVariant
     static let correction = Self.typoCorrection
@@ -75,6 +75,7 @@ nonisolated struct CandidateSnapshot: Sendable {
     let readingOverride: String?
     let engineFullConsumption: Bool
     var features = CandidateScoreFeatures()
+    var userPreferenceScore = 0.0
     var interpretationGain = 0.0
     var syntheticSurface: Bool { !candidate.isLearningTarget && !candidate.data.isEmpty
         && text != candidate.data.map(\.word).joined() }

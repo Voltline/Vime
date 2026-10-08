@@ -15,6 +15,7 @@ nonisolated final class JapaneseCandidateEngine {
     private var contextCandidate: Candidate?
     private var contextSession: KanaKanjiConverter.ConversionSessionID?
     private var learningDirty = false
+    private let preferenceMemory: CandidatePreferenceMemory?
     var diagnosticsEnabled = false
     private(set) var rawDiagnostics: [CandidateDiagnostic] = []
     private(set) var finalDiagnostics: [CandidateDiagnostic] = []
@@ -39,6 +40,7 @@ nonisolated final class JapaneseCandidateEngine {
             } else { writable = false }
         }
         self.memoryDirectoryURL = directory
+        preferenceMemory = learningEnabled && writable ? CandidatePreferenceMemory(directory: directory) : nil
         options = ConvertRequestOptions(N_best: 10, requireJapanesePrediction: .autoMix,
             requireEnglishPrediction: .disabled, keyboardLanguage: .ja_JP,
             learningType: learningEnabled && writable ? .inputAndOutput : .nothing,
@@ -159,7 +161,14 @@ nonisolated final class JapaneseCandidateEngine {
     func seedContinuity(_ previous: CandidateContinuity?) { previousTop = previous }
 
     private func rank(_ pool: [CandidateSnapshot], query: ComposingText, katakana: Bool) -> [CandidateSnapshot] {
-        let result = reranker.rank(pool, input: Self.rawInput(query), katakana: katakana, previous: currentContinuity,
+        let personalized = pool.map { original in
+            var value = original
+            if value.learningEligible && value.fullConsumption {
+                value.userPreferenceScore = preferenceMemory?.score(reading: value.reading, surface: value.text) ?? 0
+            }
+            return value
+        }
+        let result = reranker.rank(personalized, input: Self.rawInput(query), katakana: katakana, previous: currentContinuity,
             context: { [self] value in contextGain(value) })
         if diagnosticsEnabled {
             finalDiagnostics = result.enumerated().map { CandidateDiagnostic($0.element, rank: $0.offset + 1) }
@@ -476,6 +485,7 @@ nonisolated final class JapaneseCandidateEngine {
         converter.setCompletedData(snapshot.candidate)
         if snapshot.learningEligible {
             converter.updateLearningData(snapshot.candidate)
+            if snapshot.fullConsumption { preferenceMemory?.record(reading: snapshot.reading, surface: snapshot.text) }
             learningDirty = true
             correctionCache = [:]; correctionCacheOrder = []
         }
@@ -484,6 +494,7 @@ nonisolated final class JapaneseCandidateEngine {
     }
 
     func flushLearning() {
+        preferenceMemory?.flush()
         guard learningDirty else { return }
         converter.commitUpdateLearningData(); learningDirty = false
     }
@@ -494,8 +505,20 @@ nonisolated final class JapaneseCandidateEngine {
         var bootstrap = ComposingText(); bootstrap.insertAtCursorPosition("　", inputStyle: .direct)
         _ = converter.requestCandidates(bootstrap, options: options)
         converter.resetMemory(); learningDirty = false
+        preferenceMemory?.clear()
         correctionCache = [:]; correctionCacheOrder = []
         reset()
+    }
+
+    func personalizedNextWords(_ words: [String], context: String) -> [NextWordSuggestion] {
+        preferenceMemory?.nextWords(words, context: context) ?? words.enumerated().map {
+            NextWordSuggestion(text: $0.element, source: .contextPrediction,
+                score: -Double($0.offset) * CandidatePreferenceMemory.Policy.nextWordOrderWeight, userScore: 0)
+        }
+    }
+    func completeNextWord(_ text: String, context: String) {
+        preferenceMemory?.recordNextWord(text, context: context)
+        preferenceMemory?.flush()
     }
 
     func reset(preservingContext: Bool = false) {

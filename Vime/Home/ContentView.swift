@@ -7,6 +7,9 @@ struct ContentView: View {
     @State private var showingGuide = false
     @State private var showingNotices = false
     @State private var showingSettings = false
+    @State private var skinImport: SkinImport?
+    @State private var pendingSkinURL: URL?
+    private struct SkinImport: Identifiable { let id = UUID(); let url: URL }
     private let blue = Color(uiColor: UIColor(cgColor: VimeLogo.blue))
 
     var body: some View {
@@ -127,10 +130,22 @@ struct ContentView: View {
             .navigationBarTitleDisplayMode(.inline)
             .scrollDismissesKeyboard(.interactively)
             .tint(blue)
-            .sheet(isPresented: $showingGuide) { guide }
-            .sheet(isPresented: $showingNotices) { notices }
-            .sheet(isPresented: $showingSettings) { KeyboardSettingsView() }
+            .sheet(isPresented: $showingGuide, onDismiss: showPendingSkin) { guide }
+            .sheet(isPresented: $showingNotices, onDismiss: showPendingSkin) { notices }
+            .onOpenURL { url in
+                guard url.isFileURL else { return }
+                if showingSettings || showingGuide || showingNotices {
+                    pendingSkinURL = url
+                    showingSettings = false; showingGuide = false; showingNotices = false
+                } else { skinImport = SkinImport(url: url) }
+            }
+            .sheet(item: $skinImport) { KeyboardSkinsView(initialURL: $0.url) }
+            .sheet(isPresented: $showingSettings, onDismiss: showPendingSkin) { KeyboardSettingsView() }
         }
+    }
+
+    private func showPendingSkin() {
+        if let url = pendingSkinURL { pendingSkinURL = nil; skinImport = SkinImport(url: url) }
     }
 
     private func hint(_ key: String, _ detail: String) -> some View {

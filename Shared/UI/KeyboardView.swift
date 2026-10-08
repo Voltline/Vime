@@ -1,13 +1,15 @@
 import UIKit
 
+@MainActor
 enum KeyboardPalette {
     static var theme = KeyboardTheme.system
+    static var skin: KeyboardSkinAppearance?
     static let background = UIColor { $0.userInterfaceStyle == .dark ? UIColor(white: 0.12, alpha: 1) : UIColor(red: 232 / 255, green: 233 / 255, blue: 236 / 255, alpha: 1) }
-    static var key: UIColor { theme.key }
-    static var utility: UIColor { theme.utility }
-    static var accent: UIColor { theme.accent }
-    static var text: UIColor { theme.text }
-    static var pressed: UIColor { theme == .midnight ? UIColor(white: 0.40, alpha: 1) : UIColor { $0.userInterfaceStyle == .dark ? UIColor(white: 0.40, alpha: 1) : UIColor(white: 0.85, alpha: 1) } }
+    static var key: UIColor { if let skin { return KeyboardSkinAppearance.color(skin.document.palette.key).withAlphaComponent(skin.document.style.keyOpacity) }; return theme.key }
+    static var utility: UIColor { if let skin { return KeyboardSkinAppearance.color(skin.document.palette.utility).withAlphaComponent(skin.document.style.keyOpacity) }; return theme.utility }
+    static var accent: UIColor { if let skin { return KeyboardSkinAppearance.color(skin.document.palette.accent) }; return theme.accent }
+    static var text: UIColor { if let skin { return KeyboardSkinAppearance.color(skin.document.palette.text) }; return theme.text }
+    static var pressed: UIColor { if let skin { return KeyboardSkinAppearance.color(skin.document.palette.pressed) }; return theme == .midnight ? UIColor(white: 0.40, alpha: 1) : UIColor { $0.userInterfaceStyle == .dark ? UIColor(white: 0.40, alpha: 1) : UIColor(white: 0.85, alpha: 1) } }
 }
 
 /// The visual selection follows the text width, independently of the button's
@@ -118,6 +120,23 @@ final class KeyboardKey: UIButton {
     private var repeatTimer: Timer?
     private var delayTimer: Timer?
     private var preview: UILabel?
+    private let artwork = UIImageView()
+    private var skin: KeyboardSkinAppearance?
+    var hasSkinArtwork: Bool { artwork.image != nil }
+    func applySkin(_ skin: KeyboardSkinAppearance?, key: String) {
+        self.skin = skin
+        artwork.image = skin?.image(for: key) ?? (key.hasPrefix("letter.") ? skin?.image(for: "letter") : nil)
+        artwork.contentMode = .scaleAspectFit; artwork.isUserInteractionEnabled = false
+        if artwork.superview == nil { insertSubview(artwork, at: 0) }
+        layer.shadowOpacity = Float(skin?.document.style.shadowOpacity ?? 0.30)
+        setNeedsLayout()
+    }
+    func applySkinMetrics(size: CGFloat, scale: CGFloat) {
+        if let skin {
+            layer.cornerRadius = skin.document.style.cornerRadius * scale
+            titleLabel?.font = skin.font(size: hasSkinArtwork ? min(size, 18 * scale) : size)
+        }
+    }
 
     init(title: String? = nil, symbol: String? = nil) {
         super.init(frame: .zero)
@@ -157,6 +176,19 @@ final class KeyboardKey: UIButton {
         super.layoutSubviews()
         hintLabel.frame = CGRect(x: 0, y: 2, width: bounds.width, height: 11)
         if hint != nil { titleLabel?.center.y = bounds.height * 0.59 }
+        imageView?.isHidden = hasSkinArtwork
+        if hasSkinArtwork {
+            titleLabel?.textAlignment = .center
+            let letter = accessibilityIdentifier?.hasPrefix("vime.key.") == true
+                && title(for: .normal)?.count == 1 && !isUtility
+            artwork.frame = letter ? CGRect(x: 0, y: 0, width: bounds.width, height: bounds.height * 0.62) : bounds.insetBy(dx: 2, dy: 2)
+            if letter { titleLabel?.frame = CGRect(x: 0, y: bounds.height * 0.60, width: bounds.width, height: bounds.height * 0.40) }
+            else if title(for: .normal)?.isEmpty == false {
+                titleLabel?.frame = CGRect(x: 0, y: bounds.height * 0.68, width: bounds.width, height: bounds.height * 0.30)
+                artwork.frame.size.height = bounds.height * 0.70
+            }
+            hintLabel.isHidden = true
+        } else { hintLabel.isHidden = false }
     }
 
     override func beginTracking(_ touch: UITouch, with event: UIEvent?) -> Bool {
@@ -271,7 +303,7 @@ final class KeyboardKey: UIButton {
 
     override var isHighlighted: Bool { didSet { updateAppearance() } }
 
-    private func updateAppearance() { backgroundColor = isHighlighted ? KeyboardPalette.pressed : fillColor }
+    private func updateAppearance() { backgroundColor = isHighlighted ? KeyboardPalette.pressed : fillColor; artwork.alpha = isHighlighted ? 0.75 : 1 }
 
     @objc private func down() {
         pressDown(deferred: false)
@@ -352,6 +384,8 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
     var enableInputClicksWhenVisible: Bool { preferences.sound }
     let preferences = KeyboardPreferences()
     private var appliedPreferences: KeyboardPreferences.Snapshot?
+    private let skinCanvas = KeyboardSkinCanvas()
+    private let brandArtwork = UIImageView()
     var onEdit: (([KeyboardEdit]) -> Void)?
     var onSwitchKeyboard: (() -> Void)?
     var onDismiss: (() -> Void)?
@@ -382,7 +416,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
         if next.previews != previous?.previews {
             for key in letterKeys { key.showsPreview = next.previews }
         }
-        if next.theme != previous?.theme { applyTheme() }
+        if next.theme != previous?.theme || next.customSkinID != previous?.customSkinID || next.skinRevision != previous?.skinRevision { applyTheme() }
         if settingsPanel != nil {
             settingsPanel?.removeFromSuperview(); settingsPanel = nil
             createSettingsPanel(); refresh()
@@ -474,6 +508,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
         backgroundColor = .clear
         autoresizingMask = [.flexibleWidth, .flexibleHeight]
         accessibilityIdentifier = "vime.keyboard"
+        insertSubview(skinCanvas, at: 0)
         addSubview(header)
         addSubview(keysContainer)
         addSubview(panelScroll)
@@ -481,6 +516,8 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
         header.addSubview(brandButton)
         brandButton.backgroundColor = KeyboardPalette.key
         brandButton.setImage(KeyboardGlyphs.logo(), for: .normal)
+        brandArtwork.contentMode = .scaleAspectFit; brandArtwork.isUserInteractionEnabled = false
+        brandButton.addSubview(brandArtwork)
         brandButton.tintColor = UIColor(cgColor: VimeLogo.blue)
         brandButton.accessibilityIdentifier = "vime.brand.settings"
         brandButton.accessibilityLabel = "键盘设置"
@@ -608,6 +645,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
         // Cancelling a delete during a page change can synchronously request
         // layout. Do not lay out the old rows using the new page's geometry.
         guard !rebuildingKeys else { return }
+        skinCanvas.frame = bounds
         let width = bounds.width
         guard width > 0 else { return }
         let metrics = KeyboardMetrics(width: width, compact: compact, showsFooter: showsFooter, heightFactor: heightFactor)
@@ -618,6 +656,8 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
         let diameter: CGFloat = compact ? 30 : 34.5 * scale
         let centerY = KeyboardMetrics.toolbarTopInset + diameter / 2
         brandButton.frame = CGRect(x: 12 * xScale, y: centerY - diameter / 2, width: diameter, height: diameter)
+        brandArtwork.frame = brandButton.bounds.insetBy(dx: 2, dy: 2)
+        brandButton.imageView?.isHidden = brandArtwork.image != nil
         modeButton.frame = CGRect(x: width - 92 * xScale, y: centerY - diameter / 2, width: diameter, height: diameter)
         undoButton.frame = CGRect(x: width - 138 * xScale, y: centerY - diameter / 2, width: diameter, height: diameter)
         expandButton.frame = CGRect(x: width - 46 * xScale, y: centerY - diameter / 2, width: diameter, height: diameter)
@@ -645,6 +685,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
                 pair.0.layer.cornerRadius = 6.2 * scale
                 pair.0.hintLabel.font = .systemFont(ofSize: 9 * scale)
                 pair.0.titleLabel?.font = .systemFont(ofSize: (rowIndex == 3 ? 16.5 : 23) * scale)
+                pair.0.applySkinMetrics(size: (rowIndex == 3 ? 16.5 : 23) * scale, scale: scale)
             }
         }
         updateTouchBounds(metrics: metrics)
@@ -797,7 +838,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
                     return item
                 })
             }
-            refresh(); setNeedsLayout(); return
+            applyKeySkins(); refresh(); setNeedsLayout(); return
         } else {
             let values = page == .numbers
                 ? [Array("1234567890").map(String.init), ["-", "/", ":", ";", "(", ")", "¥", "&", "@", "\""], ["。", "、", "？", "！", "'", "ー", "・"]]
@@ -877,6 +918,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
         returnKey = enter.0
         bottom.append(enter)
         rows.append(bottom)
+        applyKeySkins()
         updateKeyLabels()
         refresh()
         setNeedsLayout()
@@ -1002,6 +1044,10 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
         let actionReturn = !composing && [.send, .search, .go, .done, .next, .join, .route, .continue].contains(returnKeyType)
         returnKey?.fillColor = actionReturn ? UIColor(cgColor: VimeLogo.blue) : KeyboardPalette.utility
         returnKey?.setTitleColor(actionReturn ? .white : KeyboardPalette.text, for: .normal)
+        if returnKey?.hasSkinArtwork == true {
+            returnKey?.fillColor = KeyboardPalette.key
+            returnKey?.setTitleColor(KeyboardPalette.text, for: .normal)
+        }
         setNeedsLayout()
     }
 
@@ -1249,10 +1295,32 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
         stack.addArrangedSubview(note)
     }
 
+    private func applyKeySkins() {
+        for (key, _) in rows.flatMap({ $0 }) {
+            let identifier = key.accessibilityIdentifier?.replacingOccurrences(of: "vime.key.", with: "") ?? ""
+            let semantic: String
+            if key === shiftKey { semantic = "shift" }
+            else if key === returnKey { semantic = "return" }
+            else if letterKeys.contains(where: { $0 === key }) { semantic = "letter." + identifier }
+            else if key.repeats { semantic = "backspace" }
+            else if key.accessibilityLabel == "表情" { semantic = "emoji" }
+            else if ["123", "ABC", "#+="].contains(key.title(for: .normal) ?? "") { semantic = "numbers" }
+            else { semantic = identifier }
+            key.applySkin(KeyboardPalette.skin, key: semantic)
+        }
+    }
     private func applyTheme() {
         KeyboardPalette.theme = preferences.theme
+        let document = preferences.theme == .custom ? try? KeyboardSkinStore().load(preferences.customSkinID) : nil
+        KeyboardPalette.skin = document.map(KeyboardSkinAppearance.init)
+        skinCanvas.appearance = KeyboardPalette.skin
+        brandArtwork.image = KeyboardPalette.skin?.image(for: "brand")
+        brandButton.setImage(brandArtwork.image == nil ? KeyboardGlyphs.logo() : nil, for: .normal)
+        applyKeySkins()
         overrideUserInterfaceStyle = preferences.theme == .midnight ? .dark : .unspecified
-        backgroundColor = preferences.theme.background
+        backgroundColor = document.map { KeyboardSkinAppearance.color($0.palette.background) } ?? preferences.theme.background
+        header.backgroundColor = document.map { KeyboardSkinAppearance.color($0.palette.key).withAlphaComponent(0.88) } ?? .clear
+        setNeedsLayout()
         for row in rows {
             for (key, _) in row {
                 key.fillColor = key.isUtility ? KeyboardPalette.utility : KeyboardPalette.key

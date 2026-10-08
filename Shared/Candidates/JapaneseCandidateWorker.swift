@@ -105,17 +105,25 @@ final class JapaneseCandidateWorker {
 
     /// LM next-word prediction for the unfinished sentence. Shares the serial queue and
     /// the cancellation slot with candidate requests, so typing stops the search.
-    func suggestions(prompt: String, completion: @escaping @MainActor @Sendable ([String]) -> Void) {
+    func suggestions(prompt: String, completion: @escaping @MainActor @Sendable ([NextWordSuggestion]) -> Void) {
         pending?.cancel()
         let request = Request()
         pending = request
         let storage = self.storage
         queue.async {
-            guard !request.isCancelled, let model = storage.languageModel,
-                  let words = try? model.nextWords(prompt: prompt, cancelled: { request.isCancelled }),
-                  !request.isCancelled, !words.isEmpty else { return }
-            DispatchQueue.main.async { completion(words) }
+            guard !request.isCancelled else { return }
+            let words = (try? storage.languageModel?.nextWords(prompt: prompt,
+                cancelled: { request.isCancelled })) ?? []
+            guard !request.isCancelled else { return }
+            let suggestions = storage.engine.personalizedNextWords(words, context: prompt)
+            guard !suggestions.isEmpty else { return }
+            DispatchQueue.main.async { completion(suggestions) }
         }
+    }
+
+    func completeNextWord(_ text: String, context: String) {
+        let storage = self.storage
+        queue.async { storage.engine.completeNextWord(text, context: context) }
     }
 
     func complete(_ candidate: CandidateSnapshot) {

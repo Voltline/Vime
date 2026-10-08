@@ -41,7 +41,7 @@ nonisolated struct CandidateScoreFeatures: Codable, Sendable {
     var predictionOverrun = 0.0
     var interpretationEvidence = 0.0
     var continuity = 0.0
-    // Learning is already in the engine value/order; never count it twice.
+    // AzooKey learning stays in engine evidence; this is Vime selection frequency.
     var userLearning = 0.0
     var context = 0.0
     var typoCost = 0.0
@@ -114,6 +114,7 @@ nonisolated struct CandidateReranker {
                 f.continuity = weights.continuity
             }
             f.context = max(-weights.contextLimit, min(weights.contextLimit, context(value) * weights.context))
+            f.userLearning = value.userPreferenceScore * CandidatePreferenceMemory.Policy.classicWeight
             value.features = f
             return value
         }

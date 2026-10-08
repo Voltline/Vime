@@ -3,6 +3,7 @@ import SwiftUI
 struct KeyboardSettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var showingHeightEditor = false
+    @State private var showingSkins = false
     @AppStorage private var sound: Bool
     @AppStorage private var hapticLevel: Int
     @AppStorage private var nineKeyNumbers: Bool
@@ -37,12 +38,13 @@ struct KeyboardSettingsView: View {
                 } header: {
                     Text("智能输入")
                 } footer: {
-                    Text("智能排序结合当前句子调整候选顺序；下一词联想在确认文字后提供建议。两项功能均离线运行，可单独关闭。")
+                    Text("智能排序结合当前句子调整候选顺序；下一词联想在确认文字后提供建议。重复选词和下一词选择会在本机记录词频，逐步影响排序；两项功能均离线运行，可单独关闭。")
                 }
                 Section("外观") {
                     Picker("键盘皮肤", selection: $theme) {
-                        ForEach(KeyboardTheme.allCases, id: \.self) { Text($0.title).tag($0) }
+                        ForEach(KeyboardTheme.allCases.filter { $0 != .custom || !KeyboardPreferences().customSkinID.isEmpty }, id: \.self) { Text($0.title).tag($0) }
                     }
+                    Button("我的皮肤 · 创建 / 导入") { showingSkins = true }
                     Button { showingHeightEditor = true } label: {
                         HStack {
                             Text("键盘高度")
@@ -79,6 +81,7 @@ struct KeyboardSettingsView: View {
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("完成") { dismiss() } } }
             .tint(Color(uiColor: UIColor(cgColor: VimeLogo.blue)))
             .sheet(isPresented: $showingHeightEditor) { KeyboardHeightEditor() }
+            .sheet(isPresented: $showingSkins) { KeyboardSkinsView() }
         }
     }
 }

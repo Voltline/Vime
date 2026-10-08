@@ -60,12 +60,11 @@ final class KeyboardSession {
         else { onCandidatesChange?() }
     }
     /// LM continuations shown in the candidate strip while nothing is composing.
-    private(set) var suggestions: [String] = []
+    private var suggestionSnapshots: [NextWordSuggestion] = []
+    var suggestions: [String] { suggestionSnapshots.map(\.text) }
     private var suggestionGeneration = 0
     var stripPresentations: [CandidatePresentation] {
-        isComposing ? candidatePresentations : suggestions.map {
-            CandidatePresentation(text: $0, source: .prediction, consumedInputCount: 0, correction: nil)
-        }
+        isComposing ? candidatePresentations : suggestionSnapshots.map(\.presentation)
     }
     var showsStrip: Bool { isComposing || !suggestions.isEmpty }
 
@@ -160,6 +159,7 @@ final class KeyboardSession {
     func chooseSuggestion(_ index: Int) -> [KeyboardEdit] {
         guard !isComposing, suggestions.indices.contains(index) else { return [] }
         let text = suggestions[index]
+        worker?.completeNextWord(text, context: VimeLanguageModel.sentenceContext(committedLeftContext))
         committedLeftContext = String((committedLeftContext + text).suffix(96))
         clearSuggestions()
         requestSuggestions()
@@ -234,7 +234,7 @@ final class KeyboardSession {
     private func clearSuggestions() {
         worker?.cancelPending()
         suggestionGeneration += 1
-        suggestions = []
+        suggestionSnapshots = []
     }
 
     /// Continue the unfinished sentence after a commit. A sentence-final commit
@@ -246,7 +246,7 @@ final class KeyboardSession {
         let generation = suggestionGeneration
         worker.suggestions(prompt: prompt) { [weak self] texts in
             guard let self, self.suggestionGeneration == generation, !self.isComposing, self.mode != .english else { return }
-            self.suggestions = texts
+            self.suggestionSnapshots = texts
             self.onCandidatesChange?()
         }
     }

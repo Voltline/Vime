@@ -315,28 +315,38 @@
 		F21000000000000000000001 /* Validate Release Model */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = ();
-			inputPaths = ("$(SRCROOT)/Scripts/validate_model_resources.py");
-			inputFileListPaths = ("$(SRCROOT)/Configuration/ModelResources.$(CONFIGURATION).xcfilelist");
+			inputFileListPaths = (
+				"$(SRCROOT)/Configuration/ModelResources.$(CONFIGURATION).xcfilelist",
+			);
+			inputPaths = (
+				"$(SRCROOT)/Scripts/validate_model_resources.py",
+			);
 			name = "Validate Release Model";
-			outputPaths = ();
-			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [ \"$CONFIGURATION\" = Release ]; then\n    /usr/bin/python3 \"$SRCROOT/Scripts/validate_model_resources.py\" --resources \"$SRCROOT/Shared/Resources\"\nfi\n";
+			shellScript = (
+				"if [ \"$CONFIGURATION\" = Release ]; then",
+				"    /usr/bin/python3 \"$SRCROOT/Scripts/validate_model_resources.py\" --resources \"$SRCROOT/Shared/Resources\"",
+				"fi",
+				"",
+			);
 		};
 		F21000000000000000000002 /* Validate Release Model */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = ();
-			inputPaths = ("$(SRCROOT)/Scripts/validate_model_resources.py");
-			inputFileListPaths = ("$(SRCROOT)/Configuration/ModelResources.$(CONFIGURATION).xcfilelist");
+			inputFileListPaths = (
+				"$(SRCROOT)/Configuration/ModelResources.$(CONFIGURATION).xcfilelist",
+			);
+			inputPaths = (
+				"$(SRCROOT)/Scripts/validate_model_resources.py",
+			);
 			name = "Validate Release Model";
-			outputPaths = ();
-			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [ \"$CONFIGURATION\" = Release ]; then\n    /usr/bin/python3 \"$SRCROOT/Scripts/validate_model_resources.py\" --resources \"$SRCROOT/Shared/Resources\"\nfi\n";
+			shellScript = (
+				"if [ \"$CONFIGURATION\" = Release ]; then",
+				"    /usr/bin/python3 \"$SRCROOT/Scripts/validate_model_resources.py\" --resources \"$SRCROOT/Shared/Resources\"",
+				"fi",
+				"",
+			);
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -504,8 +514,10 @@
 				DEVELOPMENT_TEAM = 8R5Q4A3RC7;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Configuration/AppInfo.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Vime;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -540,8 +552,10 @@
 				DEVELOPMENT_TEAM = 8R5Q4A3RC7;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Configuration/AppInfo.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Vime;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
