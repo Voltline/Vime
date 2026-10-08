@@ -10,13 +10,13 @@
 
 ## 项目现状与修改入口
 
-- `Shared/JapaneseCandidateEngine.swift:9–17`：`typoCorrectionMode: .disabled`，`learningType: .nothing`，未开启 Zenzai；逐键正常转换使用 `.autoMix`。
-- `Shared/RomajiConverter.swift`：原始罗马音由上游 `ComposingText` 解析；已有 `nReadingAlternatives`，仅生成候选查询，不改写字面草稿。可借鉴这种查询分离方式，但通用纠错应有独立来源。
-- `Shared/JapaneseCandidateEngine.swift:46–49,97–115`：优先 ruby 完全匹配；再合并其他候选、按文字去重、截取 15 个。因此即使引擎产生纠错候选，也需要明确合并位置、标注与去重政策，不能假定开关后自然排在可见区域。
-- `Shared/CandidateSnapshot.swift`：仅保存 candidate、revision、source、remainingComposition；缺少建议读音、原始读音、改动范围和纠错类型。
-- `Shared/KeyboardSession.swift`：`choose` 从快照取得剩余组合；未选候选时 `confirm` 提交字面假名。`candidates` 只暴露 `[String]`。
-- `Shared/KeyboardView.swift:15–77,861–883,939–960`：候选按钮和刷新缓存只比较文字/选择；增加读音标注后，必须让元数据变化触发刷新和宽度测量，否则同样的候选文字会残留旧提示。展开面板和 VoiceOver 也要同步。
-- `Shared/JapaneseCandidateWorker.swift`：后台串行计算、取消未启动请求、revision 防过期。正在执行的旧计算不能中断，新增大量查询会延迟最新候选。不能每键无界枚举再逐个请求词典。
+- `Shared/Candidates/JapaneseCandidateEngine.swift:9–17`：`typoCorrectionMode: .disabled`，`learningType: .nothing`，未开启 Zenzai；逐键正常转换使用 `.autoMix`。
+- `Shared/Input/RomajiConverter.swift`：原始罗马音由上游 `ComposingText` 解析；已有 `nReadingAlternatives`，仅生成候选查询，不改写字面草稿。可借鉴这种查询分离方式，但通用纠错应有独立来源。
+- `Shared/Candidates/JapaneseCandidateEngine.swift:46–49,97–115`：优先 ruby 完全匹配；再合并其他候选、按文字去重、截取 15 个。因此即使引擎产生纠错候选，也需要明确合并位置、标注与去重政策，不能假定开关后自然排在可见区域。
+- `Shared/Candidates/CandidateSnapshot.swift`：仅保存 candidate、revision、source、remainingComposition；缺少建议读音、原始读音、改动范围和纠错类型。
+- `Shared/Input/KeyboardSession.swift`：`choose` 从快照取得剩余组合；未选候选时 `confirm` 提交字面假名。`candidates` 只暴露 `[String]`。
+- `Shared/UI/KeyboardView.swift:15–77,861–883,939–960`：候选按钮和刷新缓存只比较文字/选择；增加读音标注后，必须让元数据变化触发刷新和宽度测量，否则同样的候选文字会残留旧提示。展开面板和 VoiceOver 也要同步。
+- `Shared/Candidates/JapaneseCandidateWorker.swift`：后台串行计算、取消未启动请求、revision 防过期。正在执行的旧计算不能中断，新增大量查询会延迟最新候选。不能每键无界枚举再逐个请求词典。
 - 键盘扩展能读 `textDocumentProxy.documentContextBeforeInput`，目前用于宿主状态/导航，没有作为 `leftSideContext` 传入候选引擎；宿主上下文可缺失或截断。首版可先利用当前组合内的词句连接评分，完整宿主上下文接入属于额外工作。
 
 ## azooKey 已有机制

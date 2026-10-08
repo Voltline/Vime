@@ -12,7 +12,7 @@
 
 ## 2. Candidate Model
 
-`Shared/CandidateSnapshot.swift` 保留原始 azooKey `Candidate`，直到选择反馈给 converter。包含：surface、ruby/normalized reading、source、原始 composingCount、engine/full selection consumption、exact reading、prediction 状态、engine value/rank、script type、learning eligibility、learned evidence、correction metadata、revision、剩余 composing text、评分 features。
+`Shared/Candidates/CandidateSnapshot.swift` 保留原始 azooKey `Candidate`，直到选择反馈给 converter。包含：surface、ruby/normalized reading、source、原始 composingCount、engine/full selection consumption、exact reading、prediction 状态、engine value/rank、script type、learning eligibility、learned evidence、correction metadata、revision、剩余 composing text、评分 features。
 
 来源为 `conversion`、`prediction`、`scriptVariant`、`readingAlternative`、`typoCorrection`。`readingAlternative` 承接原有 n 边界解释；没有重新修改稳定的 RomajiConverter。
 
@@ -20,7 +20,7 @@ UI 从 snapshot 派生字符串和 `CandidatePresentation`。同字面不同 con
 
 ## 3. Unified Reranker
 
-`Shared/CandidateReranker.swift` 集中管理权重。所有候选先进入同一池，再评分、去重、确定排序、截取展示列表。主要 features：
+`Shared/Candidates/CandidateReranker.swift` 集中管理权重。所有候选先进入同一池，再评分、去重、确定排序、截取展示列表。主要 features：
 
 | Feature | 策略 |
 | --- | --- |

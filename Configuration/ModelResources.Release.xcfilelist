@@ -1,0 +1,10 @@
+$(SRCROOT)/Shared/Resources/VimeLMManifestV21.json
+$(SRCROOT)/Shared/Resources/VimeJapaneseTokenizerV2.model
+$(SRCROOT)/Shared/Resources/TinyJapaneseV21INT8.mlmodelc
+$(SRCROOT)/Shared/Resources/TinyJapaneseV21INT8.mlmodelc/analytics
+$(SRCROOT)/Shared/Resources/TinyJapaneseV21INT8.mlmodelc/weights
+$(SRCROOT)/Shared/Resources/TinyJapaneseV21INT8.mlmodelc/analytics/coremldata.bin
+$(SRCROOT)/Shared/Resources/TinyJapaneseV21INT8.mlmodelc/coremldata.bin
+$(SRCROOT)/Shared/Resources/TinyJapaneseV21INT8.mlmodelc/metadata.json
+$(SRCROOT)/Shared/Resources/TinyJapaneseV21INT8.mlmodelc/model.mil
+$(SRCROOT)/Shared/Resources/TinyJapaneseV21INT8.mlmodelc/weights/weight.bin

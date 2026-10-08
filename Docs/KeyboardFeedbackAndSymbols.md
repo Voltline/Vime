@@ -14,10 +14,10 @@
 
 主色统一为 sRGB `#2474F5`。主 App、系统主题、动作回车／发送键以及左上角品牌按钮使用此颜色。换行和输入确认保留普通工具键外观。预置樱花／海蓝／深夜主题仍保留各自配色，发送与品牌按钮保持蓝色。
 
-新 Logo 为折线 V 加短光标，不包含假名。`Shared/VimeLogo.swift` 是唯一几何来源，工具栏、App 首页和 1024×1024 不透明 AppIcon 都复用它。重新生成图标：
+新 Logo 为折线 V 加短光标，不包含假名。`Shared/UI/VimeLogo.swift` 是唯一几何来源，工具栏、App 首页和 1024×1024 不透明 AppIcon 都复用它。重新生成图标：
 
 ```sh
-swiftc Shared/VimeLogo.swift Scripts/generate_icon.swift -o /tmp/vime-icon
+swiftc Shared/UI/VimeLogo.swift Scripts/generate_icon.swift -o /tmp/vime-icon
 /tmp/vime-icon
 ```
 

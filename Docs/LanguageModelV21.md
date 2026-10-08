@@ -34,12 +34,12 @@ AJIMEE144/200、原 development122/137，与 FP32 命中数相同；逐条结果
 私有驻留采样峰值73.78MiB；LM评分p95为53.92ms，下一词p95为38.11ms。
 实际加载版本和两个开关已记录，用户确认看到建议且无异常。
 末段内存高于中段，UI发布最大等待约1.93秒且原因未定位；保留为候选的已知项。
-本轮仅准备独立V2候选，没有正式发布。审计开关已关闭。
+上述记录来自 v2.1 接入阶段，并非本轮重新测得。模型仍未正式发布；审计开关在当时已关闭。
 
 ## 临时真实扩展审计
 
 `VimeExtensionAudit` 仅在真实 `.appex` 中、App Group `v21-audit-enabled.json`
-明确设为 `{"enabled":true}` 时启用。普通构建和测试默认关闭。
+明确设为 `{"enabled":true}` 时启用。Debug 构建和测试默认关闭；正式 Release 构建只保留无操作接口，不能通过遗留 sentinel 开启审计。优化构建的显式开发审计需要增加 `VIME_EXTENSION_AUDIT` 编译条件。
 100ms 采样 footprint、resident 和进程生命周期峰值，每2秒导出 JSON，240秒自动停止。
 记录版本、模型加载和键盘请求计时，不记录输入文本；计时包含请求取消/失败尝试，采样存在开销。
 
@@ -49,3 +49,11 @@ AJIMEE144/200、原 development122/137，与 FP32 命中数相同；逐条结果
 从 `group.com.Voltline.Vime` 的 App Group 容器取回；Instruments trace 另用于私有驻留值。
 如设备文件服务未显示 App Group 文件，用实际 App 的 `--v21-extension-audit-export`
 启动参数从控制台导出这些有界 JSON；可以与 `--v21-extension-audit-off` 同时使用。
+
+## 主工作区发布准备（2026-10-08）
+
+- 已将交付包中的 v2.1 compiled model 和 V2 tokenizer 安装回 Vime 主工作区，安装前逐项匹配当前 manifest；没有从 V1 混用资源。模型大文件仍按原约定在 Git 之外交付。
+- `Scripts/validate_model_resources.py` 可检查源资源目录或实际 App/appex 资源根目录；Release 构建会自动执行，缺失、文件集合变化、校验和不符时停止。
+- 资源路径仍为 `Shared/Resources`，源代码整理见 [项目目录](ProjectLayout.md)。
+- 对应发布版本固定为 `1.0`，本轮构建号为 `2`。构建号是否可上传需与 App Store Connect 已有记录核对。
+- 发布检查结果见 [发布准备](ReleaseReadiness.md)。本轮不重复完整质量、性能和内存基准。

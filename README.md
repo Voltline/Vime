@@ -8,7 +8,7 @@ Vime 是一款 iOS 日语罗马音输入法，提供 QWERTY 键盘、平假名 /
 
 - 26 字母 QWERTY；支持平假名、片假名和英文切换，提供系统、樱花、海蓝、深夜四种皮肤。
 - 离线词典转换与预测，支持单词、部分候选和完整句子转换。
-- 内置本地日语语言模型（7.4M 参数，INT8）：可选用 LM 重排转换候选；确定文字后在候选栏联想下一个词。详见 [本地语言模型](Docs/LanguageModel.md)。
+- 内置本地日语语言模型（默认 v2.1，12.54M 参数，INT8）：可选用 LM 重排转换候选；确定文字后在候选栏联想下一个词。详见 [v2.1 接入与评测](Docs/LanguageModelV21.md)；[本地语言模型](Docs/LanguageModel.md)保留 v1 的实现与历史评测。
 - 输入停顿后提供离线误输与近音建议，候选旁显示建议读音；草稿仍保留字面假名，点击建议才采用。
 - 按显示的假名退格；未完成辅音逐字符删除，长按退格连续删除。
 - 连续触摸面覆盖键缝，小幅手指漂移保留原键，上滑符号在松手时确认。
@@ -25,10 +25,11 @@ Vime 是一款 iOS 日语罗马音输入法，提供 QWERTY 键盘、平假名 /
 项目最低部署版本为 iOS 18，已使用 Xcode 27.1 构建验证。UIKit 管理键盘的系统材质；iOS 26 及以上使用对应系统外观。
 
 1. 用 Xcode 打开 [Vime.xcodeproj](Vime.xcodeproj)，选择 `Vime` scheme。首次构建需要联网下载 SwiftPM 依赖及捆绑词典，依赖修订已固定在 [Package.resolved](Vime.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved)。
-2. 在模拟器或 iPhone 上运行主 App，点击「开始试打」即可体验。安装到自己的 iPhone 前，为 `Vime` 和 `VimeKeyboard` target 配置签名团队和相同的 App Group（当前为 `group.com.Voltline.Vime`）；实机测试还需配置 `VimeKeyboardTests` 的签名。更换 bundle ID 时请同时更新 App Group 和 entitlements。
-3. 在 iPhone「设置 → 通用 → 键盘 → 键盘 → 添加新键盘」中添加 Vime。
-4. 打开支持第三方键盘的 App，长按地球键，选择「Vime 日本語」。
-5. 如需按键声、振动及从主 App 同步设置，在「设置 → 通用 → 键盘 → 键盘 → Vime 日本語」中开启「允许完全访问」。基本输入和词典转换无需此权限；静音会关闭按键声。
+2. 构建前按 [v2.1 资源安装说明](Docs/LanguageModelV21.md)安装模型与分词器交付包。模型大文件保持外部交付，Release 构建会检查缺失、身份及校验和，避免打包后静默退回词典模式。
+3. 在模拟器或 iPhone 上运行主 App，点击「开始试打」即可体验。安装到自己的 iPhone 前，为 `Vime` 和 `VimeKeyboard` target 配置签名团队和相同的 App Group（当前为 `group.com.Voltline.Vime`）；实机测试还需配置 `VimeKeyboardTests` 的签名。更换 bundle ID 时请同时更新 App Group 和 entitlements。
+4. 在 iPhone「设置 → 通用 → 键盘 → 键盘 → 添加新键盘」中添加 Vime。
+5. 打开支持第三方键盘的 App，长按地球键，选择「Vime 日本語」。
+6. 如需按键声、振动及从主 App 同步设置，在「设置 → 通用 → 键盘 → 键盘 → Vime 日本語」中开启「允许完全访问」。基本输入和词典转换无需此权限；静音会关闭按键声。
 
 更新安装后，可先切换到其他键盘再切回 Vime，让系统扩展重新加载。
 
@@ -87,22 +88,24 @@ Vime 是一款 iOS 日语罗马音输入法，提供 QWERTY 键盘、平假名 /
 
 通用纠错在正常候选发布后等待 140 ms，期间的新输入会取消旧搜索。仅探索一处邻键、漏字、多字、转置或近音错误，通过词典读音、词句连接分数和错误成本筛选；不使用示例整词替换表。最多 384 个变体、24 次词典查询、3 个补充候选，搜索有 60 ms 软预算。单次上游转换无法中断，冷查询可能超过该预算。完整建议按原输入元素数消费，包括分隔符；后到结果不能改变已选候选。详见 [纠错调研与实现记录](Docs/KeyboardCorrectionResearch.md)。
 
+目录职责与资源路径约定见 [项目目录](Docs/ProjectLayout.md)。
+
 | 路径 | 职责 |
 | --- | --- |
 | [Vime/](Vime/) | SwiftUI 主 App、启用指南、开源许可和试打容器 |
 | [Keyboard/](Keyboard/) | 系统键盘扩展、宿主回调和完全访问配置 |
-| [Shared/KeyboardSession.swift](Shared/KeyboardSession.swift) | 输入状态、假名退格、模式切换、转换与提交 |
-| [Shared/RomajiConverter.swift](Shared/RomajiConverter.swift)、[PreeditPresentation.swift](Shared/PreeditPresentation.swift) | `n` 候选读音查询、字面假名显示和确认边界 |
-| [Shared/JapaneseCandidateEngine.swift](Shared/JapaneseCandidateEngine.swift)、[JapaneseCandidateWorker.swift](Shared/JapaneseCandidateWorker.swift) | 候选生成与排序、后台串行计算、过期请求处理 |
-| [Shared/KeyboardCorrectionVariants.swift](Shared/KeyboardCorrectionVariants.swift)、[CorrectionReadingIndex.swift](Shared/CorrectionReadingIndex.swift)、[CandidateSnapshot.swift](Shared/CandidateSnapshot.swift) | 有限误输变体、词典轻量索引、纠错读音与原输入消费元数据 |
-| [Shared/VimeLanguageModel.swift](Shared/VimeLanguageModel.swift)、[Dependencies/VimeSentencePiece/](Dependencies/VimeSentencePiece/)、[Shared/Resources/](Shared/Resources/) | 本地语言模型：SentencePiece 分词、Core ML 推理、候选评分与下一个词联想 |
-| [Shared/KeyboardHostConnection.swift](Shared/KeyboardHostConnection.swift) | 通过 UIKit marked text 更新宿主草稿并提交文字 |
-| [Shared/KeyboardTextNavigation.swift](Shared/KeyboardTextNavigation.swift) | 组合字符安全的光标移动及行内删除 |
-| [Vime/KeyboardSettingsView.swift](Vime/KeyboardSettingsView.swift)、[Vime/KeyboardHeightEditor.swift](Vime/KeyboardHeightEditor.swift)、[Shared/KeyboardHeightAdjustmentView.swift](Shared/KeyboardHeightAdjustmentView.swift) | 主 App 高度拖动预览及共享高度设置 |
-| [Shared/KeyboardView.swift](Shared/KeyboardView.swift)、[KeyboardMetrics.swift](Shared/KeyboardMetrics.swift) | 主 App 与扩展共用的界面、候选条、布局和设置 |
-| [Shared/KeyboardTouchSurface.swift](Shared/KeyboardTouchSurface.swift) | 连续触摸面、唯一按键归属、多指状态、符号上滑和光标/删行手势 |
-| [Shared/KeyboardSymbolPanel.swift](Shared/KeyboardSymbolPanel.swift)、[KeyboardSymbolCatalog.swift](Shared/KeyboardSymbolCatalog.swift) | 复用网格单元的 Emoji / 颜文字面板及分类数据 |
-| [Shared/KeyboardTheme.swift](Shared/KeyboardTheme.swift) | 四种皮肤的键帽、功能键、文字与强调色 |
+| [Shared/Input/KeyboardSession.swift](Shared/Input/KeyboardSession.swift) | 输入状态、假名退格、模式切换、转换与提交 |
+| [Shared/Input/RomajiConverter.swift](Shared/Input/RomajiConverter.swift)、[PreeditPresentation.swift](Shared/Input/PreeditPresentation.swift) | `n` 候选读音查询、字面假名显示和确认边界 |
+| [Shared/Candidates/JapaneseCandidateEngine.swift](Shared/Candidates/JapaneseCandidateEngine.swift)、[JapaneseCandidateWorker.swift](Shared/Candidates/JapaneseCandidateWorker.swift) | 候选生成与排序、后台串行计算、过期请求处理 |
+| [Shared/Candidates/KeyboardCorrectionVariants.swift](Shared/Candidates/KeyboardCorrectionVariants.swift)、[CorrectionReadingIndex.swift](Shared/Candidates/CorrectionReadingIndex.swift)、[CandidateSnapshot.swift](Shared/Candidates/CandidateSnapshot.swift) | 有限误输变体、词典轻量索引、纠错读音与原输入消费元数据 |
+| [Shared/Models/VimeLanguageModel.swift](Shared/Models/VimeLanguageModel.swift)、[Dependencies/VimeSentencePiece/](Dependencies/VimeSentencePiece/)、[Shared/Resources/](Shared/Resources/) | 本地语言模型：SentencePiece 分词、Core ML 推理、候选评分与下一个词联想 |
+| [Shared/Host/KeyboardHostConnection.swift](Shared/Host/KeyboardHostConnection.swift) | 通过 UIKit marked text 更新宿主草稿并提交文字 |
+| [Shared/Host/KeyboardTextNavigation.swift](Shared/Host/KeyboardTextNavigation.swift) | 组合字符安全的光标移动及行内删除 |
+| [Vime/Settings/KeyboardSettingsView.swift](Vime/Settings/KeyboardSettingsView.swift)、[Vime/Settings/KeyboardHeightEditor.swift](Vime/Settings/KeyboardHeightEditor.swift)、[Shared/UI/KeyboardHeightAdjustmentView.swift](Shared/UI/KeyboardHeightAdjustmentView.swift) | 主 App 高度拖动预览及共享高度设置 |
+| [Shared/UI/KeyboardView.swift](Shared/UI/KeyboardView.swift)、[KeyboardMetrics.swift](Shared/UI/KeyboardMetrics.swift) | 主 App 与扩展共用的界面、候选条、布局和设置 |
+| [Shared/UI/KeyboardTouchSurface.swift](Shared/UI/KeyboardTouchSurface.swift) | 连续触摸面、唯一按键归属、多指状态、符号上滑和光标/删行手势 |
+| [Shared/UI/KeyboardSymbolPanel.swift](Shared/UI/KeyboardSymbolPanel.swift)、[KeyboardSymbolCatalog.swift](Shared/UI/KeyboardSymbolCatalog.swift) | 复用网格单元的 Emoji / 颜文字面板及分类数据 |
+| [Shared/UI/KeyboardTheme.swift](Shared/UI/KeyboardTheme.swift) | 四种皮肤的键帽、功能键、文字与强调色 |
 | [Tests/UIKit/](Tests/UIKit/) | 输入、预测、宿主集成、触摸与性能回归 |
 | [Docs/](Docs/)、[Artifacts/](Artifacts/) | 实现记录、验收与性能数据；测试截图仅在本地保留 |
 

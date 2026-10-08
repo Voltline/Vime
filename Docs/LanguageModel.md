@@ -1,6 +1,8 @@
 # 本地语言模型
 
-Vime 内置 [VimeML](https://github.com/Voltline/VimeML) 训练的 tiny-ja-v1（7.39M 参数日语 GPT），用于两件事：重排转换候选，以及在确定文字后联想下一个词。模型在设备上离线运行，最低系统 iOS 18。训练、转换与量化的细节见 VimeML 的 `docs/coreml.md`。
+当前默认使用 [v2.1](LanguageModelV21.md)，其模型和 tokenizer 必须作为一组安装。以下参数、资源与性能表保留 v1 历史口径；通用推理流程仍适用。
+
+Vime 的 v1 模型来自 [VimeML](https://github.com/Voltline/VimeML) 训练的 tiny-ja-v1（7.39M 参数日语 GPT），用于两件事：重排转换候选，以及在确定文字后联想下一个词。模型在设备上离线运行，最低系统 iOS 18。训练、转换与量化的细节见 VimeML 的 `docs/coreml.md`。
 
 ## 资源
 
@@ -17,11 +19,11 @@ Vime 内置 [VimeML](https://github.com/Voltline/VimeML) 训练的 tiny-ja-v1（
 
 | 位置 | 职责 |
 | --- | --- |
-| `Shared/VimeLanguageModel.swift` | 分词、`predict`、候选评分 `scores`、重排 `rerank`、下一个词 `nextWords`、句子续写 `suggestions`（beam，仅作参考实现）、句内上下文 `sentenceContext` |
-| `Shared/JapaneseCandidateWorker.swift` | 在候选串行队列上懒加载单个模型实例；按排序模式重排；执行联想请求 |
-| `Shared/KeyboardSession.swift` | 排序模式与联想开关；确定后发起联想，任何输入都会清除联想 |
-| `Shared/KeyboardView.swift` | 候选栏同时显示转换候选和联想；声音、振动、数字布局快捷设置 |
-| `Shared/KeyboardPreferences.swift` | `vime.candidateRanking`、`vime.phraseSuggestions` |
+| `Shared/Models/VimeLanguageModel.swift` | 分词、`predict`、候选评分 `scores`、重排 `rerank`、下一个词 `nextWords`、句子续写 `suggestions`（beam，仅作参考实现）、句内上下文 `sentenceContext` |
+| `Shared/Candidates/JapaneseCandidateWorker.swift` | 在候选串行队列上懒加载单个模型实例；按排序模式重排；执行联想请求 |
+| `Shared/Input/KeyboardSession.swift` | 排序模式与联想开关；确定后发起联想，任何输入都会清除联想 |
+| `Shared/UI/KeyboardView.swift` | 候选栏同时显示转换候选和联想；声音、振动、数字布局快捷设置 |
+| `Shared/Preferences/KeyboardPreferences.swift` | `vime.candidateRanking`、`vime.phraseSuggestions` |
 
 模型加载失败（资源缺失或哈希不符）时会记录日志，键盘照常使用词典候选。
 

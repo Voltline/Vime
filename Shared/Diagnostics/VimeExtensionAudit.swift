@@ -1,6 +1,7 @@
 import Foundation
 import Darwin
 
+#if DEBUG || VIME_EXTENSION_AUDIT
 /// Bounded opt-in measurement in the real keyboard extension. Enabled only by
 /// an explicit App Group sentinel installed by the developer; records no text.
 nonisolated final class VimeExtensionAudit: @unchecked Sendable {
@@ -101,3 +102,12 @@ nonisolated final class VimeExtensionAudit: @unchecked Sendable {
         }
     }
 }
+
+#else
+/// Distribution builds cannot enable auditing through a leftover sentinel.
+nonisolated enum VimeExtensionAudit {
+    static func start() {}
+    static func configureFromLaunchArguments() {}
+    static func recordModelLoad(version: String, milliseconds: Int) {}
+}
+#endif
