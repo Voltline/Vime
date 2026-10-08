@@ -149,8 +149,13 @@ final class VimeLanguageModelMemoryTests: XCTestCase {
             }
         }
         try await measure("idle_1s") { try await Task.sleep(for: .seconds(1)) }
+        #if targetEnvironment(simulator)
+        let scope = "optimized iOS Simulator test-host process; separate from keyboard extension"
+        #else
+        let scope = "optimized physical iPhone test-host process; separate from keyboard extension"
+        #endif
         let report: [String: Any] = ["format": "vime_memory_audit_v1", "scenario": scenario,
-            "scope": "optimized iOS Simulator test-host process; not physical keyboard extension",
+            "scope": scope, "model_version": "2.1-extend5-step40000-int8-b32-v1",
             "os": ProcessInfo.processInfo.operatingSystemVersionString, "baseline": baseline,
             "stages": stages, "checkpoints": checkpoints, "completed_worker_cycles": completedCycles,
             "cycles_with_published_suggestions": suggestionCycles, "final": VimeMemorySampler.snapshot()]

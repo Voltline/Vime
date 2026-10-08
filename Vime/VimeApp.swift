@@ -9,6 +9,7 @@ import SwiftUI
 
 @main
 struct VimeApp: App {
+    init() { VimeExtensionAudit.configureFromLaunchArguments() }
     var body: some Scene {
         WindowGroup {
             ContentView()

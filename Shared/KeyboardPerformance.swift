@@ -9,6 +9,7 @@ nonisolated enum KeyboardPerformance {
         case candidateButtonConfiguration, candidateTitleMeasurement, candidatePublication
         case correctionCompute, correctionRequestToResult
         case baseConversion, candidateReranking, classicTypo, experimentalTypo, contextEvaluation
+        case lmCandidateScoring, lmNextWords
     }
 
     private final class Storage: @unchecked Sendable {

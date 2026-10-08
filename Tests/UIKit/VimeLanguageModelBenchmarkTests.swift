@@ -50,6 +50,13 @@ final class VimeLanguageModelBenchmarkTests: XCTestCase {
         var lm: VimeLanguageModel!
         // Hash verification reads every file into autoreleased Data; drain it before measuring.
         report["load_ms"] = try milliseconds { try autoreleasepool { lm = try VimeLanguageModel() } }
+        report["model_version"] = lm.modelVersion
+        #if targetEnvironment(simulator)
+        report["scope"] = "optimized iOS Simulator test-host process"
+        #else
+        report["scope"] = "optimized physical iPhone test-host process; separate from keyboard extension"
+        #endif
+        report["load_policy"] = "first load in this test process; OS/Core ML caches may be warm"
         report["footprint_after_load_mb"] = footprint().current
         let probe: [Int32] = [2] + (try lm.tokenizer.encode("明日の会議までに、"))
         report["first_predict_ms"] = try milliseconds { _ = try lm.predict(probe) }

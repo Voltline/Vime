@@ -1,0 +1,30 @@
+{
+  "format": "vime_ios_lm_v2",
+  "architecture": "tiny_gpt_v2",
+  "model_version": "2.1-extend5-step40000-int8-b32-v1",
+  "minimum_ios": 18,
+  "vocab_size": 16384,
+  "context_length": 128,
+  "compute_units": "CPU_ONLY",
+  "special_ids": {
+    "pad": 0,
+    "unk": 1,
+    "bos": 2,
+    "eos": 3
+  },
+  "tokenizer_sha256": "cdb0c60529300619fb0d7b01370c87b3f1028f2687ff67d97c778b15bfa2d177",
+  "compiled_files_sha256": {
+    "analytics/coremldata.bin": "2ad9e57bfde06798bbaa426fafba3c1ec1c8aa0fdfe715ac7653d9f3e193b05d",
+    "coremldata.bin": "1ef598ba6e58d9777f65352792ee031b1e618519aabaf1bcd35bcde5b22d5294",
+    "metadata.json": "c45f489cae5d0082601b45fc386861f750972af27e4c9b73fa028529925307b5",
+    "model.mil": "defbc4d2925b4a7a27362b058bd577155950af8ac0293f115956605bf1c35246",
+    "weights/weight.bin": "61954972f7035f6e018c61a4650a8e749c2dd1f638a84931478dad8e7369fd71"
+  },
+  "source_manifest_sha256": "1dda48c76eacfa3ba99764098fab721eed4ada413130b99c0324620365aca0b7",
+  "bundle_manifest_sha256": "9a4f97bba87cef2d44b67bb8b8d8bd8df1d95a160191a1873102944ce3adeac1",
+  "checkpoint_sha256": "fa202f18d00cf5e77469bd3be5b8b264117fb73233ec9966fa3213257a470104",
+  "kind": "linear8_fp32_compute",
+  "quantization": "weight-only symmetric INT8 block32; FP32 computation",
+  "strict_fp32_logits_alignment_passed": false,
+  "quality_review": "Candidate for V2 integration; see VimeML dated quality/device reports. Device acceptance is separate."
+}

@@ -23,7 +23,9 @@ final class JapaneseCandidateWorker {
                 do {
                     try autoreleasepool { cachedLanguageModel = try VimeLanguageModel() }
                     let milliseconds = Int((ProcessInfo.processInfo.systemUptime - started) * 1000)
-                    log.notice("Model loaded in \(milliseconds) ms; footprint \(VimeLanguageModel.footprintMB()) MB")
+                    let version = cachedLanguageModel?.modelVersion ?? "unknown"
+                    VimeExtensionAudit.recordModelLoad(version: version, milliseconds: milliseconds)
+                    log.notice("Model \(version, privacy: .public) loaded in \(milliseconds) ms; footprint \(VimeLanguageModel.footprintMB()) MB")
                 } catch {
                     log.error("Model unavailable (\(String(describing: error), privacy: .public)); retaining dictionary candidates.")
                 }
