@@ -96,9 +96,9 @@ final class KeyboardCoreTests: XCTestCase {
     func testSwipeThresholdReversalAndPreferences() {
         var swipe = KeySwipeSelection()
         swipe.move(x: 0, y: -10); XCTAssertFalse(swipe.alternate)
-        swipe.move(x: 2, y: -25); XCTAssertTrue(swipe.alternate)
-        swipe.move(x: 50, y: -25); XCTAssertFalse(swipe.alternate)
-        swipe.move(x: 0, y: -25); swipe.reset(); XCTAssertFalse(swipe.alternate)
+        swipe.move(x: 2, y: -32); XCTAssertTrue(swipe.alternate)
+        swipe.move(x: 50, y: -32); XCTAssertFalse(swipe.alternate)
+        swipe.move(x: 0, y: -32); swipe.reset(); XCTAssertFalse(swipe.alternate)
         let name = "vime.tests." + UUID().uuidString
         let defaults = UserDefaults(suiteName: name)!
         defer { defaults.removePersistentDomain(forName: name) }

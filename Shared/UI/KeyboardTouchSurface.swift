@@ -134,7 +134,8 @@ final class KeyboardTouchSurface: UIView {
         }
         let delta = CGPoint(x: point.x - press.origin.x, y: point.y - press.origin.y)
         if press.key.alternateAction != nil {
-            press.swipe.move(x: Double(delta.x), y: Double(delta.y))
+            press.swipe.move(x: Double(delta.x), y: Double(delta.y), scale: Double(scale),
+                allowActivation: allowsTransfer && point.y <= press.key.frame.minY - 2 * scale)
         }
         press.alternateLocked = press.alternateLocked || press.swipe.alternate
         // A tiny move across a gap boundary keeps its original owner. A
@@ -162,7 +163,7 @@ final class KeyboardTouchSurface: UIView {
 
     func endPress(id: AnyHashable, at point: CGPoint, cancelled: Bool = false) {
         let releaseTime = KeyboardPerformance.start()
-        // Include the final sample for swipe selection, but don't reinterpret
+        // The final sample may retain/cancel a swipe, but cannot start one. Don't reinterpret
         // the lift-off/rolling motion as a deliberate move to another key.
         if !cancelled { updatePress(id: id, to: point, allowsTransfer: false) }
         spaceTimer?.invalidate(); spaceTimer = nil

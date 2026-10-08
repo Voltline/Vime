@@ -61,10 +61,12 @@ final class KeyboardSkinTests: XCTestCase {
                 key.applySkinMetrics(size: id == "letter.q" ? 23 : 16.5, scale: 1)
                 for title in titles {
                     key.setTitle(title, for: .normal); key.setNeedsLayout(); key.layoutIfNeeded()
-                    let label = try XCTUnwrap(key.titleLabel)
+                    let label = try XCTUnwrap(key.subviews.compactMap { $0 as? KeyboardSkinCaption }.first)
+                    XCTAssertEqual(key.titleLabel?.alpha, 0, "UIKit title must not paint a second caption")
+                    XCTAssertEqual(label.font.pointSize, id == "letter.q" ? 18 : 16.5, accuracy: 0.01)
                     let art = try XCTUnwrap(key.subviews.compactMap { $0 as? UIImageView }.first { $0 !== key.imageView && $0.image != nil })
                     XCTAssertTrue(key.bounds.contains(label.frame), title)
-                    XCTAssertGreaterThanOrEqual(label.frame.height + 0.5, label.font.lineHeight, title)
+                    XCTAssertGreaterThanOrEqual(label.frame.height + 0.5, label.glyphSize.height, title)
                     if !art.isHidden { XCTAssertFalse(art.frame.intersects(label.frame), title) }
                     XCTAssertEqual(key.title(for: .normal), title)
                 }

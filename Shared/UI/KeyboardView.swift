@@ -121,6 +121,7 @@ final class KeyboardKey: UIButton {
     private var delayTimer: Timer?
     private var preview: UILabel?
     private let artwork = UIImageView()
+    private let skinCaption = KeyboardSkinCaption()
     private var skin: KeyboardSkinAppearance?
     private var skinKeyID = ""
     private var isSkinLetter: Bool { skinKeyID.hasPrefix("letter.") || skinKeyID == "letter" }
@@ -131,19 +132,19 @@ final class KeyboardKey: UIButton {
         artwork.image = skin?.image(for: key) ?? (key.hasPrefix("letter.") ? skin?.image(for: "letter") : nil)
         artwork.contentMode = .scaleAspectFit; artwork.isUserInteractionEnabled = false
         if artwork.superview == nil { insertSubview(artwork, at: 0) }
+        if skinCaption.superview == nil {
+            skinCaption.isUserInteractionEnabled = false
+            skinCaption.isAccessibilityElement = false
+            skinCaption.accessibilityIdentifier = "vime.skin.caption"
+            addSubview(skinCaption)
+        }
         layer.shadowOpacity = Float(skin?.document.style.shadowOpacity ?? 0.30)
         setNeedsLayout()
     }
     func applySkinMetrics(size: CGFloat, scale: CGFloat) {
         if let skin {
             layer.cornerRadius = skin.document.style.cornerRadius * scale
-            var font = hasSkinArtwork && !isSkinLetter ? UIFont.systemFont(ofSize: size)
-                : skin.font(size: hasSkinArtwork ? min(size, 18 * scale) : size)
-            if hasSkinArtwork {
-                let available = max(1, isSkinLetter ? bounds.height * 0.40 : bounds.height - 4)
-                if font.lineHeight > available { font = font.withSize(font.pointSize * available / font.lineHeight) }
-            }
-            titleLabel?.font = font
+            titleLabel?.font = skin.font(size: hasSkinArtwork ? min(size, 18 * scale) : size)
         }
     }
 
@@ -186,19 +187,23 @@ final class KeyboardKey: UIButton {
         hintLabel.frame = CGRect(x: 0, y: 2, width: bounds.width, height: 11)
         if hint != nil { titleLabel?.center.y = bounds.height * 0.59 }
         imageView?.isHidden = hasSkinArtwork
-        titleLabel?.adjustsFontSizeToFitWidth = hasSkinArtwork
+        titleLabel?.isHidden = hasSkinArtwork
+        titleLabel?.alpha = hasSkinArtwork ? 0 : 1
+        skinCaption.isHidden = !hasSkinArtwork
         if hasSkinArtwork {
             let content = bounds.insetBy(dx: 2, dy: 2)
             artwork.isHidden = false
             artwork.frame = content
-            if let title = title(for: .normal), !title.isEmpty, let label = titleLabel {
-                label.textAlignment = .center
-                label.minimumScaleFactor = 0.65
+            skinCaption.text = title(for: .normal)
+            skinCaption.font = titleLabel?.font ?? .systemFont(ofSize: 17)
+            skinCaption.textColor = titleColor(for: .normal) ?? KeyboardPalette.text
+            if let title = title(for: .normal), !title.isEmpty {
+                let label = skinCaption
                 let gap: CGFloat = 2
-                let height = min(content.height, ceil(label.font.lineHeight) + 2)
-                let width = ceil((title as NSString).size(withAttributes: [.font: label.font!]).width) + 2
+                let height = min(content.height, label.glyphSize.height + 4)
+                let width = label.glyphSize.width + 4
                 // Wide action keys keep useful artwork beside a full-height caption.
-                // Letter keys keep captions below; reserve actual font height and a gap.
+                // Letter keys keep captions below; reserve actual glyph height and a gap.
                 if !isSkinLetter && content.width >= width + gap + 24 {
                     label.frame = CGRect(x: content.maxX - width, y: content.midY - height / 2,
                                          width: width, height: height)
@@ -235,7 +240,7 @@ final class KeyboardKey: UIButton {
     override func endTracking(_ touch: UITouch?, with event: UIEvent?) {
         if let touch {
             let point = touch.location(in: self)
-            updateSwipe(x: point.x - touchOrigin.x, y: point.y - touchOrigin.y)
+            updateSwipe(x: point.x - touchOrigin.x, y: point.y - touchOrigin.y, allowActivation: false)
         }
         finishSwipe(cancelled: touch == nil)
         super.endTracking(touch, with: event)
@@ -248,9 +253,9 @@ final class KeyboardKey: UIButton {
 
     // Shared by touch tracking and regression tests; insertion happens on release only.
     @discardableResult
-    func updateSwipe(x: CGFloat, y: CGFloat) -> Bool {
+    func updateSwipe(x: CGFloat, y: CGFloat, allowActivation: Bool = true) -> Bool {
         guard alternateAction != nil else { return false }
-        swipe.move(x: Double(x), y: Double(y))
+        swipe.move(x: Double(x), y: Double(y), allowActivation: allowActivation && touchOrigin.y + y <= -2)
         if swipe.alternate {
             showPreview(alternateTitle ?? hint ?? "", alternate: true)
         } else if showsPreview {

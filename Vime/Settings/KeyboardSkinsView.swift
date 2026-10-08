@@ -221,14 +221,14 @@ private struct SkinPreview: UIViewRepresentable {
     final class Preview: UIView {
         let canvas = KeyboardSkinCanvas()
         let letters = Array("QWERTYUIOPASDFGHJKLZXCVBNM").map { String($0) }
-        var keys: [UILabel] = []
+        var keys: [KeyboardSkinCaption] = []
         var pictures: [UIImageView] = []
         var document: KeyboardSkinDocument?
         override init(frame: CGRect) {
             super.init(frame: frame); addSubview(canvas); clipsToBounds = true
             for text in letters {
                 let image = UIImageView(); image.contentMode = .scaleAspectFit; addSubview(image); pictures.append(image)
-                let label = UILabel(); label.text = text; label.textAlignment = .center; addSubview(label); keys.append(label)
+                let label = KeyboardSkinCaption(); label.text = text; addSubview(label); keys.append(label)
             }
         }
         required init?(coder: NSCoder) { fatalError() }
@@ -237,8 +237,7 @@ private struct SkinPreview: UIViewRepresentable {
             let appearance = KeyboardSkinAppearance(doc); canvas.appearance = appearance
             for (index, key) in keys.enumerated() {
                 key.textColor = KeyboardSkinAppearance.color(doc.palette.text)
-                let font = appearance.font(size: 16)
-                key.font = font.lineHeight > 22 ? font.withSize(font.pointSize * 22 / font.lineHeight) : font
+                key.font = appearance.font(size: 16)
                 pictures[index].image = appearance.image(for: "letter." + letters[index].lowercased()) ?? appearance.image(for: "letter")
                 key.backgroundColor = KeyboardSkinAppearance.color(doc.palette.key).withAlphaComponent(doc.style.keyOpacity)
                 key.layer.cornerRadius = doc.style.cornerRadius; key.clipsToBounds = true

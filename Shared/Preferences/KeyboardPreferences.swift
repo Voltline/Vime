@@ -107,9 +107,21 @@ nonisolated enum CandidateRankingMode: String, CaseIterable, Sendable {
 
 /// Swipe selection is reversible until release; cancelled gestures never insert.
 struct KeySwipeSelection {
+    enum Policy {
+        static let activationDistance = 28.0 // Scaled points; ignore tap/rolling drift.
+        static let retentionDistance = 18.0 // Hysteresis avoids preview flicker.
+        static let activationDominance = 1.5
+        static let retentionDominance = 1.1
+    }
     private(set) var alternate = false
-    mutating func move(x: Double, y: Double) {
-        alternate = y <= -18 && abs(x) < max(36, abs(y))
+    mutating func move(x: Double, y: Double, scale: Double = 1, allowActivation: Bool = true) {
+        let up = -y / max(0.01, scale), sideways = abs(x) / max(0.01, scale)
+        if alternate {
+            alternate = up >= Policy.retentionDistance && up >= sideways * Policy.retentionDominance
+        } else {
+            alternate = allowActivation && up >= Policy.activationDistance
+                && up >= sideways * Policy.activationDominance
+        }
     }
     mutating func reset() { alternate = false }
 }

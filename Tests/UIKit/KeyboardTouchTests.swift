@@ -95,6 +95,54 @@ final class KeyboardTouchTests: XCTestCase {
         XCTAssertEqual(wrongBodyOwner, 0)
     }
 
+    func testRollingTapsDoNotBecomeSymbolsButDeliberateFlickStillWorks() throws {
+        for width: CGFloat in [375, 440, 680] {
+            let (_, surface) = makeKeyboard(width: width)
+            let q = try XCTUnwrap(surface.regions.first { $0.key.accessibilityIdentifier == "vime.key.q" })
+            let w = try XCTUnwrap(surface.regions.first { $0.key.accessibilityIdentifier == "vime.key.w" })
+            let center = CGPoint(x: q.body.midX, y: q.body.midY)
+            let up = CGPoint(x: center.x, y: center.y - 32 * surface.scale)
+            var output = ""
+            q.key.action = { output += "q" }; q.key.alternateAction = { output += "!" }; q.key.feedback = {}
+            w.key.action = { output += "w" }; w.key.feedback = {}
+            // The last lift-off coordinate cannot introduce an unpreviewed symbol.
+            surface.beginPress(id: 1, at: center); surface.endPress(id: 1, at: up)
+            XCTAssertEqual(output, "q")
+            let diagonal = CGPoint(x: center.x + 24 * surface.scale, y: center.y - 29 * surface.scale)
+            surface.beginPress(id: 2, at: center); surface.movePress(id: 2, to: diagonal)
+            surface.endPress(id: 2, at: diagonal); XCTAssertEqual(output, "qq")
+            // A bottom-to-top roll that remains in the painted key is still a tap.
+            let bottom = CGPoint(x: center.x, y: q.body.maxY - 1)
+            let rolled = CGPoint(x: bottom.x, y: bottom.y - 29 * surface.scale)
+            surface.beginPress(id: 3, at: bottom); surface.movePress(id: 3, to: rolled)
+            surface.endPress(id: 3, at: rolled); XCTAssertEqual(output, "qqq")
+            // Explicit upward movement shows the alternate, retains a little reversal,
+            // and commits only on release. Distance scales with the keyboard.
+            surface.beginPress(id: 4, at: center); surface.movePress(id: 4, to: up)
+            XCTAssertEqual(output, "qqq")
+            let reversed = CGPoint(x: center.x, y: center.y - 24 * surface.scale)
+            surface.endPress(id: 4, at: reversed); XCTAssertEqual(output, "qqq!")
+            let next = CGPoint(x: w.body.midX, y: w.body.midY)
+            surface.beginPress(id: 5, at: center); surface.beginPress(id: 6, at: next)
+            surface.movePress(id: 5, to: diagonal); surface.endPress(id: 5, at: diagonal)
+            surface.endPress(id: 6, at: next); XCTAssertEqual(output, "qqq!qw")
+        }
+        // Exercise the real composition action, rather than just substituted callbacks.
+        let session = KeyboardSession()
+        let keyboard = KeyboardView(frame: CGRect(x: 0, y: 0, width: 440, height: 350), session: session)
+        keyboard.layoutIfNeeded()
+        let surface = try XCTUnwrap(descendants(keyboard).compactMap { $0 as? KeyboardTouchSurface }.first)
+        var edits: [KeyboardEdit] = []; keyboard.onEdit = { edits += $0 }
+        for (index, character) in "nihongo".enumerated() {
+            let region = try XCTUnwrap(surface.regions.first { $0.key.accessibilityIdentifier == "vime.key." + String(character) })
+            let center = CGPoint(x: region.body.midX, y: region.body.midY)
+            surface.beginPress(id: index, at: center)
+            surface.endPress(id: index, at: CGPoint(x: center.x, y: center.y - 32))
+        }
+        XCTAssertEqual(session.composition, "にほんご")
+        XCTAssertTrue(edits.isEmpty, "A rolling tap must not confirm composition and insert punctuation")
+    }
+
     func testStickyReleaseNeighborCorrectionSwipeAndCancellation() throws {
         let (_, surface) = makeKeyboard()
         let q = try XCTUnwrap(surface.regions.first { $0.key.accessibilityIdentifier == "vime.key.q" })
