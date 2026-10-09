@@ -22,6 +22,7 @@ private final class CandidateButton: UIButton {
     private var presentedHighlight: Bool?
     private var measuredTextWidth: CGFloat = 0
     var presentationWidth: CGFloat { ceil(measuredTextWidth) + 24 }
+    var selectionToken: CandidateSelectionToken? { presentedPresentation?.selectionToken }
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -424,6 +425,8 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
     var onDismiss: (() -> Void)?
     var onCompositionChange: ((String) -> Void)?
     var onMarkedTextChange: ((String?) -> Void)?
+    /// Preferred host callback. Falls back to the legacy text callback if unset.
+    var onPreeditChange: ((KeyboardPreedit?) -> Void)?
     var onHeightChange: (() -> Void)?
     var deletionAvailabilityProvider: (() -> Bool)?
     var heightFactor: CGFloat = 1 {
@@ -469,13 +472,13 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
             guard oldValue != keyboardType else { return }
             if [.numberPad, .decimalPad, .phonePad, .asciiCapableNumberPad, .numbersAndPunctuation].contains(keyboardType) { page = .numbers }
             else { page = .letters }
-            if [.emailAddress, .URL, .asciiCapable].contains(keyboardType) { apply(session.setMode(.english)) }
+            if [.emailAddress, .URL, .asciiCapable].contains(keyboardType) { apply(session.activateEnglish()) }
             rebuildKeys()
         }
     }
 
     private enum Page { case letters, numbers, symbols }
-    private let session: KeyboardSession
+    private let session: any KeyboardInputSession
     private var displayedCandidates: [CandidatePresentation] = []
     private var displayedSelection: Int?
     private var page: Page = .letters
@@ -492,7 +495,8 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
     private let candidateRow = UIView()
     private var stripButtons: [CandidateButton] = []
     private var spareCandidateButtons: [CandidateButton] = []
-    private var displayedLanguageEnglish: Bool?
+    private var displayedLanguage: KeyboardInputLanguage?
+    private var displayedAlternateLanguage: KeyboardInputLanguage?
     private let brandButton = UIButton(type: .custom)
     private let globeButton = UIButton(type: .custom)
     private let modeButton = UIButton(type: .system)
@@ -507,7 +511,8 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
     private let previewOverlay = UIView()
     private let keysContainer = KeyboardTouchSurface()
     private let panelScroll = UIScrollView()
-    private var panelCandidates: [UIButton] = []
+    private var panelCandidates: [CandidateButton] = []
+    private var sparePanelButtons: [CandidateButton] = []
     private var settingsPanel: UIView?
     private var symbolPanel: KeyboardSymbolPanel?
     private var rows: [[(KeyboardKey, CGFloat)]] = []
@@ -522,17 +527,20 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
         self.init(frame: frame, session: KeyboardSession(asynchronousCandidates: true))
     }
 
-    init(frame: CGRect, session: KeyboardSession) {
+    init(frame: CGRect, session: any KeyboardInputSession) {
         self.session = session
         super.init(frame: frame)
         heightFactor = CGFloat(preferences.heightFactor)
         KeyboardPalette.theme = preferences.theme
-        session.candidateRanking = preferences.candidateRanking
-        session.phraseSuggestions = preferences.phraseSuggestions
+        session.updateIntelligence(ranking: preferences.candidateRanking, suggestionsEnabled: preferences.phraseSuggestions)
         appliedPreferences = preferences.snapshot
+        session.onCommittedEdits = { [weak self] batch in
+            guard let self, batch.hostEpoch == self.session.hostEpoch else { return }
+            self.apply(batch.edits)
+        }
         session.onCandidatesChange = { [weak self] in
             guard let self else { return }
-            self.onMarkedTextChange?(self.session.preedit)
+            self.publishPreedit()
             let publicationStartedAt = KeyboardPerformance.start()
             self.refresh()
             KeyboardPerformance.record(.candidatePublication, since: publicationStartedAt)
@@ -647,7 +655,8 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
         registerForTraitChanges(UITraitCollection.systemTraitsAffectingColorAppearance) {
             (view: KeyboardView, _: UITraitCollection) in
             view.traitCollection.performAsCurrent {
-                view.languageKey?.setImage(KeyboardGlyphs.language(english: view.session.mode == .english), for: .normal)
+                let traits = view.session.inputTraits
+                view.languageKey?.setImage(KeyboardGlyphs.language(primary: traits.language.glyph, secondary: traits.alternateLanguage.glyph), for: .normal)
             }
             view.setNeedsLayout()
         }
@@ -824,7 +833,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
                     let item = key(value.uppercased()) { [weak self] in
                         guard let self else { return }
                         KeyboardPerformance.record(.touchUpToType, since: self.keysContainer.releaseStartedAt)
-                        self.apply(self.session.type(self.shifted && self.session.mode == .english ? value.uppercased() : value))
+                        self.apply(self.session.type(self.shifted && self.session.inputTraits.isEnglish ? value.uppercased() : value))
                         if self.shifted && !self.capsLocked { self.shifted = false; self.updateKeyLabels() }
                     }
                     item.0.showsPreview = previewsEnabled
@@ -839,10 +848,10 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
                     row.append(item)
                 }
                 if letters == "zxcvbnm" { row.append(deleteKey(weight: 1.35)) }
-                if letters == "asdfghjkl", preferences.prolongedKey, session.mode != .english {
-                    let prolonged = key("ー") { [weak self] in
+                if letters == "asdfghjkl", preferences.prolongedKey, let prolongedInput = session.inputTraits.prolongedInput {
+                    let prolonged = key(prolongedInput) { [weak self] in
                         guard let self else { return }
-                        self.apply(self.session.type("ー"))
+                        self.apply(self.session.type(prolongedInput))
                     }
                     prolonged.0.accessibilityLabel = "长音符号"
                     prolonged.0.accessibilityIdentifier = "vime.key.prolonged"
@@ -884,7 +893,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
                 var row = values.map { value in
                     let item = key(value) { [weak self] in
                         guard let self else { return }
-                        if self.session.isComposing && ["'", "-", "ー"].contains(value) {
+                        if self.session.isComposing && self.session.inputTraits.compositionInputSymbols.contains(value) {
                             self.apply(self.session.type(value))
                         } else {
                             self.apply(self.session.insertLiteral(value))
@@ -914,14 +923,14 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
         let comma = key(page == .letters ? "," : "符号", utility: page != .letters, weight: 1) { [weak self] in
             guard let self else { return }
             if self.page != .letters { self.openSymbolPanel(mode: .symbols); return }
-            self.apply(self.session.insertLiteral(self.session.mode == .english ? "," : "、"))
+            self.apply(self.session.insertLiteral(self.session.inputTraits.comma))
         }
         comma.0.accessibilityIdentifier = page == .letters ? "vime.key.comma" : "vime.key.symbols"
         comma.0.hint = page == .letters ? "°" : nil
-        comma.0.alternateTitle = page == .letters ? "。" : nil
+        comma.0.alternateTitle = page == .letters ? session.inputTraits.period : nil
         comma.0.alternateAction = { [weak self] in
             guard let self else { return }
-            self.apply(self.session.insertLiteral("。"))
+            self.apply(self.session.insertLiteral(self.session.inputTraits.period))
         }
         bottom.append(comma)
         let space = key("", weight: 1) { [weak self] in
@@ -939,9 +948,10 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
             self.capsLocked = false
             self.rebuildKeys()
         }
-        language.0.setImage(KeyboardGlyphs.language(english: session.mode == .english), for: .normal)
+        language.0.setImage(KeyboardGlyphs.language(primary: session.inputTraits.language.glyph,
+                                                 secondary: session.inputTraits.alternateLanguage.glyph), for: .normal)
         languageKey = language.0
-        language.0.accessibilityLabel = "日语英文切换"
+        language.0.accessibilityLabel = session.inputTraits.languageSwitchAccessibilityLabel
         language.0.accessibilityIdentifier = "vime.key.language"
         bottom.append(language)
         let enter = key("换行", weight: 1.55) { [weak self] in
@@ -980,11 +990,16 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
     private func apply(_ edits: [KeyboardEdit]) {
         if !edits.isEmpty { onEdit?(edits) }
         if !session.isComposing { expanded = false }
-        onMarkedTextChange?(session.preedit)
+        publishPreedit()
         if !edits.isEmpty { session.didApplyEdits(edits) }
         KeyboardPerformance.record(.typeToMarked, since: session.takeInputTiming())
         onCompositionChange?(session.composition)
         refresh()
+    }
+
+    private func publishPreedit() {
+        if let onPreeditChange { onPreeditChange(session.markedText) }
+        else { onMarkedTextChange?(session.markedText?.text) }
     }
 
     var leftContextProvider: (() -> String?)? {
@@ -1000,7 +1015,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
     func resetComposition() {
         session.reset()
         expanded = false
-        onMarkedTextChange?(nil)
+        if let onPreeditChange { onPreeditChange(nil) } else { onMarkedTextChange?(nil) }
         onCompositionChange?("")
         refresh()
     }
@@ -1015,36 +1030,40 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
     private func refresh() {
         let uiStartedAt = KeyboardPerformance.start()
         defer { KeyboardPerformance.record(.candidateUIUpdate, since: uiStartedAt) }
-        let english = session.mode == .english
-        if displayedLanguageEnglish != english {
+        let traits = session.inputTraits
+        if displayedLanguage != traits.language || displayedAlternateLanguage != traits.alternateLanguage {
             traitCollection.performAsCurrent {
-                languageKey?.setImage(KeyboardGlyphs.language(english: english), for: .normal)
+                languageKey?.setImage(KeyboardGlyphs.language(primary: traits.language.glyph, secondary: traits.alternateLanguage.glyph), for: .normal)
             }
-            displayedLanguageEnglish = english
+            displayedLanguage = traits.language
+            displayedAlternateLanguage = traits.alternateLanguage
         }
-        languageKey?.accessibilityValue = session.mode == .english ? "英文" : "日语"
+        languageKey?.accessibilityValue = session.inputTraits.language.accessibilityName
+        languageKey?.accessibilityLabel = traits.languageSwitchAccessibilityLabel
         let composing = session.isComposing
         // Composition candidates and LM suggestions share the strip.
         let strip = session.showsStrip
         header.isHidden = emojiOpen
         undoButton.isHidden = !canUndoLineDeletion || strip || expanded || settingsOpen || emojiOpen
         brandButton.isHidden = strip || expanded || emojiOpen
-        modeButton.isHidden = strip || expanded || emojiOpen
+        modeButton.isHidden = strip || expanded || emojiOpen || !session.inputTraits.supportsPrimaryVariant
+        modeButton.accessibilityLabel = session.inputTraits.primaryVariantAccessibilityLabel
         settingsButton.isHidden = true
         candidateScroll.isHidden = !strip || expanded || emojiOpen || settingsOpen
         expandButton.isHidden = false
         cancelButton.isHidden = true
-        modeButton.setTitle(session.mode.label, for: .normal)
-        accessibilityValue = composing ? "输入中：" + (session.preedit ?? "") : session.mode.label
+        modeButton.setTitle(session.inputTraits.modeLabel, for: .normal)
+        accessibilityValue = composing ? "输入中：" + (session.markedText?.text ?? "") : session.inputTraits.modeLabel
         expandButton.backgroundColor = composing ? KeyboardTouchBacking.color : KeyboardPalette.key
         divider.isHidden = !strip || expanded || emojiOpen || settingsOpen
         panelTitle.isHidden = !expanded
         panelTitle.text = "候选词"
         divider.backgroundColor = .separator
-        let candidatesChanged = displayedCandidates != session.stripPresentations
+        let presentations = session.stripPresentations
+        let candidatesChanged = displayedCandidates != presentations
         let selectionChanged = displayedSelection != session.selectedIndex
         if candidatesChanged || selectionChanged {
-            displayedCandidates = session.stripPresentations
+            displayedCandidates = presentations
             displayedSelection = session.selectedIndex
             while stripButtons.count > displayedCandidates.count {
                 let button = stripButtons.removeLast()
@@ -1069,7 +1088,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
         } else if candidatesChanged && session.selectedIndex == nil { candidateScroll.setContentOffset(.zero, animated: false) }
         // The retained list may belong to the previous input revision. Keep
         // its appearance, but never let a stale tap discard the newer letters.
-        stripButtons.forEach { $0.isUserInteractionEnabled = session.candidatesAreCurrent }
+        stripButtons.forEach { $0.isUserInteractionEnabled = session.candidatesAreCurrent && $0.selectionToken != nil }
         let panelOpen = expanded || settingsOpen || emojiOpen
         expandButton.setImage(UIImage(systemName: panelOpen ? "chevron.up" : "chevron.down"), for: .normal)
         expandButton.accessibilityLabel = panelOpen ? "返回键盘" : composing ? "展开候选词" : "收起键盘"
@@ -1082,8 +1101,8 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
         settingsPanel?.isHidden = !settingsOpen
         if expanded { rebuildCandidatePanel() }
         else if emojiOpen { showSymbolPanel() }
-        spaceKey?.setTitle(composing ? (session.selectedIndex == nil ? "変換" : "次候補") : "", for: .normal)
-        returnKey?.setTitle(composing ? "確定" : returnTitle, for: .normal)
+        spaceKey?.setTitle(composing ? session.inputTraits.compositionSpaceTitle : "", for: .normal)
+        returnKey?.setTitle(composing ? session.inputTraits.compositionReturnTitle : returnTitle, for: .normal)
         let actionReturn = !composing && [.send, .search, .go, .done, .next, .join, .route, .continue].contains(returnKeyType)
         returnKey?.fillColor = actionReturn ? UIColor(cgColor: VimeLogo.blue) : KeyboardPalette.utility
         returnKey?.setTitleColor(actionReturn ? .white : KeyboardPalette.text, for: .normal)
@@ -1134,20 +1153,29 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
     }
 
     @objc private func selectCandidate(_ sender: UIButton) {
+        guard let token = (sender as? CandidateButton)?.selectionToken else { return }
         playFeedback()
-        apply(session.chooseStrip(sender.tag))
+        apply(session.chooseCandidate(token))
     }
 
     private func rebuildCandidatePanel() {
-        for button in panelCandidates { button.removeFromSuperview() }
-        panelCandidates = session.candidatePresentations.enumerated().map { index, value in
-            let button = candidateButton(value, index: index)
+        let values = session.candidatePresentations
+        while panelCandidates.count > values.count {
+            let button = panelCandidates.removeLast()
+            button.removeFromSuperview(); sparePanelButtons.append(button)
+        }
+        while panelCandidates.count < values.count {
+            let index = panelCandidates.count
+            let button = sparePanelButtons.popLast() ?? candidateButton(values[index], index: index)
             button.backgroundColor = .clear
-            button.isUserInteractionEnabled = session.candidatesAreCurrent
             button.layer.cornerRadius = 6
             button.titleLabel?.lineBreakMode = .byTruncatingTail
             panelScroll.addSubview(button)
-            return button
+            panelCandidates.append(button)
+        }
+        for (index, button) in panelCandidates.enumerated() {
+            presentCandidate(button, presentation: values[index], index: index)
+            button.isUserInteractionEnabled = session.candidatesAreCurrent && button.selectionToken != nil
         }
     }
 
@@ -1158,7 +1186,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
             }
         }
         let active = shifted
-        shiftKey?.setImage(UIImage(systemName: capsLocked && session.mode == .english ? "capslock.fill" : active ? "shift.fill" : "shift"), for: .normal)
+        shiftKey?.setImage(UIImage(systemName: capsLocked && session.inputTraits.isEnglish ? "capslock.fill" : active ? "shift.fill" : "shift"), for: .normal)
         shiftKey?.tintColor = KeyboardPalette.text
     }
 
@@ -1254,7 +1282,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
     }
 
     @objc private func toggleKana() {
-        apply(session.mode == .english ? session.toggleEnglish() : session.toggleKana())
+        apply(session.togglePrimaryVariant())
         rebuildKeys()
     }
 
@@ -1372,8 +1400,8 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
             }
         }
         for button in stripButtons + spareCandidateButtons { button.applyTheme() }
-        for button in panelCandidates {
-            (button as? CandidateButton)?.applyTheme()
+        for button in panelCandidates + sparePanelButtons {
+            button.applyTheme()
             button.tintColor = KeyboardPalette.text
         }
         for button in [brandButton, undoButton, modeButton, expandButton] { button.backgroundColor = KeyboardPalette.key }

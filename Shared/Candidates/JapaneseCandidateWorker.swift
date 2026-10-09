@@ -40,6 +40,13 @@ final class JapaneseCandidateWorker {
             cachedEngine = engine
             return engine
         }
+        // Reset/teardown of an unused keyboard must not initialize dictionaries
+        // or learning storage merely to clear/flush an empty session.
+        func resetCachedEngine(preservingContext: Bool) {
+            cachedEngine?.reset(preservingContext: preservingContext)
+            flushCachedLearning()
+        }
+        func flushCachedLearning() { cachedEngine?.flushLearning() }
     }
     private nonisolated final class Request: @unchecked Sendable {
         private let lock = NSLock()
@@ -166,7 +173,7 @@ final class JapaneseCandidateWorker {
     func reset(preservingContext: Bool = false) {
         cancelPending()
         let storage = self.storage
-        queue.async { storage.engine.reset(preservingContext: preservingContext); storage.engine.flushLearning() }
+        queue.async { storage.resetCachedEngine(preservingContext: preservingContext) }
     }
 
     func clearLearning() {
@@ -178,6 +185,6 @@ final class JapaneseCandidateWorker {
     deinit {
         pending?.cancel()
         let storage = self.storage
-        queue.async { storage.engine.flushLearning() }
+        queue.async { storage.flushCachedLearning() }
     }
 }

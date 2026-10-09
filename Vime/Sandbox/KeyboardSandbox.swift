@@ -69,9 +69,9 @@ struct KeyboardSandbox: UIViewRepresentable {
             guard let view, let coordinator else { return }
             coordinator.performKeyboardEdit(in: view) { coordinator.host?.apply(edits) }
         }
-        keyboard.onMarkedTextChange = { [weak view, weak coordinator = context.coordinator] text in
+        keyboard.onPreeditChange = { [weak view, weak coordinator = context.coordinator] preedit in
             guard let view, let coordinator else { return }
-            coordinator.performKeyboardEdit(in: view) { coordinator.host?.updateMarkedText(text) }
+            coordinator.performKeyboardEdit(in: view) { coordinator.host?.updatePreedit(preedit) }
         }
         keyboard.onCompositionChange = { [weak coordinator = context.coordinator] text in coordinator?.parent.composition = text }
         keyboard.onDismiss = { [weak view] in view?.resignFirstResponder() }

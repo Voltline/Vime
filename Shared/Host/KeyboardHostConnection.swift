@@ -20,7 +20,8 @@ final class KeyboardHostConnection {
     private var deletedLine: (text: String, anchor: KeyboardUndoAnchor?)?
     var onUndoAvailabilityChange: ((Bool) -> Void)?
     var canUndoLineDeletion: Bool { deletedLine != nil && deletedLine?.anchor == undoAnchor() }
-    private(set) var markedText: String?
+    private var markedPreedit: KeyboardPreedit?
+    var markedText: String? { markedPreedit?.text }
 
     init(setMarkedText: @escaping (String, NSRange) -> Void,
          unmarkText: @escaping () -> Void,
@@ -39,11 +40,15 @@ final class KeyboardHostConnection {
     }
 
     func updateMarkedText(_ text: String?) {
-        guard let text, !text.isEmpty else { clearMarkedText(); return }
-        guard text != markedText else { return }
+        updatePreedit(text.map { KeyboardPreedit(text: $0) })
+    }
+
+    func updatePreedit(_ preedit: KeyboardPreedit?) {
+        guard let preedit, !preedit.text.isEmpty else { clearMarkedText(); return }
+        guard preedit != markedPreedit else { return }
         discardDeletionUndo()
-        setMarkedText(text, NSRange(location: text.utf16.count, length: 0))
-        markedText = text
+        setMarkedText(preedit.text, preedit.selectedRange)
+        markedPreedit = preedit
     }
 
     func apply(_ edits: [KeyboardEdit]) {
@@ -68,7 +73,7 @@ final class KeyboardHostConnection {
 
     /// Called after an external caret/document change. UIKit has already ended
     /// the old mark; forgetting ownership must not edit the new input location.
-    func abandon() { markedText = nil; discardDeletionUndo() }
+    func abandon() { markedPreedit = nil; discardDeletionUndo() }
 
     private func discardDeletionUndo() {
         guard deletedLine != nil else { return }
@@ -79,6 +84,6 @@ final class KeyboardHostConnection {
         guard markedText != nil else { return }
         setMarkedText("", NSRange(location: 0, length: 0))
         unmarkText()
-        markedText = nil
+        markedPreedit = nil
     }
 }

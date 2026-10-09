@@ -69,7 +69,7 @@ final class KeyboardViewController: UIInputViewController {
             return proxy.hasText
         }
         keyboard.onEdit = { [weak self] edits in self?.apply(edits) }
-        keyboard.onMarkedTextChange = { [weak self] in self?.updateMarkedText($0) }
+        keyboard.onPreeditChange = { [weak self] in self?.updatePreedit($0) }
         keyboard.onSwitchKeyboard = { [weak self] in self?.advanceToNextInputMode() }
         keyboard.onDismiss = { [weak self] in self?.dismissKeyboard() }
         host.onUndoAvailabilityChange = { [weak self] in self?.keyboard.canUndoLineDeletion = $0 }
@@ -181,10 +181,10 @@ final class KeyboardViewController: UIInputViewController {
         return deleted
     }
 
-    private func updateMarkedText(_ text: String?) {
+    private func updatePreedit(_ preedit: KeyboardPreedit?) {
         isApplyingEdits = true
         defer { isApplyingEdits = false }
-        host.updateMarkedText(text)
+        host.updatePreedit(preedit)
         rememberContext()
     }
 

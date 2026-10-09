@@ -8,10 +8,10 @@
 | `Vime/Settings` | 完整设置与高度编辑器 |
 | `Vime/Sandbox` | 主 App 试打输入框 |
 | `Keyboard` | 系统键盘扩展入口及 Info.plist |
-| `Shared/Candidates` | azooKey 候选、统一排序、纠错与后台 worker |
-| `Shared/Input` | 输入会话、Roman 转换、preedit 表示 |
+| `Shared/Candidates` | 独立候选展示类型，以及日文 azooKey payload、排序、纠错与后台 worker |
+| `Shared/Input` | 通用 session 协议与语言展示配置；现有日文会话、Roman 转换 |
 | `Shared/Models` | Core ML 推理及 SentencePiece 桥接封装 |
-| `Shared/Host` | 宿主 marked text、文字提交和导航 |
+| `Shared/Host` | 带 UTF-16 选区的 preedit、宿主 marked text、文字提交和导航 |
 | `Shared/Preferences` | App Group 偏好与迁移 |
 | `Shared/UI` | 键盘、触摸面、候选与符号 UI、品牌及布局 |
 | `Shared/Diagnostics` | 可选计时、触摸诊断与扩展审计 |

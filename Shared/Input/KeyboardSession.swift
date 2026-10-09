@@ -12,28 +12,23 @@ enum InputMode: String, CaseIterable {
     }
 }
 
-enum KeyboardEdit: Equatable {
-    case insert(String)
-    case deleteBackward
-    case returnKey
-    case moveCursor(horizontal: Int, vertical: Int)
-    case deleteToLineStart
-    case undoLineDeletion
-}
-
 /// Owns conversion state independently of the host's marked-text range.
 /// Only confirmation or literal input emits committed document edits.
 @MainActor
-final class KeyboardSession {
+final class KeyboardSession: KeyboardInputSession {
     private let engine: JapaneseCandidateEngine?
     private let worker: JapaneseCandidateWorker?
     private(set) var revision = 0
+    private(set) var hostEpoch = 0
+    private let presentationSessionID = UUID()
+    private var candidateListGeneration = 0
     private(set) var candidateRequestCount = 0
     private(set) var inputStartedAt: TimeInterval?
     private(set) var candidateResultReadyAt: TimeInterval?
     private var candidatesPending = false
     private var pendingSpaces = 0
     var onCandidatesChange: (() -> Void)?
+    var onCommittedEdits: ((KeyboardCommitBatch) -> Void)?
     /// Host supplies the actual left context excluding its owned marked range.
     var leftContextProvider: (() -> String?)?
     var learningContextProvider: (() -> KeyboardLearningContext?)?
@@ -46,7 +41,9 @@ final class KeyboardSession {
     private(set) var mode: InputMode = .hiragana
     private(set) var candidateSnapshots: [CandidateSnapshot] = []
     var candidates: [String] { candidateSnapshots.map(\.text) }
-    var candidatePresentations: [CandidatePresentation] { candidateSnapshots.map(\.presentation) }
+    var candidatePresentations: [CandidatePresentation] {
+        candidateSnapshots.enumerated().map { presentation($0.element.presentation, index: $0.offset, kind: .composition) }
+    }
     var candidatesAreCurrent: Bool { !candidatesPending }
     private(set) var selectedIndex: Int?
     private var previousJapaneseMode: InputMode = .hiragana
@@ -67,7 +64,9 @@ final class KeyboardSession {
     var suggestions: [String] { suggestionSnapshots.map(\.text) }
     private var suggestionGeneration = 0
     var stripPresentations: [CandidatePresentation] {
-        isComposing ? candidatePresentations : suggestionSnapshots.map(\.presentation)
+        isComposing ? candidatePresentations : suggestionSnapshots.enumerated().map {
+            presentation($0.element.presentation, index: $0.offset, kind: .suggestion)
+        }
     }
     var showsStrip: Bool { isComposing || !suggestions.isEmpty }
 
@@ -87,6 +86,31 @@ final class KeyboardSession {
         return PreeditPresentation.text(for: composing, mode: mode, selected: selection)
     }
     var selectedText: String? { selectedIndex.map { candidates[$0] } }
+    var markedText: KeyboardPreedit? { preedit.map { KeyboardPreedit(text: $0) } }
+    var inputTraits: KeyboardInputTraits {
+        KeyboardInputTraits(language: mode == .english ? .english : .japanese, modeLabel: mode.label,
+            alternateLanguage: mode == .english ? .japanese : .english,
+            supportsPrimaryVariant: true, primaryVariantAccessibilityLabel: "切换平假名和片假名",
+            prolongedInput: mode == .english ? nil : "ー", compositionInputSymbols: ["'", "-", "ー"],
+            comma: mode == .english ? "," : "、", period: "。",
+            compositionSpaceTitle: selectedIndex == nil ? "変換" : "次候補", compositionReturnTitle: "確定")
+    }
+
+    private func presentation(_ original: CandidatePresentation, index: Int, kind: CandidateSelectionToken.Kind) -> CandidatePresentation {
+        var value = original
+        value.selectionToken = CandidateSelectionToken(sessionID: presentationSessionID,
+            generation: candidateListGeneration, index: index, kind: kind)
+        return value
+    }
+
+    func chooseCandidate(_ token: CandidateSelectionToken) -> [KeyboardEdit] {
+        guard token.sessionID == presentationSessionID, token.generation == candidateListGeneration,
+              candidatesAreCurrent, token.kind == (isComposing ? .composition : .suggestion) else { return [] }
+        return chooseStrip(token.index)
+    }
+
+    func activateEnglish() -> [KeyboardEdit] { setMode(.english) }
+    func togglePrimaryVariant() -> [KeyboardEdit] { mode == .english ? toggleEnglish() : toggleKana() }
 
     func takeInputTiming() -> TimeInterval? {
         defer { inputStartedAt = nil }
@@ -230,6 +254,7 @@ final class KeyboardSession {
             return []
         }
         let edits = confirmAll()
+        if mode != newMode { hostEpoch += 1 }
         if newMode != .english { previousJapaneseMode = newMode }
         mode = newMode
         if mode == .english { clearSuggestions() }
@@ -245,7 +270,8 @@ final class KeyboardSession {
     }
 
     func reset(preservingContext: Bool = false) {
-        if !preservingContext { invalidateLearningFeedback() }
+        if !preservingContext { hostEpoch += 1; invalidateLearningFeedback() }
+        candidateListGeneration += 1
         clearSuggestions()
         revision += 1
         candidatesPending = false
@@ -312,7 +338,7 @@ final class KeyboardSession {
     private func clearSuggestions() {
         worker?.cancelPending()
         suggestionGeneration += 1
-        suggestionSnapshots = []
+        if !suggestionSnapshots.isEmpty { candidateListGeneration += 1; suggestionSnapshots = [] }
     }
 
     /// Continue the unfinished sentence after a commit. A sentence-final commit
@@ -325,6 +351,7 @@ final class KeyboardSession {
         worker.suggestions(prompt: prompt) { [weak self] texts in
             guard let self, self.suggestionGeneration == generation, !self.isComposing, self.mode != .english else { return }
             self.suggestionSnapshots = texts
+            self.candidateListGeneration += 1
             self.onCandidatesChange?()
         }
     }
@@ -345,6 +372,7 @@ final class KeyboardSession {
             if isComposing { candidateRequestCount += 1 }
             candidateSnapshots = engine?.candidates(for: boundary ? PreeditPresentation.finalized(composing) : composing,
                 katakana: mode == .katakana, revision: revision) ?? []
+            candidateListGeneration += 1
             return
         }
         guard isComposing else {
@@ -378,6 +406,7 @@ final class KeyboardSession {
         candidatesPending = false
         candidateResultReadyAt = readyAt
         candidateSnapshots = values
+        candidateListGeneration += 1
         if !supplementary {
             if pendingSpaces > 0, !values.isEmpty { selectedIndex = (pendingSpaces - 1) % values.count }
             pendingSpaces = 0

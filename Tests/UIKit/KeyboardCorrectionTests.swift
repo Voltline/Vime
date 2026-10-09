@@ -189,9 +189,11 @@ final class KeyboardCorrectionTests: XCTestCase {
         session.onCandidatesChange = nil
         _ = session.space()
         let selected = session.selectedText
+        let selectedPresentations = session.candidatePresentations
         session.acceptCandidateUpdate(Array(old.reversed()), revision: oldRevision, supplementary: true)
         XCTAssertEqual(session.selectedText, selected)
-        XCTAssertEqual(session.candidatePresentations, old.map(\.presentation))
+        XCTAssertEqual(session.candidateSnapshots.map(\.presentation), old.map(\.presentation))
+        XCTAssertEqual(session.candidatePresentations, selectedPresentations, "Frozen selection also retains its UI identities")
         _ = session.type("a")
         let newRaw = session.raw
         session.acceptCandidateUpdate(old, revision: oldRevision, supplementary: true)

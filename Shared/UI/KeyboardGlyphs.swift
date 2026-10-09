@@ -13,9 +13,13 @@ enum KeyboardGlyphs {
     }
 
     static func language(english: Bool = false) -> UIImage {
+        language(primary: english ? "英" : "日", secondary: english ? "日" : "英")
+    }
+
+    static func language(primary: String, secondary: String) -> UIImage {
         UIGraphicsImageRenderer(size: CGSize(width: 32, height: 32)).image { _ in
-            ((english ? "英" : "日") as NSString).draw(at: CGPoint(x: 3, y: 1), withAttributes: [.font: UIFont.systemFont(ofSize: 13, weight: .semibold), .foregroundColor: UIColor.label])
-            ((english ? "日" : "英") as NSString).draw(at: CGPoint(x: 17, y: 15), withAttributes: [.font: UIFont.systemFont(ofSize: 11, weight: .semibold), .foregroundColor: UIColor(white: 0.66, alpha: 1)])
+            (primary as NSString).draw(at: CGPoint(x: 3, y: 1), withAttributes: [.font: UIFont.systemFont(ofSize: 13, weight: .semibold), .foregroundColor: UIColor.label])
+            (secondary as NSString).draw(at: CGPoint(x: 17, y: 15), withAttributes: [.font: UIFont.systemFont(ofSize: 11, weight: .semibold), .foregroundColor: UIColor(white: 0.66, alpha: 1)])
             let arrows = UIBezierPath()
             arrows.move(to: CGPoint(x: 19, y: 7))
             arrows.addLine(to: CGPoint(x: 22, y: 7))
