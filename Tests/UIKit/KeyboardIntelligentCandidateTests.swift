@@ -18,6 +18,76 @@ final class KeyboardIntelligentCandidateTests: XCTestCase {
             .appendingPathComponent(name + ".json"))
     }
 
+    func testPairedSoundsKeepDisjointEditsAndBoundedSearch() throws {
+        let index = CorrectionReadingIndex()
+        XCTAssertTrue(index.isAvailable)
+        for (input, reading) in [("shisuga", "しずか"), ("gazogu", "かぞく"), ("dademono", "たてもの")] {
+            let composition = query(input)
+            let pairs = KeyboardCorrectionVariants.phoneticPairs(for: composition,
+                priority: { -(index.entry(for: $0.reading)?.value ?? -100) })
+            let value = try XCTUnwrap(pairs.first { $0.reading == reading }, input)
+            XCTAssertEqual(value.suggestion.editCount, 2)
+            XCTAssertEqual(value.suggestion.originalInput, input)
+            XCTAssertEqual(value.suggestion.originalReading, composition.convertTarget)
+            let edits = value.suggestion.soundEdits
+            var restored = Array(composition.convertTarget)
+            for edit in edits { restored[edit.offset] = try XCTUnwrap(edit.replacement.first) }
+            XCTAssertEqual(String(restored), reading)
+            XCTAssertNotEqual(edits[0].offset, edits[1].offset)
+            XCTAssertGreaterThan(value.suggestion.errorCost, 2)
+            XCTAssertLessThanOrEqual(pairs.count, KeyboardCorrectionVariants.maximumPhoneticPairs)
+        }
+        // The third change remains unsupported; don't silently widen the channel.
+        XCTAssertFalse(KeyboardCorrectionVariants.phoneticPairs(for: query("gasogu"), priority: { _ in 0 })
+            .contains { $0.reading == "かぞく" })
+        XCTAssertTrue(KeyboardCorrectionVariants.phoneticPairs(for: query("gazogu"), priority: { _ in 0 }, cancelled: { true }).isEmpty)
+        XCTAssertTrue(KeyboardCorrectionVariants.phoneticPairs(for: query("gazog"), priority: { _ in 0 }).isEmpty)
+        XCTAssertTrue(KeyboardCorrectionVariants.phoneticPairs(for: query(String(repeating: "ga", count: 25)), priority: { _ in 0 }).isEmpty)
+    }
+
+    func testMixedSoundDictionaryCandidatesAndLiteralConfirmation() throws {
+        let engine = JapaneseCandidateEngine(learningEnabled: false)
+        engine.diagnosticsEnabled = true
+        for (input, reading, surface) in [("gazogu", "かぞく", "家族"), ("danabada", "たなばた", "七夕")] {
+            engine.reset()
+            let composition = query(input)
+            let base = engine.candidates(for: composition, revision: 11, includeCorrections: false)
+            let values = engine.addingCorrections(to: base, for: composition, katakana: false, revision: 11)
+            print("MIXED_SOUND \(input) \(values.map { "\($0.text):\($0.correction?.correctedReading ?? ""):\($0.correction?.method ?? "literal")" }) metrics=\(engine.lastCorrectionMetrics)")
+            print("MIXED_SOUND_QUERIES \(input) \(engine.correctionQueryDiagnostics.filter(\.admitted))")
+            guard let value = values.first(where: { $0.text == surface && $0.correction?.correctedReading == reading }) else {
+                XCTFail("Missing paired correction for \(input)"); continue
+            }
+            XCTAssertEqual(value.source, .typoCorrection)
+            XCTAssertEqual(value.correction?.editCount, 2)
+            XCTAssertEqual(value.correction?.method, "phoneticPair")
+            XCTAssertTrue(value.lexical && value.fullConsumption && value.learningEligible)
+            XCTAssertEqual(value.revision, 11)
+            XCTAssertEqual(value.consumedInputCount, composition.input.count)
+            XCTAssertTrue(values.contains { $0.source == .scriptVariant && $0.text == composition.convertTarget })
+            XCTAssertTrue(values.contains { $0.text == reading && $0.correction?.editCount == 2 })
+            XCTAssertLessThanOrEqual(engine.lastCorrectionMetrics.queries, JapaneseCandidateEngine.maximumCorrectionQueries)
+            XCTAssertLessThanOrEqual(engine.lastCorrectionMetrics.variants, KeyboardCorrectionVariants.maximumSearchVariants)
+            XCTAssertEqual(engine.finalDiagnostics.first { $0.surface == surface }?.correctionEditCount, 2)
+        }
+        for input in ["shizuka", "kazoku", "nihongo", "tadashii", "gagaku"] {
+            engine.reset()
+            XCTAssertFalse(engine.candidates(for: query(input), revision: 12).contains { $0.correction?.editCount == 2 }, input)
+        }
+        engine.reset()
+        XCTAssertFalse(engine.candidates(for: query("shisuga"), revision: 13).contains { $0.correction?.editCount == 2 },
+            "An available sound pair must still pay the evidence gate when the literal reading has a lexical interpretation")
+        let session = KeyboardSession()
+        _ = session.type("gazogu")
+        XCTAssertEqual(session.raw, "gazogu")
+        XCTAssertEqual(session.preedit, "がぞぐ")
+        XCTAssertEqual(session.enter(), [.insert("がぞぐ")])
+        _ = session.type("gazogu")
+        let selected = try XCTUnwrap(session.candidateSnapshots.firstIndex { $0.text == "家族" && $0.correction?.editCount == 2 })
+        XCTAssertEqual(session.choose(selected), [.insert("家族")])
+        XCTAssertNil(session.preedit)
+    }
+
     func testRegressionCorpusAndRawToFinalDiagnostics() throws {
         struct Record: Codable {
             let input: String

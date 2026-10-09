@@ -56,7 +56,7 @@ final class KeyboardCorrectionTests: XCTestCase {
                     "Unified ranking retains literal lexical evidence without reserving leading slots")
             }
             XCTAssertLessThanOrEqual(engine.lastCorrectionMetrics.queries, JapaneseCandidateEngine.maximumCorrectionQueries)
-            XCTAssertLessThanOrEqual(engine.lastCorrectionMetrics.variants, KeyboardCorrectionVariants.maximumVariants)
+            XCTAssertLessThanOrEqual(engine.lastCorrectionMetrics.variants, KeyboardCorrectionVariants.maximumSearchVariants)
             for value in corrections {
                 XCTAssertTrue(JapaneseCandidateEngine.hasDictionaryEvidence(value.candidate))
                 XCTAssertEqual(value.candidate.data.map(\.ruby).joined(), RomajiConverter.katakana(value.correction!.suggestedReading))

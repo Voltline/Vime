@@ -29,6 +29,10 @@ nonisolated enum CandidateCorrectionPolicy {
     static let channelWeight = 3.6
     static let minimumQuality = -5.0
     static let admissionMargin = 2.0
+    static let additionalSoundEditMargin = 2.0 // Per extra sound edit, before reading-length normalization.
+    static let wholeWordPriorityBonus = 3.0 // Verify an attested full reading before speculative phrase repairs.
+    static let maximumAdmittedReadings = 2 // One useful single edit must not hide a stronger paired interpretation.
+    static let maximumPresentedCorrections = 4 // Two readings, each with lexical spelling and kana.
     static let minimumProminence: Float = 0.1
     static let maximumCachedReadings = 96
 }
@@ -162,6 +166,8 @@ nonisolated struct CandidateDiagnostic: Codable, Sendable {
     let correctedInput: String?
     let correctedReading: String?
     let correctionMethod: String?
+    let correctionEditCount: Int?
+    let correctionSoundEdits: [CorrectionSoundEdit]?
     let convertedText: String?
     let lmScore: Double?
     let channelCost: Double?
@@ -182,6 +188,7 @@ nonisolated struct CandidateDiagnostic: Codable, Sendable {
         engineScore = value.engineScore; engineRank = value.engineRank; queryReading = value.queryReading
         originalInput = value.correction?.originalInput; correctedInput = value.correction?.correctedInput
         correctedReading = value.correction?.correctedReading; correctionMethod = value.correction?.method
+        correctionEditCount = value.correction?.editCount; correctionSoundEdits = value.correction?.soundEdits
         convertedText = value.correction?.convertedText
         lmScore = value.correction?.lmScore; channelCost = value.correction?.errorCost; prominence = value.correction?.prominence
         composingCount = String(describing: value.composingCount)

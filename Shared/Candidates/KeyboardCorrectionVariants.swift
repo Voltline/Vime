@@ -1,8 +1,8 @@
 import Foundation
 import KanaKanjiConverterModuleWithDefaultDictionary
 
-/// One local error only. These are character/sound rules, never whole-word
-/// replacements. Dictionary evidence is evaluated by the candidate engine.
+/// Local keyboard errors and bounded pairs of sound errors. These are sound
+/// rules, never whole-word replacements; the engine verifies lexical evidence.
 nonisolated enum KeyboardCorrectionVariants {
     struct Variant {
         let reading: String
@@ -10,6 +10,15 @@ nonisolated enum KeyboardCorrectionVariants {
     }
     static let maximumInputCount = 40
     static let maximumVariants = 384
+    static let maximumPhoneticPairs = 32 // Keep only the best dictionary-guided hypotheses.
+    static let maximumSearchVariants = maximumVariants + maximumPhoneticPairs
+    static let pairedSoundSurcharge = 0.5 // Two changes need stronger evidence than one.
+    private static let soundGroups = ["かが", "きぎ", "くぐ", "けげ", "こご", "さざ", "しじ", "すず", "せぜ", "そぞ",
+                                     "ただ", "ちぢじ", "つづず", "てで", "とど", "はばぱ", "ひびぴ", "ふぶぷ", "へべぺ", "ほぼぽ",
+                                     "やゃ", "ゆゅ", "よょ", "つっ"]
+    private static func soundCost(from: Character, to: Character) -> Double {
+        from == "つ" && to == "ず" ? 0.75 : 1.0
+    }
 
     static func generate(for query: ComposingText, cancelled: () -> Bool = { false }) -> [Variant] {
         let original = query.convertTarget
@@ -28,16 +37,13 @@ nonisolated enum KeyboardCorrectionVariants {
                 rangeOffset: offset, rangeLength: length, rangeUnit: unit, errorCost: cost, originalInput: originalInput)))
         }
         var kana = Array(original)
-        let soundGroups = ["かが", "きぎ", "くぐ", "けげ", "こご", "さざ", "しじ", "すず", "せぜ", "そぞ",
-                           "ただ", "ちぢじ", "つづず", "てで", "とど", "はばぱ", "ひびぴ", "ふぶぷ", "へべぺ", "ほぼぽ",
-                           "やゃ", "ゆゅ", "よょ", "つっ"]
         for i in kana.indices {
             let old = kana[i]
             for group in soundGroups where group.contains(old) {
                 for next in group where next != old {
                     kana[i] = next
                     append(String(kana), roman: nil, kind: .phonetic, offset: i, length: 1,
-                        unit: .kanaReading, cost: old == "つ" && next == "ず" ? 0.75 : 1.0)
+                        unit: .kanaReading, cost: soundCost(from: old, to: next))
                 }
             }
             kana[i] = old
@@ -87,6 +93,53 @@ nonisolated enum KeyboardCorrectionVariants {
             }
         }
         return variants
+    }
+
+    /// Explore distinct original positions, retaining a small beam by lexical
+    /// priority. The intermediate one-edit reading need not be a dictionary word.
+    /// No Roman reconstruction: separators and literal characters stay intact.
+    static func phoneticPairs(for query: ComposingText, priority: (Variant) -> Double,
+                              cancelled: () -> Bool = { false }) -> [Variant] {
+        let original = query.convertTarget
+        guard (3...24).contains(original.count), query.input.count <= maximumInputCount,
+              original.last?.isASCII == false, !cancelled() else { return [] }
+        let input = query.input.compactMap { if case .character(let c) = $0.piece { return String(c) }; return nil }.joined()
+        let kana = Array(original)
+        let positions = kana.indices.compactMap { index -> (Int, [Character])? in
+            let replacements = soundGroups.filter { $0.contains(kana[index]) }
+                .flatMap { $0.filter { $0 != kana[index] } }
+            return replacements.isEmpty ? nil : (index, replacements)
+        }
+        guard positions.count > 1 else { return [] }
+        var beam: [(Variant, Double)] = []
+        for first in 0..<(positions.count - 1) {
+            for second in (first + 1)..<positions.count {
+                let (i, left) = positions[first], (j, right) = positions[second]
+                for a in left {
+                    for b in right {
+                        if cancelled() { return beam.map(\.0) }
+                        var changed = kana; changed[i] = a; changed[j] = b
+                        let reading = String(changed)
+                        guard !reading.unicodeScalars.contains(where: { $0.isASCII }) else { continue }
+                        var suggestion = CorrectionSuggestion(originalReading: original, suggestedReading: reading,
+                            correctedRomanInput: nil, kind: .phonetic, rangeOffset: i, rangeLength: j - i + 1,
+                            rangeUnit: .kanaReading,
+                            errorCost: soundCost(from: kana[i], to: a) + soundCost(from: kana[j], to: b) + pairedSoundSurcharge,
+                            originalInput: input, method: "phoneticPair")
+                        suggestion.soundEdits = [.init(offset: i, original: String(kana[i]), replacement: String(a)),
+                                                 .init(offset: j, original: String(kana[j]), replacement: String(b))]
+                        let variant = Variant(reading: reading, suggestion: suggestion)
+                        let score = priority(variant)
+                        let index = beam.firstIndex { score < $0.1 || (score == $0.1 && reading < $0.0.reading) } ?? beam.count
+                        if index < maximumPhoneticPairs {
+                            beam.insert((variant, score), at: index)
+                            if beam.count > maximumPhoneticPairs { beam.removeLast() }
+                        }
+                    }
+                }
+            }
+        }
+        return beam.map(\.0)
     }
 
     private static let positions: [Character: (Double, Double)] = {
