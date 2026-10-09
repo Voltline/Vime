@@ -6,7 +6,7 @@ V2 tokenizer 与 V1 不同，资源必须整体安装；`VimeLMManifestV21.json`
 
 ## 安装与回退
 
-将 VimeML 结果 ZIP 解压到模型工作区，然后在此客户端执行：
+当前匹配 manifest 的 V2.1 compiled model 和 V2 tokenizer 已随客户端仓库提交，普通 clone 和 Xcode Cloud 无需额外安装。首次接入新的模型交付包时，将 VimeML 结果 ZIP 解压到模型工作区，然后在尚未安装对应资源的客户端执行：
 
 ```sh
 python3 Scripts/install_v21_resources.py /path/to/VimeML/artifacts/deployment/tiny-ja-v2.1-extend5-client-resources-v1/Resources
@@ -16,7 +16,7 @@ python3 Scripts/install_v21_resources.py /path/to/VimeML/artifacts/deployment/ti
 V1 的 `TinyJapaneseINT8.mlmodelc`、`VimeJapaneseTokenizer.model`、`VimeLMManifest.json`
 全部保留。可在模型初始化处显式使用 `resourceVersion: .v1` 回退。
 V2 校验/加载失败会保留词典候选，不自动混用 V1 tokenizer。
-资源大文件不在此 PR 中，由 VimeML 结果包迁移；新 manifest 与 native fixtures 在 Git 中。
+模型升级必须将 tokenizer、compiled model 和 manifest 作为同一组资源交付，并通过 `Scripts/validate_model_resources.py` 校验。
 
 ## 质量与验证
 
@@ -52,7 +52,7 @@ AJIMEE144/200、原 development122/137，与 FP32 命中数相同；逐条结果
 
 ## 主工作区发布准备（2026-10-08）
 
-- 已将交付包中的 v2.1 compiled model 和 V2 tokenizer 安装回 Vime 主工作区，安装前逐项匹配当前 manifest；没有从 V1 混用资源。模型大文件仍按原约定在 Git 之外交付。
+- 已将交付包中的 v2.1 compiled model 和 V2 tokenizer 安装回 Vime 主工作区，安装前逐项匹配当前 manifest；没有从 V1 混用资源。当时模型大文件在 Git 之外交付；2026-10-09 已改为随客户端仓库提交，以保证 Xcode Cloud 的干净 checkout 能完成 Release 资源校验。
 - `Scripts/validate_model_resources.py` 可检查源资源目录或实际 App/appex 资源根目录；Release 构建会自动执行，缺失、文件集合变化、校验和不符时停止。
 - 资源路径仍为 `Shared/Resources`，源代码整理见 [项目目录](ProjectLayout.md)。
 - 对应发布版本固定为 `1.0`，本轮构建号为 `2`。构建号是否可上传需与 App Store Connect 已有记录核对。

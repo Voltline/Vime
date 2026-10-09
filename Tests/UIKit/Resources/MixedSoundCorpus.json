@@ -1,0 +1,1472 @@
+{
+  "version": 1,
+  "seedReadings": [
+    "かぞく",
+    "たなばた",
+    "たてもの",
+    "ともだち",
+    "じどうしゃ",
+    "でんしゃ",
+    "べんきょう",
+    "がっこう",
+    "しずか",
+    "かがみ",
+    "たばこ",
+    "ぱそこん",
+    "はなび",
+    "ひこうき",
+    "ふくろ",
+    "ほしぞら",
+    "へいたい",
+    "やきゅう",
+    "ゆうやけ",
+    "りょこう",
+    "ざっし",
+    "てつづき",
+    "ぶんがく",
+    "せいじ"
+  ],
+  "cases": [
+    {
+      "id": "かぞく:0:が:1:そ",
+      "input": "がそく",
+      "expectedReading": "かぞく",
+      "positions": [
+        0,
+        1
+      ],
+      "families": [
+        "voicing",
+        "voicing"
+      ]
+    },
+    {
+      "id": "かぞく:0:が:2:ぐ",
+      "input": "がぞぐ",
+      "expectedReading": "かぞく",
+      "positions": [
+        0,
+        2
+      ],
+      "families": [
+        "voicing",
+        "voicing"
+      ]
+    },
+    {
+      "id": "かぞく:1:そ:2:ぐ",
+      "input": "かそぐ",
+      "expectedReading": "かぞく",
+      "positions": [
+        1,
+        2
+      ],
+      "families": [
+        "voicing",
+        "voicing"
+      ]
+    },
+    {
+      "id": "たなばた:0:だ:2:は",
+      "input": "だなはた",
+      "expectedReading": "たなばた",
+      "positions": [
+        0,
+        2
+      ],
+      "families": [
+        "voicing",
+        "hbp"
+      ]
+    },
+    {
+      "id": "たなばた:0:だ:2:ぱ",
+      "input": "だなぱた",
+      "expectedReading": "たなばた",
+      "positions": [
+        0,
+        2
+      ],
+      "families": [
+        "voicing",
+        "hbp"
+      ]
+    },
+    {
+      "id": "たなばた:0:だ:3:だ",
+      "input": "だなばだ",
+      "expectedReading": "たなばた",
+      "positions": [
+        0,
+        3
+      ],
+      "families": [
+        "voicing",
+        "voicing"
+      ]
+    },
+    {
+      "id": "たなばた:2:は:3:だ",
+      "input": "たなはだ",
+      "expectedReading": "たなばた",
+      "positions": [
+        2,
+        3
+      ],
+      "families": [
+        "hbp",
+        "voicing"
+      ]
+    },
+    {
+      "id": "たなばた:2:ぱ:3:だ",
+      "input": "たなぱだ",
+      "expectedReading": "たなばた",
+      "positions": [
+        2,
+        3
+      ],
+      "families": [
+        "hbp",
+        "voicing"
+      ]
+    },
+    {
+      "id": "たてもの:0:だ:1:で",
+      "input": "だでもの",
+      "expectedReading": "たてもの",
+      "positions": [
+        0,
+        1
+      ],
+      "families": [
+        "voicing",
+        "voicing"
+      ]
+    },
+    {
+      "id": "ともだち:0:ど:2:た",
+      "input": "どもたち",
+      "expectedReading": "ともだち",
+      "positions": [
+        0,
+        2
+      ],
+      "families": [
+        "voicing",
+        "voicing"
+      ]
+    },
+    {
+      "id": "ともだち:0:ど:3:じ",
+      "input": "どもだじ",
+      "expectedReading": "ともだち",
+      "positions": [
+        0,
+        3
+      ],
+      "families": [
+        "voicing",
+        "affricate"
+      ]
+    },
+    {
+      "id": "ともだち:0:ど:3:ぢ",
+      "input": "どもだぢ",
+      "expectedReading": "ともだち",
+      "positions": [
+        0,
+        3
+      ],
+      "families": [
+        "voicing",
+        "affricate"
+      ]
+    },
+    {
+      "id": "ともだち:2:た:3:じ",
+      "input": "ともたじ",
+      "expectedReading": "ともだち",
+      "positions": [
+        2,
+        3
+      ],
+      "families": [
+        "voicing",
+        "affricate"
+      ]
+    },
+    {
+      "id": "ともだち:2:た:3:ぢ",
+      "input": "ともたぢ",
+      "expectedReading": "ともだち",
+      "positions": [
+        2,
+        3
+      ],
+      "families": [
+        "voicing",
+        "affricate"
+      ]
+    },
+    {
+      "id": "じどうしゃ:0:し:1:と",
+      "input": "しとうしゃ",
+      "expectedReading": "じどうしゃ",
+      "positions": [
+        0,
+        1
+      ],
+      "families": [
+        "voicing",
+        "voicing"
+      ]
+    },
+    {
+      "id": "じどうしゃ:0:ち:1:と",
+      "input": "ちとうしゃ",
+      "expectedReading": "じどうしゃ",
+      "positions": [
+        0,
+        1
+      ],
+      "families": [
+        "affricate",
+        "voicing"
+      ]
+    },
+    {
+      "id": "じどうしゃ:0:ぢ:1:と",
+      "input": "ぢとうしゃ",
+      "expectedReading": "じどうしゃ",
+      "positions": [
+        0,
+        1
+      ],
+      "families": [
+        "affricate",
+        "voicing"
+      ]
+    },
+    {
+      "id": "じどうしゃ:0:し:3:じ",
+      "input": "しどうじゃ",
+      "expectedReading": "じどうしゃ",
+      "positions": [
+        0,
+        3
+      ],
+      "families": [
+        "voicing",
+        "voicing"
+      ]
+    },
+    {
+      "id": "じどうしゃ:0:ち:3:じ",
+      "input": "ちどうじゃ",
+      "expectedReading": "じどうしゃ",
+      "positions": [
+        0,
+        3
+      ],
+      "families": [
+        "affricate",
+        "voicing"
+      ]
+    },
+    {
+      "id": "じどうしゃ:0:ぢ:3:じ",
+      "input": "ぢどうじゃ",
+      "expectedReading": "じどうしゃ",
+      "positions": [
+        0,
+        3
+      ],
+      "families": [
+        "affricate",
+        "voicing"
+      ]
+    },
+    {
+      "id": "じどうしゃ:0:し:4:や",
+      "input": "しどうしや",
+      "expectedReading": "じどうしゃ",
+      "positions": [
+        0,
+        4
+      ],
+      "families": [
+        "voicing",
+        "smallKana"
+      ]
+    },
+    {
+      "id": "じどうしゃ:0:ち:4:や",
+      "input": "ちどうしや",
+      "expectedReading": "じどうしゃ",
+      "positions": [
+        0,
+        4
+      ],
+      "families": [
+        "affricate",
+        "smallKana"
+      ]
+    },
+    {
+      "id": "じどうしゃ:0:ぢ:4:や",
+      "input": "ぢどうしや",
+      "expectedReading": "じどうしゃ",
+      "positions": [
+        0,
+        4
+      ],
+      "families": [
+        "affricate",
+        "smallKana"
+      ]
+    },
+    {
+      "id": "じどうしゃ:1:と:3:じ",
+      "input": "じとうじゃ",
+      "expectedReading": "じどうしゃ",
+      "positions": [
+        1,
+        3
+      ],
+      "families": [
+        "voicing",
+        "voicing"
+      ]
+    },
+    {
+      "id": "じどうしゃ:1:と:4:や",
+      "input": "じとうしや",
+      "expectedReading": "じどうしゃ",
+      "positions": [
+        1,
+        4
+      ],
+      "families": [
+        "voicing",
+        "smallKana"
+      ]
+    },
+    {
+      "id": "じどうしゃ:3:じ:4:や",
+      "input": "じどうじや",
+      "expectedReading": "じどうしゃ",
+      "positions": [
+        3,
+        4
+      ],
+      "families": [
+        "voicing",
+        "smallKana"
+      ]
+    },
+    {
+      "id": "でんしゃ:0:て:2:じ",
+      "input": "てんじゃ",
+      "expectedReading": "でんしゃ",
+      "positions": [
+        0,
+        2
+      ],
+      "families": [
+        "voicing",
+        "voicing"
+      ]
+    },
+    {
+      "id": "でんしゃ:0:て:3:や",
+      "input": "てんしや",
+      "expectedReading": "でんしゃ",
+      "positions": [
+        0,
+        3
+      ],
+      "families": [
+        "voicing",
+        "smallKana"
+      ]
+    },
+    {
+      "id": "でんしゃ:2:じ:3:や",
+      "input": "でんじや",
+      "expectedReading": "でんしゃ",
+      "positions": [
+        2,
+        3
+      ],
+      "families": [
+        "voicing",
+        "smallKana"
+      ]
+    },
+    {
+      "id": "べんきょう:0:へ:2:ぎ",
+      "input": "へんぎょう",
+      "expectedReading": "べんきょう",
+      "positions": [
+        0,
+        2
+      ],
+      "families": [
+        "hbp",
+        "voicing"
+      ]
+    },
+    {
+      "id": "べんきょう:0:ぺ:2:ぎ",
+      "input": "ぺんぎょう",
+      "expectedReading": "べんきょう",
+      "positions": [
+        0,
+        2
+      ],
+      "families": [
+        "hbp",
+        "voicing"
+      ]
+    },
+    {
+      "id": "べんきょう:0:へ:3:よ",
+      "input": "へんきよう",
+      "expectedReading": "べんきょう",
+      "positions": [
+        0,
+        3
+      ],
+      "families": [
+        "hbp",
+        "smallKana"
+      ]
+    },
+    {
+      "id": "べんきょう:0:ぺ:3:よ",
+      "input": "ぺんきよう",
+      "expectedReading": "べんきょう",
+      "positions": [
+        0,
+        3
+      ],
+      "families": [
+        "hbp",
+        "smallKana"
+      ]
+    },
+    {
+      "id": "べんきょう:2:ぎ:3:よ",
+      "input": "べんぎよう",
+      "expectedReading": "べんきょう",
+      "positions": [
+        2,
+        3
+      ],
+      "families": [
+        "voicing",
+        "smallKana"
+      ]
+    },
+    {
+      "id": "がっこう:0:か:1:つ",
+      "input": "かつこう",
+      "expectedReading": "がっこう",
+      "positions": [
+        0,
+        1
+      ],
+      "families": [
+        "voicing",
+        "gemination"
+      ]
+    },
+    {
+      "id": "がっこう:0:か:2:ご",
+      "input": "かっごう",
+      "expectedReading": "がっこう",
+      "positions": [
+        0,
+        2
+      ],
+      "families": [
+        "voicing",
+        "voicing"
+      ]
+    },
+    {
+      "id": "がっこう:1:つ:2:ご",
+      "input": "がつごう",
+      "expectedReading": "がっこう",
+      "positions": [
+        1,
+        2
+      ],
+      "families": [
+        "gemination",
+        "voicing"
+      ]
+    },
+    {
+      "id": "しずか:0:じ:1:す",
+      "input": "じすか",
+      "expectedReading": "しずか",
+      "positions": [
+        0,
+        1
+      ],
+      "families": [
+        "voicing",
+        "voicing"
+      ]
+    },
+    {
+      "id": "しずか:0:じ:1:つ",
+      "input": "じつか",
+      "expectedReading": "しずか",
+      "positions": [
+        0,
+        1
+      ],
+      "families": [
+        "voicing",
+        "affricate"
+      ]
+    },
+    {
+      "id": "しずか:0:じ:1:づ",
+      "input": "じづか",
+      "expectedReading": "しずか",
+      "positions": [
+        0,
+        1
+      ],
+      "families": [
+        "voicing",
+        "affricate"
+      ]
+    },
+    {
+      "id": "しずか:0:じ:2:が",
+      "input": "じずが",
+      "expectedReading": "しずか",
+      "positions": [
+        0,
+        2
+      ],
+      "families": [
+        "voicing",
+        "voicing"
+      ]
+    },
+    {
+      "id": "しずか:1:す:2:が",
+      "input": "しすが",
+      "expectedReading": "しずか",
+      "positions": [
+        1,
+        2
+      ],
+      "families": [
+        "voicing",
+        "voicing"
+      ]
+    },
+    {
+      "id": "しずか:1:つ:2:が",
+      "input": "しつが",
+      "expectedReading": "しずか",
+      "positions": [
+        1,
+        2
+      ],
+      "families": [
+        "affricate",
+        "voicing"
+      ]
+    },
+    {
+      "id": "しずか:1:づ:2:が",
+      "input": "しづが",
+      "expectedReading": "しずか",
+      "positions": [
+        1,
+        2
+      ],
+      "families": [
+        "affricate",
+        "voicing"
+      ]
+    },
+    {
+      "id": "かがみ:0:が:1:か",
+      "input": "がかみ",
+      "expectedReading": "かがみ",
+      "positions": [
+        0,
+        1
+      ],
+      "families": [
+        "voicing",
+        "voicing"
+      ]
+    },
+    {
+      "id": "たばこ:0:だ:1:は",
+      "input": "だはこ",
+      "expectedReading": "たばこ",
+      "positions": [
+        0,
+        1
+      ],
+      "families": [
+        "voicing",
+        "hbp"
+      ]
+    },
+    {
+      "id": "たばこ:0:だ:1:ぱ",
+      "input": "だぱこ",
+      "expectedReading": "たばこ",
+      "positions": [
+        0,
+        1
+      ],
+      "families": [
+        "voicing",
+        "hbp"
+      ]
+    },
+    {
+      "id": "たばこ:0:だ:2:ご",
+      "input": "だばご",
+      "expectedReading": "たばこ",
+      "positions": [
+        0,
+        2
+      ],
+      "families": [
+        "voicing",
+        "voicing"
+      ]
+    },
+    {
+      "id": "たばこ:1:は:2:ご",
+      "input": "たはご",
+      "expectedReading": "たばこ",
+      "positions": [
+        1,
+        2
+      ],
+      "families": [
+        "hbp",
+        "voicing"
+      ]
+    },
+    {
+      "id": "たばこ:1:ぱ:2:ご",
+      "input": "たぱご",
+      "expectedReading": "たばこ",
+      "positions": [
+        1,
+        2
+      ],
+      "families": [
+        "hbp",
+        "voicing"
+      ]
+    },
+    {
+      "id": "ぱそこん:0:は:1:ぞ",
+      "input": "はぞこん",
+      "expectedReading": "ぱそこん",
+      "positions": [
+        0,
+        1
+      ],
+      "families": [
+        "hbp",
+        "voicing"
+      ]
+    },
+    {
+      "id": "ぱそこん:0:ば:1:ぞ",
+      "input": "ばぞこん",
+      "expectedReading": "ぱそこん",
+      "positions": [
+        0,
+        1
+      ],
+      "families": [
+        "hbp",
+        "voicing"
+      ]
+    },
+    {
+      "id": "ぱそこん:0:は:2:ご",
+      "input": "はそごん",
+      "expectedReading": "ぱそこん",
+      "positions": [
+        0,
+        2
+      ],
+      "families": [
+        "hbp",
+        "voicing"
+      ]
+    },
+    {
+      "id": "ぱそこん:0:ば:2:ご",
+      "input": "ばそごん",
+      "expectedReading": "ぱそこん",
+      "positions": [
+        0,
+        2
+      ],
+      "families": [
+        "hbp",
+        "voicing"
+      ]
+    },
+    {
+      "id": "ぱそこん:1:ぞ:2:ご",
+      "input": "ぱぞごん",
+      "expectedReading": "ぱそこん",
+      "positions": [
+        1,
+        2
+      ],
+      "families": [
+        "voicing",
+        "voicing"
+      ]
+    },
+    {
+      "id": "はなび:0:ば:2:ひ",
+      "input": "ばなひ",
+      "expectedReading": "はなび",
+      "positions": [
+        0,
+        2
+      ],
+      "families": [
+        "hbp",
+        "hbp"
+      ]
+    },
+    {
+      "id": "はなび:0:ば:2:ぴ",
+      "input": "ばなぴ",
+      "expectedReading": "はなび",
+      "positions": [
+        0,
+        2
+      ],
+      "families": [
+        "hbp",
+        "hbp"
+      ]
+    },
+    {
+      "id": "はなび:0:ぱ:2:ひ",
+      "input": "ぱなひ",
+      "expectedReading": "はなび",
+      "positions": [
+        0,
+        2
+      ],
+      "families": [
+        "hbp",
+        "hbp"
+      ]
+    },
+    {
+      "id": "はなび:0:ぱ:2:ぴ",
+      "input": "ぱなぴ",
+      "expectedReading": "はなび",
+      "positions": [
+        0,
+        2
+      ],
+      "families": [
+        "hbp",
+        "hbp"
+      ]
+    },
+    {
+      "id": "ひこうき:0:び:1:ご",
+      "input": "びごうき",
+      "expectedReading": "ひこうき",
+      "positions": [
+        0,
+        1
+      ],
+      "families": [
+        "hbp",
+        "voicing"
+      ]
+    },
+    {
+      "id": "ひこうき:0:ぴ:1:ご",
+      "input": "ぴごうき",
+      "expectedReading": "ひこうき",
+      "positions": [
+        0,
+        1
+      ],
+      "families": [
+        "hbp",
+        "voicing"
+      ]
+    },
+    {
+      "id": "ひこうき:0:び:3:ぎ",
+      "input": "びこうぎ",
+      "expectedReading": "ひこうき",
+      "positions": [
+        0,
+        3
+      ],
+      "families": [
+        "hbp",
+        "voicing"
+      ]
+    },
+    {
+      "id": "ひこうき:0:ぴ:3:ぎ",
+      "input": "ぴこうぎ",
+      "expectedReading": "ひこうき",
+      "positions": [
+        0,
+        3
+      ],
+      "families": [
+        "hbp",
+        "voicing"
+      ]
+    },
+    {
+      "id": "ひこうき:1:ご:3:ぎ",
+      "input": "ひごうぎ",
+      "expectedReading": "ひこうき",
+      "positions": [
+        1,
+        3
+      ],
+      "families": [
+        "voicing",
+        "voicing"
+      ]
+    },
+    {
+      "id": "ふくろ:0:ぶ:1:ぐ",
+      "input": "ぶぐろ",
+      "expectedReading": "ふくろ",
+      "positions": [
+        0,
+        1
+      ],
+      "families": [
+        "hbp",
+        "voicing"
+      ]
+    },
+    {
+      "id": "ふくろ:0:ぷ:1:ぐ",
+      "input": "ぷぐろ",
+      "expectedReading": "ふくろ",
+      "positions": [
+        0,
+        1
+      ],
+      "families": [
+        "hbp",
+        "voicing"
+      ]
+    },
+    {
+      "id": "ほしぞら:0:ぼ:1:じ",
+      "input": "ぼじぞら",
+      "expectedReading": "ほしぞら",
+      "positions": [
+        0,
+        1
+      ],
+      "families": [
+        "hbp",
+        "voicing"
+      ]
+    },
+    {
+      "id": "ほしぞら:0:ぽ:1:じ",
+      "input": "ぽじぞら",
+      "expectedReading": "ほしぞら",
+      "positions": [
+        0,
+        1
+      ],
+      "families": [
+        "hbp",
+        "voicing"
+      ]
+    },
+    {
+      "id": "ほしぞら:0:ぼ:2:そ",
+      "input": "ぼしそら",
+      "expectedReading": "ほしぞら",
+      "positions": [
+        0,
+        2
+      ],
+      "families": [
+        "hbp",
+        "voicing"
+      ]
+    },
+    {
+      "id": "ほしぞら:0:ぽ:2:そ",
+      "input": "ぽしそら",
+      "expectedReading": "ほしぞら",
+      "positions": [
+        0,
+        2
+      ],
+      "families": [
+        "hbp",
+        "voicing"
+      ]
+    },
+    {
+      "id": "ほしぞら:1:じ:2:そ",
+      "input": "ほじそら",
+      "expectedReading": "ほしぞら",
+      "positions": [
+        1,
+        2
+      ],
+      "families": [
+        "voicing",
+        "voicing"
+      ]
+    },
+    {
+      "id": "へいたい:0:べ:2:だ",
+      "input": "べいだい",
+      "expectedReading": "へいたい",
+      "positions": [
+        0,
+        2
+      ],
+      "families": [
+        "hbp",
+        "voicing"
+      ]
+    },
+    {
+      "id": "へいたい:0:ぺ:2:だ",
+      "input": "ぺいだい",
+      "expectedReading": "へいたい",
+      "positions": [
+        0,
+        2
+      ],
+      "families": [
+        "hbp",
+        "voicing"
+      ]
+    },
+    {
+      "id": "やきゅう:0:ゃ:1:ぎ",
+      "input": "ゃぎゅう",
+      "expectedReading": "やきゅう",
+      "positions": [
+        0,
+        1
+      ],
+      "families": [
+        "smallKana",
+        "voicing"
+      ]
+    },
+    {
+      "id": "やきゅう:0:ゃ:2:ゆ",
+      "input": "ゃきゆう",
+      "expectedReading": "やきゅう",
+      "positions": [
+        0,
+        2
+      ],
+      "families": [
+        "smallKana",
+        "smallKana"
+      ]
+    },
+    {
+      "id": "やきゅう:1:ぎ:2:ゆ",
+      "input": "やぎゆう",
+      "expectedReading": "やきゅう",
+      "positions": [
+        1,
+        2
+      ],
+      "families": [
+        "voicing",
+        "smallKana"
+      ]
+    },
+    {
+      "id": "ゆうやけ:0:ゅ:2:ゃ",
+      "input": "ゅうゃけ",
+      "expectedReading": "ゆうやけ",
+      "positions": [
+        0,
+        2
+      ],
+      "families": [
+        "smallKana",
+        "smallKana"
+      ]
+    },
+    {
+      "id": "ゆうやけ:0:ゅ:3:げ",
+      "input": "ゅうやげ",
+      "expectedReading": "ゆうやけ",
+      "positions": [
+        0,
+        3
+      ],
+      "families": [
+        "smallKana",
+        "voicing"
+      ]
+    },
+    {
+      "id": "ゆうやけ:2:ゃ:3:げ",
+      "input": "ゆうゃげ",
+      "expectedReading": "ゆうやけ",
+      "positions": [
+        2,
+        3
+      ],
+      "families": [
+        "smallKana",
+        "voicing"
+      ]
+    },
+    {
+      "id": "りょこう:1:よ:2:ご",
+      "input": "りよごう",
+      "expectedReading": "りょこう",
+      "positions": [
+        1,
+        2
+      ],
+      "families": [
+        "smallKana",
+        "voicing"
+      ]
+    },
+    {
+      "id": "ざっし:0:さ:1:つ",
+      "input": "さつし",
+      "expectedReading": "ざっし",
+      "positions": [
+        0,
+        1
+      ],
+      "families": [
+        "voicing",
+        "gemination"
+      ]
+    },
+    {
+      "id": "ざっし:0:さ:2:じ",
+      "input": "さっじ",
+      "expectedReading": "ざっし",
+      "positions": [
+        0,
+        2
+      ],
+      "families": [
+        "voicing",
+        "voicing"
+      ]
+    },
+    {
+      "id": "ざっし:1:つ:2:じ",
+      "input": "ざつじ",
+      "expectedReading": "ざっし",
+      "positions": [
+        1,
+        2
+      ],
+      "families": [
+        "gemination",
+        "voicing"
+      ]
+    },
+    {
+      "id": "てつづき:0:で:1:ず",
+      "input": "でずづき",
+      "expectedReading": "てつづき",
+      "positions": [
+        0,
+        1
+      ],
+      "families": [
+        "voicing",
+        "affricate"
+      ]
+    },
+    {
+      "id": "てつづき:0:で:1:っ",
+      "input": "でっづき",
+      "expectedReading": "てつづき",
+      "positions": [
+        0,
+        1
+      ],
+      "families": [
+        "voicing",
+        "gemination"
+      ]
+    },
+    {
+      "id": "てつづき:0:で:1:づ",
+      "input": "でづづき",
+      "expectedReading": "てつづき",
+      "positions": [
+        0,
+        1
+      ],
+      "families": [
+        "voicing",
+        "affricate"
+      ]
+    },
+    {
+      "id": "てつづき:0:で:2:ず",
+      "input": "でつずき",
+      "expectedReading": "てつづき",
+      "positions": [
+        0,
+        2
+      ],
+      "families": [
+        "voicing",
+        "affricate"
+      ]
+    },
+    {
+      "id": "てつづき:0:で:2:つ",
+      "input": "でつつき",
+      "expectedReading": "てつづき",
+      "positions": [
+        0,
+        2
+      ],
+      "families": [
+        "voicing",
+        "affricate"
+      ]
+    },
+    {
+      "id": "てつづき:0:で:3:ぎ",
+      "input": "でつづぎ",
+      "expectedReading": "てつづき",
+      "positions": [
+        0,
+        3
+      ],
+      "families": [
+        "voicing",
+        "voicing"
+      ]
+    },
+    {
+      "id": "てつづき:1:ず:2:ず",
+      "input": "てずずき",
+      "expectedReading": "てつづき",
+      "positions": [
+        1,
+        2
+      ],
+      "families": [
+        "affricate",
+        "affricate"
+      ]
+    },
+    {
+      "id": "てつづき:1:ず:2:つ",
+      "input": "てずつき",
+      "expectedReading": "てつづき",
+      "positions": [
+        1,
+        2
+      ],
+      "families": [
+        "affricate",
+        "affricate"
+      ]
+    },
+    {
+      "id": "てつづき:1:っ:2:ず",
+      "input": "てっずき",
+      "expectedReading": "てつづき",
+      "positions": [
+        1,
+        2
+      ],
+      "families": [
+        "gemination",
+        "affricate"
+      ]
+    },
+    {
+      "id": "てつづき:1:っ:2:つ",
+      "input": "てっつき",
+      "expectedReading": "てつづき",
+      "positions": [
+        1,
+        2
+      ],
+      "families": [
+        "gemination",
+        "affricate"
+      ]
+    },
+    {
+      "id": "てつづき:1:づ:2:ず",
+      "input": "てづずき",
+      "expectedReading": "てつづき",
+      "positions": [
+        1,
+        2
+      ],
+      "families": [
+        "affricate",
+        "affricate"
+      ]
+    },
+    {
+      "id": "てつづき:1:づ:2:つ",
+      "input": "てづつき",
+      "expectedReading": "てつづき",
+      "positions": [
+        1,
+        2
+      ],
+      "families": [
+        "affricate",
+        "affricate"
+      ]
+    },
+    {
+      "id": "てつづき:1:ず:3:ぎ",
+      "input": "てずづぎ",
+      "expectedReading": "てつづき",
+      "positions": [
+        1,
+        3
+      ],
+      "families": [
+        "affricate",
+        "voicing"
+      ]
+    },
+    {
+      "id": "てつづき:1:っ:3:ぎ",
+      "input": "てっづぎ",
+      "expectedReading": "てつづき",
+      "positions": [
+        1,
+        3
+      ],
+      "families": [
+        "gemination",
+        "voicing"
+      ]
+    },
+    {
+      "id": "てつづき:1:づ:3:ぎ",
+      "input": "てづづぎ",
+      "expectedReading": "てつづき",
+      "positions": [
+        1,
+        3
+      ],
+      "families": [
+        "affricate",
+        "voicing"
+      ]
+    },
+    {
+      "id": "てつづき:2:ず:3:ぎ",
+      "input": "てつずぎ",
+      "expectedReading": "てつづき",
+      "positions": [
+        2,
+        3
+      ],
+      "families": [
+        "affricate",
+        "voicing"
+      ]
+    },
+    {
+      "id": "てつづき:2:つ:3:ぎ",
+      "input": "てつつぎ",
+      "expectedReading": "てつづき",
+      "positions": [
+        2,
+        3
+      ],
+      "families": [
+        "affricate",
+        "voicing"
+      ]
+    },
+    {
+      "id": "ぶんがく:0:ふ:2:か",
+      "input": "ふんかく",
+      "expectedReading": "ぶんがく",
+      "positions": [
+        0,
+        2
+      ],
+      "families": [
+        "hbp",
+        "voicing"
+      ]
+    },
+    {
+      "id": "ぶんがく:0:ぷ:2:か",
+      "input": "ぷんかく",
+      "expectedReading": "ぶんがく",
+      "positions": [
+        0,
+        2
+      ],
+      "families": [
+        "hbp",
+        "voicing"
+      ]
+    },
+    {
+      "id": "ぶんがく:0:ふ:3:ぐ",
+      "input": "ふんがぐ",
+      "expectedReading": "ぶんがく",
+      "positions": [
+        0,
+        3
+      ],
+      "families": [
+        "hbp",
+        "voicing"
+      ]
+    },
+    {
+      "id": "ぶんがく:0:ぷ:3:ぐ",
+      "input": "ぷんがぐ",
+      "expectedReading": "ぶんがく",
+      "positions": [
+        0,
+        3
+      ],
+      "families": [
+        "hbp",
+        "voicing"
+      ]
+    },
+    {
+      "id": "ぶんがく:2:か:3:ぐ",
+      "input": "ぶんかぐ",
+      "expectedReading": "ぶんがく",
+      "positions": [
+        2,
+        3
+      ],
+      "families": [
+        "voicing",
+        "voicing"
+      ]
+    },
+    {
+      "id": "せいじ:0:ぜ:2:し",
+      "input": "ぜいし",
+      "expectedReading": "せいじ",
+      "positions": [
+        0,
+        2
+      ],
+      "families": [
+        "voicing",
+        "voicing"
+      ]
+    },
+    {
+      "id": "せいじ:0:ぜ:2:ち",
+      "input": "ぜいち",
+      "expectedReading": "せいじ",
+      "positions": [
+        0,
+        2
+      ],
+      "families": [
+        "voicing",
+        "affricate"
+      ]
+    },
+    {
+      "id": "せいじ:0:ぜ:2:ぢ",
+      "input": "ぜいぢ",
+      "expectedReading": "せいじ",
+      "positions": [
+        0,
+        2
+      ],
+      "families": [
+        "voicing",
+        "affricate"
+      ]
+    }
+  ],
+  "normalReadings": [
+    "かぞく",
+    "たなばた",
+    "たてもの",
+    "ともだち",
+    "じどうしゃ",
+    "でんしゃ",
+    "べんきょう",
+    "がっこう",
+    "しずか",
+    "かがみ",
+    "たばこ",
+    "ぱそこん",
+    "はなび",
+    "ひこうき",
+    "ふくろ",
+    "ほしぞら",
+    "へいたい",
+    "やきゅう",
+    "ゆうやけ",
+    "りょこう",
+    "ざっし",
+    "てつづき",
+    "ぶんがく",
+    "せいじ",
+    "ががく",
+    "かかく",
+    "かがく",
+    "ただしい",
+    "ちかい",
+    "じかい",
+    "ちぢむ",
+    "つづく",
+    "すずしい",
+    "きれい",
+    "にほんご"
+  ]
+}

@@ -27,6 +27,13 @@ nonisolated enum CorrectionKind: String, CaseIterable, Hashable, Sendable {
     case neighboringKey, missingLetter, extraLetter, transposition, phonetic
 }
 
+/// Offsets refer to the original kana reading, even for disjoint changes.
+nonisolated struct CorrectionSoundEdit: Equatable, Codable, Sendable {
+    let offset: Int
+    let original: String
+    let replacement: String
+}
+
 nonisolated struct CorrectionSuggestion: Equatable, Sendable {
     enum Unit: Equatable, Sendable { case romanInput, kanaReading }
     let originalReading: String
@@ -42,6 +49,8 @@ nonisolated struct CorrectionSuggestion: Equatable, Sendable {
     var convertedText: String? = nil
     var prominence: Double? = nil
     var method: String = "topologyOrPhonetic"
+    var soundEdits: [CorrectionSoundEdit] = []
+    var editCount: Int { max(1, soundEdits.count) }
     var correctedInput: String { correctedRomanInput ?? suggestedReading }
     var correctedReading: String { suggestedReading }
 }

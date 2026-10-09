@@ -19,6 +19,7 @@ nonisolated final class JapaneseCandidateEngine {
     var diagnosticsEnabled = false
     private(set) var rawDiagnostics: [CandidateDiagnostic] = []
     private(set) var finalDiagnostics: [CandidateDiagnostic] = []
+    private(set) var correctionQueryDiagnostics: [CorrectionQueryDiagnostic] = []
     let memoryDirectoryURL: URL
     // An optional trained n-gram model; absent models never trigger LM work.
     var experimentalTypoConfig: ExperimentalTypoCorrectionConfig?
@@ -184,6 +185,7 @@ nonisolated final class JapaneseCandidateEngine {
                            revision: Int, cancelled: () -> Bool = { false }) -> [CandidateSnapshot] {
         let started = ProcessInfo.processInfo.systemUptime
         lastCorrectionMetrics = .init()
+        correctionQueryDiagnostics = []
         defer { lastCorrectionMetrics.elapsedMs = (ProcessInfo.processInfo.systemUptime - started) * 1000 }
         let generated = KeyboardCorrectionVariants.generate(for: query, cancelled: cancelled)
         let literalReading = RomajiConverter.katakana(query.convertTarget)
@@ -218,7 +220,8 @@ nonisolated final class JapaneseCandidateEngine {
             let changed = Self.changedRange(originalCharacters, characters)
             let repairsFallback = fallbackRanges.contains { $0.overlaps(changed) }
             var gain: Double?
-            if let wholeWord = correctionIndex.entry(for: variant.reading), !originalData.isEmpty {
+            let wholeWord = correctionIndex.entry(for: variant.reading)
+            if let wholeWord, !originalData.isEmpty {
                 gain = localGain(wholeWord, start: 0, end: originalData.count - 1)
             }
             let delta = characters.count - originalCharacters.count
@@ -239,9 +242,18 @@ nonisolated final class JapaneseCandidateEngine {
                 }
             }
             return variant.suggestion.errorCost - (repairsFallback ? 0.25 : 0) - (gain ?? -4) / 4
+                - (wholeWord == nil ? 0 : CandidateCorrectionPolicy.wholeWordPriorityBonus)
         }
         var weighted: [(variant: KeyboardCorrectionVariants.Variant, priority: Double, index: Int)] = []
         for (index, variant) in generated.enumerated() { weighted.append((variant, priority(variant), index)) }
+        // Rank complete two-sound hypotheses using the same lexical hints as
+        // single edits. Do not require either intermediate reading to be valid.
+        // This supplementary work shares the existing deadline and query limit.
+        let paired = KeyboardCorrectionVariants.phoneticPairs(for: query, priority: priority,
+            cancelled: { cancelled() || ProcessInfo.processInfo.systemUptime - started >= Self.correctionBudgetSeconds })
+        for (index, variant) in paired.enumerated() {
+            weighted.append((variant, priority(variant), generated.count + index))
+        }
         weighted.sort {
             $0.priority == $1.priority ? $0.index < $1.index : $0.priority < $1.priority
         }
@@ -257,8 +269,13 @@ nonisolated final class JapaneseCandidateEngine {
         correctionOptions.N_best = 2
         correctionOptions.requireJapanesePrediction = .disabled
         var matches: [(Candidate, KeyboardCorrectionVariants.Variant, Double)] = []
+        var admittedReadings = Set<String>()
         for variant in variants {
-            if !matches.isEmpty { break }
+            if admittedReadings.count >= CandidateCorrectionPolicy.maximumAdmittedReadings { break }
+            // Preserve the existing first useful single-edit reading, while
+            // allowing a paired sound reading to compete rather than being cut
+            // off by an unrelated single-edit word found earlier.
+            if !matches.isEmpty && variant.suggestion.editCount == 1 { continue }
             if cancelled() { lastCorrectionMetrics.cancelled = true; break }
             if lastCorrectionMetrics.queries >= Self.maximumCorrectionQueries
                 || ProcessInfo.processInfo.systemUptime - started >= Self.correctionBudgetSeconds {
@@ -298,15 +315,25 @@ nonisolated final class JapaneseCandidateEngine {
                 // length; this is a ranking heuristic, not a probability.
                 let length = Double(max(3, variant.reading.count))
                 let score = Self.quality(candidate) - variant.suggestion.errorCost * CandidateCorrectionPolicy.channelWeight / length
-                let margin = CandidateCorrectionPolicy.admissionMargin / Double(max(3, query.convertTarget.count))
+                let margin = (CandidateCorrectionPolicy.admissionMargin
+                    + Double(variant.suggestion.editCount - 1) * CandidateCorrectionPolicy.additionalSoundEditMargin)
+                    / Double(max(3, query.convertTarget.count))
                 if Self.quality(candidate) > CandidateCorrectionPolicy.minimumQuality, score > originalQuality + margin {
                     matches.append((candidate, variant, score))
+                    admittedReadings.insert(variant.reading)
+                }
+                if diagnosticsEnabled {
+                    correctionQueryDiagnostics.append(.init(reading: variant.reading, editCount: variant.suggestion.editCount,
+                        quality: Self.quality(candidate), adjustedQuality: score, requiredQuality: originalQuality + margin,
+                        admitted: Self.quality(candidate) > CandidateCorrectionPolicy.minimumQuality && score > originalQuality + margin))
                 }
             }
-            // The plan is ordered by error cost and lexical evidence. Once an
-            // admissible reading is found, its spellings and kana are enough;
-            // do not spend the remaining budget probing unrelated readings.
-            if !matches.isEmpty { break }
+            if diagnosticsEnabled && candidates.isEmpty {
+                correctionQueryDiagnostics.append(.init(reading: variant.reading, editCount: variant.suggestion.editCount,
+                    quality: nil, adjustedQuality: nil, requiredQuality: nil, admitted: false))
+            }
+            // Admission and query counts stay bounded; after one reading only
+            // paired hypotheses are considered, never more unrelated single edits.
         }
         let classicStarted = KeyboardPerformance.start()
         if matches.isEmpty, !cancelled(), Self.supportsClassicTypo(query) {
@@ -392,12 +419,12 @@ nonisolated final class JapaneseCandidateEngine {
         }
         for (candidate, variant, _) in matches {
             append(candidate, variant: variant)
-            if additions.count + replacements.count >= 3 { break }
+            if additions.count + replacements.count >= CandidateCorrectionPolicy.maximumPresentedCorrections { break }
             var kana = candidate
             kana.text = katakana ? RomajiConverter.katakana(variant.reading) : variant.reading
             kana.isLearningTarget = false
             append(kana, variant: variant)
-            if additions.count + replacements.count >= 3 { break }
+            if additions.count + replacements.count >= CandidateCorrectionPolicy.maximumPresentedCorrections { break }
         }
         guard !additions.isEmpty || !replacements.isEmpty else { return base }
         let pool = (currentPool.first?.revision == revision ? currentPool : base).enumerated().map { item in
@@ -538,4 +565,13 @@ nonisolated struct CorrectionSearchMetrics: Codable, Sendable {
     var elapsedMs = 0.0
     var budgetExhausted = false
     var cancelled = false
+}
+
+nonisolated struct CorrectionQueryDiagnostic: Codable, Sendable {
+    let reading: String
+    let editCount: Int
+    let quality: Double?
+    let adjustedQuality: Double?
+    let requiredQuality: Double?
+    let admitted: Bool
 }
