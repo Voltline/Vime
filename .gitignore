@@ -50,3 +50,6 @@ __pycache__/
 # User-owned imported skin packs and local artwork previews
 /Artifacts/Skins/
 /Tests/UIKit/LocalSkinPreview.vimeskin
+
+# Independent KV-cache experiment payload
+/Shared/Resources/TinyJapaneseV21KVINT8.mlmodelc/

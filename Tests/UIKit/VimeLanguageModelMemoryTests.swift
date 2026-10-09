@@ -155,7 +155,8 @@ final class VimeLanguageModelMemoryTests: XCTestCase {
         let scope = "optimized physical iPhone test-host process; separate from keyboard extension"
         #endif
         let report: [String: Any] = ["format": "vime_memory_audit_v1", "scenario": scenario,
-            "scope": scope, "model_version": "2.1-extend5-step40000-int8-b32-v1",
+            "scope": scope, "configured_model_version": VimeLanguageModel.preferredResourceVersion == .v21KV
+                ? "2.1-extend5-step40000-int8-b32-kv-v1" : "2.1-extend5-step40000-int8-b32-v1",
             "os": ProcessInfo.processInfo.operatingSystemVersionString, "baseline": baseline,
             "stages": stages, "checkpoints": checkpoints, "completed_worker_cycles": completedCycles,
             "cycles_with_published_suggestions": suggestionCycles, "final": VimeMemorySampler.snapshot()]

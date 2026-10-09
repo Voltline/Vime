@@ -42,6 +42,8 @@ nonisolated final class VimeLanguageModel {
         let model_version: String?
         let special_ids: [String: Int]?
         let compute_units: String?
+        let cache_shape: [Int]?
+        let cache_dtype: String?
         let minimum_ios: Int
         let vocab_size: Int
         let context_length: Int
@@ -54,21 +56,30 @@ nonisolated final class VimeLanguageModel {
     static let contextLength = 128
     /// V1 resources stay intact for an explicit rollback. A failed V2 identity
     /// check uses the worker's dictionary fallback, never a mismatched tokenizer.
-    enum ResourceVersion: Equatable { case v1, v21 }
+    enum ResourceVersion: Equatable { case v1, v21, v21KV }
+    static var preferredResourceVersion: ResourceVersion {
+        #if VIME_KV_CACHE
+        .v21KV
+        #else
+        .v21
+        #endif
+    }
     let resourceVersion: ResourceVersion
     let modelVersion: String
     init(bundle: Bundle = .main, computeUnits: MLComputeUnits = .cpuOnly,
-         resourceVersion: ResourceVersion = .v21) throws {
+         resourceVersion: ResourceVersion = VimeLanguageModel.preferredResourceVersion) throws {
         self.resourceVersion = resourceVersion
-        let v21 = resourceVersion == .v21
-        guard let modelURL = bundle.url(forResource: v21 ? "TinyJapaneseV21INT8" : "TinyJapaneseINT8", withExtension: "mlmodelc"),
+        let v21 = resourceVersion != .v1
+        let cached = resourceVersion == .v21KV
+        guard let modelURL = bundle.url(forResource: cached ? "TinyJapaneseV21KVINT8" : (v21 ? "TinyJapaneseV21INT8" : "TinyJapaneseINT8"), withExtension: "mlmodelc"),
               let tokenizerURL = bundle.url(forResource: v21 ? "VimeJapaneseTokenizerV2" : "VimeJapaneseTokenizer", withExtension: "model"),
-              let manifestURL = bundle.url(forResource: v21 ? "VimeLMManifestV21" : "VimeLMManifest", withExtension: "json") else { throw Failure.resources }
+              let manifestURL = bundle.url(forResource: cached ? "VimeLMManifestV21KV" : (v21 ? "VimeLMManifestV21" : "VimeLMManifest"), withExtension: "json") else { throw Failure.resources }
         let manifest = try JSONDecoder().decode(Manifest.self, from: Data(contentsOf: manifestURL))
-        guard manifest.format == (v21 ? "vime_ios_lm_v2" : "vime_ios_lm_v1"),
+        guard manifest.format == (cached ? "vime_ios_lm_v2_kv_v1" : (v21 ? "vime_ios_lm_v2" : "vime_ios_lm_v1")),
               !v21 || (manifest.architecture == "tiny_gpt_v2" && manifest.compute_units == "CPU_ONLY"
                        && manifest.special_ids == ["pad": 0, "unk": 1, "bos": 2, "eos": 3]
                        && manifest.model_version != nil),
+              !cached || (manifest.cache_shape == Self.cacheShape && manifest.cache_dtype == "float32"),
               !v21 || computeUnits == .cpuOnly else { throw Failure.integrity }
         modelVersion = manifest.model_version ?? "1-int8-b32"
         guard manifest.minimum_ios == 18, manifest.vocab_size == Self.vocabulary,
@@ -114,6 +125,7 @@ nonisolated final class VimeLanguageModel {
     func predict(_ ids: [Int32]) throws -> MLMultiArray {
         guard !ids.isEmpty, ids.count <= Self.contextLength,
               ids.allSatisfy({ $0 >= 0 && $0 < Self.vocabulary }) else { throw Failure.tensor }
+        if resourceVersion == .v21KV { return try advance(ids, lastOnly: false).logits }
         let input = try MLMultiArray(shape: [1, NSNumber(value: ids.count)], dataType: .int32)
         let pointer = input.dataPointer.bindMemory(to: Int32.self, capacity: ids.count)
         for (i, id) in ids.enumerated() { pointer[i] = id }
@@ -122,6 +134,62 @@ nonisolated final class VimeLanguageModel {
               logits.dataType == .float32,
               logits.shape.map(\.intValue) == [1, ids.count, Self.vocabulary] else { throw Failure.tensor }
         return logits
+    }
+    static let cacheShape = [6, 1, 5, 128, 64]
+    /// Private request-local snapshots. Prediction reads these arrays; branches
+    /// share the prefix snapshot and receive new output arrays, never mutate it.
+    private struct Cache {
+        let keys: MLMultiArray
+        let values: MLMultiArray
+        let count: Int
+    }
+    private struct Increment {
+        let logits: MLMultiArray
+        let cache: Cache
+    }
+    private func advance(_ ids: [Int32], from cache: Cache? = nil, lastOnly: Bool = true) throws -> Increment {
+        let past = cache?.count ?? 0
+        guard resourceVersion == .v21KV, !ids.isEmpty, past >= 0,
+              past + ids.count <= Self.contextLength,
+              ids.allSatisfy({ $0 >= 0 && $0 < Self.vocabulary }) else { throw Failure.tensor }
+        let input = try MLMultiArray(shape: [1, NSNumber(value: ids.count)], dataType: .int32)
+        let pointer = input.dataPointer.bindMemory(to: Int32.self, capacity: ids.count)
+        for (i, id) in ids.enumerated() { pointer[i] = id }
+        func scalar(_ value: Int) throws -> MLMultiArray {
+            let array = try MLMultiArray(shape: [1], dataType: .int32)
+            array[0] = NSNumber(value: value)
+            return array
+        }
+        func zeroCache() throws -> MLMultiArray {
+            let array = try MLMultiArray(shape: Self.cacheShape.map(NSNumber.init(value:)), dataType: .float32)
+            memset(array.dataPointer, 0, array.count * MemoryLayout<Float>.size)
+            return array
+        }
+        let keys = try cache?.keys ?? zeroCache()
+        let values = try cache?.values ?? zeroCache()
+        let output = try model.prediction(from: MLDictionaryFeatureProvider(dictionary: [
+            "input_ids": input, "cache_length": try scalar(past), "key_cache": keys,
+            "value_cache": values]))
+        guard let logits = output.featureValue(for: "logits")?.multiArrayValue,
+              let newKeys = output.featureValue(for: "new_key_cache")?.multiArrayValue,
+              let newValues = output.featureValue(for: "new_value_cache")?.multiArrayValue,
+              logits.dataType == .float32,
+              logits.shape.map(\.intValue) == [1, ids.count, Self.vocabulary],
+              newKeys.dataType == .float32, newValues.dataType == .float32,
+              newKeys.shape.map(\.intValue) == Self.cacheShape,
+              newValues.shape.map(\.intValue) == Self.cacheShape else { throw Failure.tensor }
+        // Release prefill rows after copying just the next-token row. Decode
+        // already returns one row; scoring retains all newly computed rows.
+        let selected: MLMultiArray
+        if lastOnly && ids.count > 1 {
+            selected = try MLMultiArray(shape: [1, 1, NSNumber(value: Self.vocabulary)], dataType: .float32)
+            let source = logits.dataPointer.assumingMemoryBound(to: Float.self)
+            let target = selected.dataPointer.bindMemory(to: Float.self, capacity: Self.vocabulary)
+            let offset = (ids.count - 1) * logits.strides[1].intValue
+            let stride = logits.strides[2].intValue
+            for i in 0..<Self.vocabulary { target[i] = source[offset + i * stride] }
+        } else { selected = logits }
+        return Increment(logits: selected, cache: Cache(keys: newKeys, values: newValues, count: past + ids.count))
     }
     static func logProbabilities(_ logits: MLMultiArray, row: Int) throws -> [Double] {
         guard row >= 0, row < logits.shape[1].intValue else { throw Failure.tensor }
@@ -156,6 +224,32 @@ nonisolated final class VimeLanguageModel {
             if sequences.allSatisfy({ $0[i] == contextIDs[i] }) { common += 1 } else { break }
         }
         guard common >= 1, sequences.allSatisfy({ $0.count > common }) else { throw Failure.ineligible }
+        if resourceVersion == .v21KV {
+            if cancelled() { throw Failure.cancelled }
+            let base = try autoreleasepool { try advance(Array(contextIDs.prefix(common))) }
+            let first = try Self.logProbabilities(base.logits, row: 0)
+            var sums = [Double]()
+            for sequence in sequences {
+                if cancelled() { throw Failure.cancelled }
+                var sum = first[Int(sequence[common])]
+                let suffix = Array(sequence.dropFirst(common).dropLast())
+                if !suffix.isEmpty {
+                    sum += try autoreleasepool {
+                        let result = try advance(suffix, from: base.cache, lastOnly: false)
+                        var total = 0.0
+                        for row in suffix.indices {
+                            let probabilities = try Self.logProbabilities(result.logits, row: row)
+                            total += probabilities[Int(sequence[common + row + 1])]
+                        }
+                        return total
+                    }
+                }
+                guard sum.isFinite else { throw Failure.tensor }
+                sums.append(sum)
+            }
+            if cancelled() { throw Failure.cancelled }
+            return sums
+        }
         let length = sequences.map { $0.count - 1 }.max()!
         var sums = [Double]()
         for sequence in sequences {
@@ -226,9 +320,20 @@ nonisolated final class VimeLanguageModel {
             guard text.utf8.starts(with: prompt.utf8) else { return nil }
             return String(decoding: text.utf8.dropFirst(prompt.utf8.count), as: UTF8.self)
         }
+        if cancelled() { throw Failure.cancelled }
+        let base: Increment? = resourceVersion == .v21KV ? try autoreleasepool { try advance(prefix) } : nil
+        var branch = base?.cache
         func distribution(_ ids: [Int32]) throws -> [Double] {
+            if cancelled() { throw Failure.cancelled }
             var values = try autoreleasepool {
-                try Self.logProbabilities(predict(prefix + ids), row: prefix.count + ids.count - 1)
+                if let base {
+                    if ids.isEmpty { return try Self.logProbabilities(base.logits, row: 0) }
+                    guard let snapshot = branch else { throw Failure.tensor }
+                    let result = try advance(Array(ids.dropFirst(snapshot.count - prefix.count)), from: snapshot)
+                    branch = result.cache
+                    return try Self.logProbabilities(result.logits, row: 0)
+                }
+                return try Self.logProbabilities(predict(prefix + ids), row: prefix.count + ids.count - 1)
             }
             for token in 0...3 { values[token] = -.infinity } // PAD, UNK, BOS, EOS
             return values
@@ -243,6 +348,7 @@ nonisolated final class VimeLanguageModel {
         }
         var result = [String]()
         for token in candidates where result.count < count {
+            branch = base?.cache
             if cancelled() { throw Failure.cancelled }
             var ids = [Int32(token)]
             var word: String?
@@ -275,8 +381,10 @@ nonisolated final class VimeLanguageModel {
         let content = try tokenizer.encode(prompt)
         guard Self.exactText(try tokenizer.decode(content), prompt), content.count + 1 <= Self.contextLength else { throw Failure.ineligible }
         let prefix: [Int32] = [2] + content
-        struct Beam { let ids: [Int32]; let score: Double; var incomplete = false }
-        var active = [Beam(ids: [], score: 0)]
+        if cancelled() { throw Failure.cancelled }
+        let base: Increment? = resourceVersion == .v21KV ? try autoreleasepool { try advance(prefix) } : nil
+        struct Beam { let ids: [Int32]; let score: Double; var incomplete = false; var cache: Cache? = nil }
+        var active = [Beam(ids: [], score: 0, cache: base?.cache)]
         var finished = [Beam]()
         let punctuation = CharacterSet(charactersIn: "。！？!?")
         let trim = CharacterSet(charactersIn: " 、，,。！？!?\n\t")
@@ -292,7 +400,18 @@ nonisolated final class VimeLanguageModel {
                 if prefix.count + beam.ids.count > Self.contextLength {
                     finished.append(Beam(ids: beam.ids, score: beam.score, incomplete: true)); continue
                 }
+                var nextCache: Cache?
                 var probabilities = try autoreleasepool {
+                    if let base {
+                        if beam.ids.isEmpty {
+                            nextCache = base.cache
+                            return try Self.logProbabilities(base.logits, row: 0)
+                        }
+                        guard let snapshot = beam.cache, let token = beam.ids.last else { throw Failure.tensor }
+                        let result = try advance([token], from: snapshot)
+                        nextCache = result.cache
+                        return try Self.logProbabilities(result.logits, row: 0)
+                    }
                     let logits = try predict(prefix + beam.ids)
                     return try Self.logProbabilities(logits, row: prefix.count + beam.ids.count - 1)
                 }
@@ -309,11 +428,11 @@ nonisolated final class VimeLanguageModel {
                 }
                 for token in top where probabilities[token].isFinite {
                     let ids = beam.ids + [Int32(token)]
-                    let next = Beam(ids: ids, score: beam.score + probabilities[token])
+                    let next = Beam(ids: ids, score: beam.score + probabilities[token], cache: nextCache)
                     let suffix = try decodedSuffix(ids)
                     let stops = suffix?.trimmingCharacters(in: .whitespacesAndNewlines).unicodeScalars.last
                         .map { punctuation.contains($0) } ?? false
-                    if token == 3 || stops { finished.append(next) } else { expanded.append(next) }
+                    if token == 3 || stops { finished.append(Beam(ids: next.ids, score: next.score)) } else { expanded.append(next) }
                 }
             }
             active = Array(expanded.sorted { $0.score > $1.score }.prefix(8))

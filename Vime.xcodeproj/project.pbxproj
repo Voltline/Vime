@@ -316,7 +316,7 @@
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			inputFileListPaths = (
-				"$(SRCROOT)/Configuration/ModelResources.$(CONFIGURATION).xcfilelist",
+				"$(SRCROOT)/Configuration/ModelResources.$(CONFIGURATION)$(VIME_KV_RESOURCE_SUFFIX).xcfilelist",
 			);
 			inputPaths = (
 				"$(SRCROOT)/Scripts/validate_model_resources.py",
@@ -334,7 +334,7 @@
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			inputFileListPaths = (
-				"$(SRCROOT)/Configuration/ModelResources.$(CONFIGURATION).xcfilelist",
+				"$(SRCROOT)/Configuration/ModelResources.$(CONFIGURATION)$(VIME_KV_RESOURCE_SUFFIX).xcfilelist",
 			);
 			inputPaths = (
 				"$(SRCROOT)/Scripts/validate_model_resources.py",

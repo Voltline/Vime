@@ -1,0 +1,3 @@
+// Opt-in experimental KV build; default project configuration keeps V2.1 baseline.
+SWIFT_ACTIVE_COMPILATION_CONDITIONS = $(inherited) VIME_KV_CACHE
+VIME_KV_RESOURCE_SUFFIX = .KV
