@@ -48,5 +48,9 @@ let package = Package(name: "VimeSentencePiece", platforms: [.iOS(.v18), .macOS(
         cxxSettings: [.headerSearchPath("vendor"), .headerSearchPath("vendor/src"),
             .headerSearchPath("vendor/src/builtin_pb"), .headerSearchPath("vendor/third_party"),
             .headerSearchPath("vendor/third_party/protobuf-lite"), .define("HAVE_PTHREAD", to: "1"),
-            .define("_USE_INTERNAL_STRING_VIEW"), .define("DISABLE_EMBEDDED_DATA")])],
+            .define("_USE_INTERNAL_STRING_VIEW"), .define("DISABLE_EMBEDDED_DATA"),
+            // Upstream uses 32-bit protobuf lengths and SentencePiece IDs.
+            // Keep this exception within the bundled C++ dependency; Bridge.cc
+            // re-enables narrowing diagnostics for our own wrapper code.
+            .unsafeFlags(["-Wno-shorten-64-to-32"])])],
     cxxLanguageStandard: .cxx17)

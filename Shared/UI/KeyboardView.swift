@@ -639,18 +639,17 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
         rebuildKeys()
         applyTheme()
         refresh()
+        registerForTraitChanges(UITraitCollection.systemTraitsAffectingColorAppearance) {
+            (view: KeyboardView, _: UITraitCollection) in
+            view.traitCollection.performAsCurrent {
+                view.languageKey?.setImage(KeyboardGlyphs.language(english: view.session.mode == .english), for: .normal)
+            }
+            view.setNeedsLayout()
+        }
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
     override var intrinsicContentSize: CGSize { CGSize(width: UIView.noIntrinsicMetric, height: preferredHeight(for: bounds.width)) }
-
-    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
-        super.traitCollectionDidChange(previousTraitCollection)
-        if traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) {
-            traitCollection.performAsCurrent { languageKey?.setImage(KeyboardGlyphs.language(english: session.mode == .english), for: .normal) }
-            setNeedsLayout()
-        }
-    }
 
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
         guard !isHidden, isUserInteractionEnabled, alpha >= 0.01, bounds.contains(point) else {

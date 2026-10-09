@@ -503,10 +503,21 @@ int CEscapeInternal(const char* src, int src_len, char* dest,
              (last_hex_escape && isxdigit(*src)))) {
           if (dest_len - used < 4) // need space for 4 letter escape
             return -1;
-          sprintf(dest + used, (use_hex ? "\\x%02x" : "\\%03o"),
-                  static_cast<uint8>(*src));
+          // Write exactly four escape bytes. sprintf also wrote a terminator
+          // here, exceeding the four-byte space check above by one byte.
+          const uint8 value = static_cast<uint8>(*src);
+          dest[used++] = '\\';
+          if (use_hex) {
+            static const char hex[] = "0123456789abcdef";
+            dest[used++] = 'x';
+            dest[used++] = hex[value >> 4];
+            dest[used++] = hex[value & 0x0f];
+          } else {
+            dest[used++] = static_cast<char>('0' + (value >> 6));
+            dest[used++] = static_cast<char>('0' + ((value >> 3) & 7));
+            dest[used++] = static_cast<char>('0' + (value & 7));
+          }
           is_hex_escape = use_hex;
-          used += 4;
         } else {
           dest[used++] = *src; break;
         }

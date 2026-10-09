@@ -40,7 +40,7 @@ final class KeyboardMixedSoundCorpusTests: XCTestCase {
         let suggestions: [Suggestion]
         let expectedQueries: [CorrectionQueryDiagnostic]
     }
-    private struct Report: Codable {
+    private struct Report: Encodable {
         let fixtureVersion: Int
         let inputStyle = "directKana"
         let environment = "iOS Simulator, Debug; single pass, no learning or LM"

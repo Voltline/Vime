@@ -2,9 +2,14 @@
 #include "sentencepiece_processor.h"
 #include <cstdlib>
 #include <cstring>
+#include <limits>
 #include <memory>
 #include <string>
 #include <vector>
+#if defined(__clang__)
+// The package's narrowing-warning exception is for upstream code only.
+#pragma clang diagnostic warning "-Wshorten-64-to-32"
+#endif
 extern "C" void *vime_sp_load(const char *path) {
   try {
     auto p = std::make_unique<sentencepiece::SentencePieceProcessor>();
@@ -17,6 +22,7 @@ extern "C" void vime_sp_destroy(void *p) { delete static_cast<sentencepiece::Sen
 extern "C" void vime_sp_free(void *p) { std::free(p); }
 extern "C" int vime_sp_encode(void *p, const char *text, size_t bytes, int32_t **ids, size_t *count) {
   *ids = nullptr; *count = 0;
+  if ((!text && bytes) || bytes > static_cast<size_t>(std::numeric_limits<int>::max())) return 0;
   try {
     std::vector<int> result;
     if (!p || !static_cast<sentencepiece::SentencePieceProcessor *>(p)->Encode(std::string(text ? text : "", bytes), &result).ok()) return 0;
@@ -30,6 +36,7 @@ extern "C" int vime_sp_encode(void *p, const char *text, size_t bytes, int32_t *
 }
 extern "C" int vime_sp_decode(void *p, const int32_t *ids, size_t count, char **text, size_t *bytes) {
   *text = nullptr; *bytes = 0;
+  if ((!ids && count) || count > static_cast<size_t>(std::numeric_limits<int>::max())) return 0;
   try {
     std::vector<int> input;
     if (count) input.assign(ids, ids + count);
