@@ -1,12 +1,14 @@
 # V2.1 KV cache 实验
 
-从 2026-10-09 最新 main `1ea4cf8` 建立独立分支。沿用 V2.1 extend5 step40000
+从 2026-10-09 main `1ea4cf8` 建立独立分支，随后合入更新至 `d96d94e`
+（两处错音候选与 Xcode Cloud 基线资源）。沿用 V2.1 extend5 step40000
 权重、V2 tokenizer、INT8 block32、FP32 compute、CPU_ONLY 和 iOS18。
 默认构建仍选择 `.v21`；显式 `.v21KV` 或 KV 构建配置选择新版本。
 
 ## 安装与启用
 
-先按 [V2.1 安装文档](LanguageModelV21.md) 安装原模型和 tokenizer，再安装匹配的新资源：
+当前 main 已跟踪原 V2.1 模型和 tokenizer，正常克隆即可获得；见
+[V2.1 资源文档](LanguageModelV21.md)。从新结果 ZIP 解压并安装匹配的 KV 资源：
 
 ```sh
 python3 Scripts/install_kv_resources.py /path/to/VimeML/artifacts/deployment/tiny-ja-v2.1-extend5-kv-client-resources-v2/Resources
@@ -42,6 +44,9 @@ Mac 与优化模拟器对照结果及已知限制见 VimeML `docs/reports/mac-20
 本次优化模拟器13项功能检查通过；2337条冻结候选的Top-1及完整排序均与原INT8一致，
 12条增量greedy续写也完全一致。KV与同权重无缓存模型的logits最大差约0.00004768。
 原INT8相对FP32的严格数值偏差仍保留，KV没有修复量化偏差。
+
+性能测量使用 KV 提交 `1c6c433`（基于 `1ea4cf8`）。后续合入 `d96d94e` 未改动
+LM 推理或固定性能工作负载，合并后另行重跑13项功能检查。以下数据沿用原性能测量。
 
 Apple M3 /16GiB、iOS27.0 Simulator，两个独立测试进程分别只加载一种后端：
 
