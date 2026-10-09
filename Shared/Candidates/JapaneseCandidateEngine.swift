@@ -15,6 +15,10 @@ nonisolated final class JapaneseCandidateEngine {
     private var contextCandidate: Candidate?
     private var contextSession: KanaKanjiConverter.ConversionSessionID?
     private var learningDirty = false
+    private var learningSession: KanaKanjiConverter.ConversionSessionID?
+    private var pendingFeedback: (snapshot: CandidateSnapshot?, text: String, event: CandidateLearningFeedback)?
+    private(set) var feedbackAccepted = 0
+    private(set) var feedbackCancelled = 0
     private let preferenceMemory: CandidatePreferenceMemory?
     var diagnosticsEnabled = false
     private(set) var rawDiagnostics: [CandidateDiagnostic] = []
@@ -164,8 +168,9 @@ nonisolated final class JapaneseCandidateEngine {
     private func rank(_ pool: [CandidateSnapshot], query: ComposingText, katakana: Bool) -> [CandidateSnapshot] {
         let personalized = pool.map { original in
             var value = original
-            if value.learningEligible && value.fullConsumption {
-                value.userPreferenceScore = preferenceMemory?.score(reading: value.reading, surface: value.text) ?? 0
+            if value.fullConsumption && (value.learningEligible || value.source == .scriptVariant) {
+                value.userPreferenceScore = preferenceMemory?.score(reading: value.reading, surface: value.text,
+                    context: committedContext, scope: value.source == .scriptVariant ? "style" : "conversion") ?? 0
             }
             return value
         }
@@ -494,6 +499,9 @@ nonisolated final class JapaneseCandidateEngine {
         defer { KeyboardPerformance.record(.contextEvaluation, since: started) }
         let text = String((left ?? "").suffix(96))
         guard text != committedContext else { return }
+        if let pendingFeedback { resolveFeedback(pendingFeedback.event.id, accepted: false) }
+        preferenceMemory?.resetRecent()
+        if let learningSession { try? converter.withSession(learningSession) { converter.stopComposition() } }
         committedContext = text; contextCandidate = nil; previousTop = nil
         converter.stopComposition()
         correctionCache = [:]; correctionCacheOrder = []
@@ -520,6 +528,65 @@ nonisolated final class JapaneseCandidateEngine {
         contextCandidate = snapshot.lexical ? snapshot.candidate : nil
     }
 
+    /// Context completion is immediate; learning waits for a verified host receipt.
+    func stageSelection(_ snapshot: CandidateSnapshot, event: CandidateLearningFeedback) {
+        if let pendingFeedback { resolveFeedback(pendingFeedback.event.id, accepted: false) }
+        converter.setCompletedData(snapshot.candidate)
+        committedContext = String((committedContext + snapshot.text).suffix(96))
+        contextCandidate = snapshot.lexical ? snapshot.candidate : nil
+        pendingFeedback = (snapshot, snapshot.text, event)
+        if snapshot.fullConsumption && (snapshot.learningEligible || snapshot.source == .scriptVariant) {
+            preferenceMemory?.stage(id: event.id, reading: snapshot.reading, surface: snapshot.text,
+                context: event.context, scope: snapshot.source == .scriptVariant ? "style" : "conversion",
+                weight: event.weight, now: event.selectedAt)
+        }
+    }
+
+    func stageNextWord(_ text: String, event: CandidateLearningFeedback) {
+        if let pendingFeedback { resolveFeedback(pendingFeedback.event.id, accepted: false) }
+        pendingFeedback = (nil, text, event)
+        committedContext = String((committedContext + text).suffix(96))
+        contextCandidate = nil
+        if let learningSession { try? converter.withSession(learningSession) { converter.stopComposition() } }
+        preferenceMemory?.stage(id: event.id, reading: "", surface: text, context: event.context,
+            scope: "nextWord", weight: event.weight, now: event.selectedAt)
+    }
+
+    func resolveFeedback(_ id: UUID, accepted: Bool) {
+        guard let pending = pendingFeedback, pending.event.id == id else { return }
+        pendingFeedback = nil
+        guard accepted else {
+            preferenceMemory?.cancel(id); feedbackCancelled += 1; return
+        }
+        let started = KeyboardPerformance.start()
+        defer { KeyboardPerformance.record(.learningAcceptance, since: started) }
+        feedbackAccepted += 1
+        if let snapshot = pending.snapshot {
+            if snapshot.learningEligible {
+                // Query sessions reset lastData while typing. Keep accepted-word
+                // chronology in a separate azooKey session, on the same queue.
+                let session = learningSession ?? converter.createSession(); learningSession = session
+                try? converter.withSession(session) {
+                    converter.setCompletedData(snapshot.candidate)
+                    converter.updateLearningData(snapshot.candidate)
+                }
+                learningDirty = true
+                correctionCache = [:]; correctionCacheOrder = []
+            } else if let learningSession {
+                try? converter.withSession(learningSession) { converter.stopComposition() }
+            }
+            if snapshot.fullConsumption && (snapshot.learningEligible || snapshot.source == .scriptVariant) {
+                preferenceMemory?.record(reading: snapshot.reading, surface: snapshot.text, context: pending.event.context,
+                    scope: snapshot.source == .scriptVariant ? "style" : "conversion", weight: pending.event.weight,
+                    now: pending.event.selectedAt)
+            }
+        } else {
+            preferenceMemory?.recordNextWord(pending.text, context: pending.event.context,
+                weight: pending.event.weight, now: pending.event.selectedAt)
+        }
+        flushLearning()
+    }
+
     func flushLearning() {
         preferenceMemory?.flush()
         guard learningDirty else { return }
@@ -537,10 +604,13 @@ nonisolated final class JapaneseCandidateEngine {
         reset()
     }
 
-    func personalizedNextWords(_ words: [String], context: String) -> [NextWordSuggestion] {
-        preferenceMemory?.nextWords(words, context: context) ?? words.enumerated().map {
-            NextWordSuggestion(text: $0.element, source: .contextPrediction,
-                score: -Double($0.offset) * CandidatePreferenceMemory.Policy.nextWordOrderWeight, userScore: 0)
+    func rememberedNextWords(context: String) -> [String] {
+        preferenceMemory?.rememberedNextWords(context: context) ?? []
+    }
+    func personalizedNextWords(_ words: [ScoredNextWord], history: [ScoredNextWord], context: String) -> [NextWordSuggestion] {
+        preferenceMemory?.nextWords(words, history: history, context: context) ?? words.map {
+            NextWordSuggestion(text: $0.text, source: .contextPrediction,
+                score: $0.logProbabilitySum, userScore: 0, modelScore: $0.logProbabilitySum, tokenCount: $0.tokenCount)
         }
     }
     func completeNextWord(_ text: String, context: String) {
@@ -550,7 +620,12 @@ nonisolated final class JapaneseCandidateEngine {
 
     func reset(preservingContext: Bool = false) {
         converter.stopComposition(); previousTop = nil; currentContinuity = nil; currentPool = []
-        if !preservingContext { committedContext = ""; contextCandidate = nil }
+        if !preservingContext {
+            committedContext = ""; contextCandidate = nil
+            if let pendingFeedback { resolveFeedback(pendingFeedback.event.id, accepted: false) }
+            preferenceMemory?.resetRecent()
+            if let learningSession { try? converter.withSession(learningSession) { converter.stopComposition() } }
+        }
         for session in [alternativeSession, correctionSession, classicTypoSession, contextSession].compactMap({ $0 }) {
             try? converter.withSession(session) { converter.stopComposition() }
         }

@@ -36,6 +36,9 @@ final class KeyboardSession {
     var onCandidatesChange: (() -> Void)?
     /// Host supplies the actual left context excluding its owned marked range.
     var leftContextProvider: (() -> String?)?
+    var learningContextProvider: (() -> KeyboardLearningContext?)?
+    private var pendingFeedback: PendingCandidateFeedback?
+    private var feedbackTask: Task<Void, Never>?
     private var committedLeftContext = ""
     private var lastPublishedInput = ""
     private var composing = ComposingText()
@@ -93,7 +96,7 @@ final class KeyboardSession {
     func type(_ text: String) -> [KeyboardEdit] {
         inputStartedAt = KeyboardPerformance.start()
         clearSuggestions()
-        if mode == .english { return [.insert(text)] }
+        if mode == .english { finishLearningFeedback(); return [.insert(text)] }
         var edits: [KeyboardEdit] = []
         // Preserve the word boundary even when typing resumes before a queued
         // space conversion finishes; current kana is a safe immediate fallback.
@@ -110,14 +113,24 @@ final class KeyboardSession {
             pendingSpaces = 0
             return []
         }
-        guard !composing.isEmpty else { return [.deleteBackward] }
+        guard !composing.isEmpty else {
+            if var pending = pendingFeedback {
+                if pending.matches(learningContextProvider?()) && pending.remaining > 0 {
+                    if pending.followingText.isEmpty { pending.remaining -= 1 }
+                    else { pending.followingText.removeLast() }
+                    pendingFeedback = pending
+                    if pending.remaining == 0 { invalidateLearningFeedback() }
+                } else { invalidateLearningFeedback() }
+            }
+            return [.deleteBackward]
+        }
         composing.deleteBackwardFromCursorPosition(count: 1)
         refresh()
         return []
     }
 
     func space() -> [KeyboardEdit] {
-        guard isComposing else { clearSuggestions(); return [.insert(" ")] }
+        guard isComposing else { finishLearningFeedback(); clearSuggestions(); return [.insert(" ")] }
         // Only an explicit conversion boundary resolves ambiguous n. Normal
         // per-key requests never add a separator or mutate the live composition.
         if composing.convertTarget.hasSuffix("n"), selectedIndex == nil {
@@ -134,16 +147,28 @@ final class KeyboardSession {
     }
 
     func enter() -> [KeyboardEdit] {
-        guard isComposing else { clearSuggestions(); return [.returnKey] }
+        guard isComposing else { finishLearningFeedback(); clearSuggestions(); return [.returnKey] }
         return confirm()
     }
 
-    func choose(_ index: Int) -> [KeyboardEdit] {
+    func choose(_ index: Int, feedbackKind: CandidateLearningFeedback.Kind = .explicitCandidate) -> [KeyboardEdit] {
         guard candidatesAreCurrent, candidates.indices.contains(index) else { return [] }
         let snapshot = candidateSnapshots[index]
         guard snapshot.revision == revision else { return [] }
-        engine?.complete(snapshot)
-        worker?.complete(snapshot)
+        finishLearningFeedback()
+        if let event = beginLearningFeedback(text: snapshot.text, rank: index, kind: feedbackKind) {
+            engine?.stageSelection(snapshot, event: event)
+            worker?.stageSelection(snapshot, event: event)
+        } else if learningContextProvider == nil {
+            // Trusted/headless conversion clients have no host receipt contract.
+            engine?.complete(snapshot); worker?.complete(snapshot)
+        } else {
+            // Redacted context still completes conversion, without learning.
+            let event = CandidateLearningFeedback(id: UUID(), kind: feedbackKind, rank: index,
+                context: "", selectedAt: Date())
+            engine?.stageSelection(snapshot, event: event); worker?.stageSelection(snapshot, event: event)
+            engine?.resolveFeedback(event.id, accepted: false); worker?.resolveFeedback(event.id, accepted: false)
+        }
         committedLeftContext = String((committedLeftContext + snapshot.text).suffix(96))
         composing = snapshot.remainingComposition
         if composing.isEmpty { reset(preservingContext: true); requestSuggestions() }
@@ -159,7 +184,12 @@ final class KeyboardSession {
     func chooseSuggestion(_ index: Int) -> [KeyboardEdit] {
         guard !isComposing, suggestions.indices.contains(index) else { return [] }
         let text = suggestions[index]
-        worker?.completeNextWord(text, context: VimeLanguageModel.sentenceContext(committedLeftContext))
+        finishLearningFeedback()
+        if let event = beginLearningFeedback(text: text, rank: index, kind: .nextWord) {
+            engine?.stageNextWord(text, event: event); worker?.stageNextWord(text, event: event)
+        } else if learningContextProvider == nil {
+            worker?.completeNextWord(text, context: VimeLanguageModel.sentenceContext(committedLeftContext))
+        }
         committedLeftContext = String((committedLeftContext + text).suffix(96))
         clearSuggestions()
         requestSuggestions()
@@ -168,7 +198,8 @@ final class KeyboardSession {
 
     func confirm() -> [KeyboardEdit] {
         guard isComposing else { return [] }
-        if let selectedIndex { return choose(selectedIndex) }
+        if let selectedIndex { return choose(selectedIndex, feedbackKind: .conversionConfirmation) }
+        finishLearningFeedback()
         let text = selectedText ?? PreeditPresentation.kana(for: PreeditPresentation.finalized(composing), mode: mode)
         committedLeftContext = String((committedLeftContext + text).suffix(96))
         reset(preservingContext: true)
@@ -177,6 +208,7 @@ final class KeyboardSession {
     }
 
     func insertLiteral(_ text: String) -> [KeyboardEdit] {
+        finishLearningFeedback()
         let edits = confirmAll()
         committedLeftContext = String((committedLeftContext + text).suffix(96))
         clearSuggestions()
@@ -213,6 +245,7 @@ final class KeyboardSession {
     }
 
     func reset(preservingContext: Bool = false) {
+        if !preservingContext { invalidateLearningFeedback() }
         clearSuggestions()
         revision += 1
         candidatesPending = false
@@ -229,6 +262,51 @@ final class KeyboardSession {
     func clearLearning() {
         reset()
         engine?.clearLearning(); worker?.clearLearning()
+    }
+
+    private func beginLearningFeedback(text: String, rank: Int, kind: CandidateLearningFeedback.Kind) -> CandidateLearningFeedback? {
+        guard let anchor = learningContextProvider?(), let before = anchor.before, !anchor.hasSelection else { return nil }
+        let context = kind == .nextWord ? VimeLanguageModel.sentenceContext(before) : before
+        let event = CandidateLearningFeedback(id: UUID(), kind: kind, rank: rank, context: context, selectedAt: Date())
+        pendingFeedback = PendingCandidateFeedback(event: event, anchor: anchor, text: text, remaining: text.count)
+        feedbackTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(CandidateLearningFeedback.Policy.retentionSeconds))
+            guard !Task.isCancelled, let self, self.pendingFeedback?.event.id == event.id else { return }
+            self.finishLearningFeedback()
+        }
+        return event
+    }
+
+    /// Called after the host has applied edits and updated its owned marked range.
+    func didApplyEdits(_ edits: [KeyboardEdit] = []) {
+        guard var pending = pendingFeedback else { return }
+        if !pending.receiptVerified, let insertion = edits.firstIndex(of: .insert(pending.text)) {
+            for edit in edits.dropFirst(insertion + 1) {
+                guard case let .insert(text) = edit else { invalidateLearningFeedback(); return }
+                pending.followingText += text
+            }
+        }
+        guard pending.matches(learningContextProvider?()) else { invalidateLearningFeedback(); return }
+        pending.receiptVerified = true
+        pendingFeedback = pending
+    }
+
+    /// Retention timer or the next committed action closes this feedback window.
+    /// Partial deletion, field changes and missing host receipts never teach.
+    func finishLearningFeedback() {
+        guard let pending = pendingFeedback else { return }
+        let accepted = pending.receiptVerified && pending.remaining == pending.text.count
+            && pending.matches(learningContextProvider?())
+        feedbackTask?.cancel(); feedbackTask = nil; pendingFeedback = nil
+        engine?.resolveFeedback(pending.event.id, accepted: accepted)
+        worker?.resolveFeedback(pending.event.id, accepted: accepted)
+    }
+
+    func invalidateLearningFeedback() {
+        guard let pending = pendingFeedback else { return }
+        feedbackTask?.cancel(); feedbackTask = nil; pendingFeedback = nil
+        engine?.resolveFeedback(pending.event.id, accepted: false)
+        worker?.resolveFeedback(pending.event.id, accepted: false)
     }
 
     private func clearSuggestions() {

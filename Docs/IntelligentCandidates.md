@@ -2,6 +2,8 @@
 
 日期：2026-10-05。事实来源是开始执行时的本地工作区，包括已有未提交修改；未使用 GitHub 工作区替代本地代码。依赖为本地解析出的 azooKey revision `d59a28e4c7ca049aef04f29a91eae9677a7753f2`。
 
+这是首次候选改造的历史交付记录。2026-10-09 的学习与联想架构、宿主确认、词频衰减和模型评分见 [PersonalizationLearningTechnicalReport.md](PersonalizationLearningTechnicalReport.md)；本页原始性能与阶段限制保留为当时记录。
+
 ## 1. 排序异常的真实根因
 
 先保留行为，分别 dump `.manualMix`、`.autoMix` 的 `mainResults` / `predictionResults` 和旧 Vime presentation。完整结果见 `Artifacts/intelligent-candidates-baseline.json`。

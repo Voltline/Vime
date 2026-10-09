@@ -112,18 +112,34 @@ final class JapaneseCandidateWorker {
         let storage = self.storage
         queue.async {
             guard !request.isCancelled else { return }
-            let words = (try? storage.languageModel?.nextWords(prompt: prompt,
-                cancelled: { request.isCancelled })) ?? []
+            let history = storage.engine.rememberedNextWords(context: prompt)
+            let words = try? storage.languageModel?.scoredNextWords(prompt: prompt, history: history,
+                cancelled: { request.isCancelled })
             guard !request.isCancelled else { return }
-            let suggestions = storage.engine.personalizedNextWords(words, context: prompt)
+            let suggestions = storage.engine.personalizedNextWords(words?.generated ?? [], history: words?.history ?? [], context: prompt)
             guard !suggestions.isEmpty else { return }
-            DispatchQueue.main.async { completion(suggestions) }
+            DispatchQueue.main.async { if !request.isCancelled { completion(suggestions) } }
         }
     }
 
     func completeNextWord(_ text: String, context: String) {
         let storage = self.storage
         queue.async { storage.engine.completeNextWord(text, context: context) }
+    }
+
+    func stageSelection(_ snapshot: CandidateSnapshot, event: CandidateLearningFeedback) {
+        let storage = self.storage
+        queue.async { storage.engine.stageSelection(snapshot, event: event) }
+    }
+
+    func stageNextWord(_ text: String, event: CandidateLearningFeedback) {
+        let storage = self.storage
+        queue.async { storage.engine.stageNextWord(text, event: event) }
+    }
+
+    func resolveFeedback(_ id: UUID, accepted: Bool) {
+        let storage = self.storage
+        queue.async { storage.engine.resolveFeedback(id, accepted: accepted) }
     }
 
     func complete(_ candidate: CandidateSnapshot) {

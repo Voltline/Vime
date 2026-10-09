@@ -52,6 +52,15 @@ struct KeyboardSandbox: UIViewRepresentable {
             let range = view.textRange(from: view.beginningOfDocument, to: end)
             return range.flatMap { view.text(in: $0) }
         }
+        keyboard.learningContextProvider = { [weak view] in
+            guard let view else { return nil }
+            let start = view.markedTextRange?.start ?? view.selectedTextRange?.start ?? view.endOfDocument
+            let end = view.markedTextRange?.end ?? view.selectedTextRange?.end ?? view.endOfDocument
+            return KeyboardLearningContext(document: String(describing: ObjectIdentifier(view)),
+                before: view.textRange(from: view.beginningOfDocument, to: start).flatMap { view.text(in: $0) },
+                after: view.textRange(from: end, to: view.endOfDocument).flatMap { view.text(in: $0) },
+                hasSelection: view.markedTextRange == nil && view.selectedRange.length > 0)
+        }
         keyboard.deletionAvailabilityProvider = { [weak view] in
             guard let view else { return false }
             return view.selectedRange.length > 0 || view.selectedRange.location > 0

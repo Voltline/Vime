@@ -613,6 +613,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
             guard let self else { return }
             if gesture == .horizontalCursor || gesture == .spaceCursor {
                 self.confirmComposition()
+                self.session.invalidateLearningFeedback()
                 // A zero move starts a new caret gesture and resets its column.
                 self.onEdit?([.moveCursor(horizontal: 0, vertical: 0)])
             }
@@ -621,7 +622,11 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
             self.gestureHint.isHidden = gesture == nil || gesture == .deleteLine
             self.bringSubviewToFront(self.gestureHint)
         }
-        keysContainer.onCursorMove = { [weak self] x, y in self?.onEdit?([.moveCursor(horizontal: x, vertical: y)]) }
+        keysContainer.onCursorMove = { [weak self] x, y in
+            guard let self else { return }
+            self.session.invalidateLearningFeedback()
+            self.onEdit?([.moveCursor(horizontal: x, vertical: y)])
+        }
         keysContainer.onDeletePressChange = { [weak self] held in
             guard let self else { return }
             self.deletePrompt.isHidden = !held
@@ -976,6 +981,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
         if !edits.isEmpty { onEdit?(edits) }
         if !session.isComposing { expanded = false }
         onMarkedTextChange?(session.preedit)
+        if !edits.isEmpty { session.didApplyEdits(edits) }
         KeyboardPerformance.record(.typeToMarked, since: session.takeInputTiming())
         onCompositionChange?(session.composition)
         refresh()
@@ -984,6 +990,11 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
     var leftContextProvider: (() -> String?)? {
         get { session.leftContextProvider }
         set { session.leftContextProvider = newValue }
+    }
+
+    var learningContextProvider: (() -> KeyboardLearningContext?)? {
+        get { session.learningContextProvider }
+        set { session.learningContextProvider = newValue }
     }
 
     func resetComposition() {

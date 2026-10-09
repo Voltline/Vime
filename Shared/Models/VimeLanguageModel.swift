@@ -157,6 +157,11 @@ nonisolated final class VimeLanguageModel {
         }
         guard common >= 1, sequences.allSatisfy({ $0.count > common }) else { throw Failure.ineligible }
         let length = sequences.map { $0.count - 1 }.max()!
+        return try sequenceScores(sequences, common: common, paddedLength: length, cancelled: cancelled)
+    }
+
+    private func sequenceScores(_ sequences: [[Int32]], common: Int, paddedLength length: Int,
+                                cancelled: () -> Bool) throws -> [Double] {
         var sums = [Double]()
         for sequence in sequences {
             if cancelled() { throw Failure.cancelled }
@@ -208,9 +213,24 @@ nonisolated final class VimeLanguageModel {
     /// Keyboard next-word prediction. Takes the most likely next tokens and extends each one
     /// greedily only while the model is confident (≥ `extendProbability`), so a suggestion is a
     /// word or short phrase, never a sentence. Stops before punctuation. At most
-    /// 1 + count × (maxTokens − 1) forward passes.
+    /// 1 + 3 × count × (maxTokens − 1) forward passes in the worst case,
+    /// including rejected starting tokens. Usually stops after count valid words.
     func nextWords(prompt: String, count: Int = 5, maxTokens: Int = 3, extendProbability: Double = 0.4,
                    cancelled: () -> Bool = { false }) throws -> [String] {
+        try generateNextWords(prompt: prompt, count: count, maxTokens: maxTokens,
+            extendProbability: extendProbability, cancelled: cancelled).map(\.text)
+    }
+
+    private(set) var nextWordScoreReuses = 0
+    private(set) var nextWordScoringPasses = 0
+    private struct GeneratedWord {
+        let text: String
+        let ids: [Int32]
+        let score: Double
+    }
+
+    private func generateNextWords(prompt: String, count: Int = 5, maxTokens: Int = 3, extendProbability: Double = 0.4,
+                                   cancelled: () -> Bool) throws -> [GeneratedWord] {
         let started = KeyboardPerformance.start()
         defer { KeyboardPerformance.record(.lmNextWords, since: started) }
         guard !prompt.isEmpty, (1...8).contains(count), (1...4).contains(maxTokens) else { throw Failure.ineligible }
@@ -233,6 +253,7 @@ nonisolated final class VimeLanguageModel {
             for token in 0...3 { values[token] = -.infinity } // PAD, UNK, BOS, EOS
             return values
         }
+        if cancelled() { throw Failure.cancelled }
         let first = try distribution([])
         var candidates = [Int]()
         for token in first.indices where first[token].isFinite {
@@ -241,10 +262,11 @@ nonisolated final class VimeLanguageModel {
             candidates.sort { first[$0] > first[$1] }
             if candidates.count > count * 3 { candidates.removeLast() }
         }
-        var result = [String]()
+        var result = [GeneratedWord]()
         for token in candidates where result.count < count {
             if cancelled() { throw Failure.cancelled }
             var ids = [Int32(token)]
+            var score = first[token]
             var word: String?
             while let text = try suffix(ids) {
                 // Cut at the first boundary; a leading boundary means the token is punctuation.
@@ -259,12 +281,63 @@ nonisolated final class VimeLanguageModel {
                 let fragment = !complete || (text.count < 2 && !particles.contains(text))
                 if !fragment && exp(next[best]) < extendProbability { word = text; break }
                 ids.append(Int32(best))
+                score += next[best]
             }
             guard let word, let lead = word.unicodeScalars.first, !lead.isASCII || lead.properties.isAlphabetic,
-                  !word.trimmingCharacters(in: .whitespaces).isEmpty, !result.contains(word) else { continue }
-            result.append(word)
+                  !word.trimmingCharacters(in: .whitespaces).isEmpty, !result.contains(where: { $0.text == word }) else { continue }
+            result.append(GeneratedWord(text: word, ids: ids, score: score))
         }
         return result
+    }
+
+    /// Score the displayed strings (including punctuation cuts) and recalled
+    /// history together. Joint tokenization shares the same context boundary,
+    /// so generated and remembered phrases have comparable log probabilities.
+    /// Reuses generated probabilities only when canonical tokenization and the
+    /// scoring boundary match. At most eight extra passes; usually only history.
+    func scoredNextWords(prompt: String, history: [String] = [], cancelled: () -> Bool = { false }) throws
+        -> (generated: [ScoredNextWord], history: [ScoredNextWord]) {
+        nextWordScoreReuses = 0; nextWordScoringPasses = 0
+        let generated = try generateNextWords(prompt: prompt, cancelled: cancelled)
+        let words = generated.map(\.text)
+        let remembered = history.filter {
+            guard !words.contains($0), !$0.isEmpty, $0.count <= 64,
+                  let tokens = try? tokenizer.encode(prompt + $0), tokens.count <= Self.contextLength,
+                  let decoded = try? tokenizer.decode(tokens) else { return false }
+            return Self.exactText(decoded, prompt + $0)
+        }
+            .prefix(CandidatePreferenceMemory.Policy.maximumRememberedSuggestions)
+        let texts = words + Array(Set(remembered)).sorted()
+        guard !texts.isEmpty else { return ([], []) }
+        let started = KeyboardPerformance.start()
+        defer { KeyboardPerformance.record(.lmNextWordScoring, since: started) }
+        let contextIDs: [Int32] = [2] + (try tokenizer.encode(prompt))
+        let sequences = try texts.map { text in
+            let tokens = try tokenizer.encode(prompt + text)
+            guard Self.exactText(try tokenizer.decode(tokens), prompt + text) else { throw Failure.ineligible }
+            return [Int32(2)] + tokens
+        }
+        var common = 0
+        for i in 0..<([contextIDs] + sequences).map(\.count).min()! {
+            if sequences.allSatisfy({ $0[i] == contextIDs[i] }) { common += 1 } else { break }
+        }
+        guard common >= 1, sequences.allSatisfy({ $0.count > common && $0.count - 1 <= Self.contextLength }) else { throw Failure.ineligible }
+        var values = Array(repeating: 0.0, count: texts.count)
+        var uncached = [Int]()
+        for i in texts.indices {
+            if i < generated.count, common == contextIDs.count, sequences[i] == contextIDs + generated[i].ids {
+                values[i] = generated[i].score
+            } else { uncached.append(i) }
+        }
+        let fresh = try sequenceScores(uncached.map { sequences[$0] }, common: common,
+            paddedLength: sequences.map { $0.count - 1 }.max()!, cancelled: cancelled)
+        nextWordScoringPasses = uncached.count
+        nextWordScoreReuses = texts.count - uncached.count
+        for (index, value) in zip(uncached, fresh) { values[index] = value }
+        if cancelled() { throw Failure.cancelled }
+        let scored = texts.indices.map { ScoredNextWord(text: texts[$0], logProbabilitySum: values[$0],
+            tokenCount: sequences[$0].count - common) }
+        return (Array(scored.prefix(words.count)), Array(scored.dropFirst(words.count)))
     }
 
     /// Fixed beam search matching the Mac demo (sentence continuation). The keyboard uses
