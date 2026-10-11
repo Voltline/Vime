@@ -526,5 +526,69 @@
     "KeyboardSegmentedConversionTests/testPartialFeedbackCanBeCancelledBeforeLearning",
     "KeyboardSegmentedConversionTests/testShortNeighborCorrectionsAndCorrectInputProtection"
   ],
-  "build": "Debug App and keyboard extension build succeeded"
+  "build": "Debug App and keyboard extension build succeeded",
+  "expanded_menu_followup": {
+    "date": "2026-10-11",
+    "scope": "Simulator UIKit/proxy fixtures; not physical Notes/ChatGPT validation",
+    "input": "tennanhantenn",
+    "baseline_failures": [
+      "queued own mark-clear/unmark/insert/new-mark callbacks",
+      "context excluding marked text",
+      "automatic Tianan absent"
+    ],
+    "baseline_candidate": {
+      "surface": "天",
+      "rank": 18,
+      "reading": "テン",
+      "consumed_kana": 2,
+      "remainder": "あんはんてん"
+    },
+    "expanded_candidates": [
+      {
+        "surface": "天",
+        "rank": 14,
+        "consumed_kana": 2,
+        "remainder": "あんはんてん"
+      },
+      {
+        "surface": "天安",
+        "rank": 66,
+        "consumed_kana": 4,
+        "remainder": "はんてん",
+        "dictionary_units": [
+          "天",
+          "安"
+        ]
+      }
+    ],
+    "tested_paths": [
+      "expanded menu -> 天 -> 安 -> 飯店",
+      "expanded menu scroll -> 天安 -> 飯店 without range adjustment"
+    ],
+    "prefix_fixture_ms_range": [
+      193,
+      203
+    ],
+    "prefix_fixture_pool_size": 160,
+    "tests_passed": [
+      "KeyboardDelayedHostCommitTests.testExpandedTianCandidateSurvivesDelayedHostAcknowledgement",
+      "KeyboardDelayedHostCommitTests.testExpandedTianCandidateSurvivesEveryQueuedWriteStage",
+      "KeyboardDelayedHostCommitTests.testPartialCommitWithContextExcludingMarkedText",
+      "KeyboardDelayedHostCommitTests.testPartialReceiptRejectsCaretFieldAndExternalTextChanges",
+      "KeyboardDelayedHostCommitTests.testReceiptHandlesContextWindowChangingAfterPartialCommit",
+      "KeyboardPreeditTests.testKanaPreeditAndAmbiguousRomanSuffixes",
+      "KeyboardSegmentedConversionTests.testAutomaticPrefixCoverageIncludesUnrecognisedWholePhrase",
+      "KeyboardSegmentedConversionTests.testExpandedMenuOffersTiananWithoutRangeAdjustment",
+      "KeyboardSegmentedConversionTests.testExpandedSingleWordCandidateKeepsAllFollowingKanaMarked",
+      "KeyboardSegmentedConversionTests.testPanelPartialSelectionKeepsSuffixMarkedAndConvertible",
+      "KeyboardSegmentedConversionTests.testPartialCommitPreservesRomanRemainderAndLearning",
+      "KeyboardSegmentedConversionTests.testPendingRangeConfirmationConsumesOnlySelectedKana",
+      "KeyboardSegmentedConversionTests.testCandidateTouchCannotSelectReplacementAfterSupplementaryPublication"
+    ],
+    "distinct_test_count": 13,
+    "version": "1.0",
+    "build": 10,
+    "candidate_hit_test": "Both expanded menu paths scroll the target into view and assert UIWindow hit-test identity; actions are injected.",
+    "touch_token_guard": "Capture touch-down token; reject stale release after supplementary publication repurposes the button."
+  }
 }

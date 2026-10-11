@@ -51,11 +51,16 @@ final class KeyboardSegmentedConversionTests: XCTestCase {
         try await exercisePartialSelection(confirmRange: false, singlePrefix: true)
     }
 
-    private func exercisePartialSelection(confirmRange: Bool, automaticPrefix: Bool = false, singlePrefix: Bool = false) async throws {
+    func testExpandedMenuOffersTiananWithoutRangeAdjustment() async throws {
+        try await exercisePartialSelection(confirmRange: false, automaticTianan: true)
+    }
+
+    private func exercisePartialSelection(confirmRange: Bool, automaticPrefix: Bool = false, singlePrefix: Bool = false,
+                                          automaticTianan: Bool = false) async throws {
         let directory = isolatedLearningDirectory()
         let session = KeyboardSession(asynchronousCandidates: true, memoryDirectoryURL: directory)
         let keyboard = KeyboardView(frame: CGRect(x: 0, y: 240, width: 440, height: 350), session: session)
-        session.updateIntelligence(ranking: .engine, suggestionsEnabled: false)
+        session.updateIntelligence(ranking: automaticTianan ? .languageModel : .engine, suggestionsEnabled: false)
         let window = UIWindow(frame: UIScreen.main.bounds)
         window.rootViewController = UIViewController()
         let text = UITextView(frame: CGRect(x: 0, y: 0, width: 440, height: 220))
@@ -95,7 +100,8 @@ final class KeyboardSegmentedConversionTests: XCTestCase {
         }
         try await ready()
         try button("vime.candidates.expand").sendActions(for: .touchUpInside)
-        if !automaticPrefix && !singlePrefix {
+        try await ready()
+        if !automaticPrefix && !singlePrefix && !automaticTianan {
             try button("vime.segment.shorten").sendActions(for: .touchUpInside)
             try await ready()
             while (session.conversionRangeDescription?.split(separator: "｜").first?.count ?? 0) > 4 {
@@ -113,9 +119,33 @@ final class KeyboardSegmentedConversionTests: XCTestCase {
             try button("vime.panel.close").sendActions(for: .touchUpInside)
             (try button("vime.key.return") as? KeyboardKey)?.action?()
         } else {
-            let prefix = try XCTUnwrap(descendants(keyboard).compactMap { $0 as? UIButton }.first {
-                $0.title(for: .normal) == prefixText && $0.superview is UIScrollView && !$0.isHidden
-            })
+            let deadline = Date().addingTimeInterval(10)
+            var candidate: UIButton?
+            while candidate == nil && Date() < deadline {
+                candidate = descendants(keyboard).compactMap { $0 as? UIButton }.first {
+                    $0.title(for: .normal) == prefixText && $0.superview is UIScrollView && !$0.isHidden && $0.isUserInteractionEnabled
+                }
+                if candidate == nil {
+                    // Exercise the full menu's existing incremental paging.
+                    keyboard.layoutIfNeeded()
+                    if automaticTianan, let panel = descendants(keyboard).compactMap({ $0 as? UIScrollView }).first(where: {
+                        $0.subviews.contains { ($0 as? UIButton)?.title(for: .normal) == session.candidates.first }
+                            && !$0.isHidden && $0.contentSize.height > $0.bounds.height
+                    }) {
+                        panel.setContentOffset(CGPoint(x: 0, y: max(0, panel.contentSize.height - panel.bounds.height)), animated: false)
+                        keyboard.scrollViewDidScroll(panel)
+                    }
+                    try await Task.sleep(for: .milliseconds(10))
+                }
+            }
+            let prefix = try XCTUnwrap(candidate)
+            if let panel = prefix.superview as? UIScrollView {
+                keyboard.layoutIfNeeded()
+                panel.scrollRectToVisible(prefix.frame, animated: false)
+                let point = prefix.convert(CGPoint(x: prefix.bounds.midX, y: prefix.bounds.midY), to: window)
+                XCTAssertTrue(window.hitTest(point, with: nil) === prefix,
+                    "The displayed menu candidate must own its actual hit area")
+            }
             prefix.sendActions(for: .touchUpInside)
         }
         XCTAssertEqual(edits, [.insert(prefixText)])
@@ -126,15 +156,66 @@ final class KeyboardSegmentedConversionTests: XCTestCase {
         XCTAssertEqual(text.text(in: try XCTUnwrap(text.markedTextRange)), remaining)
         XCTAssertEqual(text.text, prefixText + remaining)
         try await ready()
-        if singlePrefix { return }
+        if singlePrefix {
+            // Exercise the rest of the exact user path, not just the first tap.
+            let an = try XCTUnwrap(descendants(keyboard).compactMap { $0 as? UIButton }.first {
+                $0.title(for: .normal) == "安" && visible($0) && $0.isUserInteractionEnabled
+            })
+            an.sendActions(for: .touchUpInside)
+            try await ready()
+            XCTAssertEqual(session.raw, "hantenn")
+            XCTAssertEqual(host.markedText, "はんてん")
+        }
         let suffix = try XCTUnwrap(descendants(keyboard).compactMap { $0 as? UIButton }.first {
-            $0.title(for: .normal) == "飯店" && visible($0)
+            $0.title(for: .normal) == "飯店" && visible($0) && $0.isUserInteractionEnabled
         })
         suffix.sendActions(for: .touchUpInside)
-        XCTAssertEqual(edits, [.insert(prefixText), .insert("飯店")])
-        XCTAssertEqual(text.text, prefixText + "飯店")
+        XCTAssertEqual(edits, singlePrefix ? [.insert("天"), .insert("安"), .insert("飯店")] : [.insert(prefixText), .insert("飯店")])
+        XCTAssertEqual(text.text, (singlePrefix ? "天安" : prefixText) + "飯店")
         XCTAssertNil(text.markedTextRange)
         XCTAssertFalse(session.isComposing)
+    }
+
+    func testCandidateTouchCannotSelectReplacementAfterSupplementaryPublication() throws {
+        let session = KeyboardSession()
+        let keyboard = KeyboardView(frame: CGRect(x: 0, y: 0, width: 440, height: 350), session: session)
+        _ = session.type("tennanhantenn")
+        session.onCandidatesChange?()
+        func descendants(_ view: UIView) -> [UIView] { [view] + view.subviews.flatMap(descendants) }
+        let expand = try XCTUnwrap(descendants(keyboard).first { $0.accessibilityIdentifier == "vime.candidates.expand" } as? UIButton)
+        expand.sendActions(for: .touchUpInside)
+        let button = try XCTUnwrap(descendants(keyboard).compactMap { $0 as? UIButton }.first {
+            $0.title(for: .normal) == "天" && $0.superview is UIScrollView
+        })
+        let originalInput = session.raw
+        var committed: [KeyboardEdit] = []
+        keyboard.onEdit = { committed += $0 }
+        button.sendActions(for: .touchDown)
+        session.acceptCandidateUpdate(Array(session.candidateSnapshots.reversed()), revision: session.revision, supplementary: true)
+        XCTAssertNotEqual(button.title(for: .normal), "天", "The same pooled button now presents another candidate")
+        button.sendActions(for: .touchUpInside)
+        XCTAssertEqual(session.raw, originalInput)
+        XCTAssertTrue(committed.isEmpty, "A stale touched token must not commit a replacement")
+    }
+
+    func testAutomaticPrefixCoverageIncludesUnrecognisedWholePhrase() throws {
+        KeyboardPerformance.configure(enabled: true, reset: true)
+        defer { KeyboardPerformance.configure(enabled: false) }
+        let engine = JapaneseCandidateEngine()
+        let composition = query("tennanhantenn")
+        let base = engine.candidates(for: composition, revision: 1, includeCorrections: false)
+        let values = engine.addingPrefixCandidates(to: base, for: composition, katakana: false, revision: 1)
+        print("PREFIX_EXPANDED " + values.enumerated().filter { ["天", "天安", "天案", "てんあん"].contains($0.element.text) }
+            .map { "\($0.offset + 1):\($0.element.text):\($0.element.reading):\($0.element.consumedReadingCount):\($0.element.remainingComposition.convertTarget):engineRank=\($0.element.engineRank):words=\($0.element.candidate.data.map(\.word))" }.joined(separator: " | "))
+        print("PREFIX_TIMING \(KeyboardPerformance.report()) count=\(values.count)")
+        let tianan = try XCTUnwrap(values.first { $0.text == "天安" && $0.remainingComposition.convertTarget == "はんてん" })
+        XCTAssertEqual(tianan.consumedReadingCount, 4)
+        XCTAssertTrue(tianan.exactReading && tianan.engineFullConsumption && !tianan.fullConsumption)
+        for length in 1..<composition.convertTarget.count {
+            XCTAssertTrue(values.contains { $0.consumedReadingCount == length }, "Boundary \(length)")
+        }
+        XCTAssertEqual(engine.addingPrefixCandidates(to: base, for: composition, katakana: false,
+            revision: 1, cancelled: { true }).map(\.presentation), base.map(\.presentation))
     }
 
     private func query(_ raw: String) -> ComposingText {

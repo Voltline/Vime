@@ -1,10 +1,14 @@
 import Foundation
 
-/// A proxy may report a committed insertion after insertText has returned.
-/// Recognize only the exact partial commit we issued, not an arbitrary grace
-/// period during which caret/document changes would be ignored.
+/// Recognizes the finite document states produced by a partial commit. UIKit
+/// writes and proxy context notifications need not arrive in the same turn.
+/// Keep the transaction through later candidate publications: observing the
+/// final mark once does not prove all earlier write notifications were drained.
+/// No time window or arbitrary context change is accepted.
 nonisolated struct KeyboardPartialCommitReceipt {
     let document: String
+    private let originalBefore: String
+    private let left: String
     private let prefix: String
     private let after: String?
     private var markedTails: [String]
@@ -12,11 +16,15 @@ nonisolated struct KeyboardPartialCommitReceipt {
     init?(document: String, before: String?, after: String?, selection: String?,
           ownedMark: String?, edits: [KeyboardEdit], preedit: KeyboardPreedit?) {
         guard let before, selection?.isEmpty != false,
-              let ownedMark, !ownedMark.isEmpty, before.hasSuffix(ownedMark),
+              let ownedMark, !ownedMark.isEmpty,
               let preedit, !preedit.text.isEmpty, edits.count == 1,
               case let .insert(text) = edits[0] else { return nil }
         self.document = document
-        prefix = String(before.dropLast(ownedMark.count)) + text
+        originalBefore = before
+        // Some proxies return context outside the marked range. Do not require
+        // them to echo the owned preedit as part of their left context.
+        left = before.hasSuffix(ownedMark) ? String(before.dropLast(ownedMark.count)) : before
+        prefix = left + text
         self.after = after
         markedTails = [preedit.text]
     }
@@ -31,15 +39,15 @@ nonisolated struct KeyboardPartialCommitReceipt {
     func acknowledges(document: String, before: String?, after: String?, selection: String?) -> Bool {
         guard document == self.document, after == self.after, selection?.isEmpty != false,
               let before else { return false }
-        // The host can acknowledge the committed prefix before exposing the new
-        // mark. Bounded suffix comparison respects the proxy's context window.
-        return ([prefix] + markedTails.map { prefix + $0 }).contains {
-            String(before.suffix(96)) == String($0.suffix(96))
+        // old mark -> empty mark -> committed prefix -> new mark. Context can
+        // exclude the new mark entirely. Bounded suffixes match proxy windows.
+        return ([originalBefore, left, prefix] + markedTails.map { prefix + $0 }).contains {
+            expected in
+            guard !before.isEmpty, !expected.isEmpty else { return before == expected }
+            // Deleting/replacing a mark changes how much older text fits in the
+            // host's context window. Compare only the shared known suffix.
+            let count = min(96, before.count, expected.count)
+            return before.suffix(count) == expected.suffix(count)
         }
-    }
-
-    func hasFinalAcknowledgement(before: String?) -> Bool {
-        guard let before, let mark = markedTails.last else { return false }
-        return String(before.suffix(96)) == String((prefix + mark).suffix(96))
     }
 }

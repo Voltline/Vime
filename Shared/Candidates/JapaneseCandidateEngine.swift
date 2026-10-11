@@ -295,6 +295,66 @@ nonisolated final class JapaneseCandidateEngine {
         return includeCorrections && conversionLength == nil ? addingCorrections(to: base, for: query, katakana: katakana, revision: revision) : base
     }
 
+    /// Rich segmentation is requested only for the expanded panel. Enumerate
+    /// short kana boundaries (including single kana), plus attested longer word
+    /// boundaries. Every entry still goes through the same reranker/identity.
+    /// No word-specific exception or reserved presentation slot is used.
+    func addingPrefixCandidates(to base: [CandidateSnapshot], for composing: ComposingText,
+                                katakana: Bool, revision: Int,
+                                cancelled: () -> Bool = { false }) -> [CandidateSnapshot] {
+        let reading = composing.convertTarget
+        guard reading.count > 1 else { return base }
+        var boundaries = Set(1..<min(reading.count, 9))
+        for value in base where value.fullConsumption && value.lexical && !value.isPrediction {
+            var count = 0
+            for element in value.candidate.data {
+                count += element.ruby.count
+                if count > 0 && count < reading.count { boundaries.insert(count) }
+            }
+        }
+        let session = prefixSession ?? converter.createSession(); prefixSession = session
+        var prefixOptions = options
+        prefixOptions.N_best = 20
+        prefixOptions.requireJapanesePrediction = .disabled
+        var pool = base
+        let started = KeyboardPerformance.start()
+        defer { KeyboardPerformance.record(.prefixConversion, since: started) }
+        // At most twelve cached dictionary queries, off the input/UI thread.
+        for length in boundaries.sorted().prefix(12) {
+            guard !cancelled() else { return base }
+            var prefix = composing
+            _ = prefix.moveCursorFromCursorPosition(count: length - prefix.convertTargetCursorPosition)
+            prefix = prefix.prefixToCursorPosition()
+            guard let result = try? converter.withSession(session, operation: {
+                converter.stopComposition()
+                return converter.requestCandidates(prefix, options: prefixOptions)
+            }) else { continue }
+            let scripts = [prefix.convertTarget, RomajiConverter.katakana(prefix.convertTarget)].map {
+                Candidate(text: $0, value: .zero, composingCount: .inputCount(prefix.input.count),
+                    lastMid: MIDData.EOS.mid, data: [], isLearningTarget: false)
+            }
+            for (index, candidate) in (result.mainResults + scripts).enumerated() where candidate.inputable {
+                var rest = prefix; rest.prefixComplete(composingCount: candidate.composingCount)
+                let count = prefix.convertTarget.count - rest.convertTarget.count
+                guard count > 0 && count < reading.count else { continue }
+                let remainder = CompositionSegmentBoundary.remainder(of: composing, consuming: count)
+                var value = CandidateSnapshot(candidate: candidate, revision: revision,
+                    source: index < result.mainResults.count ? .conversion : .scriptVariant,
+                    remainingComposition: remainder, originalInputCount: composing.input.count,
+                    consumedInputCount: composing.input.count - remainder.input.count,
+                    queryReading: RomajiConverter.katakana(reading), engineRank: index, engineFullConsumption: rest.isEmpty,
+                    readingOverride: candidate.data.isEmpty ? RomajiConverter.katakana(String(reading.prefix(count))) : nil)
+                value.consumedReadingCount = count
+                value.scopeReading = RomajiConverter.katakana(String(reading.prefix(count)))
+                pool.append(value)
+            }
+        }
+        guard !cancelled() else { return base }
+        // Typo supplementation uses this pool; it must not discard prefixes.
+        currentPool = pool
+        return rank(pool, query: composing, katakana: katakana)
+    }
+
     func seedContinuity(_ previous: CandidateContinuity?) { previousTop = previous }
 
     private func rank(_ pool: [CandidateSnapshot], query: ComposingText, katakana: Bool) -> [CandidateSnapshot] {

@@ -23,9 +23,31 @@ private final class CandidateButton: UIButton {
     private var measuredTextWidth: CGFloat = 0
     var presentationWidth: CGFloat { ceil(measuredTextWidth) + 24 }
     var selectionToken: CandidateSelectionToken? { presentedPresentation?.selectionToken }
+    private var armedSelectionToken: CandidateSelectionToken?
+    private var selectionArmed = false
+
+    func takeSelectionToken() -> CandidateSelectionToken? {
+        let token = selectionArmed ? armedSelectionToken : selectionToken
+        cancelSelection()
+        return token
+    }
+
+    @objc private func armSelection() {
+        selectionArmed = true
+        armedSelectionToken = selectionToken
+    }
+
+    @objc private func cancelSelection() {
+        selectionArmed = false
+        armedSelectionToken = nil
+    }
 
     override init(frame: CGRect) {
         super.init(frame: frame)
+        // Supplementary results may repurpose pooled buttons while a finger is
+        // down. A release must resolve the touched list, never its replacement.
+        addTarget(self, action: #selector(armSelection), for: .touchDown)
+        addTarget(self, action: #selector(cancelSelection), for: [.touchCancel, .touchUpOutside])
         contentHorizontalAlignment = .left
         titleLabel?.textAlignment = .left
         fill.isUserInteractionEnabled = false
@@ -1188,7 +1210,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     }
 
     @objc private func selectCandidate(_ sender: UIButton) {
-        guard let token = (sender as? CandidateButton)?.selectionToken else { return }
+        guard let token = (sender as? CandidateButton)?.takeSelectionToken() else { return }
         playFeedback()
         apply(session.chooseCandidate(token))
     }
@@ -1282,7 +1304,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
 
     @objc private func headerArrow() {
         if expanded || settingsOpen || emojiOpen {
-            expanded = false; settingsOpen = false; emojiOpen = false; refresh()
+            expanded = false; session.setExpandedCandidates(false); settingsOpen = false; emojiOpen = false; refresh()
         } else if session.isComposing { toggleExpanded() }
         else { onDismiss?() }
     }
@@ -1354,6 +1376,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     @objc private func toggleExpanded() {
         panelLimit = 40
         expanded.toggle()
+        session.setExpandedCandidates(expanded)
         settingsOpen = false
         emojiOpen = false
         panelScroll.setContentOffset(.zero, animated: false)

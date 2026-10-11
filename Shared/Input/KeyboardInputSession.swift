@@ -58,6 +58,7 @@ protocol KeyboardInputSession: AnyObject {
     var conversionRangeDescription: String? { get }
     func adjustConversionRange(by delta: Int)
     func resetConversionRange()
+    func setExpandedCandidates(_ enabled: Bool)
     var inputTraits: KeyboardInputTraits { get }
     var hostEpoch: Int { get }
     var isComposing: Bool { get }
@@ -99,6 +100,7 @@ extension KeyboardInputSession {
     var conversionRangeDescription: String? { nil }
     func adjustConversionRange(by delta: Int) {}
     func resetConversionRange() {}
+    func setExpandedCandidates(_ enabled: Bool) {}
     var candidateCount: Int { candidatePresentations.count }
     func candidatePage(offset: Int, limit: Int) -> [CandidatePresentation] {
         Array(candidatePresentations.dropFirst(max(0, offset)).prefix(max(0, limit)))

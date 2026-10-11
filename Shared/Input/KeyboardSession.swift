@@ -1,4 +1,5 @@
 import Foundation
+import os
 import KanaKanjiConverterModuleWithDefaultDictionary
 
 enum InputMode: String, CaseIterable {
@@ -21,6 +22,7 @@ final class KeyboardSession: KeyboardInputSession {
     private(set) var revision = 0
     private(set) var hostEpoch = 0
     private let presentationSessionID = UUID()
+    private let selectionLog = Logger(subsystem: "com.Voltline.Vime", category: "CandidateSelection")
     private var candidateListGeneration = 0
     private(set) var candidateRequestCount = 0
     private(set) var inputStartedAt: TimeInterval?
@@ -38,6 +40,13 @@ final class KeyboardSession: KeyboardInputSession {
     private var lastPublishedInput = ""
     private var composing = ComposingText()
     private var conversionLength: Int?
+    private var expandedCandidates = false
+    func setExpandedCandidates(_ enabled: Bool) {
+        guard enabled != expandedCandidates else { return }
+        expandedCandidates = enabled
+        // Closing a panel must not invalidate a candidate the user is touching.
+        if enabled && isComposing { refresh(); onCandidatesChange?() }
+    }
     var conversionRangeDescription: String? {
         guard isComposing else { return nil }
         let reading = composition
@@ -215,6 +224,7 @@ final class KeyboardSession: KeyboardInputSession {
         guard candidatesAreCurrent, candidates.indices.contains(index) else { return [] }
         let snapshot = candidateSnapshots[index]
         guard snapshot.revision == revision else { return [] }
+        selectionLog.debug("Selection revision=\(self.revision) rank=\(index + 1) consumedKana=\(snapshot.consumedReadingCount) remainingKana=\(snapshot.remainingComposition.convertTarget.count) full=\(snapshot.fullConsumption) source=\(snapshot.source.rawValue, privacy: .public)")
         finishLearningFeedback()
         if let event = beginLearningFeedback(text: snapshot.text, rank: index, kind: feedbackKind) {
             engine?.stageSelection(snapshot, event: event)
@@ -366,6 +376,7 @@ final class KeyboardSession: KeyboardInputSession {
         candidatesPending = false
         pendingSpaces = 0
         conversionLength = nil
+        expandedCandidates = false
         composing = ComposingText()
         if !preservingContext { committedLeftContext = "" }
         engine?.reset(preservingContext: preservingContext)
@@ -482,6 +493,10 @@ final class KeyboardSession: KeyboardInputSession {
             if isComposing { candidateRequestCount += 1 }
             candidateSnapshots = engine?.candidates(for: boundary ? PreeditPresentation.finalized(composing) : composing,
                 katakana: mode == .katakana, revision: revision, conversionLength: conversionLength) ?? []
+            if expandedCandidates && conversionLength == nil {
+                candidateSnapshots = engine?.addingPrefixCandidates(to: candidateSnapshots, for: composing,
+                    katakana: mode == .katakana, revision: revision) ?? candidateSnapshots
+            }
             candidateListGeneration += 1
             return
         }
@@ -500,7 +515,7 @@ final class KeyboardSession: KeyboardInputSession {
         let continuity = candidateSnapshots.first.map { CandidateContinuity(surface: $0.text, reading: $0.reading, input: lastPublishedInput) }
         worker.candidates(for: boundary ? PreeditPresentation.finalized(composing) : composing,
                           katakana: mode == .katakana, revision: requestedRevision, leftContext: leftContext, continuity: continuity,
-                          ranking: candidateRanking, conversionLength: conversionLength) { [weak self] values, resultReadyAt, supplementary in
+                          ranking: candidateRanking, conversionLength: conversionLength, expanded: expandedCandidates) { [weak self] values, resultReadyAt, supplementary in
             if let self, self.revision == requestedRevision { self.lastPublishedInput = requestedInput }
             self?.acceptCandidateUpdate(values, revision: requestedRevision, readyAt: resultReadyAt, supplementary: supplementary)
         }

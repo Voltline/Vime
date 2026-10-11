@@ -18,8 +18,33 @@ final class KeyboardDelayedHostCommitTests: XCTestCase {
         XCTAssertTrue(receipt.acknowledges(document: "document-A", before: "昨日天あんはんて", after: "。", selection: nil))
     }
 
+    func testReceiptHandlesContextWindowChangingAfterPartialCommit() throws {
+        let receipt = try XCTUnwrap(KeyboardPartialCommitReceipt(document: "A",
+            before: String(repeating: "旧", count: 8) + "てんあんはんてん", after: "。", selection: nil,
+            ownedMark: "てんあんはんてん", edits: [.insert("天")], preedit: KeyboardPreedit(text: "あんはんてん")))
+        // A shorter replacement reveals an extra older character in a 16-kana window.
+        XCTAssertTrue(receipt.acknowledges(document: "A", before: String(repeating: "旧", count: 9) + "天あんはんてん",
+            after: "。", selection: nil))
+        XCTAssertTrue(receipt.acknowledges(document: "A", before: "旧天あんはんてん", after: "。", selection: nil))
+        XCTAssertFalse(receipt.acknowledges(document: "A", before: "旧天別の文章", after: "。", selection: nil))
+        XCTAssertFalse(receipt.acknowledges(document: "A", before: "", after: "。", selection: nil))
+    }
+
     func testExpandedTianCandidateSurvivesDelayedHostAcknowledgement() async throws {
+        try await exerciseHost()
+    }
+
+    func testExpandedTianCandidateSurvivesEveryQueuedWriteStage() async throws {
+        try await exerciseHost(replayStages: true)
+    }
+
+    func testPartialCommitWithContextExcludingMarkedText() async throws {
+        try await exerciseHost(excludesMark: true)
+    }
+
+    private func exerciseHost(replayStages: Bool = false, excludesMark: Bool = false) async throws {
         let controller = DelayedHostController()
+        controller.proxy.excludesMark = excludesMark
         controller.loadViewIfNeeded()
         controller.viewWillAppear(false)
         let window = UIWindow(frame: UIScreen.main.bounds)
@@ -44,11 +69,23 @@ final class KeyboardDelayedHostCommitTests: XCTestCase {
             }
             if prefix == nil { try await Task.sleep(for: .milliseconds(10)) }
         }
+        controller.proxy.captureStages = replayStages
         try XCTUnwrap(prefix).sendActions(for: .touchUpInside)
         XCTAssertEqual(controller.proxy.text.text, "天あんはんてん")
         XCTAssertEqual(keyboard.accessibilityValue, "输入中：あんはんてん")
         // The proxy returns the pre-insertion context during the write, then
         // publishes the new text through textDidChange after the write returns.
+        if replayStages {
+            let stages = controller.proxy.stages
+            controller.proxy.acknowledge()
+            controller.textDidChange(nil)
+            for (before, after) in stages {
+                controller.proxy.publish(before: before, after: after)
+                controller.textDidChange(nil)
+                controller.selectionDidChange(nil)
+                XCTAssertEqual(keyboard.accessibilityValue, "输入中：あんはんてん", "Queued own-write stage must not reset")
+            }
+        }
         controller.proxy.acknowledge()
         controller.textDidChange(nil)
         controller.selectionDidChange(nil)
@@ -83,6 +120,22 @@ private final class DelayedDocumentProxy: NSObject, UITextDocumentProxy {
     private var publishedBefore: String? = ""
     private var publishedAfter: String? = ""
     private var delayed = false
+    var excludesMark = false
+    var captureStages = false
+    var stages: [(String?, String?)] = []
+    func publish(before: String?, after: String?) {
+        publishedBefore = before; publishedAfter = after
+    }
+    private func context() -> (String?, String?) {
+        if excludesMark, let mark = text.markedTextRange {
+            let start = text.offset(from: text.beginningOfDocument, to: mark.start)
+            let end = text.offset(from: text.beginningOfDocument, to: mark.end)
+            return ((text.text as NSString).substring(to: start), (text.text as NSString).substring(from: end))
+        }
+        return ((text.text as NSString).substring(to: text.selectedRange.location),
+                (text.text as NSString).substring(from: NSMaxRange(text.selectedRange)))
+    }
+    private func capture() { if captureStages { stages.append(context()) } }
     var documentContextBeforeInput: String? { publishedBefore }
     var documentContextAfterInput: String? { publishedAfter }
     var selectedText: String? {
@@ -90,10 +143,9 @@ private final class DelayedDocumentProxy: NSObject, UITextDocumentProxy {
     }
     func acknowledge() {
         delayed = false
-        publishedBefore = (text.text as NSString).substring(to: text.selectedRange.location)
-        publishedAfter = (text.text as NSString).substring(from: NSMaxRange(text.selectedRange))
+        (publishedBefore, publishedAfter) = context()
     }
-    func insertText(_ value: String) { delayed = true; text.insertText(value) }
+    func insertText(_ value: String) { delayed = true; text.insertText(value); capture() }
     func deleteBackward() { text.deleteBackward(); if !delayed { acknowledge() } }
     func adjustTextPosition(byCharacterOffset offset: Int) {
         text.selectedRange = NSRange(location: text.selectedRange.location + offset, length: 0)
@@ -101,7 +153,8 @@ private final class DelayedDocumentProxy: NSObject, UITextDocumentProxy {
     }
     func setMarkedText(_ value: String, selectedRange: NSRange) {
         text.setMarkedText(value, selectedRange: selectedRange)
+        capture()
         if !delayed { acknowledge() }
     }
-    func unmarkText() { text.unmarkText(); if !delayed { acknowledge() } }
+    func unmarkText() { text.unmarkText(); capture(); if !delayed { acknowledge() } }
 }

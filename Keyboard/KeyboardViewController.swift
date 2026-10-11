@@ -1,7 +1,9 @@
 import UIKit
+import os
 
 class KeyboardViewController: UIInputViewController {
     private let keyboard = KeyboardView()
+    private let synchronizationLog = Logger(subsystem: "com.Voltline.Vime", category: "CompositionSync")
     private var heightConstraint: NSLayoutConstraint?
     private var knownDocument: String?
     private var knownBefore: String?
@@ -140,19 +142,22 @@ class KeyboardViewController: UIInputViewController {
         knownBefore = proxy.documentContextBeforeInput
         knownAfter = proxy.documentContextAfterInput
         knownSelected = proxy.selectedText
-        if !isApplyingEdits && partialCommitReceipt?.hasFinalAcknowledgement(before: knownBefore) == true {
-            partialCommitReceipt = nil
-        }
     }
 
     private var contextChanged: Bool {
         let proxy = textDocumentProxy
         if partialCommitReceipt?.acknowledges(document: documentIdentity(proxy), before: proxy.documentContextBeforeInput,
             after: proxy.documentContextAfterInput, selection: proxy.selectedText) == true { return false }
-        return knownDocument != documentIdentity(proxy) ||
-        knownBefore != proxy.documentContextBeforeInput ||
-        knownAfter != proxy.documentContextAfterInput ||
-        knownSelected != proxy.selectedText
+        let documentChanged = knownDocument != documentIdentity(proxy)
+        let beforeChanged = knownBefore != proxy.documentContextBeforeInput
+        let afterChanged = knownAfter != proxy.documentContextAfterInput
+        let selectionChanged = knownSelected != proxy.selectedText
+        let changed = documentChanged || beforeChanged || afterChanged || selectionChanged
+        if changed && host.markedText != nil {
+            // Counts/flags only: never expose host text or the user's candidates.
+            synchronizationLog.notice("Composition reset: document=\(documentChanged) before=\(beforeChanged) after=\(afterChanged) selection=\(selectionChanged) partial=\(self.partialCommitReceipt != nil) markedLength=\(self.host.markedText?.utf16.count ?? 0)")
+        }
+        return changed
     }
 
     private func apply(_ edits: [KeyboardEdit]) {

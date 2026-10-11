@@ -60,7 +60,7 @@ final class JapaneseCandidateWorker {
     private var pending: Request?
 
     func candidates(for composing: ComposingText, katakana: Bool, revision: Int, leftContext: String?, continuity: CandidateContinuity?,
-                    ranking: CandidateRankingMode = .languageModel, conversionLength: Int? = nil,
+                    ranking: CandidateRankingMode = .languageModel, conversionLength: Int? = nil, expanded: Bool = false,
                     completion: @escaping @MainActor @Sendable ([CandidateSnapshot], TimeInterval?, Bool) -> Void) {
         pending?.cancel()
         let request = Request()
@@ -90,18 +90,28 @@ final class JapaneseCandidateWorker {
                     return storage.languageModel?.rerank(values, context: sentence, katakana: katakana,
                         cancelled: { request.isCancelled }) ?? values
                 }
-                let ranked = rerank(values)
+                let enriched = expanded && conversionLength == nil
+                    ? storage.engine.addingPrefixCandidates(to: values, for: composing, katakana: katakana,
+                        revision: revision, cancelled: { request.isCancelled }) : values
                 guard !request.isCancelled else { return }
-                if ranked.map(\.presentation) != values.map(\.presentation) {
+                // Prefix choices are useful immediately; a cold LM must not
+                // hold the expanded menu's dictionary supplementation hostage.
+                if enriched.map(\.presentation) != values.map(\.presentation) {
+                    let readyAt = KeyboardPerformance.start()
+                    DispatchQueue.main.async { completion(enriched, readyAt, true) }
+                }
+                let ranked = rerank(enriched)
+                guard !request.isCancelled else { return }
+                if ranked.map(\.presentation) != enriched.map(\.presentation) {
                     let readyAt = KeyboardPerformance.start()
                     DispatchQueue.main.async { completion(ranked, readyAt, true) }
                 }
                 guard conversionLength == nil else { return }
                 let correctionStartedAt = KeyboardPerformance.start()
-                let corrected = storage.engine.addingCorrections(to: values, for: composing, katakana: katakana,
+                let corrected = storage.engine.addingCorrections(to: enriched, for: composing, katakana: katakana,
                     revision: revision, cancelled: { request.isCancelled })
                 KeyboardPerformance.record(.correctionCompute, since: correctionStartedAt)
-                guard !request.isCancelled, corrected.map(\.presentation) != values.map(\.presentation) else { return }
+                guard !request.isCancelled, corrected.map(\.presentation) != enriched.map(\.presentation) else { return }
                 let expanded = rerank(corrected)
                 guard !request.isCancelled, expanded.map(\.presentation) != ranked.map(\.presentation) else { return }
                 KeyboardPerformance.record(.correctionRequestToResult, since: requestStartedAt)
