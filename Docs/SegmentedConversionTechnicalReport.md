@@ -135,3 +135,17 @@
 - 保留旧宿主的外部修改/caret reset 行为；未在本轮验证所有第三方 App 的 marked-text 差异。
 
 本轮没有 archive/上传。
+
+## 分段确认修复（2026-10-11）
+
+用户进一步明确了实际路径：在备忘录和 ChatGPT App 输入 `tennanhantenn`，展开完整候选菜单点击「天」，整份 `天あんはんてん` 失去继续转换的状态。同步文本框测试中，这个候选自身的消费量正确：reading 为 `テン`，剩余 Roman 为 `anhantenn`、reading 为 `あんはんてん`。因此不能把引擎消费量或确认键入口的修复当成这个点击问题的结论。
+
+扩展控制器原来只在同步调用 `insertText` / `setMarkedText` 期间设置 `isApplyingEdits`，随后立即记录 proxy 的实际上下文。如果宿主稍后才更新 proxy 并发出 `textDidChange`，已提交「天」的新上下文与记录的旧上下文不同，就会被当成外部编辑，调用 `host.abandon()` 和 `keyboard.resetComposition()`；后段的文字仍在正文，session 和候选却被清空。新增测试直接继承实际 `KeyboardViewController`，使用写入真实 `UITextView`、延迟发布 context 的 `UITextDocumentProxy`，按用户给出的完整菜单点击路径验证此问题。禁用自身提交回执识别后，该测试在延迟通知到来时从 `输入中：あんはんてん` 变为 `あ`，定向失败；启用后通过。此测试证明这条回调时序缺陷，不等同于采集到了用户设备上两个 App 的实际回调轨迹。
+
+现在候选确认的 committed edits 和剩余 preedit 在一个宿主事务中应用，避免两者间的同步通知缝隙；`KeyboardPartialCommitReceipt` 只接受本次实际发出的前段插入、对应的后段 mark、同一 document、同一右侧 context、无外部选择的回执。兼容宿主先发布前段、再发布后段 mark 的步骤；比较有限左侧窗口，保持 proxy 的 context 截断兼容性。它不使用时间宽限，不吞任意宿主变更；异字段、外部文字、真正光标移动仍拒绝并 reset。收到最终回执后清除；新的提交或 session reset 也替换/清除。字段身份优先使用公开的 [documentIdentifier](https://developer.apple.com/documentation/uikit/uitextdocumentproxy/documentidentifier)，通过 Objective-C 对象读取避免 disconnected proxy 的 nil UUID 桥接崩溃；不可用时回退旧对象身份。学习与撤销锚点使用同一字段身份，缺少可核实的即时学习回执时继续采取取消学习的保守策略。
+
+同时确认了独立的确认键遗漏：调整 `conversionLength` 只改变查询范围，不设置 `selectedIndex`，但 `confirm()` 在没有空格预览时直接走整段字面假名 fallback，没有检查范围。
+
+改动前，输入 `toukyouhantenn`、选定 `とうきょう｜はんてん` 后按确认，无论候选是否已返回，都会插入 `とうきょうはんてん` 并清空整个 composition。现在候选已返回时确认当前高亮候选「東京」，只保留 `hantenn` 等待下一次转换；候选仍在计算时，立即确认所选范围的 `とうきょう`，保留同样的原始 Roman 后段。后者取消旧请求并创建新的 revision，过期前段结果不能覆盖剩余输入。普通整句字面确认和明确结束全部 composition 的 `confirmAll()` 边界语义继续保留。
+
+新增六个分段 UI/session 用例：范围确认无需空格、候选尚未返回时的范围确认与旧结果拒绝、实际展开面板点击「天安」后继续选「飯店」、关闭范围面板后使用确认键并继续选后段、直接点击自动首段候选「東京」后继续选后段，以及完整菜单点「天」后保留全部 `あんはんてん`。另加实际扩展控制器的延迟宿主测试及回执拒绝异字段/光标/外部文字测试。复核原有分段 Roman 后缀/学习、假名 preedit、disconnected 扩展控制器及面板布局三个用例，共十一项；App 和扩展同时完成 Debug 模拟器编译。没有做全量测试或 archive，版本仍为 1.0。此次复现未连接用户设备上的真实备忘录/ChatGPT App，尚需实机确认修复是否覆盖其具体回调行为。

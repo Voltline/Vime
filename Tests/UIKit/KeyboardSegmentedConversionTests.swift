@@ -1,8 +1,142 @@
 import XCTest
+import UIKit
 import KanaKanjiConverterModuleWithDefaultDictionary
 
 @MainActor
 final class KeyboardSegmentedConversionTests: XCTestCase {
+    func testRangeConfirmationWithoutSpaceKeepsRemainder() throws {
+        let session = KeyboardSession()
+        _ = session.type("toukyouhantenn")
+        session.adjustConversionRange(by: -4)
+        let expected = try XCTUnwrap(session.candidateSnapshots.first)
+        XCTAssertFalse(expected.fullConsumption)
+        XCTAssertEqual(session.enter(), [.insert(expected.text)])
+        XCTAssertEqual(session.raw, "hantenn")
+        XCTAssertEqual(session.preedit, "はんてん")
+    }
+
+    func testPendingRangeConfirmationConsumesOnlySelectedKana() async throws {
+        let session = KeyboardSession(asynchronousCandidates: true, memoryDirectoryURL: isolatedLearningDirectory())
+        _ = session.type("toukyouhantenn")
+        session.adjustConversionRange(by: -4)
+        XCTAssertFalse(session.candidatesAreCurrent)
+        XCTAssertEqual(session.enter(), [.insert("とうきょう")])
+        XCTAssertEqual(session.raw, "hantenn")
+        XCTAssertEqual(session.preedit, "はんてん")
+        let deadline = Date().addingTimeInterval(8)
+        while !session.candidatesAreCurrent && Date() < deadline { try await Task.sleep(for: .milliseconds(10)) }
+        XCTAssertTrue(session.candidatesAreCurrent)
+        XCTAssertEqual(session.raw, "hantenn", "Late prefix results must not complete or replace the remainder")
+        XCTAssertEqual(session.preedit, "はんてん")
+        session.reset()
+        _ = session.type("kan")
+        session.adjustConversionRange(by: 0)
+        XCTAssertEqual(session.enter(), [.insert("かん")], "Explicit confirmation still finalizes ambiguous n within the chosen unit")
+        XCTAssertFalse(session.isComposing)
+    }
+
+    func testPanelPartialSelectionKeepsSuffixMarkedAndConvertible() async throws {
+        try await exercisePartialSelection(confirmRange: false)
+    }
+
+    func testKeyboardReturnAfterRangeSelectionKeepsSuffixMarked() async throws {
+        try await exercisePartialSelection(confirmRange: true)
+    }
+
+    func testAutomaticPrefixCandidateKeepsSuffixMarked() async throws {
+        try await exercisePartialSelection(confirmRange: false, automaticPrefix: true)
+    }
+
+    func testExpandedSingleWordCandidateKeepsAllFollowingKanaMarked() async throws {
+        try await exercisePartialSelection(confirmRange: false, singlePrefix: true)
+    }
+
+    private func exercisePartialSelection(confirmRange: Bool, automaticPrefix: Bool = false, singlePrefix: Bool = false) async throws {
+        let directory = isolatedLearningDirectory()
+        let session = KeyboardSession(asynchronousCandidates: true, memoryDirectoryURL: directory)
+        let keyboard = KeyboardView(frame: CGRect(x: 0, y: 240, width: 440, height: 350), session: session)
+        session.updateIntelligence(ranking: .engine, suggestionsEnabled: false)
+        let window = UIWindow(frame: UIScreen.main.bounds)
+        window.rootViewController = UIViewController()
+        let text = UITextView(frame: CGRect(x: 0, y: 0, width: 440, height: 220))
+        window.rootViewController?.view.addSubview(text)
+        window.rootViewController?.view.addSubview(keyboard)
+        window.isHidden = false
+        defer { keyboard.stopInteractions(); window.isHidden = true }
+        let host = KeyboardHostConnection(setMarkedText: { text.setMarkedText($0, selectedRange: $1) },
+            unmarkText: { text.unmarkText() }, insertText: { text.insertText($0) }, deleteBackward: { text.deleteBackward() })
+        var edits: [KeyboardEdit] = []
+        keyboard.onEdit = { edits += $0; host.apply($0) }
+        keyboard.onPreeditChange = { host.updatePreedit($0) }
+        keyboard.leftContextProvider = {
+            let before = (text.text as NSString).substring(to: text.selectedRange.location)
+            return host.markedText.map { before.hasSuffix($0) ? String(before.dropLast($0.count)) : before } ?? before
+        }
+        keyboard.learningContextProvider = { [weak keyboard] in
+            KeyboardLearningContext(document: "segment-fixture", before: keyboard?.leftContextProvider?(),
+                after: (text.text as NSString).substring(from: NSMaxRange(text.selectedRange)), hasSelection: text.selectedRange.length > 0)
+        }
+        func descendants(_ view: UIView) -> [UIView] { [view] + view.subviews.flatMap(descendants) }
+        func button(_ id: String) throws -> UIButton {
+            try XCTUnwrap(descendants(keyboard).first { $0.accessibilityIdentifier == id } as? UIButton)
+        }
+        func visible(_ view: UIView) -> Bool {
+            !view.isHidden && (view.superview.map(visible) ?? true)
+        }
+        func ready() async throws {
+            let deadline = Date().addingTimeInterval(8)
+            while !session.candidatesAreCurrent && Date() < deadline { try await Task.sleep(for: .milliseconds(10)) }
+            XCTAssertTrue(session.candidatesAreCurrent)
+            keyboard.layoutIfNeeded()
+        }
+        keyboard.layoutIfNeeded()
+        for c in automaticPrefix ? "toukyouhantenn" : "tennanhantenn" {
+            (try button("vime.key.\(c)") as? KeyboardKey)?.action?()
+        }
+        try await ready()
+        try button("vime.candidates.expand").sendActions(for: .touchUpInside)
+        if !automaticPrefix && !singlePrefix {
+            try button("vime.segment.shorten").sendActions(for: .touchUpInside)
+            try await ready()
+            while (session.conversionRangeDescription?.split(separator: "｜").first?.count ?? 0) > 4 {
+                try button("vime.segment.shorten").sendActions(for: .touchUpInside); try await ready()
+            }
+            while (session.conversionRangeDescription?.split(separator: "｜").first?.count ?? 0) < 4 {
+                try button("vime.segment.lengthen").sendActions(for: .touchUpInside); try await ready()
+            }
+        }
+        let prefixText = confirmRange ? try XCTUnwrap(session.candidates.first) : automaticPrefix ? "東京" : singlePrefix ? "天" : "天安"
+        if singlePrefix {
+            print("SINGLE_PREFIX \(session.candidateSnapshots.filter { $0.text == "天" }.map { "\($0.reading):\($0.remainingComposition.convertTarget):\($0.source)" })")
+        }
+        if confirmRange {
+            try button("vime.panel.close").sendActions(for: .touchUpInside)
+            (try button("vime.key.return") as? KeyboardKey)?.action?()
+        } else {
+            let prefix = try XCTUnwrap(descendants(keyboard).compactMap { $0 as? UIButton }.first {
+                $0.title(for: .normal) == prefixText && $0.superview is UIScrollView && !$0.isHidden
+            })
+            prefix.sendActions(for: .touchUpInside)
+        }
+        XCTAssertEqual(edits, [.insert(prefixText)])
+        let remaining = singlePrefix ? "あんはんてん" : "はんてん"
+        XCTAssertEqual(session.raw, singlePrefix ? "anhantenn" : "hantenn")
+        XCTAssertTrue(session.isComposing)
+        XCTAssertEqual(host.markedText, remaining)
+        XCTAssertEqual(text.text(in: try XCTUnwrap(text.markedTextRange)), remaining)
+        XCTAssertEqual(text.text, prefixText + remaining)
+        try await ready()
+        if singlePrefix { return }
+        let suffix = try XCTUnwrap(descendants(keyboard).compactMap { $0 as? UIButton }.first {
+            $0.title(for: .normal) == "飯店" && visible($0)
+        })
+        suffix.sendActions(for: .touchUpInside)
+        XCTAssertEqual(edits, [.insert(prefixText), .insert("飯店")])
+        XCTAssertEqual(text.text, prefixText + "飯店")
+        XCTAssertNil(text.markedTextRange)
+        XCTAssertFalse(session.isComposing)
+    }
+
     private func query(_ raw: String) -> ComposingText {
         var value = ComposingText()
         RomajiConverter.insert(raw, into: &value)

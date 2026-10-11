@@ -1,13 +1,15 @@
 import UIKit
 
-final class KeyboardViewController: UIInputViewController {
+class KeyboardViewController: UIInputViewController {
     private let keyboard = KeyboardView()
     private var heightConstraint: NSLayoutConstraint?
-    private var knownProxy: ObjectIdentifier?
+    private var knownDocument: String?
     private var knownBefore: String?
     private var knownAfter: String?
     private var knownSelected: String?
     private var isApplyingEdits = false
+    private var partialCommitReceipt: KeyboardPartialCommitReceipt?
+    private static let documentIdentifierSelector = NSSelectorFromString("documentIdentifier")
     private let cursorLayout = KeyboardProxyCursorLayout()
     private lazy var host = KeyboardHostConnection(
         setMarkedText: { [weak self] in self?.textDocumentProxy.setMarkedText($0, selectedRange: $1) },
@@ -55,7 +57,7 @@ final class KeyboardViewController: UIInputViewController {
         keyboard.learningContextProvider = { [weak self] in
             guard let self else { return nil }
             let proxy = self.textDocumentProxy
-            return KeyboardLearningContext(document: String(describing: ObjectIdentifier(proxy as AnyObject)),
+            return KeyboardLearningContext(document: self.documentIdentity(proxy),
                 before: self.keyboard.leftContextProvider?(), after: proxy.documentContextAfterInput,
                 hasSelection: proxy.selectedText?.isEmpty == false)
         }
@@ -69,6 +71,7 @@ final class KeyboardViewController: UIInputViewController {
             return proxy.hasText
         }
         keyboard.onEdit = { [weak self] edits in self?.apply(edits) }
+        keyboard.onEditsAndPreeditChange = { [weak self] in self?.apply($0, preedit: $1) }
         keyboard.onPreeditChange = { [weak self] in self?.updatePreedit($0) }
         keyboard.onSwitchKeyboard = { [weak self] in self?.advanceToNextInputMode() }
         keyboard.onDismiss = { [weak self] in self?.dismissKeyboard() }
@@ -106,6 +109,7 @@ final class KeyboardViewController: UIInputViewController {
     override func textDidChange(_ textInput: UITextInput?) {
         super.textDidChange(textInput)
         if !isApplyingEdits && contextChanged {
+            partialCommitReceipt = nil
             host.abandon()
             keyboard.resetComposition()
         }
@@ -115,7 +119,10 @@ final class KeyboardViewController: UIInputViewController {
 
     override func selectionDidChange(_ textInput: UITextInput?) {
         super.selectionDidChange(textInput)
-        if !isApplyingEdits && contextChanged { host.abandon(); keyboard.resetComposition() }
+        if !isApplyingEdits && contextChanged {
+            partialCommitReceipt = nil
+            host.abandon(); keyboard.resetComposition()
+        }
         rememberContext()
     }
 
@@ -128,24 +135,55 @@ final class KeyboardViewController: UIInputViewController {
     private func rememberContext() {
         // UIKit's disconnected proxy can return nil for documentIdentifier,
         // despite its nonoptional Swift UUID signature. Never bridge that value.
-        knownProxy = ObjectIdentifier(textDocumentProxy as AnyObject)
-        knownBefore = textDocumentProxy.documentContextBeforeInput
-        knownAfter = textDocumentProxy.documentContextAfterInput
-        knownSelected = textDocumentProxy.selectedText
+        let proxy = textDocumentProxy
+        knownDocument = documentIdentity(proxy)
+        knownBefore = proxy.documentContextBeforeInput
+        knownAfter = proxy.documentContextAfterInput
+        knownSelected = proxy.selectedText
+        if !isApplyingEdits && partialCommitReceipt?.hasFinalAcknowledgement(before: knownBefore) == true {
+            partialCommitReceipt = nil
+        }
     }
 
     private var contextChanged: Bool {
-        knownProxy != ObjectIdentifier(textDocumentProxy as AnyObject) ||
-        knownBefore != textDocumentProxy.documentContextBeforeInput ||
-        knownAfter != textDocumentProxy.documentContextAfterInput ||
-        knownSelected != textDocumentProxy.selectedText
+        let proxy = textDocumentProxy
+        if partialCommitReceipt?.acknowledges(document: documentIdentity(proxy), before: proxy.documentContextBeforeInput,
+            after: proxy.documentContextAfterInput, selection: proxy.selectedText) == true { return false }
+        return knownDocument != documentIdentity(proxy) ||
+        knownBefore != proxy.documentContextBeforeInput ||
+        knownAfter != proxy.documentContextAfterInput ||
+        knownSelected != proxy.selectedText
     }
 
     private func apply(_ edits: [KeyboardEdit]) {
+        partialCommitReceipt = nil
         isApplyingEdits = true
         defer { isApplyingEdits = false }
         host.apply(edits)
         rememberContext()
+    }
+
+    private func apply(_ edits: [KeyboardEdit], preedit: KeyboardPreedit?) {
+        let proxy = textDocumentProxy
+        partialCommitReceipt = KeyboardPartialCommitReceipt(document: documentIdentity(proxy),
+            before: proxy.documentContextBeforeInput, after: proxy.documentContextAfterInput,
+            selection: proxy.selectedText, ownedMark: host.markedText, edits: edits, preedit: preedit)
+        isApplyingEdits = true
+        defer { isApplyingEdits = false }
+        host.apply(edits)
+        host.updatePreedit(preedit)
+        rememberContext()
+    }
+
+    private func documentIdentity(_ proxy: any UITextDocumentProxy) -> String {
+        // Read the Objective-C object before bridging: a disconnected UIKit
+        // proxy sometimes returns nil despite the Swift UUID signature.
+        if let object = proxy as? NSObject,
+           object.responds(to: Self.documentIdentifierSelector),
+           let identifier = object.perform(Self.documentIdentifierSelector)?.takeUnretainedValue() as? NSUUID {
+            return identifier.uuidString
+        }
+        return String(describing: ObjectIdentifier(proxy as AnyObject))
     }
 
     private func moveCursor(horizontal: Int, vertical: Int) {
@@ -161,7 +199,7 @@ final class KeyboardViewController: UIInputViewController {
 
     private func deletionUndoAnchor() -> KeyboardUndoAnchor {
         let proxy = textDocumentProxy
-        return KeyboardUndoAnchor(document: String(describing: ObjectIdentifier(proxy as AnyObject)),
+        return KeyboardUndoAnchor(document: documentIdentity(proxy),
             before: proxy.documentContextBeforeInput, after: proxy.documentContextAfterInput, selection: proxy.selectedText)
     }
 
@@ -182,6 +220,8 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private func updatePreedit(_ preedit: KeyboardPreedit?) {
+        if let preedit { partialCommitReceipt?.updatePreedit(preedit) }
+        else { partialCommitReceipt = nil }
         isApplyingEdits = true
         defer { isApplyingEdits = false }
         host.updatePreedit(preedit)

@@ -288,6 +288,30 @@ final class KeyboardSession: KeyboardInputSession {
     func confirm() -> [KeyboardEdit] {
         guard isComposing else { return [] }
         if let selectedIndex { return choose(selectedIndex, feedbackKind: .conversionConfirmation) }
+        if let length = conversionLength {
+            // The range controls select a conversion unit, even before Space
+            // establishes selectedIndex. Confirm its highlighted candidate;
+            // never let the ordinary whole-reading fallback consume its suffix.
+            if candidatesAreCurrent, !candidateSnapshots.isEmpty {
+                return choose(0, feedbackKind: .conversionConfirmation)
+            }
+            // Input stays responsive if confirmation races the worker. Fall
+            // back only within this unit, retaining the original Roman suffix.
+            finishLearningFeedback()
+            var prefix = composing
+            _ = prefix.moveCursorFromCursorPosition(count: length - prefix.convertTargetCursorPosition)
+            prefix = prefix.prefixToCursorPosition()
+            let text = PreeditPresentation.kana(for: PreeditPresentation.finalized(prefix), mode: mode)
+            let remainder = CompositionSegmentBoundary.remainder(of: composing, consuming: length)
+            engine?.reset(preservingContext: true)
+            worker?.reset(preservingContext: true)
+            committedLeftContext = String((committedLeftContext + text).suffix(96))
+            conversionLength = nil
+            composing = remainder
+            if composing.isEmpty { reset(preservingContext: true); requestSuggestions() }
+            else { refresh(leftContextOverride: committedLeftContext) }
+            return [.insert(text)]
+        }
         finishLearningFeedback()
         let text = selectedText ?? PreeditPresentation.kana(for: PreeditPresentation.finalized(composing), mode: mode)
         committedLeftContext = String((committedLeftContext + text).suffix(96))

@@ -421,6 +421,9 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     private let skinCanvas = KeyboardSkinCanvas()
     private let brandArtwork = UIImageView()
     var onEdit: (([KeyboardEdit]) -> Void)?
+    /// Partial commits replace the old mark and publish its remainder in one
+    /// host transaction, before processing host change notifications.
+    var onEditsAndPreeditChange: (([KeyboardEdit], KeyboardPreedit?) -> Void)?
     var onSwitchKeyboard: (() -> Void)?
     var onDismiss: (() -> Void)?
     var onCompositionChange: ((String) -> Void)?
@@ -1013,9 +1016,13 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     }
 
     private func apply(_ edits: [KeyboardEdit]) {
-        if !edits.isEmpty { onEdit?(edits) }
+        if !edits.isEmpty, let onEditsAndPreeditChange {
+            onEditsAndPreeditChange(edits, session.markedText)
+        } else {
+            if !edits.isEmpty { onEdit?(edits) }
+            publishPreedit()
+        }
         if !session.isComposing { expanded = false }
-        publishPreedit()
         if !edits.isEmpty { session.didApplyEdits(edits) }
         KeyboardPerformance.record(.typeToMarked, since: session.takeInputTiming())
         onCompositionChange?(session.composition)
