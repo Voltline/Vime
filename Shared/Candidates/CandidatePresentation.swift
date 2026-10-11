@@ -2,6 +2,7 @@ import Foundation
 
 nonisolated enum CandidateSource: String, Codable, Sendable {
     case conversion, prediction, orthographicVariant, scriptVariant, readingAlternative, typoCorrection, userHistory, contextPrediction
+    case enginePrediction, specialConversion, emoji, userDictionary
     // Compatibility for existing callers; diagnostics use the canonical source.
     static let kana = Self.scriptVariant
     static let correction = Self.typoCorrection

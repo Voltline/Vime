@@ -156,7 +156,7 @@ nonisolated final class CandidatePreferenceMemory {
         for bucket in buckets(context) { bump(scope: "nextWord", reading: "", context: bucket, surface: text, weight: weight, now: now) }
         prune(); rebuildIndex()
     }
-    private func nextWordScore(_ text: String, context: String, now: Date) -> Double {
+    func nextWordScore(_ text: String, context: String, now: Date = Date()) -> Double {
         var score = recentScore(scope: "nextWord", reading: "", surface: text, context: context, now: now)
         for (level, bucket) in buckets(context).enumerated() {
             guard let e = rows(scope: "nextWord", reading: "", context: bucket)[text], e.confirmations >= Policy.minimumSelections else { continue }
@@ -230,11 +230,14 @@ nonisolated struct ScoredNextWord: Sendable {
 nonisolated struct NextWordSuggestion: Sendable {
     let text: String
     let source: CandidateSource
-    let score: Double
+    var score: Double
     let userScore: Double
     var modelScore: Double? = nil
     var tokenCount: Int? = nil
+    var nativePrediction: NativePostCompositionPrediction? = nil
     var presentation: CandidatePresentation {
-        .init(text: text, source: source, consumedInputCount: 0, correction: nil)
+        let replacementAnnotation = nativePrediction.flatMap { $0.isReplacement ? "替换「\($0.replacedText)」" : nil }
+        return .init(text: text, source: source, consumedInputCount: 0, correction: nil,
+            detailAnnotation: replacementAnnotation ?? (source == .emoji ? "表情" : nil))
     }
 }

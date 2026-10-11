@@ -5,7 +5,7 @@
 | 目录 | 职责 |
 | --- | --- |
 | `Vime/Home` | 主 App 首页 |
-| `Vime/Settings` | 完整设置与高度编辑器 |
+| `Vime/Settings` | 完整设置、高度／皮肤编辑器与用户词典管理 |
 | `Vime/Sandbox` | 主 App 试打输入框 |
 | `Keyboard` | 系统键盘扩展入口及 Info.plist |
 | `Shared/Candidates` | 独立候选展示类型，以及日文 azooKey payload、排序、纠错与后台 worker |
@@ -25,5 +25,7 @@ Xcode 使用 filesystem synchronized groups，移动 Swift 文件后自动包含
 资源目录保持原路径和文件名，运行时继续从 bundle 根目录查找，避免改变加载协议。
 `Shared/Resources/OrthographyPreferences.json` 与 `SupplementalLexicon.json` 是离线语言数据；`LanguageResourceSources.json` 记录来源和校验和，`Scripts/build_language_resources.py` 可重新生成。转换范围和安全尾部映射由 `Shared/Input` 管理，数据加载和排序由 `Shared/Candidates` 管理。
 调整文件位置后，README、文档链接及图标生成命令同步更新。
+
+`JapaneseUserDictionaryStore` 原子保存 App Group 下的 `Vime/UserDictionary.json`，通过共享 revision 使后台 worker 重载词语与 shortcuts；普通按键不读写词典文件。`PostCompositionSuggestions` 保留原生联想的词条、追加／替换操作和终止状态，再由 worker 分阶段发布。
 
 v2.1 模型大文件保持外部交付约定。新 checkout 必须先运行安装脚本；Release 资源校验不能被词典回退掩盖。Debug 构建可继续进行不包含模型的词典开发。

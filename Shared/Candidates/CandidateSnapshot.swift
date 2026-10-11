@@ -7,6 +7,7 @@ nonisolated struct CandidateSnapshot: Sendable {
     let candidate: Candidate
     let revision: Int
     let source: CandidateSource
+    let predictionStatus: Bool
     let remainingComposition: ComposingText
     let originalInputCount: Int
     let consumedInputCount: Int
@@ -35,25 +36,29 @@ nonisolated struct CandidateSnapshot: Sendable {
     var fullConsumption: Bool { remainingComposition.isEmpty }
     var exactReading: Bool { !queryReading.isEmpty && reading == (scopeReading.isEmpty ? queryReading : scopeReading)
         && !reading.unicodeScalars.contains(where: { $0.isASCII }) }
-    var isPrediction: Bool { source == .prediction }
+    var isPrediction: Bool { predictionStatus }
     var engineScore: Double { Double(candidate.value) }
     var composingCount: ComposingCount { candidate.composingCount }
     var scriptType: CandidateScript { CandidateScript.classify(text) }
-    var lexical: Bool { JapaneseCandidateEngine.hasDictionaryEvidence(candidate) }
+    var lexical: Bool { source != .specialConversion && source != .emoji && JapaneseCandidateEngine.hasDictionaryEvidence(candidate) }
     var learningEligible: Bool { candidate.isLearningTarget && lexical && source != .scriptVariant && displaySurface == nil }
     var hasLearningEvidence: Bool { candidate.data.contains { $0.metadata.contains(.isLearned) } }
     var presentation: CandidatePresentation {
         .init(text: text, source: source, consumedInputCount: consumedInputCount, correction: correction,
-            detailAnnotation: !fullConsumption ? (reading.applyingTransform(.hiraganaToKatakana, reverse: true) ?? reading) + " · 前段" : nil)
+            detailAnnotation: source == .specialConversion ? "格式转换" : source == .emoji ? "表情"
+                : source == .userDictionary ? "用户词典"
+                : !fullConsumption ? (reading.applyingTransform(.hiraganaToKatakana, reverse: true) ?? reading) + " · 前段" : nil)
     }
 
     init(candidate: Candidate, revision: Int, source: CandidateSource, remainingComposition: ComposingText,
          originalInputCount: Int, consumedInputCount: Int, correction: CorrectionSuggestion? = nil,
-         queryReading: String = "", engineRank: Int = 0, engineFullConsumption: Bool? = nil, readingOverride: String? = nil) {
+         queryReading: String = "", engineRank: Int = 0, engineFullConsumption: Bool? = nil, readingOverride: String? = nil,
+         predictionStatus: Bool? = nil) {
         self.candidate = candidate; self.revision = revision; self.source = source
         self.remainingComposition = remainingComposition; self.originalInputCount = originalInputCount
         self.consumedInputCount = consumedInputCount; self.correction = correction
         self.queryReading = queryReading; self.engineRank = engineRank; self.readingOverride = readingOverride
+        self.predictionStatus = predictionStatus ?? (source == .prediction)
         self.consumedReadingCount = max(0, queryReading.count - remainingComposition.convertTarget.count)
         self.engineFullConsumption = engineFullConsumption ?? remainingComposition.isEmpty
     }

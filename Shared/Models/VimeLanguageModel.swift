@@ -184,7 +184,7 @@ nonisolated final class VimeLanguageModel {
     /// script choice, reading alternatives and corrections retain the engine's UI semantics.
     static func rerankingSlots(_ values: [CandidateSnapshot], katakana: Bool) -> [Int] {
         guard !katakana else { return [] }
-        return values.indices.filter { (values[$0].source == .conversion || values[$0].source == .orthographicVariant) && values[$0].scopeFullConsumption && (values[$0].fullConsumption || values[$0].explicitScope)
+        return values.indices.filter { (values[$0].source == .conversion || values[$0].source == .orthographicVariant || values[$0].source == .userDictionary) && values[$0].scopeFullConsumption && (values[$0].fullConsumption || values[$0].explicitScope)
             && values[$0].exactReading && values[$0].lexical }
     }
     func rerank(_ values: [CandidateSnapshot], context: String, katakana: Bool,
@@ -196,7 +196,7 @@ nonisolated final class VimeLanguageModel {
         let stop = { cancelled() || ProcessInfo.processInfo.systemUptime - started > 0.250 }
         guard let sums = try? scores(context: context, candidates: slots.map { values[$0].text }, cancelled: stop),
               !stop() else { return values }
-        let personalized = sums.indices.map { sums[$0] + values[slots[$0]].userPreferenceScore + values[slots[$0]].features.orthography }
+        let personalized = sums.indices.map { sums[$0] + values[slots[$0]].userPreferenceScore + values[slots[$0]].features.orthography + values[slots[$0]].features.source }
         let order = personalized.indices.sorted {
             personalized[$0] == personalized[$1] ? $0 < $1 : personalized[$0] > personalized[$1]
         }
@@ -219,6 +219,35 @@ nonisolated final class VimeLanguageModel {
                    cancelled: () -> Bool = { false }) throws -> [String] {
         try generateNextWords(prompt: prompt, count: count, maxTokens: maxTokens,
             extendProbability: extendProbability, cancelled: cancelled).map(\.text)
+    }
+
+    /// Native replacements expose a suffix for scoring but carry a full host edit.
+    /// Score the common continuation boundary, never prompt + the repeated base word.
+    func rerankPostComposition(_ values: [NextWordSuggestion], prompt: String,
+                               cancelled: @escaping () -> Bool = { false }) -> [NextWordSuggestion] {
+        let started = ProcessInfo.processInfo.systemUptime
+        let stop = { cancelled() || ProcessInfo.processInfo.systemUptime - started > 0.250 }
+        let eligible = values.indices.filter { index in
+            let value = values[index]
+            let continuation = value.nativePrediction?.text ?? value.text
+            guard !continuation.isEmpty, let ids = try? tokenizer.encode(prompt + continuation),
+                  ids.count <= Self.contextLength, let decoded = try? tokenizer.decode(ids) else { return false }
+            return Self.exactText(decoded, prompt + continuation)
+        }
+        guard !stop(), eligible.count > 1,
+              let sums = try? scores(context: prompt, candidates: eligible.map { values[$0].nativePrediction?.text ?? values[$0].text }, cancelled: stop),
+              !stop() else { return values }
+        let order = sums.indices.sorted { sums[$0] == sums[$1] ? $0 < $1 : sums[$0] > sums[$1] }
+        var result = values
+        for (rank, index) in order.enumerated() {
+            let slot = eligible[index]
+            result[slot].modelScore = sums[index]
+            result[slot].score = PostCompositionSuggestionReranker.Policy.sourceEvidence
+                - PostCompositionSuggestionReranker.Policy.orderCost * log1p(Double(rank)) + result[slot].userScore
+        }
+        return result.indices.sorted {
+            result[$0].score == result[$1].score ? $0 < $1 : result[$0].score > result[$1].score
+        }.map { result[$0] }
     }
 
     private(set) var nextWordScoreReuses = 0

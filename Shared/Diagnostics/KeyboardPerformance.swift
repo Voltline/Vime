@@ -4,6 +4,7 @@ import Foundation
 /// host text; disabled in normal operation. Converter measurements are thread safe.
 nonisolated enum KeyboardPerformance {
     enum Stage: String, CaseIterable, Sendable {
+        case nativeNextWords
         case touchDownToVisual, touchUpToType, typeToMarked
         case candidateRequestToResult, candidateCompute, resultToCandidateUI, candidateUIUpdate
         case candidateButtonConfiguration, candidateTitleMeasurement, candidatePublication

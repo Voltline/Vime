@@ -23,6 +23,9 @@ nonisolated struct CandidateRankingWeights: Sendable {
     var contextLimit = 2.5
     var prefixPenalty = 6.0 // Ordinary strip favors complete phrases; explicit range has no penalty.
     var orthographyLimit = 1.6 // Usage guidance is weaker than repeated user preference.
+    var specialCandidate = 5.0 // Available above generic script, below strong exact lexical evidence.
+    var emojiCandidate = 1.5 // Related emoji remain discoverable without displacing lexical words.
+    var registeredWord = 2.0 // Explicit registration is stronger than generic fallback.
 }
 
 /// Admission is independent of presentation: a correction needs a meaningful
@@ -54,8 +57,9 @@ nonisolated struct CandidateScoreFeatures: Codable, Sendable {
     var typoCost = 0.0
     var orthography = 0.0
     var segmentation = 0.0
+    var source = 0.0
     var total: Double { engine + exactReading + fullConsumption + script
-        + predictionOverrun + interpretationEvidence + continuity + userLearning + context + typoCost + orthography + segmentation }
+        + predictionOverrun + interpretationEvidence + continuity + userLearning + context + typoCost + orthography + segmentation + source }
 }
 
 nonisolated struct CandidateContinuity: Sendable {
@@ -88,6 +92,11 @@ nonisolated struct CandidateReranker {
                     f.script -= weights.unresolvedScriptPenalty
                 }
             }
+            if value.source == .specialConversion || value.source == .emoji {
+                f.engine = -weights.engineOrder * log1p(Double(value.engineRank))
+                f.source = value.source == .specialConversion ? weights.specialCandidate : weights.emojiCandidate
+            }
+            if value.source == .userDictionary { f.source = weights.registeredWord }
             let interpretedExact = value.source == .readingAlternative && value.lexical && value.fullConsumption
             if value.scopeFullConsumption && value.lexical && (value.exactReading || interpretedExact) {
                 f.exactReading = weights.exactLexical

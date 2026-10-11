@@ -14,10 +14,19 @@ nonisolated final class JapaneseCandidateEngine {
     private var primaryQuery: ComposingText?
     private var committedContext = ""
     private var contextCandidate: Candidate?
+    private let userDictionary: JapaneseUserDictionaryStore
+    private let textReplacer = TextReplacer.withDefaultEmojiDictionary()
+    private let specialProviders: [any SpecialCandidateProvider] = [
+        CalendarSpecialCandidateProvider(), TimeExpressionSpecialCandidateProvider(),
+        CommaSeparatedNumberSpecialCandidateProvider()
+    ]
+    private let asciiSpecialProviders: [any SpecialCandidateProvider] = [UnicodeSpecialCandidateProvider(), EmailAddressSpecialCandidateProvider()]
+    private var installedShortcuts: [DicdataElement] = []
     private var contextSession: KanaKanjiConverter.ConversionSessionID?
     private var learningDirty = false
     private var learningSession: KanaKanjiConverter.ConversionSessionID?
     private var pendingFeedback: (snapshot: CandidateSnapshot?, text: String, event: CandidateLearningFeedback)?
+    private var pendingNativePrediction: NativePostCompositionPrediction?
     private(set) var feedbackAccepted = 0
     private(set) var feedbackCancelled = 0
     private let preferenceMemory: CandidatePreferenceMemory?
@@ -29,7 +38,8 @@ nonisolated final class JapaneseCandidateEngine {
     // An optional trained n-gram model; absent models never trigger LM work.
     var experimentalTypoConfig: ExperimentalTypoCorrectionConfig?
 
-    init(memoryDirectoryURL: URL? = nil, learningEnabled: Bool = false) {
+    init(memoryDirectoryURL: URL? = nil, learningEnabled: Bool = false, userDictionary: JapaneseUserDictionaryStore? = nil) {
+        self.userDictionary = userDictionary ?? JapaneseUserDictionaryStore()
         converter = KanaKanjiConverter(dicdataStore: dictionary)
         let localRoot = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         let sharedRoot = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.com.Voltline.Vime")
@@ -51,7 +61,7 @@ nonisolated final class JapaneseCandidateEngine {
             requireEnglishPrediction: .disabled, keyboardLanguage: .ja_JP,
             learningType: learningEnabled && writable ? .inputAndOutput : .nothing,
             maxMemoryCount: Self.maximumLearningEntries, memoryDirectoryURL: directory,
-            sharedContainerURL: root, textReplacer: .empty, specialCandidateProviders: [],
+            sharedContainerURL: root, textReplacer: textReplacer, specialCandidateProviders: [],
             typoCorrectionMode: .disabled, metadata: .init(versionString: "Vime"))
     }
     static let maximumLearningEntries = 8192
@@ -76,12 +86,14 @@ nonisolated final class JapaneseCandidateEngine {
         }
         let lexiconStarted = KeyboardPerformance.start()
         let resources = JapaneseLanguageResources.shared
-        let matching = resources.matchingWords(RomajiConverter.katakana(query.convertTarget))
-        if matching != installedWords {
-            converter.importDynamicUserDictionary(matching)
+        let registered = userDictionary.nativeEntries()
+        let matching = resources.matchingWords(RomajiConverter.katakana(query.convertTarget)) + registered.words
+        if matching != installedWords || registered.shortcuts != installedShortcuts {
+            converter.importDynamicUserDictionary(matching, shortcuts: registered.shortcuts)
             converter.stopComposition()
             primaryQuery = nil
             installedWords = matching
+            installedShortcuts = registered.shortcuts
         }
         KeyboardPerformance.record(.lexiconLookup, since: lexiconStarted)
         currentContinuity = previousTop
@@ -123,11 +135,17 @@ nonisolated final class JapaneseCandidateEngine {
             if conversionLength != nil || !remaining.isEmpty {
                 remaining = CompositionSegmentBoundary.remainder(of: composing, consuming: consumedReading)
             }
-            var value = CandidateSnapshot(candidate: candidate, revision: revision, source: source, remainingComposition: remaining,
+            let isRegistered = (source == .conversion || source == .prediction) && candidate.data.contains { element in
+                element.metadata.contains(.isFromUserDictionary) && (installedShortcuts + registered.words).contains {
+                    $0.word == element.word && $0.ruby == element.ruby
+                }
+            }
+            var value = CandidateSnapshot(candidate: candidate, revision: revision, source: isRegistered ? .userDictionary : source, remainingComposition: remaining,
                 originalInputCount: composing.input.count, consumedInputCount: max(0, composing.input.count - remaining.input.count),
                 queryReading: RomajiConverter.katakana(kana), engineRank: engineRank,
                 engineFullConsumption: engineRemainder.isEmpty,
-                readingOverride: source == .readingAlternative && candidate.data.isEmpty ? candidate.text : nil)
+                readingOverride: source == .readingAlternative && candidate.data.isEmpty ? candidate.text : nil,
+                predictionStatus: source == .prediction)
             value.consumedReadingCount = consumedReading
             if conversionLength != nil {
                 value.scopeReading = RomajiConverter.katakana(kana)
@@ -148,6 +166,26 @@ nonisolated final class JapaneseCandidateEngine {
         let predictions = result.predictionResults.enumerated().filter { $0.element.inputable }.map {
             snapshot($0.element, source: .prediction,
                 engineRank: result.mainResults.firstIndex(of: $0.element) ?? $0.offset)
+        }
+        var provided = specialProviders.flatMap {
+            $0.provideCandidates(converter: converter, inputData: query, options: requestOptions).enumerated().map { ($0.element, $0.offset) }
+        }
+        let asciiInput = Self.rawInput(query)
+        if (asciiInput.hasPrefix("u") || asciiInput.hasPrefix("U") || asciiInput.contains("@"))
+            && asciiInput.unicodeScalars.allSatisfy(\.isASCII) {
+            var direct = ComposingText(); direct.insertAtCursorPosition(asciiInput, inputStyle: .direct)
+            provided += asciiSpecialProviders.flatMap {
+                $0.provideCandidates(converter: converter, inputData: direct, options: requestOptions).enumerated().map { ($0.element, $0.offset) }
+            }
+        }
+        let specialCandidates = provided.map { original, rank in
+            var candidate = original; candidate.isLearningTarget = false
+            candidate.composingCount = .inputCount(query.input.count)
+            return snapshot(candidate, source: .specialConversion, engineRank: rank)
+        }
+        let emojiCandidates = textReplacer.getSearchResult(query: kana, target: [.emoji], ignoreNonBaseEmoji: true).prefix(6).map {
+            snapshot(Candidate(text: $0.text, value: -3, composingCount: .inputCount(query.input.count),
+                lastMid: MIDData.一般.mid, data: [], isLearningTarget: false), source: .emoji)
         }
         var alternatives: [CandidateSnapshot] = []
         // Alternate readings only need exact conversions. Running prediction
@@ -205,7 +243,7 @@ nonisolated final class JapaneseCandidateEngine {
         let clauses = result.firstClauseResults.enumerated().filter { $0.element.inputable }.map {
             snapshot($0.element, source: .conversion, engineRank: $0.offset)
         }
-        currentPool = conversions + predictions + scriptCandidates + alternatives + clauses
+        currentPool = conversions + predictions + scriptCandidates + alternatives + clauses + specialCandidates + emojiCandidates
         // Query the most likely first lexical boundary once, rather than converting
         // every possible prefix on every key. Explicit controls cover shorter units.
         if conversionLength == nil, let length = clauses.filter({ !$0.fullConsumption && $0.consumedReadingCount > 0 })
@@ -361,7 +399,7 @@ nonisolated final class JapaneseCandidateEngine {
         lastCorrectionMetrics.variants = variants.count
         guard !variants.isEmpty, !cancelled() else { return base }
         let originalQuality = base.filter {
-            $0.remainingComposition.isEmpty && ($0.source == .conversion || $0.source == .readingAlternative)
+            $0.remainingComposition.isEmpty && ($0.source == .conversion || $0.source == .readingAlternative || $0.source == .userDictionary)
                 && ($0.source == .readingAlternative || $0.candidate.data.map(\.ruby).joined() == literalReading)
                 && Self.hasDictionaryEvidence($0.candidate)
         }.map { Self.quality($0.candidate) }.max() ?? -8
@@ -561,7 +599,7 @@ nonisolated final class JapaneseCandidateEngine {
         !candidate.data.isEmpty && candidate.data.allSatisfy { element in
             guard !element.ruby.isEmpty,
                   !element.ruby.unicodeScalars.contains(where: { $0.isASCII }) else { return false }
-            return !isKanaFallback(element)
+            return element.metadata.contains(.isFromUserDictionary) || !isKanaFallback(element)
         }
     }
 
@@ -666,9 +704,59 @@ nonisolated final class JapaneseCandidateEngine {
             scope: "nextWord", weight: event.weight, now: event.selectedAt)
     }
 
+    func postCompositionSuggestions(leftContext: String) -> [NextWordSuggestion] {
+        reconcileContext(leftContext)
+        if contextCandidate == nil && !committedContext.isEmpty {
+            var query = ComposingText(); query.insertAtCursorPosition(committedContext, inputStyle: .direct)
+            let session = contextSession ?? converter.createSession(); contextSession = session
+            var contextOptions = options; contextOptions.N_best = 1; contextOptions.requireJapanesePrediction = .disabled
+            contextCandidate = try? converter.withSession(session) {
+                converter.stopComposition()
+                return converter.requestCandidates(query, options: contextOptions).mainResults.first
+            }
+        }
+        guard let base = contextCandidate, !base.data.isEmpty,
+              committedContext.hasSuffix(base.text) else { return [] }
+        let started = KeyboardPerformance.start()
+        defer { KeyboardPerformance.record(.nativeNextWords, since: started) }
+        return converter.requestPostCompositionPredictionCandidates(leftSideCandidate: base, options: options).enumerated().compactMap { rank, candidate in
+            guard !candidate.text.isEmpty, candidate.text.count <= 128 else { return nil }
+            let native = NativePostCompositionPrediction(base: base, text: candidate.text, value: candidate.value,
+                type: candidate.type, isTerminal: candidate.isTerminal, expectedLeftContext: committedContext)
+            if native.isReplacement && (native.replacedText.isEmpty || !committedContext.hasSuffix(native.replacedText)) { return nil }
+            let emoji = candidate.text.unicodeScalars.contains { $0.properties.isEmojiPresentation }
+            return NextWordSuggestion(text: native.insertionText, source: emoji ? .emoji : .enginePrediction,
+                score: -Double(rank), userScore: preferenceMemory?.nextWordScore(native.insertionText, context: VimeLanguageModel.sentenceContext(leftContext)) ?? 0,
+                nativePrediction: native)
+        }
+    }
+
+    func stageNativePrediction(_ prediction: NativePostCompositionPrediction, event: CandidateLearningFeedback) {
+        if let pendingFeedback { resolveFeedback(pendingFeedback.event.id, accepted: false) }
+        guard committedContext == prediction.expectedLeftContext else { return }
+        pendingFeedback = (nil, prediction.insertionText, event)
+        pendingNativePrediction = prediction
+        committedContext = String((String(committedContext.dropLast(prediction.replacedText.count)) + prediction.insertionText).suffix(96))
+        contextCandidate = prediction.joined
+        preferenceMemory?.stage(id: event.id, reading: "", surface: prediction.insertionText, context: event.context,
+            scope: "nextWord", weight: event.weight, now: event.selectedAt)
+    }
+
+    func completeNativePrediction(_ prediction: NativePostCompositionPrediction) {
+        guard committedContext == prediction.expectedLeftContext else { return }
+        converter.updateLearningData(prediction.base, with: prediction.native)
+        learningDirty = true
+        correctionCache = [:]; correctionCacheOrder = []
+        committedContext = String((String(committedContext.dropLast(prediction.replacedText.count)) + prediction.insertionText).suffix(96))
+        contextCandidate = prediction.joined
+        flushLearning()
+    }
+
     func resolveFeedback(_ id: UUID, accepted: Bool) {
         guard let pending = pendingFeedback, pending.event.id == id else { return }
         pendingFeedback = nil
+        let nativePrediction = pendingNativePrediction
+        pendingNativePrediction = nil
         guard accepted else {
             preferenceMemory?.cancel(id); feedbackCancelled += 1; return
         }
@@ -694,6 +782,16 @@ nonisolated final class JapaneseCandidateEngine {
                     scope: (snapshot.source == .scriptVariant || snapshot.source == .orthographicVariant) ? "style" : "conversion", weight: pending.event.weight,
                     now: pending.event.selectedAt)
             }
+        } else if let nativePrediction {
+            let session = learningSession ?? converter.createSession(); learningSession = session
+            try? converter.withSession(session) {
+                converter.updateLearningData(nativePrediction.base, with: nativePrediction.native)
+                converter.setCompletedData(nativePrediction.joined)
+            }
+            learningDirty = true
+            correctionCache = [:]; correctionCacheOrder = []
+            preferenceMemory?.recordNextWord(pending.text, context: pending.event.context,
+                weight: pending.event.weight, now: pending.event.selectedAt)
         } else {
             preferenceMemory?.recordNextWord(pending.text, context: pending.event.context,
                 weight: pending.event.weight, now: pending.event.selectedAt)

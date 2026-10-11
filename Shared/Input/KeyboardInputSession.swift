@@ -19,6 +19,7 @@ nonisolated struct KeyboardInputTraits: Equatable, Sendable {
     var primaryVariantAccessibilityLabel = "切换输入方式"
     var prolongedInput: String? = nil
     var compositionInputSymbols: Set<String> = []
+    var convertsNumbers = false
     var comma = ","
     var period = "."
     var compositionSpaceTitle = "确认"

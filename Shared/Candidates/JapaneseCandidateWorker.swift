@@ -111,20 +111,31 @@ final class JapaneseCandidateWorker {
         }
     }
 
-    /// LM next-word prediction for the unfinished sentence. Shares the serial queue and
+    /// Native-first, optionally neural next-word prediction. Shares the serial queue and
     /// the cancellation slot with candidate requests, so typing stops the search.
-    func suggestions(prompt: String, completion: @escaping @MainActor @Sendable ([NextWordSuggestion]) -> Void) {
+    func suggestions(prompt: String, leftContext: String, useLanguageModel: Bool,
+                     completion: @escaping @MainActor @Sendable ([NextWordSuggestion]) -> Void) {
         pending?.cancel()
         let request = Request()
         pending = request
         let storage = self.storage
         queue.async {
             guard !request.isCancelled else { return }
+            let native = storage.engine.postCompositionSuggestions(leftContext: leftContext)
+            guard !request.isCancelled else { return }
+            let base = PostCompositionSuggestionReranker.merge(native: native, neural: [])
+            if !base.isEmpty {
+                DispatchQueue.main.async { if !request.isCancelled { completion(base) } }
+            }
+            guard useLanguageModel, !request.isCancelled else { return }
             let history = storage.engine.rememberedNextWords(context: prompt)
             let words = try? storage.languageModel?.scoredNextWords(prompt: prompt, history: history,
                 cancelled: { request.isCancelled })
             guard !request.isCancelled else { return }
-            let suggestions = storage.engine.personalizedNextWords(words?.generated ?? [], history: words?.history ?? [], context: prompt)
+            let neural = storage.engine.personalizedNextWords(words?.generated ?? [], history: words?.history ?? [], context: prompt)
+            let pool = PostCompositionSuggestionReranker.merge(native: native, neural: neural)
+            let suggestions = storage.languageModel?.rerankPostComposition(pool, prompt: prompt,
+                cancelled: { request.isCancelled }) ?? pool
             guard !suggestions.isEmpty else { return }
             DispatchQueue.main.async { if !request.isCancelled { completion(suggestions) } }
         }
@@ -143,6 +154,15 @@ final class JapaneseCandidateWorker {
     func stageNextWord(_ text: String, event: CandidateLearningFeedback) {
         let storage = self.storage
         queue.async { storage.engine.stageNextWord(text, event: event) }
+    }
+
+    func stageNativePrediction(_ prediction: NativePostCompositionPrediction, event: CandidateLearningFeedback) {
+        let storage = self.storage
+        queue.async { storage.engine.stageNativePrediction(prediction, event: event) }
+    }
+    func completeNativePrediction(_ prediction: NativePostCompositionPrediction) {
+        let storage = self.storage
+        queue.async { storage.engine.completeNativePrediction(prediction) }
     }
 
     func resolveFeedback(_ id: UUID, accepted: Bool) {

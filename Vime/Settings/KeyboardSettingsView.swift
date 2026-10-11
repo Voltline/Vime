@@ -35,6 +35,7 @@ struct KeyboardSettingsView: View {
                         ForEach(CandidateRankingMode.allCases, id: \.self) { Text($0.title).tag($0) }
                     }
                     Toggle("下一词联想", isOn: $suggestions)
+                    NavigationLink("用户词典 · 词语与常用短语") { KeyboardUserDictionaryView() }
                 } header: {
                     Text("智能输入")
                 } footer: {

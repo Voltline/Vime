@@ -85,12 +85,13 @@ final class KeyboardSession: KeyboardInputSession {
         candidateRanking = ranking
         phraseSuggestions = suggestionsEnabled
         clearSuggestions()
-        if ranking == .engine && !suggestionsEnabled { worker?.disableLanguageModel() }
+        if ranking == .engine { worker?.disableLanguageModel() }
         if isComposing { refresh() }
         else { onCandidatesChange?() }
     }
     /// LM continuations shown in the candidate strip while nothing is composing.
     private var suggestionSnapshots: [NextWordSuggestion] = []
+    private var suggestionAnchor: KeyboardLearningContext?
     var suggestions: [String] { suggestionSnapshots.map(\.text) }
     private var suggestionGeneration = 0
     var stripPresentations: [CandidatePresentation] {
@@ -118,10 +119,13 @@ final class KeyboardSession: KeyboardInputSession {
     var selectedText: String? { selectedIndex.map { candidates[$0] } }
     var markedText: KeyboardPreedit? { preedit.map { KeyboardPreedit(text: $0) } }
     var inputTraits: KeyboardInputTraits {
-        KeyboardInputTraits(language: mode == .english ? .english : .japanese, modeLabel: mode.label,
+        var symbols: Set<String> = ["'", "-", "ー", "@"]
+        if raw.hasPrefix("u") { symbols.insert("+") }
+        if raw.contains("@") { symbols.insert(".") }
+        return KeyboardInputTraits(language: mode == .english ? .english : .japanese, modeLabel: mode.label,
             alternateLanguage: mode == .english ? .japanese : .english,
             supportsPrimaryVariant: true, primaryVariantAccessibilityLabel: "切换平假名和片假名",
-            prolongedInput: mode == .english ? nil : "ー", compositionInputSymbols: ["'", "-", "ー"],
+            prolongedInput: mode == .english ? nil : "ー", compositionInputSymbols: symbols, convertsNumbers: mode != .english,
             comma: mode == .english ? "," : "、", period: "。",
             compositionSpaceTitle: selectedIndex == nil ? "変換" : "次候補", compositionReturnTitle: "確定")
     }
@@ -240,17 +244,45 @@ final class KeyboardSession: KeyboardInputSession {
 
     func chooseSuggestion(_ index: Int) -> [KeyboardEdit] {
         guard !isComposing, suggestions.indices.contains(index) else { return [] }
-        let text = suggestions[index]
-        finishLearningFeedback()
-        if let event = beginLearningFeedback(text: text, rank: index, kind: .nextWord) {
-            engine?.stageNextWord(text, event: event); worker?.stageNextWord(text, event: event)
-        } else if learningContextProvider == nil {
-            worker?.completeNextWord(text, context: VimeLanguageModel.sentenceContext(committedLeftContext))
+        let suggestion = suggestionSnapshots[index]
+        let text = suggestion.text
+        let native = suggestion.nativePrediction
+        if let provider = leftContextProvider {
+            guard let actual = provider(), String(actual.suffix(96)) == committedLeftContext else {
+                clearSuggestions(); return []
+            }
         }
-        committedLeftContext = String((committedLeftContext + text).suffix(96))
+        if learningContextProvider != nil {
+            guard let anchor = suggestionAnchor, let actual = learningContextProvider?(),
+                  actual.document == anchor.document, actual.after == anchor.after, !actual.hasSelection,
+                  let before = actual.before, String(before.suffix(96)) == committedLeftContext else {
+                clearSuggestions(); return []
+            }
+        }
+        let replaced = native?.replacedText ?? ""
+        if let native, native.expectedLeftContext != committedLeftContext || !committedLeftContext.hasSuffix(replaced) {
+            clearSuggestions(); return []
+        }
+        finishLearningFeedback()
+        if let event = beginLearningFeedback(text: text, rank: index, kind: .nextWord, removingSuffix: replaced) {
+            if let native {
+                engine?.stageNativePrediction(native, event: event); worker?.stageNativePrediction(native, event: event)
+            } else {
+                engine?.stageNextWord(text, event: event); worker?.stageNextWord(text, event: event)
+            }
+        } else if learningContextProvider == nil {
+            if let native { engine?.completeNativePrediction(native); worker?.completeNativePrediction(native) }
+            else { worker?.completeNextWord(text, context: VimeLanguageModel.sentenceContext(committedLeftContext)) }
+        } else if let native {
+            // Redacted/unverified hosts may complete context but must not teach.
+            let event = CandidateLearningFeedback(id: UUID(), kind: .nextWord, rank: index, context: "", selectedAt: Date())
+            engine?.stageNativePrediction(native, event: event); worker?.stageNativePrediction(native, event: event)
+            engine?.resolveFeedback(event.id, accepted: false); worker?.resolveFeedback(event.id, accepted: false)
+        }
+        committedLeftContext = String((String(committedLeftContext.dropLast(replaced.count)) + text).suffix(96))
         clearSuggestions()
-        requestSuggestions()
-        return [.insert(text)]
+        if native?.isTerminal != true { requestSuggestions() }
+        return Array(repeating: .deleteBackward, count: replaced.count) + [.insert(text)]
     }
 
     func confirm() -> [KeyboardEdit] {
@@ -324,9 +356,12 @@ final class KeyboardSession: KeyboardInputSession {
         engine?.clearLearning(); worker?.clearLearning()
     }
 
-    private func beginLearningFeedback(text: String, rank: Int, kind: CandidateLearningFeedback.Kind) -> CandidateLearningFeedback? {
-        guard let anchor = learningContextProvider?(), let before = anchor.before, !anchor.hasSelection else { return nil }
-        let context = kind == .nextWord ? VimeLanguageModel.sentenceContext(before) : before
+    private func beginLearningFeedback(text: String, rank: Int, kind: CandidateLearningFeedback.Kind, removingSuffix: String = "") -> CandidateLearningFeedback? {
+        guard var anchor = learningContextProvider?(), let original = anchor.before, !anchor.hasSelection,
+              original.hasSuffix(removingSuffix) else { return nil }
+        let before = String(original.dropLast(removingSuffix.count))
+        anchor = KeyboardLearningContext(document: anchor.document, before: before, after: anchor.after)
+        let context = kind == .nextWord ? VimeLanguageModel.sentenceContext(original) : before
         let event = CandidateLearningFeedback(id: UUID(), kind: kind, rank: rank, context: context, selectedAt: Date())
         pendingFeedback = PendingCandidateFeedback(event: event, anchor: anchor, text: text, remaining: text.count)
         feedbackTask = Task { [weak self] in
@@ -372,19 +407,36 @@ final class KeyboardSession: KeyboardInputSession {
     private func clearSuggestions() {
         worker?.cancelPending()
         suggestionGeneration += 1
+        suggestionAnchor = nil
         if !suggestionSnapshots.isEmpty { candidateListGeneration += 1; suggestionSnapshots = [] }
     }
 
     /// Continue the unfinished sentence after a commit. A sentence-final commit
     /// leaves no prompt, so nothing is requested.
     private func requestSuggestions() {
-        guard phraseSuggestions, mode != .english, !isComposing, let worker else { return }
+        guard phraseSuggestions, mode != .english, !isComposing else { return }
         let prompt = VimeLanguageModel.sentenceContext(committedLeftContext)
         guard !prompt.isEmpty else { return }
         let generation = suggestionGeneration
-        worker.suggestions(prompt: prompt) { [weak self] texts in
+        let context = committedLeftContext
+        let requestedHost = learningContextProvider?()
+        guard let worker else {
+            suggestionSnapshots = PostCompositionSuggestionReranker.merge(native: engine?.postCompositionSuggestions(leftContext: context) ?? [], neural: [])
+            suggestionAnchor = learningContextProvider?()
+            candidateListGeneration += 1
+            return
+        }
+        worker.suggestions(prompt: prompt, leftContext: context, useLanguageModel: candidateRanking == .languageModel) { [weak self] texts in
             guard let self, self.suggestionGeneration == generation, !self.isComposing, self.mode != .english else { return }
+            if self.learningContextProvider != nil {
+                guard let requestedHost, let actual = self.learningContextProvider?(),
+                      actual.document == requestedHost.document, actual.after == requestedHost.after, !actual.hasSelection else { return }
+            }
+            if let provider = self.leftContextProvider {
+                guard let actual = provider(), String(actual.suffix(96)) == context else { return }
+            }
             self.suggestionSnapshots = texts
+            self.suggestionAnchor = self.learningContextProvider?()
             self.candidateListGeneration += 1
             self.onCandidatesChange?()
         }

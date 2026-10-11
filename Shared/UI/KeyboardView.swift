@@ -478,6 +478,10 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     }
 
     private enum Page { case letters, numbers, symbols }
+    private func shouldConvertNumber(_ text: String) -> Bool {
+        session.inputTraits.convertsNumbers && keyboardType == .default
+            && !text.isEmpty && text.allSatisfy { $0.isASCII && $0.isNumber }
+    }
     private let session: any KeyboardInputSession
     private var displayedCandidates: [CandidatePresentation] = []
     private var displayedSelection: Int?
@@ -893,7 +897,9 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
                         case "#+=": self.page = .symbols; self.rebuildKeys()
                         case "符号": self.openSymbolPanel(mode: .symbols)
                         case "换行": self.apply(self.session.enter())
-                        default: self.apply(self.session.insertLiteral(value))
+                        default:
+                            let composes = self.shouldConvertNumber(value) || (self.session.isComposing && self.session.inputTraits.compositionInputSymbols.contains(value))
+                            self.apply(composes ? self.session.type(value) : self.session.insertLiteral(value))
                         }
                     }
                     item.0.accessibilityIdentifier = "vime.number." + value
@@ -912,7 +918,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
                 var row = values.map { value in
                     let item = key(value) { [weak self] in
                         guard let self else { return }
-                        if self.session.isComposing && self.session.inputTraits.compositionInputSymbols.contains(value) {
+                        if self.shouldConvertNumber(value) || (self.session.isComposing && self.session.inputTraits.compositionInputSymbols.contains(value)) {
                             self.apply(self.session.type(value))
                         } else {
                             self.apply(self.session.insertLiteral(value))
@@ -1293,7 +1299,10 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
             let panel = KeyboardSymbolPanel()
             panel.onFeedback = { [weak self] in self?.playFeedback() }
             panel.onSelect = { [weak self] text in
-                guard let self else { return }; self.playFeedback(); self.apply(self.session.insertLiteral(text))
+                guard let self else { return }
+                self.playFeedback()
+                let composes = self.session.isComposing && self.session.inputTraits.compositionInputSymbols.contains(text)
+                self.apply(composes ? self.session.type(text) : self.session.insertLiteral(text))
             }
             panel.onClose = { [weak self] in self?.headerArrow() }
             addSubview(panel); symbolPanel = panel
