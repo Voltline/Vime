@@ -21,6 +21,8 @@ nonisolated struct CandidateRankingWeights: Sendable {
     var syntheticSurfacePenalty = 0.5
     var context = 0.25
     var contextLimit = 2.5
+    var prefixPenalty = 6.0 // Ordinary strip favors complete phrases; explicit range has no penalty.
+    var orthographyLimit = 1.6 // Usage guidance is weaker than repeated user preference.
 }
 
 /// Admission is independent of presentation: a correction needs a meaningful
@@ -28,6 +30,7 @@ nonisolated struct CandidateRankingWeights: Sendable {
 nonisolated enum CandidateCorrectionPolicy {
     static let channelWeight = 3.6
     static let minimumQuality = -5.0
+    static let shortReadingMargin = 4.0 // Two kana have many accidental homophones.
     static let admissionMargin = 2.0
     static let additionalSoundEditMargin = 2.0 // Per extra sound edit, before reading-length normalization.
     static let wholeWordPriorityBonus = 3.0 // Verify an attested full reading before speculative phrase repairs.
@@ -49,8 +52,10 @@ nonisolated struct CandidateScoreFeatures: Codable, Sendable {
     var userLearning = 0.0
     var context = 0.0
     var typoCost = 0.0
+    var orthography = 0.0
+    var segmentation = 0.0
     var total: Double { engine + exactReading + fullConsumption + script
-        + predictionOverrun + interpretationEvidence + continuity + userLearning + context + typoCost }
+        + predictionOverrun + interpretationEvidence + continuity + userLearning + context + typoCost + orthography + segmentation }
 }
 
 nonisolated struct CandidateContinuity: Sendable {
@@ -84,10 +89,18 @@ nonisolated struct CandidateReranker {
                 }
             }
             let interpretedExact = value.source == .readingAlternative && value.lexical && value.fullConsumption
-            if value.fullConsumption && value.lexical && (value.exactReading || interpretedExact) {
+            if value.scopeFullConsumption && value.lexical && (value.exactReading || interpretedExact) {
                 f.exactReading = weights.exactLexical
             }
-            if value.fullConsumption { f.fullConsumption = weights.fullConsumption }
+            if value.scopeFullConsumption { f.fullConsumption = weights.fullConsumption }
+            // Do not reward a prefix by discarding an unresolved Roman suffix;
+            // completed-word prediction must keep its established evidence.
+            if !value.fullConsumption && !value.explicitScope && value.queryReading.unicodeScalars.contains(where: { $0.isASCII }) {
+                f.exactReading = 0
+                f.fullConsumption = 0
+            }
+            if !value.fullConsumption && !value.explicitScope { f.segmentation = -weights.prefixPenalty }
+            f.orthography = max(-weights.orthographyLimit, min(weights.orthographyLimit, value.orthographyScore))
             if value.source == .readingAlternative {
                 f.typoCost = -weights.alternateReadingCost
                 f.interpretationEvidence = max(-weights.interpretationEvidenceLimit,
@@ -130,7 +143,7 @@ nonisolated struct CandidateReranker {
             let key = CandidateIdentity(value)
             guard let old = unique[key] else { unique[key] = value; continue }
             let quality: (CandidateSnapshot) -> Int = { candidate in
-                (candidate.lexical ? 8 : 0) + (candidate.exactReading ? 2 : 0)
+                (candidate.lexical ? 8 : 0) + (candidate.displaySurface == nil ? 4 : 0) + (candidate.exactReading ? 2 : 0)
                     + (candidate.source == .scriptVariant ? 2 : 1)
             }
             if quality(value) > quality(old) || (quality(value) == quality(old) && value.features.total > old.features.total) {
@@ -176,6 +189,8 @@ nonisolated struct CandidateDiagnostic: Codable, Sendable {
     let exactReading: Bool
     let fullConsumption: Bool
     let engineFullConsumption: Bool
+    let consumedReadingCount: Int
+    let scopeReading: String
     let learned: Bool
     let scriptType: CandidateScript
     let learningEligible: Bool
@@ -193,6 +208,7 @@ nonisolated struct CandidateDiagnostic: Codable, Sendable {
         lmScore = value.correction?.lmScore; channelCost = value.correction?.errorCost; prominence = value.correction?.prominence
         composingCount = String(describing: value.composingCount)
         exactReading = value.exactReading; fullConsumption = value.fullConsumption
+        consumedReadingCount = value.consumedReadingCount; scopeReading = value.scopeReading
         engineFullConsumption = value.engineFullConsumption; learned = value.hasLearningEvidence
         scriptType = value.scriptType; learningEligible = value.learningEligible
         revision = value.revision; scores = value.features; finalScore = scores.total; finalRank = rank

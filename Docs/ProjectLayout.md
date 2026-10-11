@@ -23,6 +23,7 @@
 
 Xcode 使用 filesystem synchronized groups，移动 Swift 文件后自动包含于原有 target。
 资源目录保持原路径和文件名，运行时继续从 bundle 根目录查找，避免改变加载协议。
+`Shared/Resources/OrthographyPreferences.json` 与 `SupplementalLexicon.json` 是离线语言数据；`LanguageResourceSources.json` 记录来源和校验和，`Scripts/build_language_resources.py` 可重新生成。转换范围和安全尾部映射由 `Shared/Input` 管理，数据加载和排序由 `Shared/Candidates` 管理。
 调整文件位置后，README、文档链接及图标生成命令同步更新。
 
 v2.1 模型大文件保持外部交付约定。新 checkout 必须先运行安装脚本；Release 资源校验不能被词典回退掩盖。Debug 构建可继续进行不包含模型的词典开发。

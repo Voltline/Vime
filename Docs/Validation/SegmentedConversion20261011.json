@@ -1,0 +1,530 @@
+{
+  "date": "2026-10-11",
+  "platform": "iPhone 16 Pro Max / iOS 27.0 simulator / Debug",
+  "dependency": "d59a28e4c7ca049aef04f29a91eae9677a7753f2",
+  "before": {
+    "yo-r": [
+      {
+        "surface": "ヨーロッパ",
+        "source": "prediction",
+        "score": 3.773914737360997
+      },
+      {
+        "surface": "よーr",
+        "source": "scriptVariant",
+        "score": 2.0
+      },
+      {
+        "surface": "ヨーr",
+        "source": "scriptVariant",
+        "score": 2.0
+      },
+      {
+        "surface": "ヨーロッパ人",
+        "source": "prediction",
+        "score": 1.3018707480767149
+      },
+      {
+        "surface": "ヨーロピアン",
+        "source": "prediction",
+        "score": -0.38956425681275775
+      },
+      {
+        "surface": "yor",
+        "source": "conversion",
+        "score": -1.4190741116480527
+      },
+      {
+        "surface": "Yor",
+        "source": "conversion",
+        "score": -2.4437795620446963
+      },
+      {
+        "surface": "ヨーR",
+        "source": "conversion",
+        "score": -4.182136847631462
+      }
+    ],
+    "yo-roppa": [
+      {
+        "surface": "ヨーロッパ",
+        "source": "conversion",
+        "score": 7.108048625357416
+      },
+      {
+        "surface": "europe",
+        "source": "conversion",
+        "score": 5.792122146936303
+      },
+      {
+        "surface": "よーろっぱ",
+        "source": "scriptVariant",
+        "score": 5.0
+      },
+      {
+        "surface": "ヨーロッパ人",
+        "source": "prediction",
+        "score": -0.8863785230906891
+      },
+      {
+        "surface": "ヨーロッパ史",
+        "source": "prediction",
+        "score": -2.831708450606912
+      },
+      {
+        "surface": "ヨーロッパ予選",
+        "source": "prediction",
+        "score": -4.198729846667222
+      },
+      {
+        "surface": "yo路っ",
+        "source": "conversion",
+        "score": -5.796438172134991
+      },
+      {
+        "surface": "yo",
+        "source": "conversion",
+        "score": -5.989038673500634
+      }
+    ],
+    "yo-roppajin": [
+      {
+        "surface": "ヨーロッパ人",
+        "source": "prediction",
+        "score": 3.5204664078294816
+      },
+      {
+        "surface": "よーろっぱじn",
+        "source": "scriptVariant",
+        "score": 2.0
+      },
+      {
+        "surface": "ヨーロッパジn",
+        "source": "scriptVariant",
+        "score": 2.0
+      },
+      {
+        "surface": "ヨーロッパ時n",
+        "source": "conversion",
+        "score": -0.5029921237788573
+      },
+      {
+        "surface": "ヨーロッパ児n",
+        "source": "conversion",
+        "score": -1.3175896196649663
+      },
+      {
+        "surface": "ヨーロッパ自n",
+        "source": "conversion",
+        "score": -1.892953764568528
+      },
+      {
+        "surface": "ヨーロッパ次n",
+        "source": "conversion",
+        "score": -2.3413560032644742
+      },
+      {
+        "surface": "ヨーロッパジN",
+        "source": "conversion",
+        "score": -3.6554585540482245
+      }
+    ],
+    "be-to-ben": [
+      {
+        "surface": "ベートーベン",
+        "source": "prediction",
+        "score": 3.0410054073867365
+      },
+      {
+        "surface": "べーとーべn",
+        "source": "scriptVariant",
+        "score": 2.0
+      },
+      {
+        "surface": "ベートーベn",
+        "source": "scriptVariant",
+        "score": 2.0
+      },
+      {
+        "surface": "べートーベn",
+        "source": "conversion",
+        "score": -1.4226041792321986
+      },
+      {
+        "surface": "ベーとーベn",
+        "source": "conversion",
+        "score": -2.0141742229233826
+      },
+      {
+        "surface": "ベートーベN",
+        "source": "conversion",
+        "score": -3.376544314754306
+      },
+      {
+        "surface": "ベー",
+        "source": "conversion",
+        "score": -5.3382517918168215
+      },
+      {
+        "surface": "べー",
+        "source": "conversion",
+        "score": -5.755905191571486
+      }
+    ]
+  },
+  "after": {
+    "yo-r": [
+      {
+        "surface": "ヨーロッパ",
+        "source": "prediction",
+        "score": 4.973914737360997
+      },
+      {
+        "surface": "よーr",
+        "source": "scriptVariant",
+        "score": 2.0
+      },
+      {
+        "surface": "ヨーr",
+        "source": "scriptVariant",
+        "score": 2.0
+      },
+      {
+        "surface": "ヨーロッパ人",
+        "source": "prediction",
+        "score": 1.3018707480767149
+      },
+      {
+        "surface": "ヨーロピアン",
+        "source": "prediction",
+        "score": -0.38956425681275775
+      },
+      {
+        "surface": "yor",
+        "source": "conversion",
+        "score": -1.4190741116480527
+      },
+      {
+        "surface": "Yor",
+        "source": "conversion",
+        "score": -2.4437795620446963
+      },
+      {
+        "surface": "ヨーR",
+        "source": "conversion",
+        "score": -4.182136847631462
+      }
+    ],
+    "yo-roppa": [
+      {
+        "surface": "ヨーロッパ",
+        "source": "conversion",
+        "score": 10.505273202693635
+      },
+      {
+        "surface": "europe",
+        "source": "conversion",
+        "score": 7.624703610684613
+      },
+      {
+        "surface": "よーろっぱ",
+        "source": "scriptVariant",
+        "score": 5.0
+      },
+      {
+        "surface": "yoロッ",
+        "source": "conversion",
+        "score": 2.8188310071426894
+      },
+      {
+        "surface": "Yoロッ",
+        "source": "conversion",
+        "score": 0.6177234082928944
+      },
+      {
+        "surface": "yo路っ",
+        "source": "conversion",
+        "score": 0.5898561889848999
+      },
+      {
+        "surface": "yo",
+        "source": "conversion",
+        "score": 0.13019290237021153
+      },
+      {
+        "surface": "ヨーロッ",
+        "source": "conversion",
+        "score": 0.031675746771890445
+      }
+    ],
+    "yo-roppajin": [
+      {
+        "surface": "ヨーロッパ人",
+        "source": "prediction",
+        "score": 3.5204664078294816
+      },
+      {
+        "surface": "よーろっぱじn",
+        "source": "scriptVariant",
+        "score": 2.0
+      },
+      {
+        "surface": "ヨーロッパジn",
+        "source": "scriptVariant",
+        "score": 2.0
+      },
+      {
+        "surface": "ヨーロッパ時n",
+        "source": "conversion",
+        "score": 0.6970078762211427
+      },
+      {
+        "surface": "ヨーロッパ児n",
+        "source": "conversion",
+        "score": -0.1175896196649664
+      },
+      {
+        "surface": "ヨーロッパ自n",
+        "source": "conversion",
+        "score": -0.692953764568528
+      },
+      {
+        "surface": "ヨーロッパ次n",
+        "source": "conversion",
+        "score": -1.1413560032644743
+      },
+      {
+        "surface": "ヨーロッパジN",
+        "source": "conversion",
+        "score": -3.6554585540482245
+      }
+    ],
+    "be-to-ben": [
+      {
+        "surface": "ベートーベン",
+        "source": "prediction",
+        "score": 3.0410054073867365
+      },
+      {
+        "surface": "べーとーべn",
+        "source": "scriptVariant",
+        "score": 2.0
+      },
+      {
+        "surface": "ベートーベn",
+        "source": "scriptVariant",
+        "score": 2.0
+      },
+      {
+        "surface": "べートーベn",
+        "source": "conversion",
+        "score": -1.4226041792321986
+      },
+      {
+        "surface": "ベーとーベn",
+        "source": "conversion",
+        "score": -2.0141742229233826
+      },
+      {
+        "surface": "ベートーベN",
+        "source": "conversion",
+        "score": -3.376544314754306
+      },
+      {
+        "surface": "ベー",
+        "source": "conversion",
+        "score": -8.083636232062613
+      },
+      {
+        "surface": "べー",
+        "source": "conversion",
+        "score": -9.533328765675229
+      }
+    ]
+  },
+  "inputProfile": {
+    "baseConversion": {
+      "count": 9,
+      "maxMs": 229.47054167161696,
+      "meanMs": 56.07204629632179,
+      "p95Ms": 67.92116665747017
+    },
+    "candidateButtonConfiguration": {
+      "count": 80,
+      "maxMs": 0.7646666635992005,
+      "meanMs": 0.08666562407597667,
+      "p95Ms": 0.21641666535288095
+    },
+    "candidateCompute": {
+      "count": 9,
+      "maxMs": 430.5800000001909,
+      "meanMs": 150.06814352010326,
+      "p95Ms": 211.7278750083642
+    },
+    "candidatePublication": {
+      "count": 3,
+      "maxMs": 14.271458334405906,
+      "meanMs": 7.186152778255443,
+      "p95Ms": 4.1682916635181755
+    },
+    "candidateRequestToResult": {
+      "count": 9,
+      "maxMs": 494.88145833311137,
+      "meanMs": 188.46589814832745,
+      "p95Ms": 258.3744999865303
+    },
+    "candidateReranking": {
+      "count": 9,
+      "maxMs": 3.046833327971399,
+      "meanMs": 2.4738657391733594,
+      "p95Ms": 2.800958332954906
+    },
+    "candidateTitleMeasurement": {
+      "count": 60,
+      "maxMs": 0.6432916561607271,
+      "meanMs": 0.09595000058955823,
+      "p95Ms": 0.2004166744882241
+    },
+    "candidateUIUpdate": {
+      "count": 74,
+      "maxMs": 14.269166669691913,
+      "meanMs": 0.40230292664066813,
+      "p95Ms": 0.2546666655689478
+    },
+    "contextEvaluation": {
+      "count": 9,
+      "maxMs": 0.003374996595084667,
+      "meanMs": 0.0016111104438702266,
+      "p95Ms": 0.0027500063879415393
+    },
+    "correctionCompute": {
+      "count": 1,
+      "maxMs": 0.06541666516568512,
+      "meanMs": 0.06541666516568512,
+      "p95Ms": 0.06541666516568512
+    },
+    "lexiconLookup": {
+      "count": 9,
+      "maxMs": 19.172874992364086,
+      "meanMs": 2.1465231515725867,
+      "p95Ms": 0.028958340408280492
+    },
+    "prefixConversion": {
+      "count": 7,
+      "maxMs": 18.4468750085216,
+      "meanMs": 14.691547621623613,
+      "p95Ms": 14.59266665915493
+    },
+    "resultToCandidateUI": {
+      "count": 3,
+      "maxMs": 14.317958324681967,
+      "meanMs": 7.242666664145266,
+      "p95Ms": 4.226208329782821
+    },
+    "touchDownToVisual": {
+      "count": 70,
+      "maxMs": 0.5887500010430813,
+      "meanMs": 0.16280535699999227,
+      "p95Ms": 0.28774999373126775
+    },
+    "touchUpToType": {
+      "count": 70,
+      "maxMs": 0.14129166083876044,
+      "meanMs": 0.02921131007107241,
+      "p95Ms": 0.03850000211969018
+    },
+    "typeToMarked": {
+      "count": 70,
+      "maxMs": 36.084874998778105,
+      "meanMs": 1.3645339291542768,
+      "p95Ms": 1.3255833328003064
+    }
+  },
+  "functionalBatches": [
+    {
+      "count": 14,
+      "failed": 0
+    },
+    {
+      "count": 9,
+      "failed": 0
+    },
+    {
+      "count": 2,
+      "failed": 0
+    },
+    {
+      "count": 8,
+      "failed": 0,
+      "scope": "final completion-context and suffix-edit verification"
+    }
+  ],
+  "note": "Overlapping batches; cold model/dictionary and Debug upstream logging included; not a real-device energy or Release benchmark.",
+  "engineProfile": {
+    "baseConversion": {
+      "meanMs": 30.40744444297161,
+      "maxMs": 121.58575000648852,
+      "count": 6.0,
+      "p95Ms": 22.909041654202156
+    },
+    "candidateReranking": {
+      "meanMs": 2.177916666758912,
+      "p95Ms": 3.5426249960437417,
+      "maxMs": 4.724625003291294,
+      "count": 7.0
+    },
+    "lexiconLookup": {
+      "count": 6.0,
+      "maxMs": 0.01804166822694242,
+      "meanMs": 0.009437499102205038,
+      "p95Ms": 0.011791664292104542
+    },
+    "contextEvaluation": {
+      "meanMs": 4.152375002740882,
+      "count": 5.0,
+      "p95Ms": 0.0009166687959805131,
+      "maxMs": 20.759041668497957
+    },
+    "candidateCompute": {
+      "meanMs": 63.20312500174623,
+      "count": 5.0,
+      "p95Ms": 49.936166673433036,
+      "maxMs": 197.83445833309088
+    },
+    "correctionCompute": {
+      "count": 5.0,
+      "maxMs": 64.08708333037794,
+      "p95Ms": 36.10616666264832,
+      "meanMs": 21.865699999034405
+    },
+    "prefixConversion": {
+      "count": 4.0,
+      "maxMs": 2.6853750023292378,
+      "meanMs": 1.2760937497660052,
+      "p95Ms": 1.3907499960623682
+    }
+  },
+  "uniquePassingTests": 19,
+  "passingCases": [
+    "KeyboardInputBoundaryTests/testAsyncCommitsStayOrderedAndRejectOldHostEpoch",
+    "KeyboardInputBoundaryTests/testCandidateTokensRejectReorderedListsAndOtherSessions",
+    "KeyboardInputBoundaryTests/testIndependentBackendPresentationAndPanelReuse",
+    "KeyboardInputBoundaryTests/testNativeByteSelectionAndHostCaretUpdates",
+    "KeyboardIntelligentCandidateTests/testProgressiveInputContinuityAndCompleteWordExtension",
+    "KeyboardIntelligentCandidateTests/testRegressionCorpusAndRawToFinalDiagnostics",
+    "KeyboardNInterpretationTests/testLiteralPreeditKeepsOriginalNReading",
+    "KeyboardNInterpretationTests/testNAlternativesAreCandidatesNotInputRewrites",
+    "KeyboardNInterpretationTests/testReturnConfirmsLiteralReadingWithoutSelectingCorrection",
+    "KeyboardPerformanceTests/testProfileNativeTouchPipelineAndLatestPrediction",
+    "KeyboardPersonalizationTests/testHostReceiptRejectsDeletionFieldChangesAndMissingAcknowledgement",
+    "KeyboardPreeditTests/testDoubleNBatchInsertionAndKanaDeletion",
+    "KeyboardPreeditTests/testKanaPreeditAndAmbiguousRomanSuffixes",
+    "KeyboardSegmentedConversionTests/testCandidateTimingAndUncappedPool",
+    "KeyboardSegmentedConversionTests/testEveryKanaBoundaryCanBeSelectedWithoutEatingSuffix",
+    "KeyboardSegmentedConversionTests/testOrthographyAndSupplementalDictionaryAreSelectable",
+    "KeyboardSegmentedConversionTests/testPartialCommitPreservesRomanRemainderAndLearning",
+    "KeyboardSegmentedConversionTests/testPartialFeedbackCanBeCancelledBeforeLearning",
+    "KeyboardSegmentedConversionTests/testShortNeighborCorrectionsAndCorrectInputProtection"
+  ],
+  "build": "Debug App and keyboard extension build succeeded"
+}

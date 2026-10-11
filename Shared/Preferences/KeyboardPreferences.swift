@@ -1,7 +1,7 @@
 import Foundation
 
 struct KeyboardPreferences {
-    static let appGroup = "group.com.Voltline.Vime"
+    nonisolated static let appGroup = "group.com.Voltline.Vime"
     static let heightRange = 0.85...1.60
     private let defaults: UserDefaults
     private let heightDefaults: UserDefaults
@@ -90,18 +90,6 @@ struct KeyboardPreferences {
     var phraseSuggestions: Bool {
         get { defaults.object(forKey: "vime.phraseSuggestions") as? Bool ?? true }
         nonmutating set { defaults.set(newValue, forKey: "vime.phraseSuggestions") }
-    }
-}
-
-/// Order of full dictionary conversions. The engine order already contains
-/// AzooKey learning and Vime's feature reranker; the LM order replaces it.
-nonisolated enum CandidateRankingMode: String, CaseIterable, Sendable {
-    case engine, languageModel
-    var title: String {
-        switch self {
-        case .engine: "词典排序"
-        case .languageModel: "智能排序"
-        }
     }
 }
 

@@ -406,7 +406,7 @@ final class KeyboardKey: UIButton {
 }
 
 /// The same UIKit keyboard is used by the extension and the containing app's sandbox.
-final class KeyboardView: UIView, UIInputViewAudioFeedback {
+final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate {
     var hasFullAccess = true {
         didSet {
             if oldValue != hasFullAccess, settingsPanel != nil {
@@ -506,6 +506,10 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
     private let cancelButton = UIButton(type: .system)
     private let divider = UIView()
     private let panelTitle = UILabel()
+    private let shortenRange = UIButton(type: .system)
+    private let lengthenRange = UIButton(type: .system)
+    private let wholeRange = UIButton(type: .system)
+    private var panelLimit = 40
     private let gestureHint = UILabel()
     private let deletePrompt = KeyboardDeletePrompt()
     private let previewOverlay = UIView()
@@ -605,6 +609,18 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
         panelTitle.font = .systemFont(ofSize: 16, weight: .medium)
         panelTitle.isUserInteractionEnabled = false
         header.addSubview(panelTitle)
+        for (button, title, identifier, action) in [
+            (shortenRange, "−", "vime.segment.shorten", #selector(shortenConversion)),
+            (lengthenRange, "+", "vime.segment.lengthen", #selector(lengthenConversion)),
+            (wholeRange, "整句", "vime.segment.whole", #selector(wholeConversion))] {
+            button.setTitle(title, for: .normal)
+            button.accessibilityIdentifier = identifier
+            button.accessibilityLabel = title == "−" ? "缩短转换范围" : title == "+" ? "加长转换范围" : "恢复整句转换"
+            button.addTarget(self, action: action, for: .touchUpInside)
+            header.addSubview(button)
+        }
+        panelTitle.lineBreakMode = .byTruncatingMiddle
+        panelScroll.delegate = self
         gestureHint.font = .systemFont(ofSize: 18, weight: .medium)
         gestureHint.textAlignment = .center
         gestureHint.isUserInteractionEnabled = false
@@ -711,7 +727,10 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
         candidateScroll.frame = CGRect(x: 4 * xScale, y: centerY - (compact ? 13 : 17 * scale), width: width - 55 * xScale, height: compact ? 26 : 34 * scale)
         layoutCandidateStrip()
         cancelButton.frame = .zero
-        panelTitle.frame = CGRect(x: 12 * xScale, y: 0, width: width - 65 * xScale, height: headerHeight)
+        panelTitle.frame = CGRect(x: 12 * xScale, y: 0, width: width - 185 * xScale, height: headerHeight)
+        shortenRange.frame = CGRect(x: width - 172 * xScale, y: 0, width: 40 * xScale, height: headerHeight)
+        lengthenRange.frame = CGRect(x: width - 132 * xScale, y: 0, width: 40 * xScale, height: headerHeight)
+        wholeRange.frame = CGRect(x: width - 92 * xScale, y: 0, width: 42 * xScale, height: headerHeight)
         divider.frame = CGRect(x: width - 51 * xScale, y: centerY - 12 * scale, width: 0.5, height: 24 * scale)
         keysContainer.frame = bounds
         let body = CGRect(x: 0, y: headerHeight, width: width, height: metrics.contentHeight - headerHeight)
@@ -1057,9 +1076,12 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
         expandButton.backgroundColor = composing ? KeyboardTouchBacking.color : KeyboardPalette.key
         divider.isHidden = !strip || expanded || emojiOpen || settingsOpen
         panelTitle.isHidden = !expanded
-        panelTitle.text = "候选词"
+        panelTitle.text = session.conversionRangeDescription ?? "候选词"
+        for control in [shortenRange, lengthenRange, wholeRange] {
+            control.isHidden = !expanded || session.conversionRangeDescription == nil
+        }
         divider.backgroundColor = .separator
-        let presentations = session.stripPresentations
+        let presentations = Array(session.stripPresentations.prefix(max(20, (session.selectedIndex ?? 0) + 1)))
         let candidatesChanged = displayedCandidates != presentations
         let selectionChanged = displayedSelection != session.selectedIndex
         if candidatesChanged || selectionChanged {
@@ -1159,7 +1181,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
     }
 
     private func rebuildCandidatePanel() {
-        let values = session.candidatePresentations
+        let values = session.candidatePage(offset: 0, limit: panelLimit)
         while panelCandidates.count > values.count {
             let button = panelCandidates.removeLast()
             button.removeFromSuperview(); sparePanelButtons.append(button)
@@ -1288,7 +1310,33 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback {
 
     @objc private func cancelComposition() { resetComposition() }
 
+    @objc private func shortenConversion() {
+        panelLimit = 40
+        session.adjustConversionRange(by: -1)
+        panelScroll.setContentOffset(.zero, animated: false)
+        refresh()
+    }
+    @objc private func lengthenConversion() {
+        panelLimit = 40
+        session.adjustConversionRange(by: 1)
+        panelScroll.setContentOffset(.zero, animated: false)
+        refresh()
+    }
+    @objc private func wholeConversion() {
+        panelLimit = 40
+        session.resetConversionRange()
+        refresh()
+    }
+    func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        guard scrollView === panelScroll, expanded, panelLimit < session.candidateCount,
+              session.candidatesAreCurrent, scrollView.contentSize.height > scrollView.bounds.height,
+              scrollView.contentOffset.y + scrollView.bounds.height >= scrollView.contentSize.height - 90 else { return }
+        panelLimit += 40
+        rebuildCandidatePanel()
+        setNeedsLayout()
+    }
     @objc private func toggleExpanded() {
+        panelLimit = 40
         expanded.toggle()
         settingsOpen = false
         emojiOpen = false

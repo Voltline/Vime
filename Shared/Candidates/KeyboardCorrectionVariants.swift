@@ -23,7 +23,7 @@ nonisolated enum KeyboardCorrectionVariants {
     static func generate(for query: ComposingText, cancelled: () -> Bool = { false }) -> [Variant] {
         let original = query.convertTarget
         let originalInput = query.input.compactMap { if case .character(let c) = $0.piece { return String(c) }; return nil }.joined()
-        guard (3...24).contains(original.count), query.input.count <= maximumInputCount,
+        guard (2...24).contains(original.count), query.input.count <= maximumInputCount,
               let last = original.last, !last.isASCII else { return [] }
         var variants: [Variant] = []
         var seen: Set<String> = [original]
@@ -37,7 +37,7 @@ nonisolated enum KeyboardCorrectionVariants {
                 rangeOffset: offset, rangeLength: length, rangeUnit: unit, errorCost: cost, originalInput: originalInput)))
         }
         var kana = Array(original)
-        for i in kana.indices {
+        for i in kana.indices where original.count > 2 {
             let old = kana[i]
             for group in soundGroups where group.contains(old) {
                 for next in group where next != old {
@@ -68,7 +68,7 @@ nonisolated enum KeyboardCorrectionVariants {
                 length: length, unit: .romanInput, cost: cost)
         }
         // Repeated-letter deletion and adjacent transposition first.
-        for i in raw.indices {
+        for i in raw.indices where original.count > 2 {
             var value = raw; value.remove(at: i)
             let repeated = (i > 0 && raw[i - 1] == raw[i]) || (i + 1 < raw.count && raw[i + 1] == raw[i])
             roman(value, kind: .extraLetter, index: i, length: 1, cost: repeated ? 0.7 : 1.5)
@@ -86,7 +86,7 @@ nonisolated enum KeyboardCorrectionVariants {
         }
         // A missing vowel often leaves an internal unresolved consonant. Try
         // vowels before consonants, rejecting variants that still cannot parse.
-        for letter in "aiueokstnhmyrwgzdbpfvcjqlx" {
+        for letter in "aiueokstnhmyrwgzdbpfvcjqlx" where original.count > 2 {
             for i in 0...raw.count {
                 var value = raw; value.insert(letter, at: i)
                 roman(value, kind: .missingLetter, index: i, length: 0, cost: "aiueo".contains(letter) ? 1.15 : 1.6)

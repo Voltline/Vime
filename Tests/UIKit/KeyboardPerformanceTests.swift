@@ -59,8 +59,11 @@ final class KeyboardPerformanceTests: XCTestCase {
         keyboard.resetComposition()
         hostView.text = "前後"; hostView.selectedRange = NSRange(location: 1, length: 0)
         let paced = expectation(description: "Latest prediction after interleaved keys/results")
+        let intermediate = expectation(description: "Published composition before typing resumes")
+        let checkpoint = String(raw.prefix(12))
         session.onCandidatesChange = {
             update?()
+            if session.raw == checkpoint { intermediate.fulfill() }
             if session.raw == raw { paced.fulfill() }
         }
         for (id, c) in raw.enumerated() {
@@ -71,13 +74,21 @@ final class KeyboardPerformanceTests: XCTestCase {
             XCTAssertEqual(host.markedText, session.preedit)
             XCTAssertEqual(session.candidateRequestCount, raw.count + id + 1)
             try await Task.sleep(for: .milliseconds(20))
+            // Synchronize one real publication. Cold LM initialization can take
+            // longer than the whole 20ms-paced burst; don't assume its timing.
+            if id == 11 { await fulfillment(of: [intermediate], timeout: 10) }
         }
         await fulfillment(of: [paced], timeout: 10)
         XCTAssertEqual(session.raw, raw)
         XCTAssertEqual(hostView.text, "前わたしはにほんごをべんきょうしています後")
         XCTAssertEqual(session.candidates.first, "私は日本語を勉強しています")
         let report = KeyboardPerformance.report()
-        for stage in KeyboardPerformance.Stage.allCases where ![.correctionCompute, .correctionRequestToResult, .classicTypo, .experimentalTypo].contains(stage) {
+        // This scenario types, but never confirms a candidate. Optional learning,
+        // next-word and typo stages are measured by their own scenarios.
+        let inputStages: [KeyboardPerformance.Stage] = [.touchDownToVisual, .touchUpToType, .typeToMarked,
+            .candidateRequestToResult, .candidateCompute, .resultToCandidateUI, .candidateUIUpdate,
+            .candidatePublication, .baseConversion, .candidateReranking, .lexiconLookup]
+        for stage in inputStages {
             XCTAssertNotNil(report[stage.rawValue], stage.rawValue)
         }
         XCTAssertEqual(report["typeToMarked"]?["count"], Double(raw.count * 2))

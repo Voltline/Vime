@@ -60,7 +60,7 @@ final class JapaneseCandidateWorker {
     private var pending: Request?
 
     func candidates(for composing: ComposingText, katakana: Bool, revision: Int, leftContext: String?, continuity: CandidateContinuity?,
-                    ranking: CandidateRankingMode = .languageModel,
+                    ranking: CandidateRankingMode = .languageModel, conversionLength: Int? = nil,
                     completion: @escaping @MainActor @Sendable ([CandidateSnapshot], TimeInterval?, Bool) -> Void) {
         pending?.cancel()
         let request = Request()
@@ -73,7 +73,7 @@ final class JapaneseCandidateWorker {
             storage.engine.reconcileContext(leftContext)
             storage.engine.seedContinuity(continuity)
             let computeStartedAt = KeyboardPerformance.start()
-            let values = storage.engine.candidates(for: composing, katakana: katakana, revision: revision, includeCorrections: false)
+            let values = storage.engine.candidates(for: composing, katakana: katakana, revision: revision, includeCorrections: false, conversionLength: conversionLength)
             KeyboardPerformance.record(.candidateCompute, since: computeStartedAt)
             KeyboardPerformance.record(.candidateRequestToResult, since: requestStartedAt)
             let readyAt = KeyboardPerformance.start()
@@ -96,6 +96,7 @@ final class JapaneseCandidateWorker {
                     let readyAt = KeyboardPerformance.start()
                     DispatchQueue.main.async { completion(ranked, readyAt, true) }
                 }
+                guard conversionLength == nil else { return }
                 let correctionStartedAt = KeyboardPerformance.start()
                 let corrected = storage.engine.addingCorrections(to: values, for: composing, katakana: katakana,
                     revision: revision, cancelled: { request.isCancelled })

@@ -37,12 +37,42 @@ final class KeyboardSession: KeyboardInputSession {
     private var committedLeftContext = ""
     private var lastPublishedInput = ""
     private var composing = ComposingText()
+    private var conversionLength: Int?
+    var conversionRangeDescription: String? {
+        guard isComposing else { return nil }
+        let reading = composition
+        let length = conversionLength ?? reading.count
+        return String(reading.prefix(length)) + "｜" + String(reading.dropFirst(length))
+    }
+    func adjustConversionRange(by delta: Int) {
+        guard isComposing else { return }
+        if conversionLength == nil, delta == -1,
+           let first = candidateSnapshots.first(where: { $0.fullConsumption && $0.lexical })?.candidate.data.first,
+           first.ruby.count < composing.convertTarget.count {
+            conversionLength = max(1, first.ruby.count)
+        } else {
+            conversionLength = max(1, min(composing.convertTarget.count,
+                (conversionLength ?? composing.convertTarget.count) + delta))
+        }
+        refresh()
+        onCandidatesChange?()
+    }
+    func resetConversionRange() {
+        conversionLength = nil
+        if isComposing { refresh(); onCandidatesChange?() }
+    }
     var raw: String { composing.input.compactMap { if case .character(let c) = $0.piece { return String(c) }; return nil }.joined() }
     private(set) var mode: InputMode = .hiragana
     private(set) var candidateSnapshots: [CandidateSnapshot] = []
     var candidates: [String] { candidateSnapshots.map(\.text) }
+    var candidateCount: Int { candidateSnapshots.count }
+    func candidatePage(offset: Int, limit: Int) -> [CandidatePresentation] {
+        let start = min(candidateSnapshots.count, max(0, offset))
+        let end = min(candidateSnapshots.count, start + max(0, limit))
+        return (start..<end).map { presentation(candidateSnapshots[$0].presentation, index: $0, kind: .composition) }
+    }
     var candidatePresentations: [CandidatePresentation] {
-        candidateSnapshots.enumerated().map { presentation($0.element.presentation, index: $0.offset, kind: .composition) }
+        candidatePage(offset: 0, limit: candidateSnapshots.count)
     }
     var candidatesAreCurrent: Bool { !candidatesPending }
     private(set) var selectedIndex: Int?
@@ -64,7 +94,7 @@ final class KeyboardSession: KeyboardInputSession {
     var suggestions: [String] { suggestionSnapshots.map(\.text) }
     private var suggestionGeneration = 0
     var stripPresentations: [CandidatePresentation] {
-        isComposing ? candidatePresentations : suggestionSnapshots.enumerated().map {
+        isComposing ? candidatePage(offset: 0, limit: max(20, (selectedIndex ?? 0) + 1)) : suggestionSnapshots.enumerated().map {
             presentation($0.element.presentation, index: $0.offset, kind: .suggestion)
         }
     }
@@ -125,6 +155,7 @@ final class KeyboardSession: KeyboardInputSession {
         // Preserve the word boundary even when typing resumes before a queued
         // space conversion finishes; current kana is a safe immediate fallback.
         if selectedIndex != nil || pendingSpaces > 0 || raw.count + text.count > 96 { edits += confirm() }
+        conversionLength = nil
         RomajiConverter.insert(text.lowercased().replacingOccurrences(of: "-", with: "ー"), into: &composing)
         refresh()
         return edits
@@ -148,6 +179,7 @@ final class KeyboardSession: KeyboardInputSession {
             }
             return [.deleteBackward]
         }
+        conversionLength = nil
         composing.deleteBackwardFromCursorPosition(count: 1)
         refresh()
         return []
@@ -194,6 +226,7 @@ final class KeyboardSession: KeyboardInputSession {
             engine?.resolveFeedback(event.id, accepted: false); worker?.resolveFeedback(event.id, accepted: false)
         }
         committedLeftContext = String((committedLeftContext + snapshot.text).suffix(96))
+        conversionLength = nil
         composing = snapshot.remainingComposition
         if composing.isEmpty { reset(preservingContext: true); requestSuggestions() }
         else { refresh(leftContextOverride: committedLeftContext) }
@@ -276,6 +309,7 @@ final class KeyboardSession: KeyboardInputSession {
         revision += 1
         candidatesPending = false
         pendingSpaces = 0
+        conversionLength = nil
         composing = ComposingText()
         if !preservingContext { committedLeftContext = "" }
         engine?.reset(preservingContext: preservingContext)
@@ -371,7 +405,7 @@ final class KeyboardSession: KeyboardInputSession {
             engine?.reconcileContext(leftContext)
             if isComposing { candidateRequestCount += 1 }
             candidateSnapshots = engine?.candidates(for: boundary ? PreeditPresentation.finalized(composing) : composing,
-                katakana: mode == .katakana, revision: revision) ?? []
+                katakana: mode == .katakana, revision: revision, conversionLength: conversionLength) ?? []
             candidateListGeneration += 1
             return
         }
@@ -390,7 +424,7 @@ final class KeyboardSession: KeyboardInputSession {
         let continuity = candidateSnapshots.first.map { CandidateContinuity(surface: $0.text, reading: $0.reading, input: lastPublishedInput) }
         worker.candidates(for: boundary ? PreeditPresentation.finalized(composing) : composing,
                           katakana: mode == .katakana, revision: requestedRevision, leftContext: leftContext, continuity: continuity,
-                          ranking: candidateRanking) { [weak self] values, resultReadyAt, supplementary in
+                          ranking: candidateRanking, conversionLength: conversionLength) { [weak self] values, resultReadyAt, supplementary in
             if let self, self.revision == requestedRevision { self.lastPublishedInput = requestedInput }
             self?.acceptCandidateUpdate(values, revision: requestedRevision, readyAt: resultReadyAt, supplementary: supplementary)
         }

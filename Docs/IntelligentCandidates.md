@@ -4,6 +4,8 @@
 
 这是首次候选改造的历史交付记录。2026-10-09 的学习与联想架构、宿主确认、词频衰减和模型评分见 [PersonalizationLearningTechnicalReport.md](PersonalizationLearningTechnicalReport.md)；本页原始性能与阶段限制保留为当时记录。
 
+2026-10-11 已移除 15 项展示截断，加入分段范围、部分候选学习、短词邻键纠错和语言数据包，见 [分段转换与语言资源报告](SegmentedConversionTechnicalReport.md)。
+
 ## 1. 排序异常的真实根因
 
 先保留行为，分别 dump `.manualMix`、`.autoMix` 的 `mainResults` / `predictionResults` 和旧 Vime presentation。完整结果见 `Artifacts/intelligent-candidates-baseline.json`。

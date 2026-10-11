@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "source": "https://www.edrdg.org/pub/Nihongo/JMdict_e.gz",
+  "sha256": "4855280c53bfd52c41194af2da37b7190a7b8c170f379d643555820dc9f5d10e",
+  "upstreamDate": "2026-10-11",
+  "license": "CC-BY-SA-4.0",
+  "copyright": "Electronic Dictionary Research and Development Group",
+  "modifications": "Filtered noun/slang entries; kana spelling preferences; excluded restricted senses and obsolete/vulgar entries.",
+  "updateCommand": "python3 Scripts/build_language_resources.py JMdict_e.gz",
+  "packs": {
+    "OrthographyPreferences.json": {
+      "count": 2000,
+      "sha256": "de6d311f9953e90b31d509b3a1af095bc0502d75e5a0634ae8c3b38f288cbd62"
+    },
+    "SupplementalLexicon.json": {
+      "count": 2000,
+      "sha256": "e2420ff42a8aef9c139cbfdec4f1cb4db41f1cc1c94ba890a401db26a8b94687"
+    }
+  }
+}

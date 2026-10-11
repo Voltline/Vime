@@ -198,7 +198,7 @@ struct ContentView: View {
     private var licenseText: String {
         guard let url = Bundle.main.url(forResource: "ThirdPartyNotices", withExtension: "txt"),
               let text = try? String(contentsOf: url, encoding: .utf8) else { return "开源词典许可文件未找到。" }
-        return "Vime 使用 azooKey 开源日语转换引擎及其默认词典。同时使用 SentencePiece 分词与 Vime 本地日语模型。转换、智能排序和词联想均在设备上离线完成。\n\n" + text
+        return "Vime 使用 azooKey 开源日语转换引擎及其默认词典。同时使用 SentencePiece 分词、Vime 本地日语模型，以及 EDRDG JMdict 衍生的表记与口语词库（CC BY-SA 4.0）。转换、智能排序和词联想均在设备上离线完成。\n\n" + text
     }
 }
 

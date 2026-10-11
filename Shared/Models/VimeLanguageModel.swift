@@ -184,7 +184,7 @@ nonisolated final class VimeLanguageModel {
     /// script choice, reading alternatives and corrections retain the engine's UI semantics.
     static func rerankingSlots(_ values: [CandidateSnapshot], katakana: Bool) -> [Int] {
         guard !katakana else { return [] }
-        return values.indices.filter { values[$0].source == .conversion && values[$0].fullConsumption
+        return values.indices.filter { (values[$0].source == .conversion || values[$0].source == .orthographicVariant) && values[$0].scopeFullConsumption && (values[$0].fullConsumption || values[$0].explicitScope)
             && values[$0].exactReading && values[$0].lexical }
     }
     func rerank(_ values: [CandidateSnapshot], context: String, katakana: Bool,
@@ -196,7 +196,7 @@ nonisolated final class VimeLanguageModel {
         let stop = { cancelled() || ProcessInfo.processInfo.systemUptime - started > 0.250 }
         guard let sums = try? scores(context: context, candidates: slots.map { values[$0].text }, cancelled: stop),
               !stop() else { return values }
-        let personalized = sums.indices.map { sums[$0] + values[slots[$0]].userPreferenceScore }
+        let personalized = sums.indices.map { sums[$0] + values[slots[$0]].userPreferenceScore + values[slots[$0]].features.orthography }
         let order = personalized.indices.sorted {
             personalized[$0] == personalized[$1] ? $0 < $1 : personalized[$0] > personalized[$1]
         }

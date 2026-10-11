@@ -54,12 +54,17 @@ nonisolated struct CandidateSelectionToken: Equatable, Sendable {
 
 @MainActor
 protocol KeyboardInputSession: AnyObject {
+    var conversionRangeDescription: String? { get }
+    func adjustConversionRange(by delta: Int)
+    func resetConversionRange()
     var inputTraits: KeyboardInputTraits { get }
     var hostEpoch: Int { get }
     var isComposing: Bool { get }
     var composition: String { get }
     var markedText: KeyboardPreedit? { get }
     var candidatePresentations: [CandidatePresentation] { get }
+    var candidateCount: Int { get }
+    func candidatePage(offset: Int, limit: Int) -> [CandidatePresentation]
     var stripPresentations: [CandidatePresentation] { get }
     var showsStrip: Bool { get }
     var candidatesAreCurrent: Bool { get }
@@ -90,4 +95,11 @@ protocol KeyboardInputSession: AnyObject {
 
 extension KeyboardInputSession {
     func reset() { reset(preservingContext: false) }
+    var conversionRangeDescription: String? { nil }
+    func adjustConversionRange(by delta: Int) {}
+    func resetConversionRange() {}
+    var candidateCount: Int { candidatePresentations.count }
+    func candidatePage(offset: Int, limit: Int) -> [CandidatePresentation] {
+        Array(candidatePresentations.dropFirst(max(0, offset)).prefix(max(0, limit)))
+    }
 }
