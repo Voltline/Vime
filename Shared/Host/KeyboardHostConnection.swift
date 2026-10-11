@@ -7,8 +7,9 @@ struct KeyboardUndoAnchor: Equatable {
     let selection: String?
 }
 
-/// Owns only the active marked range. UIKit replaces that range atomically;
-/// no reconstruction or backward deletion of the surrounding document is used.
+/// Tracks the preedit sent to the host. Each setMarkedText replaces its range;
+/// compound writes through a remote proxy are not an atomic transaction.
+/// No reconstruction or backward deletion of surrounding text is used.
 final class KeyboardHostConnection {
     private let setMarkedText: (String, NSRange) -> Void
     private let unmarkText: () -> Void
@@ -52,8 +53,21 @@ final class KeyboardHostConnection {
     }
 
     func apply(_ edits: [KeyboardEdit]) {
+        apply(edits, keepsMarkedSession: false)
+    }
+
+    /// A remote proxy can deliver unmarkText after subsequent setMarkedText
+    /// writes. While continuing a segmented conversion, replace the old mark
+    /// without ending the marked session; otherwise that delayed unmark commits
+    /// the new suffix and the next selection appends a duplicate.
+    func apply(_ edits: [KeyboardEdit], preedit: KeyboardPreedit?) {
+        apply(edits, keepsMarkedSession: preedit?.text.isEmpty == false)
+        updatePreedit(preedit)
+    }
+
+    private func apply(_ edits: [KeyboardEdit], keepsMarkedSession: Bool) {
         guard !edits.isEmpty else { return }
-        clearMarkedText()
+        clearMarkedText(endsSession: !keepsMarkedSession)
         for edit in edits {
             if case .undoLineDeletion = edit {} else { discardDeletionUndo() }
             switch edit {
@@ -80,10 +94,10 @@ final class KeyboardHostConnection {
         deletedLine = nil; onUndoAvailabilityChange?(false)
     }
 
-    private func clearMarkedText() {
+    private func clearMarkedText(endsSession: Bool = true) {
         guard markedText != nil else { return }
         setMarkedText("", NSRange(location: 0, length: 0))
-        unmarkText()
+        if endsSession { unmarkText() }
         markedPreedit = nil
     }
 }

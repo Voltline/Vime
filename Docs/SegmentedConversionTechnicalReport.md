@@ -182,3 +182,37 @@
 最终共 13 项不同用例通过（主复核 12 项，补充按钮绑定用例并重跑两条菜单路径）：5 项宿主/回执用例，默认模型模式下自动出现「天安」并接选「飯店」，完整菜单连续「天 → 安 → 飯店」，显式范围点击，分段学习/Roman 后缀保留，pending 范围确认与旧结果拒绝，自动多边界覆盖与取消，异步更新期间按下旧候选不提交替换项，以及原假名/未完成 Roman preedit 用例。菜单路径额外将目标滚动到可见区域，检查实际 UIWindow hit-test 命中候选按钮；选择事件仍由测试注入，不是实机触摸验收。App 与扩展 Debug 模拟器编译通过；没有全量测试、archive 或改变 1.0 / build 10。
 
 单个 Debug 模拟器 fixture 的展开补充耗时约 193–203ms，池含 160 项；这是词典隔离查询与归一排序的粗测，不是实机功耗或稳定延迟分位数。整个 12 项测试的测试体约 6.1s，Xcode/模拟器启动约 53s。补充异步工作不会阻塞 preedit；长输入仍受查询数量上限约束，可通过显式范围完成更细查询。
+
+## 真实键盘扩展的 marked session 修复（2026-10-11）
+
+用户再次报告连续选择「天」「安」后得到 `天あんはんてん安はんてん`。前两次验证使用 App 进程内的 UIKit 文本框及模拟 proxy，没有运行 iOS 加载的扩展；它们覆盖了消费范围与 context 回调，但漏掉了远程 marked-session 操作的实际时序。
+
+这次首页试打改为普通 `UITextView`，不设置 `inputView`，不创建 `KeyboardView`。用户添加并通过地球键选择 Vime 后，iOS 加载独立的键盘扩展。另增加「键盘扩展试打与记录」页面，展示宿主实际 `markedTextRange` 对应的待确认文本，最多保留 64 条内存快照；仅点击「复制测试记录」时写入剪贴板，不持久化或自动输出正文。SwiftUI 更新不回写正文或 selection，避免测试宿主自己破坏 mark；显式清空先结束焦点再替换正文。开发用 `KeyboardSandbox` 保留源码，但首页不再以它代替扩展。
+
+### 真实失败对照
+
+新增独立 `VimeExtensionTests` scheme / `VimeExtensionUITests` target，使用 XCUITest 点击真正的扩展键帽、展开候选及滚动分页。它不直接调用 session、按钮 action 或模拟 proxy，也不修改系统键盘偏好；运行前需启用并选中 Vime。默认 `Vime` scheme 的测试与发布构建保持原样。
+
+在 iOS 27.0 / iPhone 16 Pro Max 模拟器中，旧逻辑的实际宿主轨迹如下（range 使用 UTF-16）：
+
+```text
+insertText(1)           text=天             mark=nil
+selectionDidChange     text=天あんはんてん   mark={1,6}
+textDidChange          text=天あんはんてん   mark={1,6}
+selectionDidChange     text=天あんはんてん   mark=nil
+unmarkText             text=天あんはんてん   mark=nil
+```
+
+即扩展先请求清空旧 mark、`unmarkText`、插入前段、设置后段，但宿主实际在新后段设置完成后才执行 `unmarkText`。后段文字仍在，替换关系却丢失；下一次 `setMarkedText` 会在当前 selection 插入，而不是替换那份后段。不同宿主可能继续保留 session，造成用户报告的重复；此次模拟器也观察到 session reset。回执只识别 context，无法把已经取消的真实标记恢复，继续放宽回调规则无助于解决这一点。[Apple 的 setMarkedText 语义](https://developer.apple.com/documentation/uikit/uitextdocumentproxy/setmarkedtext(_:selectedrange:))明确区分现有 mark 的替换与无 mark 时的插入；[unmarkText](https://developer.apple.com/documentation/uikit/handling-text-interactions-in-custom-keyboards)保留文字并结束标记。
+
+### 修复范围
+
+`KeyboardHostConnection.apply(_:preedit:)` 在同一入口接收前段 edits 与剩余 preedit。还有非空后段时，使用空 mark 替换移除旧草稿，插入前段，再标记新后段，**不发送 `unmarkText`**。整段完成、取消或普通结束路径保留原来的结束标记行为。扩展控制器与开发沙盒均使用这一入口；没有向后删除正文、自动冻结候选、增加时间宽限或改动 Roman/preedit 生成规则。
+
+选中前段后，展开菜单的分页上限和滚动位置回到首屏，让新后段候选从头展示；仅在真实前段提交且仍有 composition 时重置，不在异步 rerank 发布时重置滚动。补充延迟执行 unmark 的控制器回归用例，避免再次用同步假 proxy 掩盖此缺陷。UI 测试还等待候选滚动位置停稳，防止惯性滚动期间一次触摸只停止滚动而未选词；这是测试定位处理，不是输入主路径 debounce。
+
+### 验证边界
+
+两台配对 iPhone 均尝试了真实 UI 自动测试：iPhone 16 Pro Max / iOS 27.2 Beta 的 runner 在取到测试配置前发生 IDE 通道断开，重复尝试仍以 code 74 退出；iPhone 13 Pro / iOS 27.0.1 的开发者测试服务未就绪，等待连接超时。修复版已完成签名的 Debug 实机构建，安装到 iPhone 16 并打开真正的扩展试打页面，版本保持 1.0 / build 10。这些事实不代表已经手动验收备忘录或 ChatGPT，也不代表所有宿主行为一致。最终模拟器真实扩展与定向单元测试结果记录在 [HostMarkedSession20261011.json](Validation/HostMarkedSession20261011.json)。
+
+最终真实模拟器扩展 UI 测试通过：连续「天 → 安 → 飯店」，宿主依次显示 `天あんはんてん`（mark 为 `あんはんてん`）、`天安はんてん`（mark 为 `はんてん`）、`天安飯店`（mark 为 nil）；随后 `desu`、删除一个显示假名、重新输入 `su` 并确认，得到 `天安飯店です`。最终测试体 45.6s，包含系统 UI 自动化和滚动等待，不是输入延迟指标。8 项相关控制器/回执、preedit、取消/光标边界测试全部通过，测试体约 1.1s。没有扩大全量回归。

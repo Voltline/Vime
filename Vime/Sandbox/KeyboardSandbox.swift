@@ -69,6 +69,10 @@ struct KeyboardSandbox: UIViewRepresentable {
             guard let view, let coordinator else { return }
             coordinator.performKeyboardEdit(in: view) { coordinator.host?.apply(edits) }
         }
+        keyboard.onEditsAndPreeditChange = { [weak view, weak coordinator = context.coordinator] edits, preedit in
+            guard let view, let coordinator else { return }
+            coordinator.performKeyboardEdit(in: view) { coordinator.host?.apply(edits, preedit: preedit) }
+        }
         keyboard.onPreeditChange = { [weak view, weak coordinator = context.coordinator] preedit in
             guard let view, let coordinator else { return }
             coordinator.performKeyboardEdit(in: view) { coordinator.host?.updatePreedit(preedit) }

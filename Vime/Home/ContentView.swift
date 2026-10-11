@@ -4,6 +4,7 @@ struct ContentView: View {
     @State private var text = ""
     @State private var composition = ""
     @State private var focusRequest = 0
+    @State private var clearRequest = 0
     @State private var showingGuide = false
     @State private var showingNotices = false
     @State private var showingSettings = false
@@ -45,7 +46,7 @@ struct ContentView: View {
                             Text("试着输入一句日语").font(.headline)
                             Spacer()
                             if !text.isEmpty {
-                                Button("清空") { text = ""; composition = "" }
+                                Button("清空") { text = ""; composition = ""; clearRequest += 1 }
                                     .font(.subheadline)
                                     .tint(.secondary)
                             }
@@ -59,11 +60,11 @@ struct ContentView: View {
                                     .padding(.top, 17)
                                     .allowsHitTesting(false)
                             }
-                            KeyboardSandbox(text: $text, composition: $composition, focusRequest: focusRequest)
+                            SystemKeyboardEditor(text: $text, composition: $composition, focusRequest: focusRequest, clearRequest: clearRequest)
                                 .frame(height: 142)
                         }
                         .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14))
-                        Text(composition.isEmpty ? "nihongo → にほんご → 日本語" : "正在输入：\(composition)")
+                        Text(composition.isEmpty ? "使用系统键盘，长按地球键选择 Vime 日本語" : "正在输入：\(composition)")
                             .font(.caption)
                             .foregroundStyle(composition.isEmpty ? Color.secondary : blue)
                         Button { focusRequest += 1 } label: {
@@ -75,6 +76,12 @@ struct ContentView: View {
                         .buttonStyle(.borderedProminent)
                         .tint(blue)
                     }
+
+                    NavigationLink { KeyboardExtensionTestView() } label: {
+                        Label("键盘扩展试打与记录", systemImage: "keyboard")
+                            .font(.subheadline)
+                    }
+                    .tint(blue)
 
                     Button { showingSettings = true } label: {
                         HStack {

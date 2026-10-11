@@ -31,6 +31,13 @@
 			remoteGlobalIDString = B2ED4C073071EF7600C73DB0;
 			remoteInfo = Vime;
 		};
+		D2000000000000000000000A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B2ED4C003071EF7600C73DB0 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B2ED4C073071EF7600C73DB0;
+			remoteInfo = Vime;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -49,6 +56,7 @@
 		B2ED4C083071EF7600C73DB0 /* Vime.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Vime.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C10000000000000000000002 /* VimeKeyboard.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = VimeKeyboard.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		D10000000000000000000001 /* VimeKeyboardTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; path = VimeKeyboardTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		D20000000000000000000001 /* VimeExtensionUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; path = VimeExtensionUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -122,6 +130,11 @@
 			path = Tests/UIKit;
 			sourceTree = "<group>";
 		};
+		D20000000000000000000003 /* Tests/ExtensionUI */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Tests/ExtensionUI;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -146,6 +159,11 @@
 				A81000000000000000000003 /* VimeSentencePiece in Frameworks */,
 			);
 		};
+		D20000000000000000000007 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+			);
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -156,6 +174,7 @@
 				C10000000000000000000007 /* Keyboard */,
 				C10000000000000000000008 /* Shared */,
 				D10000000000000000000003 /* Tests/UIKit */,
+				D20000000000000000000003 /* Tests/ExtensionUI */,
 				B2ED4C093071EF7600C73DB0 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -166,6 +185,7 @@
 				B2ED4C083071EF7600C73DB0 /* Vime.app */,
 				C10000000000000000000002 /* VimeKeyboard.appex */,
 				D10000000000000000000001 /* VimeKeyboardTests.xctest */,
+				D20000000000000000000001 /* VimeExtensionUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -252,6 +272,27 @@
 			productReference = D10000000000000000000001 /* VimeKeyboardTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		D20000000000000000000004 /* VimeExtensionUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D20000000000000000000005 /* Build configuration list for PBXNativeTarget "VimeExtensionUITests" */;
+			buildPhases = (
+				D20000000000000000000006 /* Sources */,
+				D20000000000000000000007 /* Frameworks */,
+				D20000000000000000000008 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				D20000000000000000000009 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				D20000000000000000000003 /* Tests/ExtensionUI */,
+			);
+			name = VimeExtensionUITests;
+			productName = VimeExtensionUITests;
+			productReference = D20000000000000000000001 /* VimeExtensionUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -289,6 +330,7 @@
 				B2ED4C073071EF7600C73DB0 /* Vime */,
 				C10000000000000000000004 /* VimeKeyboard */,
 				D10000000000000000000004 /* VimeKeyboardTests */,
+				D20000000000000000000004 /* VimeExtensionUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -305,6 +347,11 @@
 			);
 		};
 		D10000000000000000000008 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
+		D20000000000000000000008 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			files = (
 			);
@@ -366,6 +413,11 @@
 			files = (
 			);
 		};
+		D20000000000000000000006 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -378,6 +430,11 @@
 			isa = PBXTargetDependency;
 			target = B2ED4C073071EF7600C73DB0 /* Vime */;
 			targetProxy = D1000000000000000000000A /* PBXContainerItemProxy */;
+		};
+		D20000000000000000000009 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B2ED4C073071EF7600C73DB0 /* Vime */;
+			targetProxy = D2000000000000000000000A /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -675,6 +732,36 @@
 			};
 			name = Release;
 		};
+		D2000000000000000000000B /* Debug configuration for PBXNativeTarget "VimeExtensionUITests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 8R5Q4A3RC7;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.Voltline.Vime.ExtensionUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Vime;
+			};
+			name = Debug;
+		};
+		D2000000000000000000000C /* Release configuration for PBXNativeTarget "VimeExtensionUITests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 8R5Q4A3RC7;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.Voltline.Vime.ExtensionUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Vime;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -707,6 +794,14 @@
 			buildConfigurations = (
 				D1000000000000000000000B /* Debug configuration for PBXNativeTarget "VimeKeyboardTests" */,
 				D1000000000000000000000C /* Release configuration for PBXNativeTarget "VimeKeyboardTests" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		D20000000000000000000005 /* Build configuration list for PBXNativeTarget "VimeExtensionUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D2000000000000000000000B /* Debug configuration for PBXNativeTarget "VimeExtensionUITests" */,
+				D2000000000000000000000C /* Release configuration for PBXNativeTarget "VimeExtensionUITests" */,
 			);
 			defaultConfigurationName = Release;
 		};

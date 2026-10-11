@@ -42,9 +42,15 @@ final class KeyboardDelayedHostCommitTests: XCTestCase {
         try await exerciseHost(excludesMark: true)
     }
 
-    private func exerciseHost(replayStages: Bool = false, excludesMark: Bool = false) async throws {
+    func testPartialCommitNeverQueuesUnmarkAfterNewSuffix() async throws {
+        try await exerciseHost(delaysUnmark: true)
+    }
+
+    private func exerciseHost(replayStages: Bool = false, excludesMark: Bool = false,
+                              delaysUnmark: Bool = false) async throws {
         let controller = DelayedHostController()
         controller.proxy.excludesMark = excludesMark
+        controller.proxy.delaysUnmark = delaysUnmark
         controller.loadViewIfNeeded()
         controller.viewWillAppear(false)
         let window = UIWindow(frame: UIScreen.main.bounds)
@@ -71,6 +77,7 @@ final class KeyboardDelayedHostCommitTests: XCTestCase {
         }
         controller.proxy.captureStages = replayStages
         try XCTUnwrap(prefix).sendActions(for: .touchUpInside)
+        controller.proxy.deliverQueuedUnmark()
         XCTAssertEqual(controller.proxy.text.text, "天あんはんてん")
         XCTAssertEqual(keyboard.accessibilityValue, "输入中：あんはんてん")
         // The proxy returns the pre-insertion context during the write, then
@@ -122,6 +129,8 @@ private final class DelayedDocumentProxy: NSObject, UITextDocumentProxy {
     private var delayed = false
     var excludesMark = false
     var captureStages = false
+    var delaysUnmark = false
+    private var queuedUnmark = false
     var stages: [(String?, String?)] = []
     func publish(before: String?, after: String?) {
         publishedBefore = before; publishedAfter = after
@@ -156,5 +165,11 @@ private final class DelayedDocumentProxy: NSObject, UITextDocumentProxy {
         capture()
         if !delayed { acknowledge() }
     }
-    func unmarkText() { text.unmarkText(); capture(); if !delayed { acknowledge() } }
+    func unmarkText() {
+        if delaysUnmark { queuedUnmark = true; return }
+        text.unmarkText(); capture(); if !delayed { acknowledge() }
+    }
+    func deliverQueuedUnmark() {
+        if queuedUnmark { text.unmarkText(); capture(); queuedUnmark = false }
+    }
 }

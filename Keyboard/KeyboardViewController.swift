@@ -175,8 +175,7 @@ class KeyboardViewController: UIInputViewController {
             selection: proxy.selectedText, ownedMark: host.markedText, edits: edits, preedit: preedit)
         isApplyingEdits = true
         defer { isApplyingEdits = false }
-        host.apply(edits)
-        host.updatePreedit(preedit)
+        host.apply(edits, preedit: preedit)
         rememberContext()
     }
 

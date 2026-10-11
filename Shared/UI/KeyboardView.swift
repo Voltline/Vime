@@ -622,6 +622,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         candidateScroll.accessibilityIdentifier = "vime.candidates"
         configureScroll(candidateScroll)
         configureScroll(panelScroll)
+        panelScroll.accessibilityIdentifier = "vime.candidates.panel"
         candidateScroll.showsHorizontalScrollIndicator = false
         candidateScroll.addSubview(candidateRow)
         header.addSubview(expandButton)
@@ -1045,6 +1046,12 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
             publishPreedit()
         }
         if !session.isComposing { expanded = false }
+        else if !edits.isEmpty && expanded {
+            // A committed prefix starts a new suffix candidate list. Keeping
+            // the old page can hide its leading candidates above the viewport.
+            panelLimit = 40
+            panelScroll.setContentOffset(.zero, animated: false)
+        }
         if !edits.isEmpty { session.didApplyEdits(edits) }
         KeyboardPerformance.record(.typeToMarked, since: session.takeInputTiming())
         onCompositionChange?(session.composition)
