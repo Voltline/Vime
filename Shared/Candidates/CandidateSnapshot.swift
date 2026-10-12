@@ -1,6 +1,16 @@
 import Foundation
 import KanaKanjiConverterModuleWithDefaultDictionary
 
+nonisolated enum CandidateWidthVariant: String, Codable, Sendable {
+    case halfWidthKatakana, fullWidthAlphanumeric
+    var annotation: String {
+        switch self {
+        case .halfWidthKatakana: "半角片假名"
+        case .fullWidthAlphanumeric: "全角英数字"
+        }
+    }
+}
+
 /// Preserve the engine's original candidate, including ruby, data and consuming
 /// count. The remainder is resolved against the exact request snapshot off-main.
 nonisolated struct CandidateSnapshot: Sendable {
@@ -21,6 +31,7 @@ nonisolated struct CandidateSnapshot: Sendable {
     var scopeReading = ""
     var explicitScope = false
     var displaySurface: String? = nil
+    var widthVariant: CandidateWidthVariant? = nil
     var scopeFullConsumption: Bool { scopeReading.isEmpty ? fullConsumption : reading == scopeReading }
     var orthographyScore = 0.0
     var features = CandidateScoreFeatures()
@@ -40,14 +51,15 @@ nonisolated struct CandidateSnapshot: Sendable {
     var engineScore: Double { Double(candidate.value) }
     var composingCount: ComposingCount { candidate.composingCount }
     var scriptType: CandidateScript { CandidateScript.classify(text) }
-    var lexical: Bool { source != .specialConversion && source != .emoji && JapaneseCandidateEngine.hasDictionaryEvidence(candidate) }
+    var lexical: Bool { widthVariant == nil && source != .specialConversion && source != .emoji && JapaneseCandidateEngine.hasDictionaryEvidence(candidate) }
     var learningEligible: Bool { candidate.isLearningTarget && lexical && source != .scriptVariant && displaySurface == nil }
     var hasLearningEvidence: Bool { candidate.data.contains { $0.metadata.contains(.isLearned) } }
     var presentation: CandidatePresentation {
         .init(text: text, source: source, consumedInputCount: consumedInputCount, correction: correction,
-            detailAnnotation: source == .specialConversion ? "格式转换" : source == .emoji ? "表情"
+            detailAnnotation: widthVariant.map { $0.annotation + (fullConsumption ? "" : " · 前段") }
+                ?? (source == .specialConversion ? "格式转换" : source == .emoji ? "表情"
                 : source == .userDictionary ? "用户词典"
-                : !fullConsumption ? (reading.applyingTransform(.hiraganaToKatakana, reverse: true) ?? reading) + " · 前段" : nil)
+                : !fullConsumption ? (reading.applyingTransform(.hiraganaToKatakana, reverse: true) ?? reading) + " · 前段" : nil))
     }
 
     init(candidate: Candidate, revision: Int, source: CandidateSource, remainingComposition: ComposingText,

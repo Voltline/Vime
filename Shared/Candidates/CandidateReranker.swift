@@ -203,6 +203,7 @@ nonisolated struct CandidateDiagnostic: Codable, Sendable {
     let learned: Bool
     let scriptType: CandidateScript
     let learningEligible: Bool
+    let widthVariant: CandidateWidthVariant?
     let revision: Int
     let scores: CandidateScoreFeatures
     let finalScore: Double
@@ -219,7 +220,7 @@ nonisolated struct CandidateDiagnostic: Codable, Sendable {
         exactReading = value.exactReading; fullConsumption = value.fullConsumption
         consumedReadingCount = value.consumedReadingCount; scopeReading = value.scopeReading
         engineFullConsumption = value.engineFullConsumption; learned = value.hasLearningEvidence
-        scriptType = value.scriptType; learningEligible = value.learningEligible
+        scriptType = value.scriptType; learningEligible = value.learningEligible; widthVariant = value.widthVariant
         revision = value.revision; scores = value.features; finalScore = scores.total; finalRank = rank
     }
 }

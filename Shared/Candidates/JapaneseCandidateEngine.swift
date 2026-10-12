@@ -68,6 +68,7 @@ nonisolated final class JapaneseCandidateEngine {
     private var alternativeSession: KanaKanjiConverter.ConversionSessionID?
     private var classicTypoSession: KanaKanjiConverter.ConversionSessionID?
     private var prefixSession: KanaKanjiConverter.ConversionSessionID?
+    private var widthSession: KanaKanjiConverter.ConversionSessionID?
     private var installedWords: [DicdataElement] = []
     private var correctionSession: KanaKanjiConverter.ConversionSessionID?
     private var correctionCache: [String: [Candidate]] = [:]
@@ -293,6 +294,67 @@ nonisolated final class JapaneseCandidateEngine {
         let base = rank(currentPool, query: query, katakana: katakana)
         previousTop = base.first.map { .init(surface: $0.text, reading: $0.reading, input: Self.rawInput(query)) }
         return includeCorrections && conversionLength == nil ? addingCorrections(to: base, for: query, katakana: katakana, revision: revision) : base
+    }
+
+    /// Expanded-panel formatting uses native options on isolated queries. Raw
+    /// Roman input is queried directly for full-width letters, so resolved kana
+    /// does not replace the user's original spelling. No dictionary is duplicated
+    func addingWidthCandidates(to base: [CandidateSnapshot], for composing: ComposingText,
+                               katakana: Bool, revision: Int, conversionLength: Int? = nil,
+                               cancelled: () -> Bool = { false }) -> [CandidateSnapshot] {
+        guard !composing.isEmpty, !cancelled() else { return base }
+        var query = composing
+        if let length = conversionLength {
+            _ = query.moveCursorFromCursorPosition(count: length - query.convertTargetCursorPosition)
+            query = query.prefixToCursorPosition()
+        }
+        let raw = Self.rawInput(query)
+        let reading = RomajiConverter.katakana(query.convertTarget)
+        var requests: [(ComposingText, CandidateWidthVariant, String)] = []
+        if !reading.unicodeScalars.contains(where: { $0.isASCII && CharacterSet.letters.contains($0) }),
+           let half = reading.applyingTransform(.fullwidthToHalfwidth, reverse: false),
+           half != reading, half.unicodeScalars.contains(where: { (0xFF66...0xFF9D).contains($0.value) }) {
+            requests.append((query, .halfWidthKatakana, half))
+        }
+        if !raw.isEmpty, raw.unicodeScalars.allSatisfy(\.isASCII),
+           raw.unicodeScalars.contains(where: { CharacterSet.alphanumerics.contains($0) }),
+           let full = raw.applyingTransform(.fullwidthToHalfwidth, reverse: true), full != raw {
+            var direct = ComposingText(); direct.insertAtCursorPosition(raw, inputStyle: .direct)
+            requests.append((direct, .fullWidthAlphanumeric, full))
+        }
+        guard !requests.isEmpty else { return base }
+        let session = widthSession ?? converter.createSession(); widthSession = session
+        var pool = base
+        for (input, kind, surface) in requests {
+            guard !cancelled() else { return base }
+            var widthOptions = options
+            widthOptions.requireJapanesePrediction = .disabled
+            widthOptions.fullWidthRomanCandidate = kind == .fullWidthAlphanumeric
+            widthOptions.halfWidthKanaCandidate = kind == .halfWidthKatakana
+            let result = try? converter.withSession(session) {
+                converter.stopComposition()
+                return converter.requestCandidates(input, options: widthOptions)
+            }
+            guard var candidate = result?.mainResults.first(where: { $0.inputable && $0.text == surface }) else { continue }
+            var rest = input; rest.prefixComplete(composingCount: candidate.composingCount)
+            guard rest.isEmpty else { continue }
+            // A direct query counts raw characters differently from Roman input
+            candidate.composingCount = .inputCount(query.input.count)
+            candidate.isLearningTarget = false
+            let remainder = conversionLength == nil ? ComposingText()
+                : CompositionSegmentBoundary.remainder(of: composing, consuming: query.convertTarget.count)
+            var value = CandidateSnapshot(candidate: candidate, revision: revision, source: .scriptVariant,
+                remainingComposition: remainder, originalInputCount: composing.input.count,
+                consumedInputCount: composing.input.count - remainder.input.count,
+                queryReading: RomajiConverter.katakana(composing.convertTarget), engineFullConsumption: true, readingOverride: reading)
+            value.widthVariant = kind
+            value.consumedReadingCount = query.convertTarget.count
+            if conversionLength != nil { value.scopeReading = reading; value.explicitScope = true }
+            pool.append(value)
+        }
+        guard !cancelled() else { return base }
+        currentPool = pool
+        return rank(pool, query: composing, katakana: katakana)
     }
 
     /// Rich segmentation is requested only for the expanded panel. Enumerate

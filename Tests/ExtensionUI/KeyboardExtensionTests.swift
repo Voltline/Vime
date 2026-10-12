@@ -21,7 +21,7 @@ final class KeyboardExtensionTests: XCTestCase {
         }
         if !app.buttons["vime.key.t"].waitForExistence(timeout: 3) {
             let globe = app.buttons.matching(NSPredicate(format:
-                "label IN %@", ["Next keyboard", "下一键盘", "切换系统键盘", "次のキーボード"] as NSArray))
+                "label IN %@", ["Next keyboard", "下一键盘", "下一个键盘", "切换系统键盘", "次のキーボード"] as NSArray))
             for _ in 0..<6 {
                 guard !app.buttons["vime.key.t"].exists, globe.firstMatch.exists else { break }
                 globe.firstMatch.tap()
@@ -123,5 +123,17 @@ final class KeyboardExtensionTests: XCTestCase {
         app.buttons["vime.key.a"].tap()
         app.buttons["vime.key.return"].tap()
         try expect("天安飯店ですかな", mark: "无")
+        // Select native width variants through the real extension's menu.
+        // Opening it must preserve the host's current marked range.
+        for char in "gakkou" { app.buttons["vime.key.\(char)"].tap() }
+        app.buttons["vime.candidates.expand"].tap()
+        try expect("天安飯店ですかながっこう", mark: "がっこう")
+        try select("ｶﾞｯｺｳ")
+        try expect("天安飯店ですかなｶﾞｯｺｳ", mark: "无")
+        for char in "abc" { app.buttons["vime.key.\(char)"].tap() }
+        app.buttons["vime.candidates.expand"].tap()
+        try expect("天安飯店ですかなｶﾞｯｺｳあbc", mark: "あbc")
+        try select("ａｂｃ")
+        try expect("天安飯店ですかなｶﾞｯｺｳａｂｃ", mark: "无")
     }
 }

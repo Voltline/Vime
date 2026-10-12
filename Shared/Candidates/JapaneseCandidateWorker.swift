@@ -109,9 +109,12 @@ final class JapaneseCandidateWorker {
                     return storage.languageModel?.rerank(values, context: sentence, katakana: katakana,
                         cancelled: { request.isCancelled }) ?? values
                 }
+                let formatted = expanded
+                    ? storage.engine.addingWidthCandidates(to: values, for: composing, katakana: katakana,
+                        revision: revision, conversionLength: conversionLength, cancelled: { request.isCancelled }) : values
                 let enriched = expanded && conversionLength == nil
-                    ? storage.engine.addingPrefixCandidates(to: values, for: composing, katakana: katakana,
-                        revision: revision, cancelled: { request.isCancelled }) : values
+                    ? storage.engine.addingPrefixCandidates(to: formatted, for: composing, katakana: katakana,
+                        revision: revision, cancelled: { request.isCancelled }) : formatted
                 guard !request.isCancelled else { return }
                 // Prefix choices are useful immediately; a cold LM must not
                 // hold the expanded menu's dictionary supplementation hostage.

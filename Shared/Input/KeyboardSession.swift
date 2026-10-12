@@ -519,6 +519,11 @@ final class KeyboardSession: KeyboardInputSession {
             if isComposing { candidateRequestCount += 1 }
             candidateSnapshots = engine?.candidates(for: boundary ? PreeditPresentation.finalized(composing) : composing,
                 katakana: mode == .katakana, revision: revision, conversionLength: conversionLength) ?? []
+            if expandedCandidates {
+                candidateSnapshots = engine?.addingWidthCandidates(to: candidateSnapshots,
+                    for: boundary ? PreeditPresentation.finalized(composing) : composing,
+                    katakana: mode == .katakana, revision: revision, conversionLength: conversionLength) ?? candidateSnapshots
+            }
             if expandedCandidates && conversionLength == nil {
                 candidateSnapshots = engine?.addingPrefixCandidates(to: candidateSnapshots, for: composing,
                     katakana: mode == .katakana, revision: revision) ?? candidateSnapshots
