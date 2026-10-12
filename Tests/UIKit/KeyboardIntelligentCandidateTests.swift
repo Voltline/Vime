@@ -115,7 +115,9 @@ final class KeyboardIntelligentCandidateTests: XCTestCase {
             records.append(.init(input: raw, raw: engine.rawDiagnostics, final: engine.finalDiagnostics))
         }
         let typo = engine.candidates(for: query("shitsuka"), revision: 2)
-        let correction = try XCTUnwrap(typo.first { $0.text == "静か" && $0.source == .typoCorrection })
+        print("INTELLIGENT_CORRECTION metrics=\(engine.lastCorrectionMetrics) queries=\(engine.correctionQueryDiagnostics) surfaces=\(typo.map(\.text))")
+        let correction = try XCTUnwrap(typo.first { $0.text == "静か" && $0.source == .typoCorrection },
+            "Missing correction: \(engine.lastCorrectionMetrics); queries=\(engine.correctionQueryDiagnostics)")
         XCTAssertEqual(correction.correction?.originalInput, "shitsuka")
         XCTAssertEqual(correction.correction?.correctedReading, "しずか")
         XCTAssertTrue(correction.fullConsumption)

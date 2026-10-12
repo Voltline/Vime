@@ -112,7 +112,7 @@ final class KeyboardNativeFeaturesTests: XCTestCase {
     }
 
     func testNativeAsyncPublicationAndTypingCancelsSuggestions() async throws {
-        let session = KeyboardSession(asynchronousCandidates: true)
+        let session = KeyboardSession(asynchronousCandidates: true, memoryDirectoryURL: isolatedLearningDirectory())
         session.phraseSuggestions = true; session.candidateRanking = .engine
         _ = session.type("desu")
         for _ in 0..<200 where !session.candidatesAreCurrent { try await Task.sleep(for: .milliseconds(10)) }

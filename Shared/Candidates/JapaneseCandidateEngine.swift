@@ -904,6 +904,16 @@ nonisolated final class JapaneseCandidateEngine {
         }
     }
 
+    /// No converter/session reset: current candidates and staged learning must
+    /// remain usable when UIKit asks the keyboard to reduce memory
+    func discardTransientCaches() {
+        correctionCache.removeAll(keepingCapacity: false)
+        correctionCacheOrder.removeAll(keepingCapacity: false)
+        rawDiagnostics.removeAll(keepingCapacity: false)
+        finalDiagnostics.removeAll(keepingCapacity: false)
+        correctionQueryDiagnostics.removeAll(keepingCapacity: false)
+    }
+
 }
 
 nonisolated struct CorrectionSearchMetrics: Codable, Sendable {

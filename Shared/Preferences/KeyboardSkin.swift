@@ -86,10 +86,10 @@ nonisolated struct KeyboardSkinDocument: Codable, Identifiable, Equatable, Senda
         case invalid, image, tooLarge, full
         var errorDescription: String? {
             switch self {
-            case .invalid: "皮肤格式或颜色无效，请使用 Vime 导出的皮肤文件。"
-            case .image: "图片无效或过大。仅支持 PNG/JPEG，总像素不超过 500 万。"
-            case .tooLarge: "皮肤文件不能超过 8 MB。"
-            case .full: "最多保留 30 个自定义皮肤，请先删除不需要的皮肤。"
+            case .invalid: "皮肤格式或颜色无效，请使用 Vime 导出的皮肤文件"
+            case .image: "图片无效或过大，仅支持 PNG/JPEG，总像素不超过 500 万"
+            case .tooLarge: "皮肤文件不能超过 8 MB"
+            case .full: "最多保留 30 个自定义皮肤，请先删除不需要的皮肤"
             }
         }
     }

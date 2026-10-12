@@ -20,78 +20,228 @@ struct KeyboardSkinFile: FileDocument {
 }
 
 struct KeyboardSkinsView: View {
-    var initialURL: URL?
-    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var router: AppRouter
+    @Environment(\.colorScheme) private var colorScheme
     @State private var skins: [KeyboardSkinStore.Summary] = []
     @State private var selectedID = KeyboardPreferences().customSkinID
-    @State private var editing: KeyboardSkinDocument?
+    @State private var previewDocument: KeyboardSkinDocument?
     @State private var importing = false
     @State private var exporting = false
     @State private var exportFile: KeyboardSkinFile?
     @State private var error: String?
     @State private var deleting: KeyboardSkinStore.Summary?
+    @AppStorage("vime.theme", store: KeyboardPreferences().store) private var theme: KeyboardTheme = .system
     private let store = KeyboardSkinStore()
 
     var body: some View {
-        NavigationStack {
-            List {
-                Section {
-                    Button("创建皮肤", systemImage: "paintpalette") { editing = KeyboardSkinDocument() }
-                    Button("导入皮肤文件", systemImage: "square.and.arrow.down") { importing = true }
-                } footer: {
-                    Text("支持 .vimeskin 文件，也可从「文件」App 分享到 Vime。配色、背景和按键图片随文件一起导入。")
-                }
-                Section("我的皮肤") {
-                    ForEach(skins) { skin in
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(skin.name)
-                                if selectedID == skin.id && KeyboardPreferences().theme == .custom {
-                                    Text("当前使用").font(.caption).foregroundStyle(.blue)
-                                }
-                            }
-                            Spacer()
-                            Menu {
-                                Button("使用") { perform { store.select(try store.load(skin.id)); reload() } }
-                                Button("编辑") { perform { editing = try store.load(skin.id) } }
-                                Button("导出") { perform { exportFile = KeyboardSkinFile(try store.load(skin.id)); exporting = true } }
-                                Button("删除", role: .destructive) { deleting = skin }
-                            } label: { Image(systemName: "ellipsis.circle").padding(8) }
-                        }
-                        .contentShape(Rectangle())
-                        .onTapGesture { perform { store.select(try store.load(skin.id)); reload() } }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 26) {
+                currentSkinSection
+                builtInSection
+                customSkinSection
+                VStack(alignment: .leading, spacing: 12) {
+                    sectionTitle("布局")
+                    HStack(spacing: 12) {
+                        Button("键盘高度", systemImage: "arrow.up.and.down") { router.present(.height) }
+                        NavigationLink { KeyboardFeedbackSettingsView() } label: { Label("输入布局", systemImage: "keyboard") }
                     }
-                    if skins.isEmpty { Text("创建或导入第一款皮肤").foregroundStyle(.secondary) }
+                    .buttonStyle(SkinActionButtonStyle())
                 }
             }
-            .navigationTitle("我的皮肤")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("完成") { dismiss() } } }
-            .task {
-                reload()
-                if let initialURL { importSkin(initialURL) }
+            .frame(maxWidth: 740, alignment: .leading)
+            .padding(20).frame(maxWidth: .infinity)
+        }
+        .background(Color(uiColor: .systemGroupedBackground))
+        .disabled(router.importing)
+        .navigationTitle("定制")
+        .onAppear(perform: reload)
+        .onChange(of: router.skinRevision) { reload() }
+        .onChange(of: theme) { reload() }
+        .onChange(of: colorScheme) { reload() }
+        .fileImporter(isPresented: $importing, allowedContentTypes: [.vimeSkin, .json], onCompletion: router.finishFilePicker)
+        .fileExporter(isPresented: $exporting, document: exportFile, contentType: .vimeSkin,
+                      defaultFilename: exportFile?.document.name ?? "Vime皮肤") { result in
+            if case .failure(let failure) = result { error = failure.localizedDescription }
+            router.finishExport()
+        }
+        .alert("皮肤操作失败", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) {
+            Button("好", role: .cancel) { error = nil }
+        } message: { Text(error ?? "") }
+        .confirmationDialog("删除这个皮肤？", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }), titleVisibility: .visible) {
+            Button("删除", role: .destructive) { if let deleting { perform { try store.remove(deleting.id); reload() } }; deleting = nil }
+        }
+    }
+    private var currentSkinSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("当前皮肤").font(.caption).foregroundStyle(.secondary)
+                    Text(currentName).font(.headline)
+                        .accessibilityIdentifier("vime.skin.currentName")
+                }
+                Spacer()
+                Text("使用中").font(.caption.weight(.medium)).foregroundStyle(.tint)
             }
-            .sheet(item: $editing, onDismiss: reload) { document in
-                KeyboardSkinEditor(document: document, store: store)
+            if let previewDocument {
+                SkinPreview(document: previewDocument).frame(height: 155)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .accessibilityLabel("当前皮肤预览")
             }
-            .fileImporter(isPresented: $importing, allowedContentTypes: [.vimeSkin, .json]) { result in
-                switch result { case .success(let url): importSkin(url); case .failure(let failure): error = failure.localizedDescription }
-            }
-            .fileExporter(isPresented: $exporting, document: exportFile, contentType: .vimeSkin,
-                          defaultFilename: exportFile?.document.name ?? "Vime皮肤") { result in
-                if case .failure(let failure) = result { error = failure.localizedDescription }
-            }
-            .alert("无法完成", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) {
-                Button("好", role: .cancel) { error = nil }
-            } message: { Text(error ?? "") }
-            .confirmationDialog("删除这个皮肤？", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }), titleVisibility: .visible) {
-                Button("删除", role: .destructive) { if let deleting { perform { try store.remove(deleting.id); reload() } }; deleting = nil }
+        }
+        .padding(16)
+        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 22))
+    }
+    private var builtInSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionTitle("内置皮肤")
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 145), spacing: 12)], spacing: 12) {
+                ForEach(KeyboardTheme.allCases.filter { $0 != .custom }, id: \.self) { item in
+                    Button { theme = item; reload() } label: {
+                        VStack(spacing: 12) {
+                            SkinColorPreview(palette: builtInDocument(item).palette).frame(height: 68)
+                            HStack {
+                                Text(item.title).font(.subheadline.weight(.medium)).foregroundStyle(.primary)
+                                Spacer()
+                                selectionMark(theme == item)
+                            }
+                        }
+                        .padding(12).skinCard(selected: theme == item)
+                        .contentShape(RoundedRectangle(cornerRadius: 18))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("vime.skin.builtin." + item.rawValue)
+                    .accessibilityLabel(item.title)
+                    .accessibilityValue(theme == item ? "当前使用" : "")
+                }
             }
         }
     }
-    private func reload() { skins = store.summaries(); selectedID = KeyboardPreferences().customSkinID }
+    private var customSkinSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionTitle("我的皮肤")
+            HStack(spacing: 12) {
+                Button("创建皮肤", systemImage: "plus") { router.present(.skin(KeyboardSkinDocument())) }
+                Button("导入皮肤", systemImage: "square.and.arrow.down") {
+                    router.beginFilePicker(); importing = true
+                }
+            }.buttonStyle(SkinActionButtonStyle())
+            ForEach(skins) { customSkinRow($0) }
+            if skins.isEmpty {
+                HStack(spacing: 12) {
+                    Image(systemName: "paintpalette").font(.title3)
+                    Text("创建或导入自己的皮肤").font(.subheadline)
+                }
+                .foregroundStyle(.secondary).frame(maxWidth: .infinity, minHeight: 70)
+                .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(Color.secondary.opacity(0.2), style: StrokeStyle(lineWidth: 1, dash: [5, 4])))
+            }
+            if router.importing { ProgressView("正在导入") }
+            Text("支持 .vimeskin 文件，可从文件 App 打开\n选中皮肤即可使用，修改后重新打开键盘")
+                .font(.caption).foregroundStyle(.secondary).lineSpacing(4)
+        }
+    }
+    private func customSkinRow(_ skin: KeyboardSkinStore.Summary) -> some View {
+        HStack {
+            Button { perform {
+                let document = try store.load(skin.id)
+                store.select(document)
+                // The preference observer may arrive on a later run loop
+                // Update the visible selection and preview in this action
+                theme = .custom; selectedID = document.id; previewDocument = document
+            } } label: {
+                HStack {
+                    Image(systemName: "paintpalette")
+                        .foregroundStyle(.tint).frame(width: 38, height: 38)
+                        .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+                    Text(skin.name).foregroundStyle(.primary)
+                    Spacer()
+                    selectionMark(selectedID == skin.id && theme == .custom)
+                }.frame(maxWidth: .infinity, alignment: .leading).frame(minHeight: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("vime.skin.custom." + skin.id)
+            .accessibilityLabel(skin.name)
+            .accessibilityValue(selectedID == skin.id && theme == .custom ? "当前使用" : "")
+            Menu {
+                Button("编辑") { perform { router.present(.skin(try store.load(skin.id))) } }
+                Button("导出") { perform {
+                    exportFile = KeyboardSkinFile(try store.load(skin.id)); router.beginFilePicker(); exporting = true
+                } }
+                Button("删除", role: .destructive) { deleting = skin }
+            } label: { Image(systemName: "ellipsis.circle").frame(width: 44, height: 44) }
+            .buttonStyle(.plain)
+            .accessibilityLabel("\(skin.name)的操作")
+        }
+        .padding(.leading, 12).padding(.trailing, 4).padding(.vertical, 8)
+        .skinCard(selected: selectedID == skin.id && theme == .custom)
+    }
+    private func sectionTitle(_ title: String) -> some View {
+        Text(title).font(.headline)
+    }
+    private func selectionMark(_ selected: Bool) -> some View {
+        Image(systemName: "checkmark")
+            .font(.body.weight(.semibold)).foregroundStyle(.tint)
+            .frame(width: 24).opacity(selected ? 1 : 0)
+            .accessibilityHidden(true)
+    }
+    private var currentName: String {
+        theme == .custom ? skins.first { $0.id == selectedID }?.name ?? "自定义" : theme.title
+    }
+    private func reload() {
+        skins = store.summaries(); selectedID = KeyboardPreferences().customSkinID
+        if theme == .custom, let document = try? store.load(selectedID) { previewDocument = document; return }
+        previewDocument = builtInDocument(theme)
+    }
+    private func builtInDocument(_ item: KeyboardTheme) -> KeyboardSkinDocument {
+        var document = KeyboardSkinDocument(); document.name = item.title
+        let traits = UITraitCollection(userInterfaceStyle: colorScheme == .dark ? .dark : .light)
+        func hex(_ color: UIColor) -> String {
+            var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+            color.resolvedColor(with: traits).getRed(&r, green: &g, blue: &b, alpha: &a)
+            return String(format: "#%02X%02X%02X", Int((r * 255).rounded()), Int((g * 255).rounded()), Int((b * 255).rounded()))
+        }
+        document.palette.background = hex(item == .system ? .systemGray5 : item.background)
+        document.palette.key = hex(item.key); document.palette.text = hex(item.text)
+        document.palette.utility = hex(item.utility); document.palette.accent = hex(item.accent)
+        return document
+    }
     private func perform(_ action: () throws -> Void) { do { try action() } catch { self.error = error.localizedDescription } }
-    private func importSkin(_ url: URL) { perform { editing = try store.importFile(url); reload() } }
+}
+
+private extension View {
+    func skinCard(selected: Bool) -> some View {
+        background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18))
+            .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(selected ? Color.accentColor : .clear, lineWidth: 1.5))
+    }
+}
+
+private struct SkinActionButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label.font(.subheadline.weight(.medium))
+            .frame(maxWidth: .infinity, minHeight: 48)
+            .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14))
+            .opacity(configuration.isPressed ? 0.65 : 1)
+            .contentShape(RoundedRectangle(cornerRadius: 14))
+    }
+}
+
+/// Lightweight palette thumbnails, without decoding custom artwork for every card
+private struct SkinColorPreview: View {
+    let palette: KeyboardSkinDocument.Palette
+    var body: some View {
+        VStack(spacing: 3) {
+            ForEach([10, 9, 7], id: \.self) { count in
+                HStack(spacing: 3) {
+                    ForEach(0..<count, id: \.self) { _ in
+                        RoundedRectangle(cornerRadius: 3).fill(Color(uiColor: KeyboardSkinAppearance.color(palette.key)))
+                    }
+                }.padding(.horizontal, CGFloat(10 - count) * 4)
+            }
+        }
+        .padding(7)
+        .background(Color(uiColor: KeyboardSkinAppearance.color(palette.background)), in: RoundedRectangle(cornerRadius: 10))
+        .accessibilityHidden(true)
+    }
 }
 
 struct KeyboardSkinEditor: View {
@@ -102,53 +252,61 @@ struct KeyboardSkinEditor: View {
     @State private var error: String?
     @State private var importingPhoto = false
     @State private var photoGeneration = 0
+    @State private var advancedImages = false
     private let store: KeyboardSkinStore
     init(document: KeyboardSkinDocument, store: KeyboardSkinStore) {
         _draft = State(initialValue: document); self.store = store
     }
     var body: some View {
         NavigationStack {
-            Form {
-                Section { SkinPreview(document: draft).frame(height: 210).listRowInsets(EdgeInsets()) }
-                Section("皮肤信息") { TextField("名称", text: $draft.name); TextField("作者（可选）", text: $draft.author) }
-                Section("配色") {
-                    colorPicker("背景", \KeyboardSkinDocument.Palette.background)
-                    colorPicker("菱格", \KeyboardSkinDocument.Palette.pattern)
-                    colorPicker("普通按键", \KeyboardSkinDocument.Palette.key)
-                    colorPicker("功能按键", \KeyboardSkinDocument.Palette.utility)
-                    colorPicker("文字", \KeyboardSkinDocument.Palette.text)
-                    colorPicker("强调色", \KeyboardSkinDocument.Palette.accent)
-                    colorPicker("按下颜色", \KeyboardSkinDocument.Palette.pressed)
-                }
-                Section("样式") {
-                    Picker("字体", selection: $draft.style.font) {
-                        Text("系统").tag("system"); Text("圆体").tag("rounded"); Text("手写").tag("handwritten")
+            VStack(spacing: 0) {
+                SkinPreview(document: draft).frame(height: 205).padding(.horizontal, 16)
+                Form {
+                    Section("皮肤信息") {
+                        TextField("名称", text: $draft.name).accessibilityIdentifier("vime.skin.name")
+                        TextField("作者（可选）", text: $draft.author)
                     }
-                    Picker("背景图案", selection: $draft.style.pattern) {
-                        Text("纯色").tag("none"); Text("菱格").tag("diamonds")
+                    Section("配色") {
+                        colorPicker("背景", \KeyboardSkinDocument.Palette.background)
+                        colorPicker("菱格", \KeyboardSkinDocument.Palette.pattern)
+                        colorPicker("普通按键", \KeyboardSkinDocument.Palette.key)
+                        colorPicker("功能按键", \KeyboardSkinDocument.Palette.utility)
+                        colorPicker("文字", \KeyboardSkinDocument.Palette.text)
+                        colorPicker("强调色", \KeyboardSkinDocument.Palette.accent)
+                        colorPicker("按下颜色", \KeyboardSkinDocument.Palette.pressed)
                     }
-                    slider("键帽不透明度", value: $draft.style.keyOpacity, range: 0...1)
-                    slider("键帽圆角", value: $draft.style.cornerRadius, range: 0...24)
-                    slider("阴影", value: $draft.style.shadowOpacity, range: 0...0.5)
-                }
-                Section {
-                    Picker("图片位置", selection: $imageTarget) {
-                        Text("背景").tag("background"); Text("所有字母").tag("letter")
-                        Text("左上角设置").tag("brand")
-                        Text("空格").tag("space"); Text("退格").tag("backspace")
-                        Text("回车").tag("return"); Text("Shift").tag("shift")
-                        Text("表情").tag("emoji"); Text("数字切换").tag("numbers")
-                        ForEach(Array("abcdefghijklmnopqrstuvwxyz").map(String.init), id: \.self) { Text("字母 \($0.uppercased())").tag("letter." + $0) }
+                    Section("样式") {
+                        Picker("字体", selection: $draft.style.font) {
+                            Text("系统").tag("system"); Text("圆体").tag("rounded"); Text("手写").tag("handwritten")
+                        }
+                        Picker("背景图案", selection: $draft.style.pattern) {
+                            Text("纯色").tag("none"); Text("菱格").tag("diamonds")
+                        }
+                        slider("键帽不透明度", value: $draft.style.keyOpacity, range: 0...1)
+                        slider("键帽圆角", value: $draft.style.cornerRadius, range: 0...24)
+                        slider("阴影", value: $draft.style.shadowOpacity, range: 0...0.5)
                     }
-                    PhotosPicker("从照片选择图片", selection: $photo, matching: .images)
-                        .disabled(importingPhoto)
-                    Button("移除当前位置图片", role: .destructive) {
-                        if imageTarget == "background" { draft.backgroundImage = nil }
-                        else { draft.keyImages.removeValue(forKey: imageTarget) }
-                        pruneImages()
+                    Section {
+                        Toggle("逐字母图片", isOn: $advancedImages)
+                            .onChange(of: advancedImages) { if !advancedImages && imageTarget.hasPrefix("letter.") { imageTarget = "letter" } }
+                        Picker("图片位置", selection: $imageTarget) {
+                            Text("背景").tag("background"); Text("所有字母").tag("letter")
+                            Text("左上角设置").tag("brand")
+                            Text("空格").tag("space"); Text("退格").tag("backspace")
+                            Text("回车").tag("return"); Text("Shift").tag("shift")
+                            Text("表情").tag("emoji"); Text("数字切换").tag("numbers")
+                            if advancedImages { ForEach(Array("abcdefghijklmnopqrstuvwxyz").map(String.init), id: \.self) { Text("字母 \($0.uppercased())").tag("letter." + $0) } }
+                        }
+                        PhotosPicker("从照片选择图片", selection: $photo, matching: .images)
+                            .disabled(importingPhoto)
+                        Button("移除当前位置图片", role: .destructive) {
+                            if imageTarget == "background" { draft.backgroundImage = nil }
+                            else { draft.keyImages.removeValue(forKey: imageTarget) }
+                            pruneImages()
+                        }
+                    } header: { Text("背景和按键图片") } footer: {
+                        Text("单独字母图片优先于所有字母\n背景会裁切填满键盘，透明 PNG 适合按键贴图\n保存后在定制页选中皮肤即可使用")
                     }
-                } header: { Text("背景和按键图片") } footer: {
-                    Text("单独字母图片优先于「所有字母」。图片保持比例，背景会裁切填满键盘；透明 PNG 适合按键贴图。导入后在菜单中点「使用」即可应用。")
                 }
             }
             .navigationTitle("编辑皮肤").navigationBarTitleDisplayMode(.inline)
@@ -160,6 +318,7 @@ struct KeyboardSkinEditor: View {
                 }
             }
             .task(id: photo) { await loadPhoto() }
+            .interactiveDismissDisabled()
             .alert("无法保存", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) {
                 Button("好", role: .cancel) { error = nil }
             } message: { Text(error ?? "") }
@@ -246,15 +405,20 @@ private struct SkinPreview: UIViewRepresentable {
         }
         override func layoutSubviews() {
             super.layoutSubviews(); canvas.frame = bounds
+            let rowHeight = max(1, (bounds.height - 12) / 3)
             var index = 0
             for (row, count) in [10, 9, 7].enumerated() {
                 let width = (bounds.width - 12) / 10
                 let offset = (bounds.width - CGFloat(count) * width) / 2
                 for column in 0..<count {
-                    let rect = CGRect(x: offset + CGFloat(column) * width, y: 6 + CGFloat(row) * 65, width: width - 3, height: 59)
+                    let rect = CGRect(x: offset + CGFloat(column) * width, y: 6 + CGFloat(row) * rowHeight, width: width - 3, height: max(1, rowHeight - 6))
                     let decorated = pictures[index].image != nil
-                    keys[index].frame = decorated ? CGRect(x: rect.minX, y: rect.minY + 37, width: rect.width, height: 22) : rect
-                    pictures[index].frame = CGRect(x: rect.minX, y: rect.minY, width: rect.width, height: 35)
+                    let captionHeight = min(22, rect.height * 0.38)
+                    if let appearance = canvas.appearance {
+                        keys[index].font = appearance.font(size: max(9, 16 * min(1, rowHeight / 65)))
+                    }
+                    keys[index].frame = decorated ? CGRect(x: rect.minX, y: rect.maxY - captionHeight, width: rect.width, height: captionHeight) : rect
+                    pictures[index].frame = CGRect(x: rect.minX, y: rect.minY, width: rect.width, height: max(1, rect.height - captionHeight - 2))
                     index += 1
                 }
             }

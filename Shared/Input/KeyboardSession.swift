@@ -29,6 +29,9 @@ final class KeyboardSession: KeyboardInputSession {
     private(set) var candidateResultReadyAt: TimeInterval?
     private var candidatesPending = false
     private var pendingSpaces = 0
+    // This query already resolves the trailing n. Further spaces advance the
+    // same conversion, rather than restarting it and discarding queued steps.
+    private var boundaryRequested = false
     var onCandidatesChange: (() -> Void)?
     var onCommittedEdits: ((KeyboardCommitBatch) -> Void)?
     /// Host supplies the actual left context excluding its owned marked range.
@@ -91,10 +94,14 @@ final class KeyboardSession: KeyboardInputSession {
     var phraseSuggestions = false
     func updateIntelligence(ranking: CandidateRankingMode, suggestionsEnabled: Bool) {
         guard ranking != candidateRanking || suggestionsEnabled != phraseSuggestions else { return }
+        // Next-word neural work uses this same ranking gate; engine mode keeps
+        // native next-word suggestions but must release the neural model
+        let usedModel = candidateRanking == .languageModel
         candidateRanking = ranking
         phraseSuggestions = suggestionsEnabled
         clearSuggestions()
         if ranking == .engine { worker?.disableLanguageModel() }
+        else if !usedModel { worker?.allowLanguageModel() }
         if isComposing { refresh() }
         else { onCandidatesChange?() }
     }
@@ -177,8 +184,9 @@ final class KeyboardSession: KeyboardInputSession {
     func backspace() -> [KeyboardEdit] {
         clearSuggestions()
         if selectedIndex != nil || pendingSpaces > 0 {
-            selectedIndex = nil
-            pendingSpaces = 0
+            // clearSuggestions cancelled the shared worker request. Restore a
+            // fresh literal query, with a new revision that rejects late results.
+            refresh()
             return []
         }
         guard !composing.isEmpty else {
@@ -202,7 +210,7 @@ final class KeyboardSession: KeyboardInputSession {
         guard isComposing else { finishLearningFeedback(); clearSuggestions(); return [.insert(" ")] }
         // Only an explicit conversion boundary resolves ambiguous n. Normal
         // per-key requests never add a separator or mutate the live composition.
-        if composing.convertTarget.hasSuffix("n"), selectedIndex == nil {
+        if composing.convertTarget.hasSuffix("n"), selectedIndex == nil, !boundaryRequested {
             refresh(boundary: true)
         }
         if candidatesPending {
@@ -375,6 +383,7 @@ final class KeyboardSession: KeyboardInputSession {
         revision += 1
         candidatesPending = false
         pendingSpaces = 0
+        boundaryRequested = false
         conversionLength = nil
         expandedCandidates = false
         composing = ComposingText()
@@ -389,6 +398,22 @@ final class KeyboardSession: KeyboardInputSession {
     func clearLearning() {
         reset()
         engine?.clearLearning(); worker?.clearLearning()
+    }
+
+    func handleMemoryPressure() {
+        worker?.handleMemoryPressure()
+        engine?.discardTransientCaches()
+        if candidatesPending && isComposing {
+            // Reissue only the cancelled, unfinished request. Keep queued space
+            // presses and its finalized-reading boundary; do not clear a chosen
+            // candidate, host epoch, marked text or pending learning feedback
+            let spaces = pendingSpaces
+            refresh(boundary: boundaryRequested)
+            pendingSpaces = spaces
+        } else if !isComposing {
+            clearSuggestions()
+            onCandidatesChange?()
+        }
     }
 
     private func beginLearningFeedback(text: String, rank: Int, kind: CandidateLearningFeedback.Kind, removingSuffix: String = "") -> CandidateLearningFeedback? {
@@ -480,6 +505,7 @@ final class KeyboardSession: KeyboardInputSession {
     private func refresh(boundary: Bool = false, leftContextOverride: String? = nil) {
         revision += 1
         pendingSpaces = 0
+        boundaryRequested = boundary
         selectedIndex = nil
         // Partial confirmation requests its remainder before the host applies the
         // returned insert edit. Use the expected committed prefix for that request.

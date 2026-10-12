@@ -1,4 +1,4 @@
-"""Install the reviewed VimeML V2 resource payload without touching V1 assets."""
+"""Install the reviewed VimeML V2.1 model and matching tokenizer."""
 import argparse
 import hashlib
 import json
@@ -39,7 +39,7 @@ def main():
         raise ValueError("V2 resources already exist; use a fresh checkout/version.")
     shutil.copytree(model, target_model)
     shutil.copyfile(tokenizer, target_tokenizer)
-    print("Installed matching V2 model/tokenizer. V1 resources retained.")
+    print("Installed matching V2.1 model/tokenizer.")
 
 
 if __name__ == "__main__":

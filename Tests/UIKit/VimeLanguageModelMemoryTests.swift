@@ -112,14 +112,16 @@ final class VimeLanguageModelMemoryTests: XCTestCase {
             let session = KeyboardSession(asynchronousCandidates: true, memoryDirectoryURL: directory)
             session.candidateRanking = scenario == "engine" ? .engine : .languageModel
             session.phraseSuggestions = scenario == "lm_words"
-            session.leftContextProvider = { "明日の" }
+            var before = "明日の"
+            session.leftContextProvider = { before }
             let readings = ["ekini", "kisha", "hashi", "nihongo", "ashitanokaiginisankashimasu"]
             func cycle(_ index: Int) async throws {
                 session.reset()
+                before = "明日の"
                 let ready = expectation(description: "candidate \(index)")
-                ready.assertForOverFulfill = false
+                var delivered = false
                 session.onCandidatesChange = {
-                    if session.isComposing && session.candidatesAreCurrent { ready.fulfill() }
+                    if session.isComposing && session.candidatesAreCurrent && !delivered { delivered = true; ready.fulfill() }
                 }
                 _ = session.type(readings[index % readings.count])
                 await fulfillment(of: [ready], timeout: 5)
@@ -127,9 +129,31 @@ final class VimeLanguageModelMemoryTests: XCTestCase {
                 // Let secondary reranking/corrections finish; do not cancel them at the first publication.
                 try await Task.sleep(for: .milliseconds(200))
                 XCTAssertFalse(session.candidates.isEmpty)
-                let index = session.candidateSnapshots.firstIndex { $0.fullConsumption } ?? 0
-                _ = session.choose(index)
+                let index = try XCTUnwrap(session.candidateSnapshots.firstIndex { $0.fullConsumption })
+                let suggestion = session.phraseSuggestions ? expectation(description: "suggestions after real host acknowledgement") : nil
+                var suggested = false
+                session.onCandidatesChange = {
+                    if !session.suggestions.isEmpty && !suggested { suggested = true; suggestion?.fulfill() }
+                }
+                let edits = session.choose(index)
+                for edit in edits {
+                    switch edit {
+                    case .insert(let text): before += text
+                    case .deleteBackward: if !before.isEmpty { before.removeLast() }
+                    case .returnKey: before += "\n"
+                    case .moveCursor, .deleteToLineStart, .undoLineDeletion:
+                        throw NSError(domain: "VimeMemoryAudit.UnexpectedNonTextCommit", code: 1)
+                    }
+                }
+                if let suggestion {
+                    await fulfillment(of: [suggestion], timeout: 5)
+                    _ = try XCTUnwrap(session.suggestions.first)
+                }
+                // Preserve the original observation window after publication too:
+                // native suggestions can precede the secondary neural request.
+                // This is a sampling window, not proof that beam search completed.
                 try await Task.sleep(for: .milliseconds(100))
+                session.onCandidatesChange = nil
                 completedCycles += 1
                 if !session.suggestions.isEmpty { suggestionCycles += 1 }
                 session.reset()
@@ -141,6 +165,8 @@ final class VimeLanguageModelMemoryTests: XCTestCase {
                 }
                 checkpoints.append(["cycles": (batch+1)*20, "memory": VimeMemorySampler.snapshot()])
             }
+            XCTAssertEqual(completedCycles, 81)
+            if session.phraseSuggestions { XCTAssertEqual(suggestionCycles, completedCycles, "Every measured suggestion cycle must actually publish") }
             // Rapid edits and backspaces exercise cancellation without retaining old outputs.
             try await measure("rapid_input_cancel_100") {
                 for _ in 0..<100 { _ = session.type("a"); _ = session.backspace() }

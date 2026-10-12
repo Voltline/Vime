@@ -52,25 +52,19 @@ nonisolated final class VimeLanguageModel {
     private let model: MLModel
     static let vocabulary = 16384
     static let contextLength = 128
-    /// V1 resources stay intact for an explicit rollback. A failed V2 identity
-    /// check uses the worker's dictionary fallback, never a mismatched tokenizer.
-    enum ResourceVersion: Equatable { case v1, v21 }
-    let resourceVersion: ResourceVersion
+    /// A failed model identity check uses the worker's dictionary fallback.
     let modelVersion: String
-    init(bundle: Bundle = .main, computeUnits: MLComputeUnits = .cpuOnly,
-         resourceVersion: ResourceVersion = .v21) throws {
-        self.resourceVersion = resourceVersion
-        let v21 = resourceVersion == .v21
-        guard let modelURL = bundle.url(forResource: v21 ? "TinyJapaneseV21INT8" : "TinyJapaneseINT8", withExtension: "mlmodelc"),
-              let tokenizerURL = bundle.url(forResource: v21 ? "VimeJapaneseTokenizerV2" : "VimeJapaneseTokenizer", withExtension: "model"),
-              let manifestURL = bundle.url(forResource: v21 ? "VimeLMManifestV21" : "VimeLMManifest", withExtension: "json") else { throw Failure.resources }
+    init(bundle: Bundle = .main, computeUnits: MLComputeUnits = .cpuOnly) throws {
+        guard let modelURL = bundle.url(forResource: "TinyJapaneseV21INT8", withExtension: "mlmodelc"),
+              let tokenizerURL = bundle.url(forResource: "VimeJapaneseTokenizerV2", withExtension: "model"),
+              let manifestURL = bundle.url(forResource: "VimeLMManifestV21", withExtension: "json") else { throw Failure.resources }
         let manifest = try JSONDecoder().decode(Manifest.self, from: Data(contentsOf: manifestURL))
-        guard manifest.format == (v21 ? "vime_ios_lm_v2" : "vime_ios_lm_v1"),
-              !v21 || (manifest.architecture == "tiny_gpt_v2" && manifest.compute_units == "CPU_ONLY"
-                       && manifest.special_ids == ["pad": 0, "unk": 1, "bos": 2, "eos": 3]
-                       && manifest.model_version != nil),
-              !v21 || computeUnits == .cpuOnly else { throw Failure.integrity }
-        modelVersion = manifest.model_version ?? "1-int8-b32"
+        guard manifest.format == "vime_ios_lm_v2",
+              manifest.architecture == "tiny_gpt_v2", manifest.compute_units == "CPU_ONLY",
+              manifest.special_ids == ["pad": 0, "unk": 1, "bos": 2, "eos": 3],
+              let version = manifest.model_version, !version.isEmpty,
+              computeUnits == .cpuOnly else { throw Failure.integrity }
+        modelVersion = version
         guard manifest.minimum_ios == 18, manifest.vocab_size == Self.vocabulary,
               manifest.context_length == Self.contextLength,
               try Self.sha256(tokenizerURL) == manifest.tokenizer_sha256,

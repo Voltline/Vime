@@ -4,10 +4,13 @@ import UIKit
 @MainActor
 final class KeyboardIntegrationTests: XCTestCase {
     private var renderingWindow: UIWindow?
+    private var defaultsSuites: [String] = []
 
     override func tearDown() {
         renderingWindow?.isHidden = true
         renderingWindow = nil
+        for suite in defaultsSuites { UserDefaults.standard.removePersistentDomain(forName: suite) }
+        defaultsSuites = []
         super.tearDown()
     }
     private func descendants(_ view: UIView) -> [UIView] {
@@ -18,10 +21,12 @@ final class KeyboardIntegrationTests: XCTestCase {
         try XCTUnwrap(descendants(keyboard).first { $0.accessibilityIdentifier == id } as? UIButton)
     }
 
-    private func makeKeyboard() -> KeyboardView {
-        UserDefaults.standard.removeObject(forKey: "vime.prolongedKey")
-        UserDefaults.standard.removeObject(forKey: "vime.nineKeyNumbers")
-        let keyboard = KeyboardView(frame: CGRect(x: 0, y: 0, width: 440, height: 350), session: KeyboardSession())
+    private func makeKeyboard(suggestionsEnabled: Bool = false) -> KeyboardView {
+        let suite = "VimeIntegrationTests." + UUID().uuidString
+        defaultsSuites.append(suite)
+        let preferences = KeyboardPreferences(defaults: UserDefaults(suiteName: suite)!)
+        preferences.phraseSuggestions = suggestionsEnabled
+        let keyboard = KeyboardView(frame: CGRect(x: 0, y: 0, width: 440, height: 350), session: KeyboardSession(), preferences: preferences)
         let window = UIWindow(frame: UIScreen.main.bounds)
         window.rootViewController = UIViewController()
         window.overrideUserInterfaceStyle = .light
@@ -176,6 +181,23 @@ final class KeyboardIntegrationTests: XCTestCase {
         XCTAssertNil(view.markedTextRange)
         XCTAssertNil(host.markedText)
         XCTAssertFalse(settings.isHidden)
+    }
+
+    func testCommittedSuggestionsOwnToolbarWhenEnabled() throws {
+        let keyboard = makeKeyboard(suggestionsEnabled: true)
+        let view = UITextView()
+        let host = connect(keyboard, to: view)
+        for character in "ekini" { try button("vime.key." + String(character), in: keyboard).sendActions(for: .touchUpInside) }
+        let candidate = try XCTUnwrap(descendants(keyboard).first { $0.accessibilityLabel == "候选词：駅に" } as? UIButton)
+        candidate.sendActions(for: .touchUpInside)
+        XCTAssertEqual(view.text, "駅に")
+        XCTAssertNil(view.markedTextRange)
+        XCTAssertNil(host.markedText)
+        let settings = try XCTUnwrap(descendants(keyboard).first { $0.accessibilityLabel == "键盘设置" })
+        XCTAssertTrue(settings.isHidden)
+        let strip = try XCTUnwrap(descendants(keyboard).first { $0.accessibilityIdentifier == "vime.candidates" } as? UIScrollView)
+        XCTAssertFalse(strip.isHidden)
+        XCTAssertFalse(descendants(strip).compactMap { $0 as? UIButton }.isEmpty, "Actual suggestions, not merely a hidden settings button")
     }
 
     func testMarkedTextDeletionCancellationModeAndCaretChanges() throws {

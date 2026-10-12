@@ -1,31 +1,37 @@
 # 项目目录
 
-目录按职责划分，App 与扩展继续共享相同 Swift 类型，未拆分新模块。
+Vime 使用一个 Xcode 工程构建 iOS 主 App 和系统键盘扩展，共享 Swift 代码按职责组织。
 
-| 目录 | 职责 |
+| 路径 | 职责 |
 | --- | --- |
-| `Vime/Home` | 主 App 首页 |
-| `Vime/Settings` | 完整设置、高度／皮肤编辑器与用户词典管理 |
-| `Vime/Sandbox` | 主 App 试打输入框 |
-| `Keyboard` | 系统键盘扩展入口及 Info.plist |
-| `Shared/Candidates` | 独立候选展示类型，以及日文 azooKey payload、排序、纠错与后台 worker |
-| `Shared/Input` | 通用 session 协议与语言展示配置；现有日文会话、Roman 转换 |
-| `Shared/Models` | Core ML 推理及 SentencePiece 桥接封装 |
-| `Shared/Host` | 带 UTF-16 选区的 preedit、宿主 marked text、文字提交和导航 |
-| `Shared/Preferences` | App Group 偏好与迁移 |
-| `Shared/UI` | 键盘、触摸面、候选与符号 UI、品牌及布局 |
-| `Shared/Diagnostics` | 可选计时、触摸诊断与扩展审计 |
-| `Shared/Resources` | 模型、tokenizer、词典索引、Emoji 与许可、隐私声明 |
-| `Configuration` | entitlement 与构建资源输入清单 |
-| `Dependencies` | 固定的 SentencePiece 源码依赖 |
-| `Scripts` | 资源生成、安装及发布前校验工具 |
-| `Tests/UIKit` | 现有定向测试与固定评测数据 |
+| `Vime/App` | 三 Tab 路由、临时编辑及外部文件导入 |
+| `Vime/Home` | 使用系统键盘的试打首页与启用指南 |
+| `Vime/About` | 关于、隐私政策、开源许可目录和详情 |
+| `Vime/Resources` | App 专用的隐私政策及分组件许可原文 |
+| `Vime/Settings` | 设置、皮肤、高度和用户词典管理 |
+| `Vime/Testing` | 使用系统键盘的试打与扩展诊断页面 |
+| `Vime/Sandbox` | 内嵌键盘组件试打；不能代替扩展验收 |
+| `Keyboard` | 系统键盘扩展入口及宿主接入 |
+| `Shared/Input` | 会话协议、日语组合状态、罗马音及分段边界 |
+| `Shared/Host` | preedit、marked text、提交回执及光标导航 |
+| `Shared/Candidates` | 候选模型、生成、排序、纠错、学习和后台 worker |
+| `Shared/Models` | Core ML 与 SentencePiece 封装 |
+| `Shared/Preferences` | App Group 设置和皮肤存储 |
+| `Shared/UI` | 键盘布局、候选、触摸、表情和符号面板 |
+| `Shared/Diagnostics` | 可选性能、触摸和扩展审计 |
+| `Shared/Resources` | 模型、分词器、词库、表情目录、隐私声明及第三方许可 |
+| `Configuration` | App 信息、entitlements 与模型资源输入清单 |
+| `Dependencies` | 本地 SentencePiece 包及其许可 |
+| `Scripts` | 资源生成、模型安装、校验及测试工具 |
+| `Tests/UIKit` | 引擎、会话、UI 组件测试和固定参考数据 |
+| `Tests/ExtensionUI` | 真正系统键盘扩展的 UI 测试 |
+| `Docs` | 公开使用、开发和架构文档 |
+| `Docs/internalDocs` | Git 忽略的本地计划、历史记录和验证产物 |
 
-Xcode 使用 filesystem synchronized groups，移动 Swift 文件后自动包含于原有 target。
-资源目录保持原路径和文件名，运行时继续从 bundle 根目录查找，避免改变加载协议。
-`Shared/Resources/OrthographyPreferences.json` 与 `SupplementalLexicon.json` 是离线语言数据；`LanguageResourceSources.json` 记录来源和校验和，`Scripts/build_language_resources.py` 可重新生成。转换范围和安全尾部映射由 `Shared/Input` 管理，数据加载和排序由 `Shared/Candidates` 管理。
-调整文件位置后，README、文档链接及图标生成命令同步更新。
+## 工程与资源
 
-`JapaneseUserDictionaryStore` 原子保存 App Group 下的 `Vime/UserDictionary.json`，通过共享 revision 使后台 worker 重载词语与 shortcuts；普通按键不读写词典文件。`PostCompositionSuggestions` 保留原生联想的词条、追加／替换操作和终止状态，再由 worker 分阶段发布。
+[Vime.xcodeproj](../Vime.xcodeproj) 使用 filesystem synchronized groups；target 包含关系及排除项以 [project.pbxproj](../Vime.xcodeproj/project.pbxproj) 为准。共享源码继续由 App 和扩展使用，目录分组不意味着独立 Swift 模块。
 
-v2.1 模型大文件保持外部交付约定。新 checkout 必须先运行安装脚本；Release 资源校验不能被词典回退掩盖。Debug 构建可继续进行不包含模型的词典开发。
+模型、分词器、语言数据和测试参考文件保留原位置。运行时资源从 bundle 查找，调整目录或更换文件名必须同时核对资源清单和加载代码。当前模型交付文件已纳入版本控制，正常 checkout 不需要另行安装模型。
+
+[LanguageResourceSources.json](../Shared/Resources/LanguageResourceSources.json) 记录表记偏好与补充词库的来源、许可及校验和。修改这些语言数据时使用 [build_language_resources.py](../Scripts/build_language_resources.py)，不要用运行日志代替可复现的数据输入。测试使用的 corpus 和模型参考输出保留在 `Tests/UIKit/Resources`，不归入本地验收产物。

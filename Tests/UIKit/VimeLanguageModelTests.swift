@@ -27,7 +27,11 @@ final class VimeLanguageModelTests: XCTestCase {
     }
     func testJointSuffixScoresMatchMacINT8IncludingBoundaryRetokenization() throws {
         let lm = try VimeLanguageModel()
-        for item in try fixtures().scoring {
+        let corpus = try fixtures().scoring
+        XCTAssertFalse(corpus.isEmpty, "An empty reference corpus cannot certify numerical parity")
+        for item in corpus {
+            XCTAssertFalse(item.candidates.isEmpty, item.context)
+            XCTAssertEqual(item.candidates.count, item.sums.count, "Every candidate needs an independent frozen reference")
             let actual = try lm.scores(context: item.context, candidates: item.candidates)
             XCTAssertEqual(actual.count, item.sums.count)
             for (value, reference) in zip(actual, item.sums) { XCTAssertEqual(value, reference, accuracy: 0.002) }
@@ -76,7 +80,11 @@ final class VimeLanguageModelTests: XCTestCase {
     }
     func testNativeBeamMatchesTwentyMacINT8Prefixes() throws {
         let lm = try VimeLanguageModel()
-        for phrase in try fixtures().phrases {
+        let corpus = try fixtures().phrases
+        XCTAssertEqual(corpus.count, 20, "All twenty frozen prefixes must be checked")
+        for phrase in corpus {
+            XCTAssertFalse(phrase.firstText.isEmpty)
+            XCTAssertFalse(phrase.firstIDs.isEmpty)
             let suggestions = try lm.suggestions(prompt: phrase.prompt)
             let first = try XCTUnwrap(suggestions.first, phrase.prompt)
             XCTAssertEqual(first.tokenIDs, phrase.firstIDs, phrase.prompt)
@@ -85,6 +93,45 @@ final class VimeLanguageModelTests: XCTestCase {
             XCTAssertEqual(Set(suggestions.map(\.text)).count, suggestions.count)
         }
         XCTAssertThrowsError(try lm.suggestions(prompt: "東京", cancelled: { true }))
+    }
+
+    func testRerankerUsesFrozenScoresAndPreservesIneligibleSlot() throws {
+        let lm = try VimeLanguageModel()
+        let reference = try XCTUnwrap(try fixtures().scoring.first { $0.context == "コーヒーを" })
+        XCTAssertEqual(reference.candidates, ["飲む", "買う", "飲みたい"])
+        // Warm the same deployed model, and independently check its numerical
+        // scores before testing the sorting adapter against the frozen order.
+        let sums = try lm.scores(context: reference.context, candidates: reference.candidates)
+        XCTAssertEqual(sums.count, reference.sums.count)
+        for (sum, frozen) in zip(sums, reference.sums) { XCTAssertEqual(sum, frozen, accuracy: 0.002) }
+        let engine = JapaneseCandidateEngine(memoryDirectoryURL: isolatedLearningDirectory())
+        func native(_ raw: String, _ surface: String) throws -> CandidateSnapshot {
+            var query = ComposingText(); RomajiConverter.insert(raw, into: &query)
+            var value = try XCTUnwrap(engine.candidates(for: query, revision: 84, includeCorrections: false).first {
+                $0.text == surface && $0.source == .conversion && $0.fullConsumption && $0.exactReading && $0.lexical
+            }, surface)
+            value.userPreferenceScore = 0
+            value.features.orthography = 0; value.features.source = 0
+            return value
+        }
+        let drink = try native("nomu", "飲む")
+        let buy = try native("kau", "買う")
+        let want = try native("nomitai", "飲みたい")
+        let script = CandidateSnapshot(candidate: drink.candidate, revision: 84, source: .scriptVariant,
+            remainingComposition: ComposingText(), originalInputCount: drink.originalInputCount,
+            consumedInputCount: drink.consumedInputCount, queryReading: drink.queryReading)
+        // An adapter unit corpus assembled from three real lexical conversions,
+        // not a claim that these different readings share one IME query. Put
+        // them in a deliberately wrong order so identity reranking must fail.
+        let pool = [buy, script, want, drink]
+        XCTAssertEqual(VimeLanguageModel.rerankingSlots(pool, katakana: false), [0, 2, 3])
+        let ranked = lm.rerank(pool, context: reference.context, katakana: false, cancelled: { false })
+        XCTAssertEqual([ranked[0].text, ranked[2].text, ranked[3].text], ["飲む", "飲みたい", "買う"])
+        XCTAssertEqual(ranked[1].presentation, script.presentation)
+        XCTAssertEqual(ranked[0].candidate, drink.candidate)
+        var personalized = pool
+        personalized[2].userPreferenceScore = CandidatePreferenceMemory.Policy.maximumBonus
+        XCTAssertEqual(lm.rerank(personalized, context: reference.context, katakana: false, cancelled: { false })[0].text, "飲みたい")
     }
     func testNextWordsAreShortAndStopBeforePunctuation() throws {
         let lm = try VimeLanguageModel()
@@ -124,21 +171,46 @@ final class VimeLanguageModelTests: XCTestCase {
     func testSessionShowsAndInsertsPhraseSuggestionsAfterCommit() async throws {
         let session = KeyboardSession(asynchronousCandidates: true, memoryDirectoryURL: isolatedLearningDirectory())
         session.phraseSuggestions = true
-        session.leftContextProvider = { "" }
+        let view = UITextView()
+        let host = KeyboardHostConnection(setMarkedText: { view.setMarkedText($0, selectedRange: $1) },
+            unmarkText: { view.unmarkText() }, insertText: { view.insertText($0) }, deleteBackward: { view.deleteBackward() })
+        session.leftContextProvider = {
+            let caret = view.markedTextRange?.start ?? view.selectedTextRange?.start ?? view.endOfDocument
+            return view.text(in: view.textRange(from: view.beginningOfDocument, to: caret)!)
+        }
         let candidates = expectation(description: "candidates")
-        session.onCandidatesChange = { if session.isComposing && session.candidatesAreCurrent { candidates.fulfill() } }
+        var delivered = false
+        session.onCandidatesChange = {
+            if session.isComposing && session.candidatesAreCurrent && !delivered { delivered = true; candidates.fulfill() }
+        }
         _ = session.type("ekini")
+        host.updateMarkedText(session.preedit)
         await fulfillment(of: [candidates], timeout: 10)
         let index = try XCTUnwrap(session.candidates.firstIndex(of: "駅に"))
         let suggested = expectation(description: "suggestions")
-        session.onCandidatesChange = { if !session.suggestions.isEmpty { suggested.fulfill() } }
-        XCTAssertEqual(session.chooseStrip(index), [.insert("駅に")])
+        var suggestedOnce = false
+        session.onCandidatesChange = {
+            if !session.suggestions.isEmpty && !suggestedOnce { suggestedOnce = true; suggested.fulfill() }
+        }
+        let commit = session.chooseStrip(index)
+        XCTAssertEqual(commit, [.insert("駅に")])
+        host.apply(commit, preedit: session.markedText)
+        XCTAssertEqual(view.text, "駅に")
+        XCTAssertNil(view.markedTextRange)
         await fulfillment(of: [suggested], timeout: 10)
         session.onCandidatesChange = nil
         XCTAssertTrue(session.showsStrip)
         XCTAssertEqual(session.stripPresentations.map(\.text), session.suggestions)
-        let first = session.suggestions[0]
-        XCTAssertEqual(session.chooseStrip(0), [.insert(first)])
+        let first = try XCTUnwrap(session.suggestions.first, "Missing real async suggestions must fail, not crash the test process")
+        let edits = session.chooseStrip(0)
+        // A native suggestion can replace the committed suffix. Validate the
+        // complete operation batch against a real text input, including deletes.
+        XCTAssertEqual(try XCTUnwrap(edits.last), .insert(first))
+        XCTAssertTrue(edits.dropLast().allSatisfy { $0 == .deleteBackward })
+        XCTAssertLessThanOrEqual(edits.count - 1, "駅に".count)
+        host.apply(edits, preedit: session.markedText)
+        XCTAssertEqual(view.text, String("駅に".dropLast(edits.count - 1)) + first)
+        XCTAssertNil(view.markedTextRange)
         XCTAssertTrue(session.suggestions.isEmpty)
         _ = session.type("a")
         XCTAssertTrue(session.suggestions.isEmpty)

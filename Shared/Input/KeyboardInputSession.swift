@@ -90,12 +90,14 @@ protocol KeyboardInputSession: AnyObject {
     func togglePrimaryVariant() -> [KeyboardEdit]
     func updateIntelligence(ranking: CandidateRankingMode, suggestionsEnabled: Bool)
     func reset(preservingContext: Bool)
+    func handleMemoryPressure()
     func didApplyEdits(_ edits: [KeyboardEdit])
     func invalidateLearningFeedback()
     func takeInputTiming() -> TimeInterval?
 }
 
 extension KeyboardInputSession {
+    func handleMemoryPressure() {}
     func reset() { reset(preservingContext: false) }
     var conversionRangeDescription: String? { nil }
     func adjustConversionRange(by delta: Int) {}

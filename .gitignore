@@ -46,3 +46,6 @@ __pycache__/
 # User-owned imported skin packs and local artwork previews
 /Artifacts/Skins/
 /Tests/UIKit/LocalSkinPreview.vimeskin
+
+# Local plans, collaboration notes, reviews and validation artifacts
+/Docs/internalDocs/

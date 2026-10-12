@@ -138,11 +138,20 @@ final class KeyboardPersonalizationTests: XCTestCase {
         session.learningContextProvider = { KeyboardLearningContext(document: "field", before: before, after: "") }
         _ = session.type("hashi")
         let index = try XCTUnwrap(session.candidateSnapshots.firstIndex { $0.learningEligible && $0.fullConsumption })
+        let selected = session.candidateSnapshots[index]
         let edits = session.choose(index)
         for edit in edits { if case let .insert(text) = edit { before += text } }
         session.didApplyEdits(edits)
         try await Task.sleep(for: .seconds(CandidateLearningFeedback.Policy.retentionSeconds + 0.2))
         XCTAssertTrue(FileManager.default.fileExists(atPath: directory.appendingPathComponent("VimeSelectionFrequency.json").path))
+        let data = try Data(contentsOf: directory.appendingPathComponent("VimeSelectionFrequency.json"))
+        let archive = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let entries = try XCTUnwrap(archive["entries"] as? [String: [String: Any]])
+        let evidence = try XCTUnwrap(entries.values.first { ($0["reading"] as? String) == selected.reading
+            && ($0["surface"] as? String) == selected.text && ($0["scope"] as? String) == "conversion"
+            && ($0["context"] as? String) == "" })
+        XCTAssertEqual(evidence["confirmations"] as? Int, 1)
+        XCTAssertGreaterThan(try XCTUnwrap(evidence["evidence"] as? Double), 0)
     }
 
     func testScoredHistoryUsesModelEvidenceAndBoundedPersonalization() throws {

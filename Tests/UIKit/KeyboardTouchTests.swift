@@ -438,6 +438,8 @@ final class KeyboardTouchTests: XCTestCase {
 
     func testNumberLayoutSwitchPanelAndRepeatCancellation() async throws {
         let (keyboard, surface) = makeKeyboard()
+        let oldNumbers = keyboard.preferences.nineKeyNumbers
+        defer { keyboard.preferences.nineKeyNumbers = oldNumbers }
         keyboard.preferences.nineKeyNumbers = true
         let numbers = try XCTUnwrap(descendants(keyboard).compactMap { $0 as? KeyboardKey }.first { $0.title(for: .normal) == "123" })
         numbers.sendActions(for: .touchUpInside)

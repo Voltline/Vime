@@ -39,12 +39,11 @@ final class KeyboardPredictionTests: XCTestCase {
         session.onCandidatesChange = nil
     }
 
-    func testCandidateMetadataAndPartialConsumption() {
+    func testCandidateMetadataAndPartialConsumption() throws {
         let session = KeyboardSession()
         _ = session.type("naniwo")
-        let partial = session.candidateSnapshots.firstIndex { $0.text == "何" }
-        XCTAssertNotNil(partial)
-        if let partial {
+        let partial = try XCTUnwrap(session.candidateSnapshots.firstIndex { $0.text == "何" })
+        do {
             let snapshot = session.candidateSnapshots[partial]
             XCTAssertEqual(snapshot.source, .conversion)
             XCTAssertEqual(snapshot.candidate.data.map(\.ruby).joined(), "ナニ")
@@ -55,14 +54,15 @@ final class KeyboardPredictionTests: XCTestCase {
             XCTAssertEqual(session.enter(), [.insert("を")])
         }
         _ = session.type("nanim")
-        if let index = session.candidateSnapshots.firstIndex(where: { $0.text == "何も" }) {
+        do {
+            let index = try XCTUnwrap(session.candidateSnapshots.firstIndex(where: { $0.text == "何も" }))
             let snapshot = session.candidateSnapshots[index]
             XCTAssertEqual(snapshot.source, .prediction)
             XCTAssertEqual(snapshot.candidate.data.map(\.ruby).joined(), "ナニモ")
             XCTAssertTrue(snapshot.remainingComposition.isEmpty)
             XCTAssertEqual(session.choose(index), [.insert("何も")])
             XCTAssertNil(session.preedit, "Predicted completion also consumes the unresolved m")
-        } else { XCTFail("Missing unresolved suffix prediction") }
+        }
         _ = session.type("kan")
         XCTAssertEqual(session.preedit, "かn")
         _ = session.space()

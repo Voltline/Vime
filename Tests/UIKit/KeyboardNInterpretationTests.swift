@@ -15,7 +15,7 @@ final class KeyboardNInterpretationTests: XCTestCase {
         }
     }
 
-    func testNAlternativesAreCandidatesNotInputRewrites() {
+    func testNAlternativesAreCandidatesNotInputRewrites() throws {
         let session = KeyboardSession()
         for (raw, kana, expected) in [("renai", "れない", "恋愛"), ("rennai", "れんあい", "恋愛"),
                                       ("konna", "こんあ", "こんな"), ("konichiha", "こにちは", "こんにちは"),
@@ -25,10 +25,9 @@ final class KeyboardNInterpretationTests: XCTestCase {
             XCTAssertEqual(session.preedit, kana)
             XCTAssertTrue(session.candidates.contains(expected), raw)
             if raw != "renai" { XCTAssertEqual(session.candidates.first, expected, raw) }
-            if let index = session.candidates.firstIndex(of: expected) {
-                XCTAssertEqual(session.choose(index), [.insert(expected)])
-                XCTAssertNil(session.preedit)
-            }
+            let index = try XCTUnwrap(session.candidates.firstIndex(of: expected), raw)
+            XCTAssertEqual(session.choose(index), [.insert(expected)])
+            XCTAssertNil(session.preedit)
         }
     }
 

@@ -7,13 +7,13 @@ struct KeyboardHeightEditor: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 12) {
-                Text("拖动键盘上方的横条，向上拉高、向下降低。")
+                Text("拖动键盘上方的横条，向上拉高、向下降低")
                     .font(.subheadline).foregroundStyle(.secondary)
                     .padding(.horizontal)
                 KeyboardHeightPreview(factor: $factor)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 Button("恢复默认高度") { factor = 1 }
-                Text("保存后同步到系统键盘；同步需要允许完全访问。")
+                Text("保存后同步到系统键盘；同步需要允许完全访问")
                     .font(.caption).foregroundStyle(.secondary).padding(.horizontal)
             }
             .padding(.vertical, 12)

@@ -4,6 +4,8 @@ import os
 class KeyboardViewController: UIInputViewController {
     private let keyboard = KeyboardView()
     private let synchronizationLog = Logger(subsystem: "com.Voltline.Vime", category: "CompositionSync")
+    private let lifecycleLog = Logger(subsystem: "com.Voltline.Vime", category: "ExtensionLifecycle")
+    private let startedAt = ProcessInfo.processInfo.systemUptime
     private var heightConstraint: NSLayoutConstraint?
     private var knownDocument: String?
     private var knownBefore: String?
@@ -27,6 +29,7 @@ class KeyboardViewController: UIInputViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        logLifecycle("loaded")
         VimeExtensionAudit.start()
         keyboard.hasFullAccess = hasFullAccess
         keyboard.showsFooter = needsInputModeSwitchKey
@@ -83,6 +86,7 @@ class KeyboardViewController: UIInputViewController {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        logLifecycle("appearing")
         host.abandon()
         keyboard.resetComposition()
         keyboard.hasFullAccess = hasFullAccess
@@ -102,10 +106,22 @@ class KeyboardViewController: UIInputViewController {
     }
 
     override func viewWillDisappear(_ animated: Bool) {
+        logLifecycle("disappearing")
         keyboard.stopInteractions()
         host.abandon()
         keyboard.resetComposition()
         super.viewWillDisappear(animated)
+    }
+
+    override func didReceiveMemoryWarning() {
+        super.didReceiveMemoryWarning()
+        logLifecycle("memory-warning")
+        keyboard.handleMemoryPressure()
+    }
+
+    private func logLifecycle(_ event: String) {
+        let seconds = Int(ProcessInfo.processInfo.systemUptime - startedAt)
+        lifecycleLog.notice("Keyboard \(event, privacy: .public); pid=\(ProcessInfo.processInfo.processIdentifier) age=\(seconds)s footprint=\(VimeLanguageModel.footprintMB())MB")
     }
 
     override func textDidChange(_ textInput: UITextInput?) {

@@ -162,10 +162,9 @@ final class KeyboardCorrectionTests: XCTestCase {
         XCTAssertTrue(separatedCorrection.remainingComposition.isEmpty)
         _ = session.type("shitsuka"); XCTAssertEqual(session.enter(), [.insert("しつか")])
         _ = session.type("nihongoo")
-        if let corrected = session.candidateSnapshots.firstIndex(where: { $0.correction?.suggestedReading == "にほんご" }) {
-            XCTAssertEqual(session.candidateSnapshots[corrected].consumedInputCount, 8)
-            _ = session.choose(corrected); XCTAssertNil(session.preedit)
-        }
+        let corrected = try XCTUnwrap(session.candidateSnapshots.firstIndex(where: { $0.correction?.suggestedReading == "にほんご" }))
+        XCTAssertEqual(session.candidateSnapshots[corrected].consumedInputCount, 8)
+        _ = session.choose(corrected); XCTAssertNil(session.preedit)
         _ = session.type("nanimo"); _ = session.backspace(); XCTAssertEqual(session.preedit, "なに")
         session.reset(); _ = session.toggleKana(); _ = session.type("shitsuka")
         XCTAssertEqual(session.preedit, "シツカ")
@@ -221,20 +220,83 @@ final class KeyboardCorrectionTests: XCTestCase {
         XCTAssertTrue(descendants(keyboard).contains { ($0 as? UILabel)?.text == "しずか · 建议" })
         XCTAssertTrue(descendants(keyboard).contains { $0.accessibilityLabel == replacement.presentation.accessibilityLabel })
         let expand = try XCTUnwrap(descendants(keyboard).first { $0.accessibilityIdentifier == "vime.candidates.expand" } as? UIButton)
+        let previousRevision = session.revision
         expand.sendActions(for: .touchUpInside); keyboard.layoutIfNeeded()
+        XCTAssertGreaterThan(session.revision, previousRevision)
+        XCTAssertFalse(session.candidateSnapshots.contains { $0.revision == previousRevision })
+        session.acceptCandidateUpdate(values, revision: previousRevision, supplementary: true)
+        XCTAssertFalse(descendants(keyboard).contains { ($0 as? UILabel)?.text == "しずか · 建议" }, "Stale annotations must not survive a new query")
+        // This is a metadata rendering unit test; use the new query's snapshot.
+        // Real asynchronous correction publication is tested separately below.
+        let current = try XCTUnwrap(session.candidateSnapshots.first { $0.text == "静か" })
+        let currentReplacement = CandidateSnapshot(candidate: current.candidate, revision: session.revision, source: .correction,
+            remainingComposition: current.remainingComposition, originalInputCount: current.originalInputCount,
+            consumedInputCount: current.consumedInputCount, correction: info)
+        values = session.candidateSnapshots
+        let currentIndex = try XCTUnwrap(values.firstIndex { $0.text == "静か" })
+        values[currentIndex] = currentReplacement
+        session.acceptCandidateUpdate(values, revision: session.revision, supplementary: true)
+        keyboard.layoutIfNeeded()
         XCTAssertGreaterThanOrEqual(descendants(keyboard).filter { $0.accessibilityLabel == replacement.presentation.accessibilityLabel }.count, 2)
         let preview = UIGraphicsImageRenderer(bounds: keyboard.bounds).image { context in
             keyboard.layer.render(in: context.cgContext)
         }
         let attachment = XCTAttachment(image: preview)
         attachment.name = "correction-panel-preview"; attachment.lifetime = .keepAlways; add(attachment)
-        values[index] = original
+        values[currentIndex] = current
         session.acceptCandidateUpdate(values, revision: session.revision, supplementary: true)
         XCTAssertFalse(descendants(keyboard).contains { ($0 as? UILabel)?.text == "しずか · 建议" })
         let differentConsumption = CandidateSnapshot(candidate: original.candidate, revision: session.revision, source: .conversion,
             remainingComposition: query("a"), originalInputCount: original.originalInputCount,
             consumedInputCount: original.consumedInputCount - 1)
         XCTAssertNotEqual(original.presentation, differentConsumption.presentation)
+    }
+
+    func testExpandedPanelPublishesAndCommitsRealAsyncCorrection() async throws {
+        let suite = "VimeCorrectionPanel." + UUID().uuidString
+        let preferences = KeyboardPreferences(defaults: try XCTUnwrap(UserDefaults(suiteName: suite)))
+        preferences.candidateRanking = .engine
+        preferences.phraseSuggestions = false
+        defer { UserDefaults.standard.removePersistentDomain(forName: suite) }
+        let session = KeyboardSession(asynchronousCandidates: true, memoryDirectoryURL: isolatedLearningDirectory())
+        let keyboard = KeyboardView(frame: CGRect(x: 0, y: 0, width: 440, height: 350), session: session, preferences: preferences)
+        let view = UITextView()
+        let host = KeyboardHostConnection(setMarkedText: { view.setMarkedText($0, selectedRange: $1) },
+            unmarkText: { view.unmarkText() }, insertText: { view.insertText($0) }, deleteBackward: { view.deleteBackward() })
+        keyboard.onEdit = { host.apply($0) }; keyboard.onMarkedTextChange = { host.updateMarkedText($0) }
+        let renderUpdate = session.onCandidatesChange
+        let correction = expectation(description: "real correction arrives for expanded query")
+        var delivered = false
+        session.onCandidatesChange = {
+            renderUpdate?()
+            if session.candidatesAreCurrent && !delivered && session.candidateSnapshots.contains(where: { $0.text == "静か" && $0.source == .correction }) {
+                delivered = true; correction.fulfill()
+            }
+        }
+        defer { session.onCandidatesChange = nil; keyboard.stopInteractions() }
+        for char in "shitsuka" {
+            let key = try XCTUnwrap(descendants(keyboard).first { $0.accessibilityIdentifier == "vime.key.\(char)" } as? UIButton)
+            key.sendActions(for: .touchUpInside)
+        }
+        XCTAssertEqual(view.text, "しつか")
+        let expand = try XCTUnwrap(descendants(keyboard).first { $0.accessibilityIdentifier == "vime.candidates.expand" } as? UIButton)
+        expand.sendActions(for: .touchUpInside)
+        await fulfillment(of: [correction], timeout: 10)
+        keyboard.layoutIfNeeded()
+        let snapshot = try XCTUnwrap(session.candidateSnapshots.first { $0.text == "静か" && $0.source == .correction })
+        XCTAssertEqual(snapshot.revision, session.revision)
+        XCTAssertEqual(snapshot.correction?.originalInput, "shitsuka")
+        XCTAssertEqual(snapshot.correction?.correctedReading, "しずか")
+        let panel = try XCTUnwrap(descendants(keyboard).first { $0.accessibilityIdentifier == "vime.candidates.panel" })
+        XCTAssertFalse(panel.isHidden)
+        let candidate = try XCTUnwrap(descendants(panel).first { $0.accessibilityLabel == snapshot.presentation.accessibilityLabel } as? UIButton)
+        XCTAssertFalse(candidate.isHidden)
+        XCTAssertTrue(descendants(candidate).contains { ($0 as? UILabel)?.text == "しずか · 建议" })
+        candidate.sendActions(for: .touchUpInside)
+        XCTAssertEqual(view.text, "静か")
+        XCTAssertNil(view.markedTextRange)
+        XCTAssertNil(host.markedText)
+        XCTAssertFalse(session.isComposing)
     }
 
     func testProfileIdleCorrectionPublicationAndMemory() async throws {

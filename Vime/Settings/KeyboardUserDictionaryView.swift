@@ -12,16 +12,23 @@ private struct UserDictionaryDocument: FileDocument {
 struct KeyboardUserDictionaryView: View {
     private let store = JapaneseUserDictionaryStore()
     @State private var entries: [JapaneseUserDictionaryEntry] = []
+    @State private var search = ""
     @State private var editing: JapaneseUserDictionaryEntry?
     @State private var importing = false
     @State private var exporting = false
     @State private var exportDocument = UserDictionaryDocument()
     @State private var errorMessage: String?
+    private var visibleEntries: [JapaneseUserDictionaryEntry] {
+        let query = search.trimmingCharacters(in: .whitespacesAndNewlines)
+        let readingQuery = RomajiConverter.katakana(query)
+        return entries.filter { query.isEmpty || $0.surface.localizedCaseInsensitiveContains(query)
+            || $0.reading.localizedCaseInsensitiveContains(readingQuery) }
+    }
 
     var body: some View {
         List {
             Section {
-                ForEach(entries) { entry in
+                ForEach(visibleEntries) { entry in
                     Button { editing = entry } label: {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(entry.surface).foregroundStyle(.primary)
@@ -31,19 +38,22 @@ struct KeyboardUserDictionaryView: View {
                         }
                     }
                 }.onDelete { offsets in
-                    var values = entries; values.remove(atOffsets: offsets)
+                    let ids = Set(offsets.map { visibleEntries[$0].id })
+                    let values = entries.filter { !ids.contains($0.id) }
                     perform { try store.save(values); entries = values }
                 }
                 if entries.isEmpty { Text("添加姓名、专业词或常用短语").foregroundStyle(.secondary) }
+                else if visibleEntries.isEmpty { Text("没有匹配的词条").foregroundStyle(.secondary) }
             } footer: {
-                Text("词语可参与分段转换和预测；短语仅在完整读音匹配时出现。读音支持假名或完整罗马字。开启键盘完全访问后，词典会共享到其他 App；重新打开键盘或继续输入即可读取更新。")
+                Text("词语可参与分段转换和预测；短语仅在完整读音匹配时出现\n读音支持假名或完整罗马字\n开启键盘完全访问后，词典会共享到其他 App；重新打开键盘或继续输入即可读取更新")
             }
             Section {
                 Button("导入词典 JSON") { importing = true }
                 Button("导出词典 JSON") { perform { exportDocument = UserDictionaryDocument(data: try store.exportData()); exporting = true } }
-            } footer: { Text("导入会与已有词条合并并去重，最多 1,024 条。词典只保存在本机。") }
+            } footer: { Text("导入会与已有词条合并并去重，最多 1,024 条\n词典只保存在本机") }
         }
         .navigationTitle("用户词典")
+        .searchable(text: $search, prompt: "搜索词语或读音")
         .toolbar { ToolbarItem(placement: .primaryAction) {
             Button { editing = .init(reading: "", surface: "") } label: { Image(systemName: "plus") }.accessibilityLabel("添加词条")
         } }

@@ -1,5 +1,6 @@
 import Foundation
 import CryptoKit
+import Darwin
 
 /// Queue-confined, bounded memory. Persistent evidence is accepted feedback;
 /// request/session evidence is removable and never written to the archive.
@@ -27,7 +28,13 @@ nonisolated final class CandidatePreferenceMemory {
         var confirmations: Int
         var selectedAt: TimeInterval
     }
-    private struct Archive: Codable { var version = 2; var entries: [String: Entry] }
+    // nil is the original generation, including v1/v2 files written before
+    // clear epochs existed. Ordinary writes preserve it; only clear changes it.
+    private struct Archive: Codable {
+        var version = 2
+        var epoch: UUID?
+        var entries: [String: Entry]
+    }
     private struct LegacyArchive: Decodable {
         struct Entry: Decodable { let scope: String; let context: String; let surface: String; let count: Int; let selectedAt: TimeInterval }
         let version: Int
@@ -42,25 +49,50 @@ nonisolated final class CandidatePreferenceMemory {
     private var populations: [String: [String: String]] = [:]
     private var recent: [Recent] = []
     private var dirty = false
+    private var epoch: UUID?
+    // Only this instance's delta, coalesced by key. Failed disk writes must not
+    // turn a bounded learning store into an unbounded event log.
+    private var pendingEvents: [String: Entry] = [:]
+    private var pendingClear = false
+    private(set) var persistenceError: String?
+    var pendingPersistenceEntryCount: Int { pendingEvents.count }
+
+    private enum PersistenceFailure: Error { case oversizedArchive, invalidArchive, oversizedOutput }
 
     init(directory: URL) {
         url = directory.appendingPathComponent("VimeSelectionFrequency.json")
-        guard let handle = try? FileHandle(forReadingFrom: url) else { return }
+        do {
+            let archive = try readArchive()
+            entries = archive.entries
+            epoch = archive.epoch
+            prune(); rebuildIndex()
+        } catch { persistenceError = String(describing: error) }
+    }
+
+    private func readArchive() throws -> Archive {
+        guard FileManager.default.fileExists(atPath: url.path) else { return Archive(epoch: nil, entries: [:]) }
+        let handle = try FileHandle(forReadingFrom: url)
         defer { try? handle.close() }
-        guard let data = try? handle.read(upToCount: Policy.maximumFileBytes + 1), data.count <= Policy.maximumFileBytes else { return }
+        let data = try handle.read(upToCount: Policy.maximumFileBytes + 1) ?? Data()
+        guard data.count <= Policy.maximumFileBytes else { throw PersistenceFailure.oversizedArchive }
+        var decoded: [String: Entry] = [:]
         if let archive = try? JSONDecoder().decode(Archive.self, from: data), archive.version == 2 {
-            for entry in archive.entries.values where valid(entry) { entries[key(entry)] = entry }
+            for entry in archive.entries.values where valid(entry) { decoded[key(entry)] = entry }
+            return Archive(epoch: archive.epoch, entries: decoded)
         } else if let old = try? JSONDecoder().decode(LegacyArchive.self, from: data), old.version == 1 {
             for item in old.entries.values {
                 guard item.count > 0, item.count <= 1000 else { continue }
                 let entry = Entry(scope: item.scope, reading: item.scope == "conversion" ? item.context : "",
                     context: item.scope == "conversion" ? "" : item.context, surface: item.surface,
                     evidence: Double(item.count), confirmations: item.count, selectedAt: item.selectedAt)
-                if valid(entry) { entries[key(entry)] = entry }
+                if valid(entry) { decoded[key(entry)] = entry }
             }
             dirty = true // Migration is persisted at the next confirmation/lifecycle boundary.
+            return Archive(epoch: nil, entries: decoded)
         }
-        prune(); rebuildIndex()
+        // A failed/corrupt read is not permission to replace existing history
+        // with an empty snapshot. Keep pending events available for a retry.
+        throw PersistenceFailure.invalidArchive
     }
     private func valid(_ e: Entry) -> Bool {
         ["conversion", "style", "nextWord"].contains(e.scope) && e.evidence.isFinite
@@ -85,16 +117,26 @@ nonisolated final class CandidatePreferenceMemory {
         e.evidence * pow(0.5, max(0, now.timeIntervalSince1970 - e.selectedAt) / Policy.halfLife)
     }
     private func bump(scope: String, reading: String, context: String, surface: String, weight: Double, now: Date) {
-        var e = Entry(scope: scope, reading: reading, context: context, surface: surface,
+        let e = Entry(scope: scope, reading: reading, context: context, surface: surface,
             evidence: weight, confirmations: 1, selectedAt: now.timeIntervalSince1970)
         guard weight.isFinite, weight > 0, valid(e) else { return }
-        if let old = entries[key(e)] {
+        apply(e, to: &pendingEvents)
+        apply(e, to: &entries)
+        dirty = true
+    }
+    private func apply(_ event: Entry, to target: inout [String: Entry]) {
+        var e = event
+        if let old = target[key(e)] {
             // Decay the accumulated evidence BEFORE adding new feedback. A new
             // selection never refreshes all historical counts to full strength.
-            e.evidence = min(1000, effective(old, now: now) + weight)
-            e.confirmations = min(1000, old.confirmations + 1)
+            // Writers may flush in a different order from event timestamps.
+            // Bring both contributions to the later instant, never rejuvenate.
+            let instant = Date(timeIntervalSince1970: max(old.selectedAt, e.selectedAt))
+            e.evidence = min(1000, effective(old, now: instant) + effective(e, now: instant))
+            e.confirmations = min(1000, old.confirmations + event.confirmations)
+            e.selectedAt = instant.timeIntervalSince1970
         }
-        entries[key(e)] = e; dirty = true
+        target[key(e)] = e
     }
     private func rows(scope: String, reading: String, context: String) -> [String: Entry] {
         (populations[population(scope, reading, context)] ?? [:]).compactMapValues { entries[$0] }
@@ -203,11 +245,15 @@ nonisolated final class CandidatePreferenceMemory {
         }.prefix(5))
     }
     private func prune() {
-        if entries.count > Policy.maximumEntries {
-            let keep = entries.values.sorted {
+        trim(&entries)
+        trim(&pendingEvents)
+    }
+    private func trim(_ store: inout [String: Entry]) {
+        if store.count > Policy.maximumEntries {
+            let keep = store.values.sorted {
                 $0.selectedAt == $1.selectedAt ? key($0) < key($1) : $0.selectedAt > $1.selectedAt
             }.prefix(Policy.maximumEntries)
-            entries = Dictionary(uniqueKeysWithValues: keep.map { (key($0), $0) })
+            store = Dictionary(uniqueKeysWithValues: keep.map { (key($0), $0) })
         }
     }
     private func rebuildIndex() {
@@ -215,10 +261,44 @@ nonisolated final class CandidatePreferenceMemory {
         for (key, e) in entries { populations[population(e.scope, e.reading, e.context), default: [:]][e.surface] = key }
     }
     func flush() {
-        guard dirty, let data = try? JSONEncoder().encode(Archive(entries: entries)), data.count <= Policy.maximumFileBytes else { return }
-        do { try data.write(to: url, options: .atomic); dirty = false } catch { }
+        guard dirty else { return }
+        do {
+            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            // Lock a separate, persistent inode: atomic replacement of the JSON
+            // must not replace the lock itself. flock coordinates other processes
+            // as well as live instances, regardless of their worker queues.
+            let lockURL = url.appendingPathExtension("lock")
+            let descriptor = Darwin.open(lockURL.path, O_CREAT | O_RDWR | O_CLOEXEC, S_IRUSR | S_IWUSR)
+            guard descriptor >= 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
+            defer { Darwin.close(descriptor) }
+            var locked: Int32
+            repeat { locked = flock(descriptor, LOCK_EX) } while locked != 0 && errno == EINTR
+            guard locked == 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
+            defer { _ = flock(descriptor, LOCK_UN) }
+            let latest = pendingClear ? Archive(epoch: epoch, entries: [:]) : try readArchive()
+            if !pendingClear && latest.epoch != epoch {
+                // Another instance cleared history. Discard this old generation's
+                // pending feedback instead of resurrecting data the user removed.
+                entries = latest.entries; epoch = latest.epoch; recent = []
+            } else {
+                var merged = latest.entries
+                for event in pendingEvents.values { apply(event, to: &merged) }
+                let previous = entries
+                entries = merged; prune()
+                do {
+                    let data = try JSONEncoder().encode(Archive(epoch: epoch, entries: entries))
+                    guard data.count <= Policy.maximumFileBytes else { throw PersistenceFailure.oversizedOutput }
+                    try data.write(to: url, options: .atomic)
+                } catch { entries = previous; throw error }
+            }
+            pendingEvents = [:]; pendingClear = false; dirty = false
+            rebuildIndex(); persistenceError = nil
+        } catch { persistenceError = String(describing: error) }
     }
-    func clear() { entries = [:]; populations = [:]; recent = []; dirty = true; flush() }
+    func clear() {
+        entries = [:]; populations = [:]; recent = []; pendingEvents = [:]
+        epoch = UUID(); pendingClear = true; dirty = true; flush()
+    }
 }
 
 nonisolated struct ScoredNextWord: Sendable {

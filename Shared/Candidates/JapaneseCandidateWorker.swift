@@ -7,15 +7,31 @@ import KanaKanjiConverterModuleWithDefaultDictionary
 /// the session revision prevents it from changing newer composition state.
 @MainActor
 final class JapaneseCandidateWorker {
+    nonisolated struct ResourceState: Equatable, Sendable {
+        let engineLoaded: Bool
+        let modelLoaded: Bool
+        let modelSuspendedForMemoryPressure: Bool
+    }
     private nonisolated final class Storage: @unchecked Sendable {
         private var cachedEngine: JapaneseCandidateEngine?
         private var cachedLanguageModel: VimeLanguageModel?
         private var attemptedLanguageModel = false
+        var modelSuspendedForMemoryPressure = false
+        var resourceState: ResourceState {
+            ResourceState(engineLoaded: cachedEngine != nil, modelLoaded: cachedLanguageModel != nil,
+                          modelSuspendedForMemoryPressure: modelSuspendedForMemoryPressure)
+        }
+        func handleMemoryPressure() {
+            modelSuspendedForMemoryPressure = true
+            releaseLanguageModel()
+            cachedEngine?.discardTransientCaches()
+        }
         func releaseLanguageModel() {
             cachedLanguageModel = nil
             attemptedLanguageModel = false
         }
         var languageModel: VimeLanguageModel? {
+            guard !modelSuspendedForMemoryPressure else { return nil }
             if !attemptedLanguageModel {
                 attemptedLanguageModel = true
                 let log = Logger(subsystem: "com.Voltline.Vime", category: "LanguageModel")
@@ -54,7 +70,10 @@ final class JapaneseCandidateWorker {
         func cancel() { lock.lock(); cancelled = true; lock.unlock() }
         var isCancelled: Bool { lock.lock(); defer { lock.unlock() }; return cancelled }
     }
-    private let queue = DispatchQueue(label: "com.Voltline.Vime.candidates", qos: .userInitiated)
+    // Drain Foundation/Core ML temporaries at every request, including cancelled
+    // work, instead of relying on the long-lived queue's inherited pool policy
+    private let queue = DispatchQueue(label: "com.Voltline.Vime.candidates", qos: .userInitiated,
+                                      autoreleaseFrequency: .workItem)
     private let storage: Storage
     init(memoryDirectoryURL: URL? = nil) { storage = Storage(memoryDirectoryURL: memoryDirectoryURL) }
     private var pending: Request?
@@ -199,6 +218,26 @@ final class JapaneseCandidateWorker {
         cancelPending()
         let storage = self.storage
         queue.async { storage.releaseLanguageModel() }
+    }
+
+    func handleMemoryPressure() {
+        cancelPending()
+        let storage = self.storage
+        queue.async { storage.handleMemoryPressure() }
+    }
+
+    /// Only an explicit off-to-on settings change retries neural work after a
+    /// memory warning; ordinary keystrokes and host changes must not reload it
+    func allowLanguageModel() {
+        let storage = self.storage
+        queue.async { storage.modelSuspendedForMemoryPressure = false }
+    }
+
+    func resourceState() async -> ResourceState {
+        let storage = self.storage
+        return await withCheckedContinuation { continuation in
+            queue.async { continuation.resume(returning: storage.resourceState) }
+        }
     }
 
     func reset(preservingContext: Bool = false) {

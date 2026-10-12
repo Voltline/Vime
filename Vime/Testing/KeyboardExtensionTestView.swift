@@ -10,7 +10,7 @@ struct KeyboardExtensionTestView: View {
     private let blue = Color(uiColor: UIColor(cgColor: VimeLogo.blue))
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("点击输入框，通过地球键选择 Vime 日本語。这里使用 iOS 加载的键盘扩展。")
+            Text("点击输入框，通过地球键选择 Vime 日本語\n这里使用 iOS 加载的键盘扩展")
                 .font(.subheadline).foregroundStyle(.secondary)
             SystemKeyboardEditor(text: $text, composition: $composition, focusRequest: focusRequest,
                 clearRequest: clearRequest, onSnapshot: { snapshot in
@@ -31,7 +31,7 @@ struct KeyboardExtensionTestView: View {
                 }.accessibilityIdentifier("vime.extension.clear")
                 Button("复制测试记录") { UIPasteboard.general.string = events.joined(separator: "\n") }
             }.font(.subheadline).tint(blue)
-            Text("可试：tennanhantenn → 展开候选 → 天 → 安 → 飯店。点选前段后，剩余部分应继续显示为待确认文本。")
+            Text("可试：tennanhantenn → 展开候选 → 天 → 安 → 飯店\n点选前段后，剩余部分应继续显示为待确认文本")
                 .font(.caption).foregroundStyle(.secondary)
             Spacer(minLength: 0)
 #if DEBUG

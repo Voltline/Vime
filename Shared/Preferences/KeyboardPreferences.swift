@@ -18,14 +18,18 @@ struct KeyboardPreferences {
                 if let value = defaults.object(forKey: key) { shared.set(value, forKey: key) }
             }
         }
+        if self.defaults.object(forKey: "vime.hapticIntensity") == nil {
+            let legacy = min(5, max(0, self.defaults.object(forKey: "vime.hapticLevel") as? Int ?? 3))
+            self.defaults.set(Double(legacy) / 5, forKey: "vime.hapticIntensity")
+        }
     }
-    private static let sharedKeys = ["vime.sound", "vime.hapticLevel", "vime.nineKeyNumbers",
+    private static let sharedKeys = ["vime.sound", "vime.hapticLevel", "vime.hapticIntensity", "vime.nineKeyNumbers",
         "vime.prolongedKey", "vime.previews", "vime.theme", "vime.candidateRanking", "vime.phraseSuggestions", "vime.customSkinID", "vime.skinRevision"]
     var store: UserDefaults { defaults }
     struct Snapshot: Equatable {
         let heightFactor: Double
         let sound: Bool
-        let hapticLevel: Int
+        let hapticIntensity: Double
         let nineKeyNumbers: Bool
         let prolongedKey: Bool
         let previews: Bool
@@ -36,7 +40,7 @@ struct KeyboardPreferences {
         let phraseSuggestions: Bool
     }
     var snapshot: Snapshot {
-        Snapshot(heightFactor: heightFactor, sound: sound, hapticLevel: hapticLevel,
+        Snapshot(heightFactor: heightFactor, sound: sound, hapticIntensity: hapticIntensity,
             nineKeyNumbers: nineKeyNumbers, prolongedKey: prolongedKey, previews: previews,
             theme: theme, customSkinID: customSkinID, skinRevision: skinRevision, candidateRanking: candidateRanking, phraseSuggestions: phraseSuggestions)
     }
@@ -54,10 +58,15 @@ struct KeyboardPreferences {
         get { defaults.object(forKey: "vime.sound") as? Bool ?? true }
         nonmutating set { defaults.set(newValue, forKey: "vime.sound") }
     }
-    /// 0 = disabled; 1...5 = increasing intensity, with heavy impact at maximum.
+    /// Continuous requested strength; actual feedback depends on device hardware.
+    var hapticIntensity: Double {
+        get { HapticIntensity.normalized(defaults.double(forKey: "vime.hapticIntensity")) }
+        nonmutating set { defaults.set(HapticIntensity.normalized(newValue), forKey: "vime.hapticIntensity") }
+    }
+    /// Compatibility for callers using the original six-level setting.
     var hapticLevel: Int {
-        get { min(5, max(0, defaults.object(forKey: "vime.hapticLevel") as? Int ?? 3)) }
-        nonmutating set { defaults.set(min(5, max(0, newValue)), forKey: "vime.hapticLevel") }
+        get { Int((hapticIntensity * 5).rounded()) }
+        nonmutating set { hapticIntensity = Double(min(5, max(0, newValue))) / 5 }
     }
     var nineKeyNumbers: Bool {
         get { defaults.object(forKey: "vime.nineKeyNumbers") as? Bool ?? true }

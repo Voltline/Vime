@@ -1,0 +1,90 @@
+import XCTest
+import Combine
+@testable import Vime
+
+@MainActor
+final class AppPresentationTests: XCTestCase {
+    func testExternalSkinWaitsForDraftAndImportsWithoutOverwritingIt() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = Vime.KeyboardSkinStore(directory: directory.appendingPathComponent("skins"))
+        let router = Vime.AppRouter(store: store)
+        var draft = Vime.KeyboardSkinDocument(); draft.name = "未保存草稿"
+        var imported = Vime.KeyboardSkinDocument(); imported.name = "外部皮肤"
+        let file = directory.appendingPathComponent("external.vimeskin")
+        try imported.encoded().write(to: file)
+        router.present(.skin(draft)); router.openSkin(file)
+        XCTAssertFalse(router.importing)
+        XCTAssertTrue(store.summaries().isEmpty)
+        guard case .skin(let current) = router.sheet else { return XCTFail("Draft was dismissed") }
+        XCTAssertEqual(current, draft)
+        let ready = expectation(description: "Queued file opens after draft dismissal")
+        let subscription = router.$sheet.compactMap { $0 }.sink {
+            if case .skin(let document) = $0, document.name == "外部皮肤" { ready.fulfill() }
+        }
+        router.sheet = nil; router.sheetDismissed()
+        await fulfillment(of: [ready], timeout: 5)
+        withExtendedLifetime(subscription) {}
+        let saved = try XCTUnwrap(store.summaries().first)
+        XCTAssertEqual(saved.name, "外部皮肤")
+        XCTAssertNotEqual(saved.id, imported.id)
+        XCTAssertEqual(try store.load(saved.id).palette, imported.palette)
+        XCTAssertFalse(router.importing)
+    }
+    func testFailedImportDoesNotChangeSelectionAndQueuedFileWaitsForAcknowledgement() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = Vime.KeyboardSkinStore(directory: directory.appendingPathComponent("skins"))
+        let router = Vime.AppRouter(store: store)
+        let preferences = Vime.KeyboardPreferences(), previous = preferences.snapshot
+        let bad = directory.appendingPathComponent("bad.vimeskin"), good = directory.appendingPathComponent("good.vimeskin")
+        try Data("invalid skin".utf8).write(to: bad)
+        var document = Vime.KeyboardSkinDocument(); document.name = "排队导入"
+        try document.encoded().write(to: good)
+        let failed = expectation(description: "Malformed external file fails")
+        let errorSubscription = router.$error.compactMap { $0 }.first().sink { _ in failed.fulfill() }
+        router.beginFilePicker(); router.openSkin(good)
+        XCTAssertFalse(router.importing)
+        // Finish the picker with a bad file first; its own selected file is appended
+        // after the external file, so acknowledge any errors before proceeding.
+        router.finishFilePicker(.failure(NSError(domain: NSCocoaErrorDomain, code: NSFileReadCorruptFileError)))
+        XCTAssertNotNil(router.error)
+        XCTAssertTrue(store.summaries().isEmpty)
+        // Use a second router to test failure from actual file decoding.
+        let decoderRouter = Vime.AppRouter(store: store)
+        let decodeFailed = expectation(description: "Invalid data reaches decoder error")
+        let decoderSubscription = decoderRouter.$error.compactMap { $0 }.first().sink { _ in decodeFailed.fulfill() }
+        decoderRouter.openSkin(bad); decoderRouter.openSkin(good)
+        await fulfillment(of: [failed, decodeFailed], timeout: 5)
+        XCTAssertTrue(store.summaries().isEmpty)
+        XCTAssertEqual(preferences.snapshot, previous)
+        let ready = expectation(description: "Valid file opens after acknowledging error")
+        let sheetSubscription = decoderRouter.$sheet.compactMap { $0 }.first().sink { _ in ready.fulfill() }
+        decoderRouter.acknowledgeError()
+        await fulfillment(of: [ready], timeout: 5)
+        XCTAssertEqual(store.summaries().map(\.name), ["排队导入"])
+        XCTAssertEqual(preferences.snapshot, previous)
+        withExtendedLifetime((errorSubscription, decoderSubscription, sheetSubscription)) {}
+    }
+    func testBundledComponentNoticesCoverOriginalBytesAndPolicyLoadsOffline() throws {
+        let catalog = try Vime.LicenseCatalog()
+        XCTAssertEqual(catalog.components.count, 11)
+        let url = try XCTUnwrap(Bundle.main.url(forResource: "ThirdPartyNotices", withExtension: "txt"))
+        let original = try String(contentsOf: url, encoding: .utf8)
+        var sections: [(String.Index, String)] = []
+        for component in catalog.components where component.id != "vime" {
+            let notice = try catalog.notice(for: component)
+            let range = try XCTUnwrap(original.range(of: notice), "Missing original notice for \(component.name)")
+            sections.append((range.lowerBound, notice))
+        }
+        XCTAssertEqual(sections.sorted { $0.0 < $1.0 }.map(\.1).joined(), original)
+        let own = try XCTUnwrap(catalog.components.first { $0.id == "vime" })
+        XCTAssertTrue(try catalog.notice(for: own).contains("GNU GENERAL PUBLIC LICENSE"))
+        let policy = try Vime.PrivacyPolicy.load()
+        XCTAssertEqual(policy.sections.count, 9)
+        XCTAssertTrue(policy.sections.contains { $0.title == "完全访问" })
+        XCTAssertTrue(policy.sections.flatMap(\.paragraphs).contains { $0.contains("已有学习数据") })
+    }
+}

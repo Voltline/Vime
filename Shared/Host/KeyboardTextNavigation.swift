@@ -46,7 +46,8 @@ enum KeyboardTextNavigation {
               let prefixRange = view.textRange(from: view.beginningOfDocument, to: selection.start),
               let before = view.text(in: prefixRange) else { return "" }
         let prefix = before.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline).last ?? ""
-        guard !prefix.isEmpty, let start = view.position(from: selection.start, offset: -prefix.utf16.count),
+        guard !prefix.isEmpty || !selection.isEmpty,
+              let start = view.position(from: selection.start, offset: -prefix.utf16.count),
               let range = view.textRange(from: start, to: selection.end) else { return "" }
         let deleted = view.text(in: range) ?? ""
         view.replace(range, withText: "")

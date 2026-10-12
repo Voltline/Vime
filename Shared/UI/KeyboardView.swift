@@ -438,7 +438,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         }
     }
     var enableInputClicksWhenVisible: Bool { preferences.sound }
-    let preferences = KeyboardPreferences()
+    let preferences: KeyboardPreferences
     private var appliedPreferences: KeyboardPreferences.Snapshot?
     private let skinCanvas = KeyboardSkinCanvas()
     private let brandArtwork = UIImageView()
@@ -479,8 +479,15 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         }
         if next.theme != previous?.theme || next.customSkinID != previous?.customSkinID || next.skinRevision != previous?.skinRevision { applyTheme() }
         if settingsPanel != nil {
-            settingsPanel?.removeFromSuperview(); settingsPanel = nil
-            createSettingsPanel(); refresh()
+            // Preference changes during a slider drag must not destroy its touch
+            // owner before it receives touch-up and applies the snap policy
+            settingsSoundSwitch?.isOn = next.sound
+            settingsNumberLayout?.selectedSegmentIndex = next.nineKeyNumbers ? 0 : 1
+            settingsHapticSlider?.tintColor = KeyboardPalette.accent
+            if settingsHapticSlider?.isAdjusting != true {
+                settingsHapticSlider?.setIntensity(next.hapticIntensity)
+                settingsHapticLabel?.text = "振动强度：" + HapticIntensity.description(next.hapticIntensity)
+            }
         }
     }
     weak var inputModeListTarget: AnyObject? { didSet { configureGlobe() } }
@@ -547,6 +554,10 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     private var panelCandidates: [CandidateButton] = []
     private var sparePanelButtons: [CandidateButton] = []
     private var settingsPanel: UIView?
+    private weak var settingsHapticSlider: HapticIntensitySlider?
+    private weak var settingsHapticLabel: UILabel?
+    private weak var settingsSoundSwitch: UISwitch?
+    private weak var settingsNumberLayout: UISegmentedControl?
     private var symbolPanel: KeyboardSymbolPanel?
     private var rows: [[(KeyboardKey, CGFloat)]] = []
     private var rebuildingKeys = false
@@ -560,8 +571,9 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         self.init(frame: frame, session: KeyboardSession(asynchronousCandidates: true))
     }
 
-    init(frame: CGRect, session: any KeyboardInputSession) {
+    init(frame: CGRect, session: any KeyboardInputSession, preferences: KeyboardPreferences = KeyboardPreferences()) {
         self.session = session
+        self.preferences = preferences
         super.init(frame: frame)
         heightFactor = CGFloat(preferences.heightFactor)
         KeyboardPalette.theme = preferences.theme
@@ -1088,6 +1100,14 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         for row in rows { for (key, _) in row { key.stopTracking() } }
     }
 
+    func handleMemoryPressure() {
+        spareCandidateButtons.removeAll(keepingCapacity: false)
+        sparePanelButtons.removeAll(keepingCapacity: false)
+        if !emojiOpen { symbolPanel?.removeFromSuperview(); symbolPanel = nil }
+        impactGenerators.removeAll(keepingCapacity: false)
+        session.handleMemoryPressure()
+    }
+
     private func refresh() {
         let uiStartedAt = KeyboardPerformance.start()
         defer { KeyboardPerformance.record(.candidateUIUpdate, since: uiStartedAt) }
@@ -1269,13 +1289,13 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
             // could stall input. Visual feedback and haptic attempts are separate.
             UIDevice.current.playInputClick()
         }
-        let level = preferences.hapticLevel
-        guard level > 0 else { return }
-        let styles: [UIImpactFeedbackGenerator.FeedbackStyle] = [.light, .light, .medium, .heavy, .heavy]
-        let generator = impactGenerators[level] ?? UIImpactFeedbackGenerator(style: styles[level - 1])
-        impactGenerators[level] = generator
-        let intensities: [CGFloat] = [0.35, 0.7, 0.8, 0.8, 1]
-        generator.impactOccurred(intensity: intensities[level - 1])
+        let intensity = preferences.hapticIntensity
+        guard intensity > 0 else { return }
+        // Keep one feedback style across the range so intermediate values do not
+        // jump when crossing a style boundary
+        let generator = impactGenerators[1] ?? UIImpactFeedbackGenerator(style: .heavy)
+        impactGenerators[1] = generator
+        generator.impactOccurred(intensity: CGFloat(intensity))
         generator.prepare()
     }
 
@@ -1399,7 +1419,8 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     }
 
     private func createSettingsPanel() {
-        let panel = UIScrollView()
+        let panel = KeyboardSettingsScrollView()
+        panel.delaysContentTouches = false
         configureScroll(panel)
         panel.accessibilityIdentifier = "vime.settings"
         addSubview(panel)
@@ -1415,33 +1436,33 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
             stack.bottomAnchor.constraint(equalTo: panel.contentLayoutGuide.bottomAnchor, constant: -16),
             stack.widthAnchor.constraint(equalTo: panel.frameLayoutGuide.widthAnchor, constant: -40)
         ])
-        func addSwitch(_ title: String, value: Bool, id: String, change: @escaping (Bool) -> Void) {
+        func addSwitch(_ title: String, value: Bool, id: String, change: @escaping (Bool) -> Void) -> UISwitch {
             let row = UIStackView(); row.axis = .horizontal
             let label = UILabel(); label.text = title; label.font = .systemFont(ofSize: 15)
             let control = UISwitch(); control.isOn = value; control.onTintColor = KeyboardPalette.accent
             control.accessibilityLabel = title; control.accessibilityIdentifier = id
             control.addAction(UIAction { [weak control] _ in if let control { change(control.isOn) } }, for: .valueChanged)
             row.addArrangedSubview(label); row.addArrangedSubview(control); stack.addArrangedSubview(row)
+            return control
         }
-        addSwitch("按键声音", value: preferences.sound, id: "vime.setting.sound") { [weak self] in self?.preferences.sound = $0 }
+        settingsSoundSwitch = addSwitch("按键声音", value: preferences.sound, id: "vime.setting.sound") { [weak self] in self?.preferences.sound = $0 }
         let label = UILabel(); label.font = .systemFont(ofSize: 15)
-        let levels = ["关闭", "很轻", "轻", "中", "强", "很强"]
-        label.text = "振动强度：" + levels[preferences.hapticLevel]
-        stack.addArrangedSubview(label)
-        let slider = UISlider(); slider.minimumValue = 0; slider.maximumValue = 5
-        slider.value = Float(preferences.hapticLevel); slider.tintColor = KeyboardPalette.accent
-        slider.accessibilityLabel = "振动强度"; slider.accessibilityIdentifier = "vime.setting.haptics"
-        slider.accessibilityValue = levels[preferences.hapticLevel]
-        slider.addAction(UIAction { [weak self, weak slider] _ in
-            guard let self, let slider else { return }
-            let value = Int(slider.value.rounded()); slider.value = Float(value)
-            let changed = self.preferences.hapticLevel != value
-            self.preferences.hapticLevel = value
-            label.text = "振动强度：" + levels[value]; slider.accessibilityValue = levels[value]
-            if changed { self.playFeedback() }
-        }, for: .valueChanged)
+        label.text = "振动强度：" + HapticIntensity.description(preferences.hapticIntensity)
+        label.accessibilityIdentifier = "vime.setting.hapticValue"
+        stack.addArrangedSubview(label); settingsHapticLabel = label
+        let slider = HapticIntensitySlider(); settingsHapticSlider = slider
+        slider.setIntensity(preferences.hapticIntensity); slider.tintColor = KeyboardPalette.accent
+        slider.onValue = { [weak self] value, settled in
+            guard let self else { return }
+            self.preferences.hapticIntensity = value
+            label.text = "振动强度：" + HapticIntensity.description(value)
+            if settled { self.playFeedback() }
+        }
         stack.addArrangedSubview(slider)
-        let layout = UISegmentedControl(items: ["数字九宫格", "数字全键盘"])
+        let scale = HapticIntensityScale()
+        scale.heightAnchor.constraint(greaterThanOrEqualToConstant: 24).isActive = true
+        stack.addArrangedSubview(scale)
+        let layout = UISegmentedControl(items: ["数字九宫格", "数字全键盘"]); settingsNumberLayout = layout
         layout.selectedSegmentIndex = preferences.nineKeyNumbers ? 0 : 1
         layout.accessibilityLabel = "数字键盘布局"; layout.accessibilityIdentifier = "vime.setting.numbers"
         layout.addAction(UIAction { [weak self, weak layout] _ in
@@ -1451,12 +1472,12 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         stack.addArrangedSubview(layout)
         let more = UILabel(); more.numberOfLines = 0; more.font = .systemFont(ofSize: 13)
         more.textColor = .secondaryLabel
-        more.text = "更多设置请打开 Vime App：智能输入、皮肤、长音键、按键预览与键盘高度。"
+        more.text = "更多设置请打开 Vime App：智能输入、皮肤、长音键、按键预览与键盘高度"
         stack.addArrangedSubview(more)
         let note = UILabel(); note.numberOfLines = 0; note.font = .systemFont(ofSize: 12); note.textColor = .secondaryLabel
         note.text = hasFullAccess
-            ? "声音与振动已启用。静音会关闭按键声；振动强度受设备硬件限制。\n日语转换在设备上离线完成。"
-            : "启用声音和振动：设置 → 通用 → 键盘 → 键盘 → Vime 日本語 → 允许完全访问。\n无需完全访问也能离线输入。"
+            ? "静音时不播放按键声\n振动强度受设备硬件限制，日语转换在本机完成"
+            : "声音与振动需允许完全访问\n设置 → 通用 → 键盘 → 键盘 → Vime 日本語\n无需完全访问也能离线输入"
         stack.addArrangedSubview(note)
     }
 

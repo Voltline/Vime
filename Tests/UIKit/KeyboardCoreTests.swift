@@ -58,14 +58,15 @@ final class KeyboardCoreTests: XCTestCase {
         _ = session.type("hi"); XCTAssertEqual(session.composition, "し")
     }
 
-    func testEngineRankingAndSentenceConversion() {
+    func testEngineRankingAndSentenceConversion() throws {
         let session = KeyboardSession()
         for (raw, first) in [("nihongo", "日本語"), ("naniwo", "何を"), ("kyou", "今日")] {
             session.reset(); _ = session.type(raw)
             print("\(raw): \(session.candidates)")
             XCTAssertEqual(session.candidates.first, first)
             XCTAssertEqual(Set(session.candidates).count, session.candidates.count)
-            if raw == "naniwo", let partial = session.candidateSnapshots.first(where: { $0.text == "何" }) {
+            if raw == "naniwo" {
+                let partial = try XCTUnwrap(session.candidateSnapshots.first(where: { $0.text == "何" }))
                 XCTAssertEqual(partial.remainingComposition.convertTarget, "を", "Partial conversion keeps its remainder")
             }
         }
