@@ -16,6 +16,11 @@ struct VimeApp: App {
         // Normal launches never change the user's choices.
         let arguments = ProcessInfo.processInfo.arguments
         if arguments.contains("--keyboard-extension-test"),
+           let index = arguments.firstIndex(of: "--keyboard-extension-test-height"),
+           index + 1 < arguments.count, let factor = Double(arguments[index + 1]) {
+            KeyboardPreferences().heightFactor = factor
+        }
+        if arguments.contains("--keyboard-extension-test"),
            let index = arguments.firstIndex(of: "--keyboard-extension-test-ranking"),
            index + 1 < arguments.count,
            let ranking = CandidateRankingMode(rawValue: arguments[index + 1]) {

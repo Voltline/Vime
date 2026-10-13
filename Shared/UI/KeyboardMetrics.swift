@@ -13,10 +13,14 @@ struct KeyboardMetrics {
     var heightFactor: CGFloat = 1
     var scale: CGFloat { min(width / 440, 1.3) }
     var headerHeight: CGFloat { compact ? 38 : 56 * scale }
-    var keyHeight: CGFloat { (compact ? 33 : 46.5 * scale) * heightFactor }
-    var rowStep: CGFloat { (compact ? 38 : 56 * scale) * heightFactor }
+    // A shorter portrait preference must not squeeze the landscape key plane.
+    private var effectiveHeightFactor: CGFloat { compact ? max(1, heightFactor) : heightFactor }
+    var keyHeight: CGFloat { (compact ? 33 : 46.5 * scale) * effectiveHeightFactor }
+    var rowStep: CGFloat { (compact ? 38 : 56 * scale) * effectiveHeightFactor }
     var contentHeight: CGFloat { headerHeight + rowStep * 3 + keyHeight + 1.5 * scale }
-    var footerHeight: CGFloat { showsFooter ? (compact ? 36 : 78 * scale) : 0 }
+    // UIKit's landscape switch/dictation bar also occupies space when the
+    // extension does not need to draw its own globe button.
+    var footerHeight: CGFloat { compact ? 36 : (showsFooter ? 78 * scale : 0) }
     var height: CGFloat { contentHeight + footerHeight }
 
     func numberPadFrame(row: Int, column: Int) -> CGRect {

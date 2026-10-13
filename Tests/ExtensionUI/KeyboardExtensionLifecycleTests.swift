@@ -4,6 +4,57 @@ import XCTest
 /// first responder, verifies disappearance, then focuses and types again.
 @MainActor
 final class KeyboardExtensionLifecycleTests: XCTestCase {
+    func testLandscapeMinimumHeightShowsAndTypesCompleteBottomRow() throws {
+        continueAfterFailure = false
+        XCUIDevice.shared.orientation = .portrait
+        let app = XCUIApplication()
+        app.launchArguments = ["--keyboard-extension-test", "--keyboard-extension-test-height", "0.85"]
+        defer {
+            XCUIDevice.shared.orientation = .portrait
+            app.terminate()
+            app.launchArguments = ["--keyboard-extension-test", "--keyboard-extension-test-height", "1"]
+            app.launch()
+        }
+        app.launch()
+        let editor = app.textViews["vime.extension.editor"]
+        XCTAssertTrue(editor.waitForExistence(timeout: 10))
+        editor.tap()
+        XCTAssertTrue(app.buttons["vime.key.h"].waitForExistence(timeout: 5))
+        for round in 1...3 {
+            XCUIDevice.shared.orientation = round == 2 ? .landscapeRight : .landscapeLeft
+            let space = app.buttons["vime.key.space"]
+            let enter = app.buttons["vime.key.return"]
+            let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "hittable == true"), object: enter)
+            XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 5), .completed)
+            XCTAssertTrue(space.isHittable)
+            for key in [space, enter] {
+                XCTAssertTrue(app.frame.contains(key.frame))
+                XCTAssertGreaterThanOrEqual(key.frame.height, 33)
+                XCTAssertLessThanOrEqual(key.frame.maxY, app.frame.maxY - 36,
+                    "The full key must remain above the system footer")
+            }
+            let previous = editor.value as? String ?? ""
+            app.buttons["vime.key.a"].tap()
+            space.tap()
+            enter.tap()
+            XCTAssertEqual(editor.value as? String, previous + "あ")
+            XCTAssertEqual(app.staticTexts["vime.extension.marked"].label, "待确认文本：无")
+            // The first return confirms the conversion; the second inserts a newline.
+            enter.tap()
+            XCTAssertEqual(editor.value as? String, previous + "あ\n")
+            let attachment = XCTAttachment(screenshot: app.screenshot())
+            attachment.name = "landscape-minimum-height-round-\(round)"
+            attachment.lifetime = .keepAlways; add(attachment)
+            XCUIDevice.shared.orientation = .portrait
+            app.buttons["vime.extension.dismiss"].tap()
+            XCTAssertTrue(app.buttons["vime.key.h"].waitForNonExistence(timeout: 5))
+            app.buttons["vime.extension.clear"].tap()
+            XCTAssertEqual(editor.value as? String, "")
+            app.buttons["vime.extension.focus"].tap()
+            XCTAssertTrue(app.buttons["vime.key.h"].waitForExistence(timeout: 5))
+        }
+    }
+
     func testThreeHundredConstantContextOpenCloseCycles() throws {
         try exercise(ranking: "languageModel", cycles: 300, clearDocument: true)
     }

@@ -25,6 +25,38 @@ final class KeyboardPresentationTests: XCTestCase {
         attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
     }
 
+    func testLandscapeMinimumKeepsBottomRowAboveSystemFooterAfterRotation() throws {
+        let keyboard = KeyboardView(frame: .zero, session: KeyboardSession())
+        defer { keyboard.stopInteractions() }
+        keyboard.heightFactor = CGFloat(KeyboardPreferences.heightRange.lowerBound)
+        for width in [CGFloat(568), 680, 956] {
+            for footer in [false, true] {
+                keyboard.compact = true
+                keyboard.showsFooter = footer
+                keyboard.frame = CGRect(x: 0, y: 0, width: width, height: keyboard.preferredHeight(for: width))
+                keyboard.layoutIfNeeded()
+                let space = try button("vime.key.space", in: keyboard)
+                let enter = try button("vime.key.return", in: keyboard)
+                for key in [space, enter] {
+                    XCTAssertGreaterThanOrEqual(key.bounds.height, 33)
+                    XCTAssertGreaterThanOrEqual(keyboard.bounds.maxY - key.frame.maxY, 36,
+                        "The complete bottom row must clear the system switch/dictation bar")
+                    let point = key.convert(CGPoint(x: key.bounds.midX, y: key.bounds.midY), to: keyboard)
+                    XCTAssertNotNil(keyboard.hitTest(point, with: nil))
+                }
+                let minimum = keyboard.bounds.height
+                keyboard.heightFactor = 1
+                XCTAssertEqual(keyboard.preferredHeight(for: width), minimum, accuracy: 0.001)
+                keyboard.heightFactor = CGFloat(KeyboardPreferences.heightRange.lowerBound)
+            }
+        }
+        keyboard.compact = false
+        let shortPortrait = keyboard.preferredHeight(for: 440)
+        keyboard.heightFactor = 1
+        XCTAssertGreaterThan(keyboard.preferredHeight(for: 440), shortPortrait,
+            "Rotating back must preserve the portrait height preference")
+    }
+
     func testHeldPreviewStaysAboveCandidatesAfterLayoutAndPublication() throws {
         let session = KeyboardSession()
         let keyboard = KeyboardView(frame: CGRect(x: 0, y: 0, width: 440, height: 350), session: session)

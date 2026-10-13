@@ -800,9 +800,13 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
                                                 prolonged: rowIndex == 1 && row.count == 10)
                 }
                 pair.0.layer.cornerRadius = 6.2 * scale
-                pair.0.hintLabel.font = .systemFont(ofSize: 9 * scale)
-                pair.0.titleLabel?.font = .systemFont(ofSize: (rowIndex == 3 ? 16.5 : 23) * scale)
-                pair.0.applySkinMetrics(size: (rowIndex == 3 ? 16.5 : 23) * scale, scale: scale)
+                // Compact phone keys are shorter despite the wider viewport.
+                // Typography follows their height rather than landscape width.
+                let fontSize: CGFloat = compact ? (rowIndex == 3 ? 14 : 19)
+                    : (rowIndex == 3 ? 16.5 : 23) * scale
+                pair.0.hintLabel.font = .systemFont(ofSize: compact ? 8 : 9 * scale)
+                pair.0.titleLabel?.font = .systemFont(ofSize: fontSize)
+                pair.0.applySkinMetrics(size: fontSize, scale: scale)
             }
         }
         updateTouchBounds(metrics: metrics)
