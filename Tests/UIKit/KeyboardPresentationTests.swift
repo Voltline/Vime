@@ -51,7 +51,7 @@ final class KeyboardPresentationTests: XCTestCase {
                     }
                     for region in surface.regions {
                         XCTAssertTrue(keyboard.bounds.contains(region.body))
-                        XCTAssertGreaterThanOrEqual(keyboard.bounds.maxY - region.body.maxY, 36)
+                        XCTAssertGreaterThanOrEqual(keyboard.bounds.maxY - region.body.maxY, 1)
                         for other in surface.regions where other.key !== region.key {
                             XCTAssertFalse(region.body.intersects(other.body), "Painted keys must stay separated")
                         }
@@ -64,7 +64,7 @@ final class KeyboardPresentationTests: XCTestCase {
         }
     }
 
-    func testLandscapeMinimumKeepsBottomRowAboveSystemFooterAfterRotation() throws {
+    func testLandscapeMinimumFillsAvailableHeightWithoutDuplicatingSystemFooter() throws {
         let keyboard = KeyboardView(frame: .zero, session: KeyboardSession())
         defer { keyboard.stopInteractions() }
         keyboard.heightFactor = CGFloat(KeyboardPreferences.heightRange.lowerBound)
@@ -77,9 +77,15 @@ final class KeyboardPresentationTests: XCTestCase {
                 let space = try button("vime.key.space", in: keyboard)
                 let enter = try button("vime.key.return", in: keyboard)
                 for key in [space, enter] {
-                    XCTAssertGreaterThanOrEqual(key.bounds.height, 33)
-                    XCTAssertGreaterThanOrEqual(keyboard.bounds.maxY - key.frame.maxY, 36,
-                        "The complete bottom row must clear the system switch/dictation bar")
+                    XCTAssertGreaterThanOrEqual(key.bounds.height, 39)
+                    let remaining = keyboard.bounds.maxY - key.frame.maxY
+                    if footer {
+                        XCTAssertGreaterThanOrEqual(remaining, 36, "Our own globe needs its footer")
+                    } else {
+                        XCTAssertGreaterThanOrEqual(remaining, 1)
+                        XCTAssertLessThanOrEqual(remaining, 2,
+                            "System controls outside the input view must not leave a second empty footer inside it")
+                    }
                     let point = key.convert(CGPoint(x: key.bounds.midX, y: key.bounds.midY), to: keyboard)
                     XCTAssertNotNil(keyboard.hitTest(point, with: nil))
                 }
@@ -94,6 +100,38 @@ final class KeyboardPresentationTests: XCTestCase {
         keyboard.heightFactor = 1
         XCTAssertGreaterThan(keyboard.preferredHeight(for: 440), shortPortrait,
             "Rotating back must preserve the portrait height preference")
+    }
+
+    func testLandscapeFitsActualHostHeightWithoutGrowingIntrinsicSize() throws {
+        let keyboard = KeyboardView(frame: .zero, session: KeyboardSession())
+        defer { keyboard.stopInteractions() }
+        keyboard.compact = true
+        keyboard.heightFactor = 0.85
+        for footer in [false, true] {
+            keyboard.showsFooter = footer
+            let preferred = keyboard.preferredHeight(for: 722)
+            for extra in [CGFloat(0), 9, 17] {
+                keyboard.frame = CGRect(x: 0, y: 0, width: 722, height: preferred + extra)
+                keyboard.layoutIfNeeded()
+                let space = try button("vime.key.space", in: keyboard)
+                let margin = keyboard.bounds.maxY - space.frame.maxY
+                XCTAssertEqual(margin, footer ? 37.95 : 1.95, accuracy: 0.001,
+                    "Extra host height belongs to the key plane, not a blank band below it")
+                let first = try button("vime.key.q", in: keyboard)
+                let toolbar = try button("vime.brand.settings", in: keyboard)
+                XCTAssertEqual(first.frame.minY - toolbar.frame.maxY, 8, accuracy: 0.001)
+                XCTAssertEqual(keyboard.intrinsicContentSize.height, preferred, accuracy: 0.001,
+                    "An imposed host height must not cause a growing height feedback loop")
+            }
+            keyboard.heightFactor = 1.6
+            keyboard.frame.size.height = preferred
+            keyboard.setNeedsLayout(); keyboard.layoutIfNeeded()
+            let space = try button("vime.key.space", in: keyboard)
+            XCTAssertEqual(keyboard.bounds.maxY - space.frame.maxY, footer ? 37.95 : 1.95, accuracy: 0.001,
+                "A tall portrait preference must not overflow a smaller actual landscape view")
+            XCTAssertGreaterThanOrEqual(space.bounds.height, 39)
+            keyboard.heightFactor = 0.85
+        }
     }
 
     func testHeldPreviewStaysAboveCandidatesAfterLayoutAndPublication() throws {

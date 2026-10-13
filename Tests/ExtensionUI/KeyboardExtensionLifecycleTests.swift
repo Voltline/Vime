@@ -40,9 +40,13 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
             XCTAssertTrue(firstRow.waitForExistence(timeout: 3))
             for key in [space, enter] {
                 XCTAssertTrue(app.frame.contains(key.frame))
-                XCTAssertGreaterThanOrEqual(key.frame.height, 33)
-                XCTAssertLessThanOrEqual(key.frame.maxY, app.frame.maxY - 36,
-                    "The full key must remain above the system footer")
+                XCTAssertGreaterThanOrEqual(key.frame.height, 39)
+                let input = app.otherElements["vime.keyboard"]
+                let bottomSpace = input.frame.maxY - key.frame.maxY
+                print("VIME_LANDSCAPE_GEOMETRY input=\(input.frame) key=\(key.frame) screen=\(app.frame)")
+                XCTAssertGreaterThanOrEqual(bottomSpace, 1, "The complete key must remain inside its input view")
+                XCTAssertLessThanOrEqual(bottomSpace, 2,
+                    "Only the key margin belongs inside Vime; UIKit owns the bottom area outside it")
             }
             let previous = editor.value as? String ?? ""
             app.buttons["vime.key.a"].tap()

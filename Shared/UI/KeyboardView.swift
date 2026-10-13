@@ -760,7 +760,8 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         skinCanvas.frame = bounds
         let width = bounds.width
         guard width > 0 else { return }
-        let metrics = KeyboardMetrics(width: width, compact: compact, showsFooter: showsFooter, heightFactor: heightFactor)
+        let metrics = KeyboardMetrics(width: width, compact: compact, showsFooter: showsFooter,
+            heightFactor: heightFactor, availableHeight: bounds.height)
         let scale = metrics.scale
         let xScale = width / 440
         let headerHeight = metrics.headerHeight

@@ -11,19 +11,28 @@ struct KeyboardMetrics {
     let compact: Bool
     let showsFooter: Bool
     var heightFactor: CGFloat = 1
+    var availableHeight: CGFloat? = nil
     var scale: CGFloat { min(width / 440, 1.3) }
     var toolbarButtonDiameter: CGFloat { compact ? 30 : 34.5 * scale }
     // Include space below the toolbar, as well as its top inset and controls.
     // Otherwise a 30 pt control at y=8 touches the first key at y=38.
     var headerHeight: CGFloat { compact ? Self.toolbarTopInset + toolbarButtonDiameter + 8 : 56 * scale }
     // A shorter portrait preference must not squeeze the landscape key plane.
-    private var effectiveHeightFactor: CGFloat { compact ? max(1, heightFactor) : heightFactor }
-    var keyHeight: CGFloat { (compact ? 33 : 46.5 * scale) * effectiveHeightFactor }
-    var rowStep: CGFloat { (compact ? 38 : 56 * scale) * effectiveHeightFactor }
+    private var effectiveHeightFactor: CGFloat {
+        guard compact else { return heightFactor }
+        let minimum = max(1, heightFactor)
+        guard let availableHeight else { return minimum }
+        // UIKit may give the extension more height after rotation. Fill that
+        // actual key plane without feeding its imposed size into our intrinsic height.
+        let keyPlane = availableHeight - headerHeight - footerHeight - 1.5 * scale
+        return max(1, keyPlane / (48 * 3 + 39))
+    }
+    var keyHeight: CGFloat { (compact ? 39 : 46.5 * scale) * effectiveHeightFactor }
+    var rowStep: CGFloat { (compact ? 48 : 56 * scale) * effectiveHeightFactor }
     var contentHeight: CGFloat { headerHeight + rowStep * 3 + keyHeight + 1.5 * scale }
-    // UIKit's landscape switch/dictation bar also occupies space when the
-    // extension does not need to draw its own globe button.
-    var footerHeight: CGFloat { compact ? 36 : (showsFooter ? 78 * scale : 0) }
+    // Reserve a footer only for our own globe. UIKit owns the system controls
+    // outside this view; reserving them here again leaves a blank bottom band.
+    var footerHeight: CGFloat { showsFooter ? (compact ? 36 : 78 * scale) : 0 }
     var height: CGFloat { contentHeight + footerHeight }
 
     func numberPadFrame(row: Int, column: Int) -> CGRect {
