@@ -28,6 +28,20 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
             XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 5), .completed)
             XCTAssertTrue(space.isHittable)
             let firstRow = app.buttons["vime.key.q"]
+            let lastFirstRow = app.buttons["vime.key.p"]
+            let brand = app.buttons["vime.brand.settings"]
+            let mode = app.buttons["切换平假名和片假名"]
+            let arrow = app.buttons["vime.candidates.expand"]
+            let keyPlaneRight = lastFirstRow.frame.maxX
+            XCTAssertEqual(brand.frame.minX, firstRow.frame.minX, accuracy: 1)
+            XCTAssertEqual(arrow.frame.maxX, lastFirstRow.frame.maxX, accuracy: 1)
+            XCTAssertEqual(arrow.frame.minX - mode.frame.maxX, 8, accuracy: 1)
+            func capture(_ state: String) {
+                let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+                attachment.name = "landscape-round-\(round)-\(state)"
+                attachment.lifetime = .keepAlways; add(attachment)
+            }
+            capture("idle")
             for control in [app.buttons["vime.brand.settings"], app.buttons["切换平假名和片假名"],
                             app.buttons["vime.candidates.expand"]] {
                 XCTAssertTrue(control.isHittable)
@@ -36,6 +50,8 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
             }
             app.buttons["vime.brand.settings"].tap()
             XCTAssertTrue(app.scrollViews["vime.settings"].waitForExistence(timeout: 3))
+            XCTAssertEqual(app.buttons["vime.panel.close"].frame.maxX, keyPlaneRight, accuracy: 1)
+            capture("settings")
             app.buttons["vime.panel.close"].tap()
             XCTAssertTrue(firstRow.waitForExistence(timeout: 3))
             for key in [space, enter] {
@@ -50,8 +66,10 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
             }
             let previous = editor.value as? String ?? ""
             app.buttons["vime.key.a"].tap()
+            capture("candidate-strip")
             app.buttons["vime.candidates.expand"].tap()
             XCTAssertTrue(app.scrollViews["vime.candidates.panel"].waitForExistence(timeout: 3))
+            capture("expanded-candidates")
             app.buttons["vime.panel.close"].tap()
             XCTAssertTrue(firstRow.waitForExistence(timeout: 3))
             space.tap()
@@ -64,8 +82,12 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
             app.buttons["表情"].tap()
             let modes = app.segmentedControls["vime.symbols.mode"]
             XCTAssertTrue(modes.waitForExistence(timeout: 3))
+            XCTAssertEqual(app.buttons["vime.symbols.close"].frame.maxX, keyPlaneRight, accuracy: 1)
+            capture("emoji")
             modes.buttons["颜文字"].tap()
+            capture("kaomoji")
             modes.buttons["符号"].tap()
+            capture("symbols")
             app.buttons["vime.symbols.close"].tap()
             XCTAssertTrue(firstRow.waitForExistence(timeout: 3))
             XCTAssertTrue(enter.isHittable)

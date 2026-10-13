@@ -555,6 +555,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     private var panelCandidates: [CandidateButton] = []
     private var sparePanelButtons: [CandidateButton] = []
     private var settingsPanel: UIView?
+    private var settingsHorizontalConstraints: [NSLayoutConstraint] = []
     private weak var settingsHapticSlider: HapticIntensitySlider?
     private weak var settingsHapticLabel: UILabel?
     private weak var settingsSoundSwitch: UISwitch?
@@ -657,6 +658,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         cancelButton.addTarget(self, action: #selector(cancelComposition), for: .touchUpInside)
         addSubview(divider)
         panelTitle.font = .systemFont(ofSize: 16, weight: .medium)
+        panelTitle.accessibilityIdentifier = "vime.candidates.title"
         panelTitle.isUserInteractionEnabled = false
         header.addSubview(panelTitle)
         for (button, title, identifier, action) in [
@@ -768,16 +770,20 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         header.frame = CGRect(x: 0, y: 0, width: width, height: headerHeight)
         let diameter = metrics.toolbarButtonDiameter
         let centerY = KeyboardMetrics.toolbarTopInset + diameter / 2
-        brandButton.frame = CGRect(x: 12 * xScale, y: centerY - diameter / 2, width: diameter, height: diameter)
+        brandButton.frame = CGRect(x: compact ? metrics.contentLeft : 12 * xScale,
+            y: centerY - diameter / 2, width: diameter, height: diameter)
         brandArtwork.frame = brandButton.bounds.insetBy(dx: 2, dy: 2)
         brandButton.imageView?.isHidden = brandArtwork.image != nil
-        modeButton.frame = CGRect(x: width - 92 * xScale, y: centerY - diameter / 2, width: diameter, height: diameter)
-        undoButton.frame = CGRect(x: width - 138 * xScale, y: centerY - diameter / 2, width: diameter, height: diameter)
+        modeButton.frame = metrics.trailingToolbarFrame(index: 1)
+        undoButton.frame = metrics.trailingToolbarFrame(index: 2)
         neuralStatusLabel.frame = CGRect(x: brandButton.frame.maxX + 8, y: centerY - diameter / 2,
             width: max(0, undoButton.frame.minX - brandButton.frame.maxX - 16), height: diameter)
-        expandButton.frame = CGRect(x: width - 46 * xScale, y: centerY - diameter / 2, width: diameter, height: diameter)
+        expandButton.frame = metrics.trailingToolbarFrame(index: 0)
         for button in [brandButton, undoButton, modeButton, expandButton] { button.layer.cornerRadius = diameter / 2 }
-        candidateScroll.frame = CGRect(x: 4 * xScale, y: centerY - (compact ? 13 : 17 * scale), width: width - 55 * xScale, height: compact ? 26 : 34 * scale)
+        candidateScroll.frame = CGRect(x: compact ? metrics.contentLeft : 4 * xScale,
+            y: centerY - (compact ? 13 : 17 * scale),
+            width: compact ? expandButton.frame.minX - KeyboardMetrics.toolbarGap - metrics.contentLeft : width - 55 * xScale,
+            height: compact ? 26 : 34 * scale)
         layoutCandidateStrip()
         cancelButton.frame = .zero
         panelTitle.frame = CGRect(x: 12 * xScale, y: 0, width: width - 185 * xScale, height: headerHeight)
@@ -785,13 +791,31 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         lengthenRange.frame = CGRect(x: width - 132 * xScale, y: 0, width: 40 * xScale, height: headerHeight)
         wholeRange.frame = CGRect(x: width - 92 * xScale, y: 0, width: 42 * xScale, height: headerHeight)
         divider.frame = CGRect(x: width - 51 * xScale, y: centerY - 12 * scale, width: 0.5, height: 24 * scale)
+        if compact {
+            let gap = KeyboardMetrics.toolbarGap
+            wholeRange.frame = CGRect(x: expandButton.frame.minX - gap - 44, y: KeyboardMetrics.toolbarTopInset, width: 44, height: diameter)
+            lengthenRange.frame = CGRect(x: wholeRange.frame.minX - gap - diameter, y: KeyboardMetrics.toolbarTopInset, width: diameter, height: diameter)
+            shortenRange.frame = CGRect(x: lengthenRange.frame.minX - gap - diameter, y: KeyboardMetrics.toolbarTopInset, width: diameter, height: diameter)
+            let titleRight = shortenRange.isHidden ? expandButton.frame.minX : shortenRange.frame.minX
+            panelTitle.frame = CGRect(x: metrics.contentLeft, y: KeyboardMetrics.toolbarTopInset,
+                width: max(0, titleRight - gap - metrics.contentLeft), height: diameter)
+            divider.frame = CGRect(x: expandButton.frame.minX - gap / 2, y: centerY - 12, width: 0.5, height: 24)
+        }
         keysContainer.frame = bounds
         let body = CGRect(x: 0, y: headerHeight, width: width, height: metrics.contentHeight - headerHeight)
         gestureHint.frame = body
         panelScroll.frame = body
+        symbolPanel?.compact = compact
         symbolPanel?.frame = bounds
         previewOverlay.frame = bounds
         settingsPanel?.frame = body
+        if settingsHorizontalConstraints.count == 3 {
+            let left: CGFloat = compact ? metrics.contentLeft : 20
+            let right: CGFloat = compact ? width - metrics.contentRight : 20
+            settingsHorizontalConstraints[0].constant = left
+            settingsHorizontalConstraints[1].constant = -right
+            settingsHorizontalConstraints[2].constant = -left - right
+        }
         for (rowIndex, row) in rows.enumerated() {
             for (column, pair) in row.enumerated() {
                 if page == .numbers && preferences.nineKeyNumbers {
@@ -825,9 +849,12 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         // above held key previews. This overlay also stays transparent to input.
         bringSubviewToFront(previewOverlay)
         let columns = width > 600 ? 5 : 3
-        let cellWidth = (width - 20) / CGFloat(columns)
+        let panelLeft: CGFloat = compact ? metrics.contentLeft : 8
+        let panelWidth: CGFloat = compact ? metrics.contentWidth : width - 20
+        let cellWidth = compact ? (panelWidth + 8) / CGFloat(columns) : panelWidth / CGFloat(columns)
         for (index, button) in panelCandidates.enumerated() {
-            button.frame = CGRect(x: 8 + CGFloat(index % columns) * cellWidth, y: CGFloat(index / columns) * 46, width: cellWidth - 5, height: 41)
+            button.frame = CGRect(x: panelLeft + CGFloat(index % columns) * cellWidth, y: CGFloat(index / columns) * 46,
+                width: cellWidth - (compact ? 8 : 5), height: 41)
         }
         panelScroll.contentSize = CGSize(width: width, height: CGFloat((panelCandidates.count + columns - 1) / columns) * 46)
     }
@@ -1457,12 +1484,14 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         stack.axis = .vertical; stack.spacing = 12
         stack.translatesAutoresizingMaskIntoConstraints = false
         panel.addSubview(stack)
-        NSLayoutConstraint.activate([
+        settingsHorizontalConstraints = [
             stack.leadingAnchor.constraint(equalTo: panel.contentLayoutGuide.leadingAnchor, constant: 20),
             stack.trailingAnchor.constraint(equalTo: panel.contentLayoutGuide.trailingAnchor, constant: -20),
-            stack.topAnchor.constraint(equalTo: panel.contentLayoutGuide.topAnchor, constant: 10),
-            stack.bottomAnchor.constraint(equalTo: panel.contentLayoutGuide.bottomAnchor, constant: -16),
             stack.widthAnchor.constraint(equalTo: panel.frameLayoutGuide.widthAnchor, constant: -40)
+        ]
+        NSLayoutConstraint.activate(settingsHorizontalConstraints + [
+            stack.topAnchor.constraint(equalTo: panel.contentLayoutGuide.topAnchor, constant: 10),
+            stack.bottomAnchor.constraint(equalTo: panel.contentLayoutGuide.bottomAnchor, constant: -16)
         ])
         let neuralStatus = UILabel()
         neuralStatus.numberOfLines = 0

@@ -7,6 +7,7 @@ final class KeyboardSymbolPanel: UIView, UICollectionViewDataSource, UICollectio
     var onSelect: ((String) -> Void)?
     var onClose: (() -> Void)?
     var onFeedback: (() -> Void)?
+    var compact = false { didSet { if oldValue != compact { setNeedsLayout() } } }
     private let modes = UISegmentedControl(items: ["Emoji", "颜文字", "符号"])
     private let loading = UIActivityIndicatorView(style: .medium)
     private let close = UIButton(type: .system)
@@ -85,6 +86,26 @@ final class KeyboardSymbolPanel: UIView, UICollectionViewDataSource, UICollectio
         }
         categories.contentSize = CGSize(width: x, height: 28)
         collection.frame = CGRect(x: 0, y: top + 64, width: bounds.width, height: max(0, bounds.height - top - 64))
+        let metrics = KeyboardMetrics(width: bounds.width, compact: compact, showsFooter: false)
+        close.setTitle(compact ? nil : "返回键盘", for: .normal)
+        close.accessibilityLabel = "返回键盘"
+        close.setImage(compact ? UIImage(systemName: "chevron.up") : nil, for: .normal)
+        close.backgroundColor = compact ? KeyboardPalette.key : .clear
+        close.tintColor = compact ? .secondaryLabel : KeyboardPalette.accent
+        close.layer.cornerRadius = compact ? metrics.toolbarButtonDiameter / 2 : 0
+        if compact {
+            close.frame = metrics.trailingToolbarFrame(index: 0)
+            modes.frame = CGRect(x: metrics.contentLeft, y: top,
+                width: min(320, close.frame.minX - KeyboardMetrics.toolbarGap - metrics.contentLeft), height: metrics.toolbarButtonDiameter)
+            categories.frame = CGRect(x: metrics.contentLeft, y: metrics.headerHeight, width: metrics.contentWidth, height: 28)
+            for (index, button) in categoryButtons.enumerated() {
+                button.frame.origin.x = CGFloat(index) * 62
+            }
+            categories.contentSize.width = CGFloat(categoryButtons.count) * 62
+            let gridTop = categories.frame.maxY + 4
+            collection.frame = CGRect(x: metrics.contentLeft, y: gridTop, width: metrics.contentWidth, height: max(0, bounds.height - gridTop))
+        }
+        (collection.collectionViewLayout as? UICollectionViewFlowLayout)?.sectionInset = UIEdgeInsets(top: 4, left: compact ? 0 : 6, bottom: 6, right: compact ? 0 : 6)
         loading.center = CGPoint(x: bounds.midX, y: collection.frame.midY)
         collection.collectionViewLayout.invalidateLayout()
     }
@@ -159,8 +180,9 @@ final class KeyboardSymbolPanel: UIView, UICollectionViewDataSource, UICollectio
     }
     func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout,
                         sizeForItemAt indexPath: IndexPath) -> CGSize {
-        let columns = modes.selectedSegmentIndex == 1 ? max(2, Int(bounds.width / 145)) : max(5, Int((bounds.width - 8) / 48))
-        return CGSize(width: floor((bounds.width - 12 - CGFloat(columns - 1) * 4) / CGFloat(columns)), height: 44)
+        let width = collectionView.bounds.width
+        let columns = modes.selectedSegmentIndex == 1 ? max(2, Int(width / 145)) : max(5, Int((width - 8) / 48))
+        return CGSize(width: floor((width - (compact ? 0 : 12) - CGFloat(columns - 1) * 4) / CGFloat(columns)), height: 44)
     }
 
     private final class SymbolCell: UICollectionViewCell {

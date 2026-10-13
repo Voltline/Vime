@@ -49,6 +49,17 @@ final class KeyboardPresentationTests: XCTestCase {
                         XCTAssertGreaterThanOrEqual(firstKeyY - frame.maxY, 8,
                             "The toolbar needs breathing room above the first key row")
                     }
+                    let brand = controls[0].convert(controls[0].bounds, to: keyboard)
+                    let arrow = controls[1].convert(controls[1].bounds, to: keyboard)
+                    let mode = controls[2].convert(controls[2].bounds, to: keyboard)
+                    XCTAssertEqual(arrow.minX - mode.maxX, 8, accuracy: 0.001,
+                        "The trailing toolbar is a group, not proportionally spaced individual buttons")
+                    if type == .default {
+                        let q = try button("vime.key.q", in: keyboard)
+                        let p = try button("vime.key.p", in: keyboard)
+                        XCTAssertEqual(brand.minX, q.frame.minX, accuracy: 0.001)
+                        XCTAssertEqual(arrow.maxX, p.frame.maxX, accuracy: 0.001)
+                    }
                     for region in surface.regions {
                         XCTAssertTrue(keyboard.bounds.contains(region.body))
                         XCTAssertGreaterThanOrEqual(keyboard.bounds.maxY - region.body.maxY, 1)
@@ -60,6 +71,69 @@ final class KeyboardPresentationTests: XCTestCase {
                         capture(keyboard, name: "landscape-\(Int(width))-\(type.rawValue)-complete-layout")
                     }
                 }
+            }
+        }
+    }
+
+    func testLandscapeHeadersAndPanelsShareKeyPlaneEdges() throws {
+        for width in [CGFloat(568), 722, 956] {
+            let session = KeyboardSession()
+            let keyboard = KeyboardView(frame: .zero, session: session)
+            defer { keyboard.stopInteractions() }
+            keyboard.compact = true; keyboard.showsFooter = false
+            keyboard.frame = CGRect(x: 0, y: 0, width: width, height: keyboard.preferredHeight(for: width))
+            keyboard.layoutIfNeeded()
+            let q = try button("vime.key.q", in: keyboard)
+            let p = try button("vime.key.p", in: keyboard)
+            let left = q.frame.minX, right = p.frame.maxX
+            _ = session.type("nihongo"); session.onCandidatesChange?(); keyboard.layoutIfNeeded()
+            let strip = try XCTUnwrap(descendants(keyboard).first { $0.accessibilityIdentifier == "vime.candidates" })
+            let stripFrame = strip.convert(strip.bounds, to: keyboard)
+            let arrow = try button("vime.candidates.expand", in: keyboard)
+            XCTAssertEqual(stripFrame.minX, left, accuracy: 0.001)
+            XCTAssertEqual(arrow.frame.minX - stripFrame.maxX, 8, accuracy: 0.001)
+            capture(keyboard, name: "landscape-\(Int(width))-candidate-strip")
+            arrow.sendActions(for: .touchUpInside); keyboard.layoutIfNeeded()
+            let title = try XCTUnwrap(descendants(keyboard).first { $0.accessibilityIdentifier == "vime.candidates.title" })
+            let close = try button("vime.panel.close", in: keyboard)
+            let range = try [button("vime.segment.shorten", in: keyboard), button("vime.segment.lengthen", in: keyboard), button("vime.segment.whole", in: keyboard)]
+            XCTAssertEqual(title.frame.minX, left, accuracy: 0.001)
+            XCTAssertEqual(close.frame.maxX, right, accuracy: 0.001)
+            if !range[0].isHidden {
+                let controls = [title] + range + [close]
+                for (first, second) in zip(controls, controls.dropFirst()) {
+                    XCTAssertGreaterThanOrEqual(second.frame.minX - first.frame.maxX, 8)
+                    XCTAssertEqual(first.frame.midY, second.frame.midY, accuracy: 0.001)
+                }
+            }
+            capture(keyboard, name: "landscape-\(Int(width))-expanded-candidates")
+            close.sendActions(for: .touchUpInside); session.reset(); session.onCandidatesChange?(); keyboard.layoutIfNeeded()
+            try button("vime.brand.settings", in: keyboard).sendActions(for: .touchUpInside)
+            keyboard.layoutIfNeeded()
+            let settings = try XCTUnwrap(descendants(keyboard).first { $0.accessibilityIdentifier == "vime.settings" })
+            settings.layoutIfNeeded()
+            let stack = try XCTUnwrap(settings.subviews.compactMap { $0 as? UIStackView }.first)
+            // Auto Layout rounds the stack to physical pixels; manual key
+            // frames retain subpixel coordinates until rendering.
+            let pixel = 1 / keyboard.traitCollection.displayScale
+            XCTAssertEqual(stack.frame.minX, left, accuracy: pixel)
+            XCTAssertEqual(stack.frame.maxX, right, accuracy: pixel)
+            capture(keyboard, name: "landscape-\(Int(width))-settings")
+            try button("vime.panel.close", in: keyboard).sendActions(for: .touchUpInside)
+            let emoji = try XCTUnwrap(descendants(keyboard).first { $0.accessibilityLabel == "表情" } as? UIButton)
+            emoji.sendActions(for: .touchUpInside); keyboard.layoutIfNeeded()
+            let panel = try XCTUnwrap(descendants(keyboard).compactMap { $0 as? KeyboardSymbolPanel }.first)
+            for mode in [KeyboardSymbolPanel.Mode.emoji, .kaomoji, .symbols] {
+                panel.selectMode(mode); panel.layoutIfNeeded()
+                let symbolClose = try button("vime.symbols.close", in: panel)
+                let tabs = try XCTUnwrap(descendants(panel).first { $0.accessibilityIdentifier == "vime.symbols.mode" })
+                let grid = try XCTUnwrap(descendants(panel).first { $0.accessibilityIdentifier == "vime.symbols.grid" })
+                XCTAssertEqual(tabs.frame.minX, left, accuracy: 0.001)
+                XCTAssertEqual(symbolClose.frame, close.frame)
+                XCTAssertLessThanOrEqual(tabs.frame.maxX + 8, symbolClose.frame.minX)
+                XCTAssertEqual(grid.frame.minX, left, accuracy: 0.001)
+                XCTAssertEqual(grid.frame.maxX, right, accuracy: 0.001)
+                capture(keyboard, name: "landscape-\(Int(width))-symbols-\(mode.rawValue)")
             }
         }
     }

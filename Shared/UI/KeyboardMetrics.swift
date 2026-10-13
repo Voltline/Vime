@@ -14,6 +14,18 @@ struct KeyboardMetrics {
     var availableHeight: CGFloat? = nil
     var scale: CGFloat { min(width / 440, 1.3) }
     var toolbarButtonDiameter: CGFloat { compact ? 30 : 34.5 * scale }
+    // Use the painted first-row edges for every compact header and panel.
+    // Toolbar gaps stay fixed even when UIKit changes the keyboard's width.
+    var contentLeft: CGFloat { frame(row: 0, column: 0).minX }
+    var contentRight: CGFloat { frame(row: 0, column: 9).maxX }
+    var contentWidth: CGFloat { contentRight - contentLeft }
+    static let toolbarGap: CGFloat = 8
+    func trailingToolbarFrame(index: Int) -> CGRect {
+        let x = compact
+            ? contentRight - toolbarButtonDiameter - CGFloat(index) * (toolbarButtonDiameter + Self.toolbarGap)
+            : width - CGFloat(index + 1) * 46 * width / 440
+        return CGRect(x: x, y: Self.toolbarTopInset, width: toolbarButtonDiameter, height: toolbarButtonDiameter)
+    }
     // Include space below the toolbar, as well as its top inset and controls.
     // Otherwise a 30 pt control at y=8 touches the first key at y=38.
     var headerHeight: CGFloat { compact ? Self.toolbarTopInset + toolbarButtonDiameter + 8 : 56 * scale }
