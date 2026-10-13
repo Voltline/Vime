@@ -204,7 +204,8 @@ final class KeyboardSymbolPanel: UIView, UICollectionViewDataSource, UICollectio
 
     /// Use the same native font as availability detection and fit its ink bounds
     /// into a cell, including composite glyphs with more than one skin tone.
-    private enum EmojiGlyph {
+    // Internal so the opt-in memory audit can separate drawing from grid reuse.
+    enum EmojiGlyph {
         static let cache: NSCache<NSString, UIImage> = {
             let cache = NSCache<NSString, UIImage>(); cache.countLimit = 180; return cache
         }()

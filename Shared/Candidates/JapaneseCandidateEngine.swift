@@ -379,6 +379,11 @@ nonisolated final class JapaneseCandidateEngine {
         prefixOptions.N_best = 20
         prefixOptions.requireJapanesePrediction = .disabled
         var pool = base
+        // Many native candidates consume the same kana prefix. Computing each
+        // suffix separately copies the entire remaining Roman input per
+        // candidate, including duplicates discarded later by the reranker.
+        // Share immutable COW storage for each boundary within this request.
+        var remainders: [Int: ComposingText] = [:]
         let started = KeyboardPerformance.start()
         defer { KeyboardPerformance.record(.prefixConversion, since: started) }
         // At most twelve cached dictionary queries, off the input/UI thread.
@@ -399,7 +404,12 @@ nonisolated final class JapaneseCandidateEngine {
                 var rest = prefix; rest.prefixComplete(composingCount: candidate.composingCount)
                 let count = prefix.convertTarget.count - rest.convertTarget.count
                 guard count > 0 && count < reading.count else { continue }
-                let remainder = CompositionSegmentBoundary.remainder(of: composing, consuming: count)
+                let remainder: ComposingText
+                if let cached = remainders[count] { remainder = cached }
+                else {
+                    remainder = CompositionSegmentBoundary.remainder(of: composing, consuming: count)
+                    remainders[count] = remainder
+                }
                 var value = CandidateSnapshot(candidate: candidate, revision: revision,
                     source: index < result.mainResults.count ? .conversion : .scriptVariant,
                     remainingComposition: remainder, originalInputCount: composing.input.count,
