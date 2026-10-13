@@ -2,11 +2,13 @@ import UIKit
 import os
 
 class KeyboardViewController: UIInputViewController {
+    private static let liveControllers = NSHashTable<KeyboardViewController>.weakObjects()
     private let keyboard = KeyboardView()
     private let synchronizationLog = Logger(subsystem: "com.Voltline.Vime", category: "CompositionSync")
     private let lifecycleLog = Logger(subsystem: "com.Voltline.Vime", category: "ExtensionLifecycle")
     private let startedAt = ProcessInfo.processInfo.systemUptime
     private var heightConstraint: NSLayoutConstraint?
+    private var keyboardAttached = false
     private var knownDocument: String?
     private var knownBefore: String?
     private var knownAfter: String?
@@ -25,23 +27,18 @@ class KeyboardViewController: UIInputViewController {
         undoAnchor: { [weak self] in self?.deletionUndoAnchor() }
     )
 
-    override func loadView() { inputView = KeyboardInputView(keyboard: keyboard) }
+    override func loadView() { inputView = KeyboardInputView.acquire(keyboard: keyboard, owner: self) }
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        Self.liveControllers.add(self)
         logLifecycle("loaded")
         VimeExtensionAudit.start()
+        VimeExtensionAudit.recordLifecycle(event: .viewDidLoad)
         keyboard.hasFullAccess = hasFullAccess
         keyboard.showsFooter = needsInputModeSwitchKey
         keyboard.needsGlobe = needsInputModeSwitchKey
-        keyboard.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(keyboard)
-        NSLayoutConstraint.activate([
-            keyboard.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            keyboard.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            keyboard.topAnchor.constraint(equalTo: view.topAnchor),
-            keyboard.bottomAnchor.constraint(equalTo: view.bottomAnchor)
-        ])
+        attachKeyboardIfNeeded()
         // Seed the host with the actual preferred height, including the saved
         // factor/footer, rather than a different temporary keyboard height.
         let height = view.heightAnchor.constraint(equalToConstant: keyboard.preferredHeight(for: view.bounds.width))
@@ -86,7 +83,10 @@ class KeyboardViewController: UIInputViewController {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        heightConstraint?.isActive = true
+        attachKeyboardIfNeeded()
         logLifecycle("appearing")
+        VimeExtensionAudit.recordLifecycle(event: .viewWillAppear)
         host.abandon()
         keyboard.resetComposition()
         keyboard.hasFullAccess = hasFullAccess
@@ -107,21 +107,56 @@ class KeyboardViewController: UIInputViewController {
 
     override func viewWillDisappear(_ animated: Bool) {
         logLifecycle("disappearing")
+        VimeExtensionAudit.recordLifecycle(event: .viewWillDisappear)
         keyboard.stopInteractions()
         host.abandon()
         keyboard.resetComposition()
         super.viewWillDisappear(animated)
     }
 
+    override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
+        keyboard.releaseInactiveResources()
+        heightConstraint?.isActive = false
+        if let input = inputView as? KeyboardInputView {
+            input.detachKeyboard()
+            input.offerForReuse()
+        }
+        keyboardAttached = false
+        VimeExtensionAudit.recordLifecycle(event: .viewDidDisappear)
+        logLifecycle("hidden-cleanup-enqueued")
+    }
+
+    private func attachKeyboardIfNeeded() {
+        guard !keyboardAttached || keyboard.superview !== view else { return }
+        keyboard.translatesAutoresizingMaskIntoConstraints = false
+        if let input = inputView as? KeyboardInputView { input.attachKeyboard(keyboard) }
+        else { view.addSubview(keyboard) }
+        NSLayoutConstraint.activate([
+            keyboard.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            keyboard.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            keyboard.topAnchor.constraint(equalTo: view.topAnchor),
+            keyboard.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+        keyboardAttached = true
+    }
+
     override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning()
         logLifecycle("memory-warning")
+        VimeExtensionAudit.recordLifecycle(event: .memoryWarning)
         keyboard.handleMemoryPressure()
     }
 
     private func logLifecycle(_ event: String) {
         let seconds = Int(ProcessInfo.processInfo.systemUptime - startedAt)
-        lifecycleLog.notice("Keyboard \(event, privacy: .public); pid=\(ProcessInfo.processInfo.processIdentifier) age=\(seconds)s footprint=\(VimeLanguageModel.footprintMB())MB")
+        let instance = String(describing: ObjectIdentifier(self))
+        lifecycleLog.notice("Keyboard \(event, privacy: .public); pid=\(ProcessInfo.processInfo.processIdentifier) instance=\(instance, privacy: .public) liveControllers=\(Self.liveControllers.allObjects.count) age=\(seconds)s footprint=\(VimeLanguageModel.footprintMB())MB")
+    }
+
+    deinit {
+        let instance = String(describing: ObjectIdentifier(self))
+        lifecycleLog.notice("Keyboard deallocated; instance=\(instance, privacy: .public) footprint=\(VimeLanguageModel.footprintMB())MB")
     }
 
     override func textDidChange(_ textInput: UITextInput?) {

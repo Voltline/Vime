@@ -272,7 +272,9 @@ nonisolated final class CandidatePreferenceMemory {
             guard descriptor >= 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
             defer { Darwin.close(descriptor) }
             var locked: Int32
+            let lockStartedAt = KeyboardPerformance.start()
             repeat { locked = flock(descriptor, LOCK_EX) } while locked != 0 && errno == EINTR
+            KeyboardPerformance.record(.learningLockWait, since: lockStartedAt)
             guard locked == 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
             defer { _ = flock(descriptor, LOCK_UN) }
             let latest = pendingClear ? Archive(epoch: epoch, entries: [:]) : try readArchive()

@@ -72,6 +72,7 @@ protocol KeyboardInputSession: AnyObject {
     var candidatesAreCurrent: Bool { get }
     var selectedIndex: Int? { get }
     var candidateResultReadyAt: TimeInterval? { get }
+    var neuralModeSuspendedForMemoryPressure: Bool { get }
     var onCandidatesChange: (() -> Void)? { get set }
     var onCommittedEdits: ((KeyboardCommitBatch) -> Void)? { get set }
     var leftContextProvider: (() -> String?)? { get set }
@@ -91,13 +92,16 @@ protocol KeyboardInputSession: AnyObject {
     func updateIntelligence(ranking: CandidateRankingMode, suggestionsEnabled: Bool)
     func reset(preservingContext: Bool)
     func handleMemoryPressure()
+    func releaseInactiveResources()
     func didApplyEdits(_ edits: [KeyboardEdit])
     func invalidateLearningFeedback()
     func takeInputTiming() -> TimeInterval?
 }
 
 extension KeyboardInputSession {
+    var neuralModeSuspendedForMemoryPressure: Bool { false }
     func handleMemoryPressure() {}
+    func releaseInactiveResources() {}
     func reset() { reset(preservingContext: false) }
     var conversionRangeDescription: String? { nil }
     func adjustConversionRange(by delta: Int) {}

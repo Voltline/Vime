@@ -1,6 +1,5 @@
 import Foundation
 import CoreML
-import CryptoKit
 import CSentencePiece
 
 /// Confined to the candidate worker's serial queue. No mutable state crosses actors.
@@ -67,11 +66,14 @@ nonisolated final class VimeLanguageModel {
         modelVersion = version
         guard manifest.minimum_ios == 18, manifest.vocab_size == Self.vocabulary,
               manifest.context_length == Self.contextLength,
-              try Self.sha256(tokenizerURL) == manifest.tokenizer_sha256,
+              !manifest.tokenizer_sha256.isEmpty,
               !manifest.compiled_files_sha256.isEmpty else { throw Failure.integrity }
+        // Bundled resources are immutable. Both Release targets validate hashes
+        // in validate_model_resources.py during the build; loading must not copy
+        // the entire weights file into Data on every keyboard lifecycle.
         for (name, digest) in manifest.compiled_files_sha256 {
             guard !name.hasPrefix("/"), !name.split(separator: "/").contains(".."),
-                  try Self.sha256(modelURL.appendingPathComponent(name)) == digest else { throw Failure.integrity }
+                  !digest.isEmpty else { throw Failure.integrity }
         }
         tokenizer = try VimeSentenceTokenizer(url: tokenizerURL)
         // This package computes in FP32, so the Neural Engine cannot run it, and its INT8 embedding
@@ -101,9 +103,6 @@ nonisolated final class VimeLanguageModel {
             }
         }
         return result == KERN_SUCCESS ? Int(info.phys_footprint / 1_048_576) : -1
-    }
-    private static func sha256(_ url: URL) throws -> String {
-        SHA256.hash(data: try Data(contentsOf: url)).map { String(format: "%02x", $0) }.joined()
     }
     func predict(_ ids: [Int32]) throws -> MLMultiArray {
         guard !ids.isEmpty, ids.count <= Self.contextLength,

@@ -922,6 +922,8 @@ nonisolated final class JapaneseCandidateEngine {
     }
 
     func flushLearning() {
+        let startedAt = KeyboardPerformance.start()
+        defer { KeyboardPerformance.record(.learningPersistence, since: startedAt) }
         preferenceMemory?.flush()
         guard learningDirty else { return }
         converter.commitUpdateLearningData(); learningDirty = false
@@ -961,7 +963,7 @@ nonisolated final class JapaneseCandidateEngine {
             preferenceMemory?.resetRecent()
             if let learningSession { try? converter.withSession(learningSession) { converter.stopComposition() } }
         }
-        for session in [alternativeSession, correctionSession, classicTypoSession, contextSession, prefixSession].compactMap({ $0 }) {
+        for session in [alternativeSession, correctionSession, classicTypoSession, contextSession, prefixSession, widthSession].compactMap({ $0 }) {
             try? converter.withSession(session) { converter.stopComposition() }
         }
     }

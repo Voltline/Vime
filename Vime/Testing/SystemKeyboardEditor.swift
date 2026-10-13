@@ -8,6 +8,7 @@ struct SystemKeyboardEditor: UIViewRepresentable {
     @Binding var composition: String
     var focusRequest: Int
     var clearRequest: Int = 0
+    var dismissRequest: Int = 0
     var onSnapshot: ((SystemKeyboardSnapshot) -> Void)?
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
@@ -39,6 +40,10 @@ struct SystemKeyboardEditor: UIViewRepresentable {
             view.resignFirstResponder()
             view.text = ""
         }
+        if dismissRequest != coordinator.lastDismissRequest {
+            coordinator.lastDismissRequest = dismissRequest
+            view.resignFirstResponder()
+        }
         if focusRequest != coordinator.lastFocusRequest {
             coordinator.lastFocusRequest = focusRequest
             view.becomeFirstResponder()
@@ -49,6 +54,7 @@ struct SystemKeyboardEditor: UIViewRepresentable {
         var parent: SystemKeyboardEditor
         var lastFocusRequest = 0
         var lastClearRequest = 0
+        var lastDismissRequest = 0
         init(_ parent: SystemKeyboardEditor) { self.parent = parent }
         func publish(_ snapshot: SystemKeyboardSnapshot) {
             parent.text = snapshot.text

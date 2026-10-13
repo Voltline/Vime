@@ -12,19 +12,43 @@ nonisolated enum KeyboardPerformance {
         case baseConversion, candidateReranking, classicTypo, experimentalTypo, contextEvaluation
         case lexiconLookup, prefixConversion
         case lmCandidateScoring, lmNextWords, lmNextWordScoring, personalization, learningAcceptance
+        case candidateQueueWait, supplementaryQueueWait, learningPersistence, learningLockWait
     }
 
     private final class Storage: @unchecked Sendable {
         let lock = NSLock()
         var enabled = false
         var samples: [Stage: [Double]] = [:]
+        var totalCounts: [Stage: UInt64] = [:]
+        var windows: [Stage: Window] = [:]
+    }
+
+    /// Whole-window count/mean/max plus a bounded tail for percentiles. Keeping
+    /// totals separately avoids treating the last 256 calls as a lifetime count.
+    private struct Window {
+        var count: UInt64 = 0
+        var sum = 0.0
+        var maximum = 0.0
+        var tail: [Double] = []
+
+        mutating func append(_ value: Double) {
+            count += 1
+            sum += value
+            maximum = max(maximum, value)
+            if tail.count == 256 { tail.removeFirst() }
+            tail.append(value)
+        }
     }
     private static let storage = Storage()
 
     static func configure(enabled: Bool, reset: Bool = false) {
         storage.lock.lock(); defer { storage.lock.unlock() }
         storage.enabled = enabled
-        if reset { storage.samples = [:] }
+        if reset {
+            storage.samples = [:]
+            storage.totalCounts = [:]
+            storage.windows = [:]
+        }
     }
 
     static func start() -> TimeInterval? {
@@ -43,14 +67,35 @@ nonisolated enum KeyboardPerformance {
         if values.count == 256 { values.removeFirst() }
         values.append(milliseconds)
         storage.samples[stage] = values
+        storage.totalCounts[stage, default: 0] += 1
+        storage.windows[stage, default: Window()].append(milliseconds)
     }
 
     static func report() -> [String: [String: Double]] {
         storage.lock.lock(); defer { storage.lock.unlock() }
         return Dictionary(uniqueKeysWithValues: storage.samples.map { stage, values in
             let sorted = values.sorted()
-            return (stage.rawValue, ["count": Double(values.count), "meanMs": values.reduce(0, +) / Double(values.count),
+            return (stage.rawValue, ["count": Double(values.count), "totalCount": Double(storage.totalCounts[stage, default: 0]),
+                "meanMs": values.reduce(0, +) / Double(values.count),
                 "p95Ms": sorted[min(sorted.count - 1, Int(Double(sorted.count - 1) * 0.95))], "maxMs": sorted.last!])
         })
+    }
+
+    /// Drains only interval aggregates; the usual report remains available.
+    /// p95TailMs covers the most recent 256 calls in this interval, while
+    /// windowCount/meanMs/maxMs cover every call since the previous drain.
+    static func takeWindowReport() -> [String: [String: Double]] {
+        storage.lock.lock(); defer { storage.lock.unlock() }
+        let result = Dictionary(uniqueKeysWithValues: storage.windows.map { stage, window in
+            let sorted = window.tail.sorted()
+            return (stage.rawValue, ["windowCount": Double(window.count),
+                "totalCount": Double(storage.totalCounts[stage, default: 0]),
+                "percentileSampleCount": Double(sorted.count),
+                "meanMs": window.sum / Double(window.count),
+                "p95TailMs": sorted[min(sorted.count - 1, Int(Double(sorted.count - 1) * 0.95))],
+                "maxMs": window.maximum])
+        })
+        storage.windows = [:]
+        return result
     }
 }

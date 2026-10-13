@@ -124,7 +124,11 @@ final class KeyboardPerformanceTests: XCTestCase {
             keyboard.resetComposition()
             for c in word {
                 let ready = expectation(description: "\(word) \(c)")
-                session.onCandidatesChange = { update?(); ready.fulfill() }
+                var delivered = false
+                session.onCandidatesChange = {
+                    update?()
+                    if !delivered { delivered = true; ready.fulfill() }
+                }
                 let key = try XCTUnwrap(descendants(keyboard).first { $0.accessibilityIdentifier == "vime.key." + String(c) } as? UIButton)
                 key.sendActions(for: .touchUpInside)
                 XCTAssertEqual(host.markedText, session.preedit)
@@ -133,7 +137,8 @@ final class KeyboardPerformanceTests: XCTestCase {
           }
         }
         let report = KeyboardPerformance.report()
-        XCTAssertEqual(report["candidatePublication"]?["count"], 84)
+        // Each key must publish; neural reranking may publish a second update.
+        XCTAssertGreaterThanOrEqual(report["candidatePublication"]?["count"] ?? 0, 84)
         let data = try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys])
         print("WARM_CANDIDATE_PROFILE " + String(decoding: data, as: UTF8.self))
         let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")

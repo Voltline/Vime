@@ -91,6 +91,10 @@ final class KeyboardSession: KeyboardInputSession {
     private var previousJapaneseMode: InputMode = .hiragana
     /// Set by the view from KeyboardPreferences.
     var candidateRanking: CandidateRankingMode = .languageModel
+    var neuralModeSuspendedForMemoryPressure: Bool {
+        candidateRanking == .languageModel && worker != nil
+            && JapaneseCandidateWorker.isLanguageModelSuspendedForMemoryPressure
+    }
     var phraseSuggestions = false
     func updateIntelligence(ranking: CandidateRankingMode, suggestionsEnabled: Bool) {
         guard ranking != candidateRanking || suggestionsEnabled != phraseSuggestions else { return }
@@ -395,6 +399,11 @@ final class KeyboardSession: KeyboardInputSession {
         selectedIndex = nil
     }
 
+    func releaseInactiveResources() {
+        reset()
+        worker?.releaseInactiveResources()
+    }
+
     func clearLearning() {
         reset()
         engine?.clearLearning(); worker?.clearLearning()
@@ -561,6 +570,9 @@ final class KeyboardSession: KeyboardInputSession {
         if supplementary && (candidatesPending || selectedIndex != nil || pendingSpaces > 0) { return }
         candidatesPending = false
         candidateResultReadyAt = readyAt
+        // This timestamp belongs only to the synchronous publication below.
+        // Menu/context notifications must not measure time since an old result.
+        defer { candidateResultReadyAt = nil }
         candidateSnapshots = values
         candidateListGeneration += 1
         if !supplementary {

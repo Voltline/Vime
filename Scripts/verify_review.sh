@@ -82,6 +82,7 @@ def visit(node):
         for value in node: visit(value)
 visit(json.load(open(sys.argv[2])))
 optional = {'VimeLanguageModelBenchmarkTests/testDeviceLatencyAndMemory()',
+            'KeyboardExtensionSoakTests/testContinuousInstalledExtensionSoak()',
             'VimeLanguageModelBenchmarkTests/testOtherComputeUnit()',
             'VimeLanguageModelMemoryTests/testProcessMemoryProfile()'}
 unexpected_skips = [n['nodeIdentifier'] for n in leaves if n['result'] == 'Skipped' and n['nodeIdentifier'] not in optional]

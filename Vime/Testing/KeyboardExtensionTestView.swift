@@ -6,6 +6,7 @@ struct KeyboardExtensionTestView: View {
     @State private var composition = ""
     @State private var focusRequest = 0
     @State private var clearRequest = 0
+    @State private var dismissRequest = 0
     @State private var events: [String] = []
     private let blue = Color(uiColor: UIColor(cgColor: VimeLogo.blue))
     var body: some View {
@@ -13,7 +14,7 @@ struct KeyboardExtensionTestView: View {
             Text("点击输入框，通过地球键选择 Vime 日本語\n这里使用 iOS 加载的键盘扩展")
                 .font(.subheadline).foregroundStyle(.secondary)
             SystemKeyboardEditor(text: $text, composition: $composition, focusRequest: focusRequest,
-                clearRequest: clearRequest, onSnapshot: { snapshot in
+                clearRequest: clearRequest, dismissRequest: dismissRequest, onSnapshot: { snapshot in
                     events.append(snapshot.description)
                     if events.count > 64 { events.removeFirst(events.count - 64) }
                 })
@@ -25,6 +26,8 @@ struct KeyboardExtensionTestView: View {
             HStack {
                 Button("开始输入") { focusRequest += 1 }
                     .accessibilityIdentifier("vime.extension.focus")
+                Button("收起键盘") { dismissRequest += 1 }
+                    .accessibilityIdentifier("vime.extension.dismiss")
                 Spacer()
                 Button("清空") {
                     text = ""; composition = ""; events = []; clearRequest += 1
@@ -44,5 +47,36 @@ struct KeyboardExtensionTestView: View {
         .padding(20)
         .navigationTitle("键盘扩展试打")
         .navigationBarTitleDisplayMode(.inline)
+#if DEBUG
+        .task { await runAutomaticLifecycleIfRequested() }
+#endif
     }
+
+#if DEBUG
+    /// Counterexample for XCTest's accessibility cache: drive the native host
+    /// without querying any accessibility elements in the keyboard process.
+    /// This checks appearance/teardown only; it does not simulate key input.
+    @MainActor private func runAutomaticLifecycleIfRequested() async {
+        let arguments = ProcessInfo.processInfo.arguments
+        guard let index = arguments.firstIndex(of: "--keyboard-extension-auto-cycles"),
+              index + 1 < arguments.count, let requested = Int(arguments[index + 1]), requested > 0 else { return }
+        let cycles = min(500, requested)
+        do {
+            // Cold extension startup may exceed one second. Establish the
+            // initial connection before measuring repeated host transitions.
+            focusRequest += 1
+            try await Task.sleep(for: .seconds(5))
+            dismissRequest += 1
+            try await Task.sleep(for: .seconds(2))
+            for cycle in 1...cycles {
+                focusRequest += 1
+                try await Task.sleep(for: .seconds(2))
+                dismissRequest += 1
+                try await Task.sleep(for: .seconds(1))
+                NSLog("VIME_EXTENSION_AUTOMATIC_LIFECYCLE cycle=%d", cycle)
+            }
+            NSLog("VIME_EXTENSION_AUTOMATIC_COMPLETED cycles=%d", cycles)
+        } catch { NSLog("VIME_EXTENSION_AUTOMATIC_CANCELLED") }
+    }
+#endif
 }

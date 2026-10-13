@@ -7,46 +7,71 @@ import KanaKanjiConverterModuleWithDefaultDictionary
 /// the session revision prevents it from changing newer composition state.
 @MainActor
 final class JapaneseCandidateWorker {
+    static var isLanguageModelSuspendedForMemoryPressure: Bool { LanguageModelStorage.shared.isSuspended }
+
     nonisolated struct ResourceState: Equatable, Sendable {
         let engineLoaded: Bool
         let modelLoaded: Bool
         let modelSuspendedForMemoryPressure: Bool
+        let modelLoadCount: Int
     }
-    private nonisolated final class Storage: @unchecked Sendable {
-        private var cachedEngine: JapaneseCandidateEngine?
-        private var cachedLanguageModel: VimeLanguageModel?
-        private var attemptedLanguageModel = false
-        var modelSuspendedForMemoryPressure = false
-        var resourceState: ResourceState {
-            ResourceState(engineLoaded: cachedEngine != nil, modelLoaded: cachedLanguageModel != nil,
-                          modelSuspendedForMemoryPressure: modelSuspendedForMemoryPressure)
-        }
-        func handleMemoryPressure() {
-            modelSuspendedForMemoryPressure = true
-            releaseLanguageModel()
-            cachedEngine?.discardTransientCaches()
-        }
-        func releaseLanguageModel() {
-            cachedLanguageModel = nil
-            attemptedLanguageModel = false
-        }
-        var languageModel: VimeLanguageModel? {
-            guard !modelSuspendedForMemoryPressure else { return nil }
-            if !attemptedLanguageModel {
-                attemptedLanguageModel = true
+    /// Every worker uses this queue, so the process owns at most one model and
+    /// neither Core ML nor SentencePiece is used concurrently by two sessions.
+    private nonisolated static let candidateQueue = DispatchQueue(
+        label: "com.Voltline.Vime.candidates", qos: .userInitiated, autoreleaseFrequency: .workItem)
+    private nonisolated final class LanguageModelStorage: @unchecked Sendable {
+        static let shared = LanguageModelStorage()
+        // Only the pressure gate crosses queues. Set it immediately, even when
+        // model initialization or prediction is still running on candidateQueue.
+        private let lock = NSLock()
+        private var suspended = false
+        var isSuspended: Bool { lock.lock(); defer { lock.unlock() }; return suspended }
+        func setSuspended(_ value: Bool) { lock.lock(); suspended = value; lock.unlock() }
+        private(set) var cachedModel: VimeLanguageModel?
+        private var attempted = false
+        private(set) var loadCount = 0
+        func release() { cachedModel = nil; attempted = false }
+        var model: VimeLanguageModel? {
+            guard !isSuspended else { return nil }
+            if !attempted {
+                attempted = true
                 let log = Logger(subsystem: "com.Voltline.Vime", category: "LanguageModel")
                 let started = ProcessInfo.processInfo.systemUptime
                 do {
-                    try autoreleasepool { cachedLanguageModel = try VimeLanguageModel() }
+                    let model = try autoreleasepool { try VimeLanguageModel() }
+                    loadCount += 1
                     let milliseconds = Int((ProcessInfo.processInfo.systemUptime - started) * 1000)
-                    let version = cachedLanguageModel?.modelVersion ?? "unknown"
-                    VimeExtensionAudit.recordModelLoad(version: version, milliseconds: milliseconds)
-                    log.notice("Model \(version, privacy: .public) loaded in \(milliseconds) ms; footprint \(VimeLanguageModel.footprintMB()) MB")
+                    VimeExtensionAudit.recordModelLoad(version: model.modelVersion, milliseconds: milliseconds)
+                    log.notice("Model \(model.modelVersion, privacy: .public) loaded in \(milliseconds) ms; footprint \(VimeLanguageModel.footprintMB()) MB")
+                    // A warning received during synchronous loading must not
+                    // publish the new model or start its first prediction.
+                    guard !isSuspended else { return nil }
+                    cachedModel = model
                 } catch {
                     log.error("Model unavailable (\(String(describing: error), privacy: .public)); retaining dictionary candidates.")
                 }
             }
-            return cachedLanguageModel
+            return isSuspended ? nil : cachedModel
+        }
+    }
+    private nonisolated final class Storage: @unchecked Sendable {
+        private var cachedEngine: JapaneseCandidateEngine?
+        var resourceState: ResourceState {
+            let model = LanguageModelStorage.shared
+            return ResourceState(engineLoaded: cachedEngine != nil, modelLoaded: model.cachedModel != nil,
+                                 modelSuspendedForMemoryPressure: model.isSuspended,
+                                 modelLoadCount: model.loadCount)
+        }
+        func handleMemoryPressure() {
+            LanguageModelStorage.shared.release()
+            cachedEngine?.discardTransientCaches()
+        }
+        var languageModel: VimeLanguageModel? { LanguageModelStorage.shared.model }
+        func releaseInactiveResources() {
+            // Persist before dropping the converter, dictionary and every
+            // session lattice, even if UIKit keeps the hidden controller alive.
+            resetCachedEngine(preservingContext: false)
+            cachedEngine = nil
         }
         let memoryDirectoryURL: URL?
         init(memoryDirectoryURL: URL?) { self.memoryDirectoryURL = memoryDirectoryURL }
@@ -72,8 +97,7 @@ final class JapaneseCandidateWorker {
     }
     // Drain Foundation/Core ML temporaries at every request, including cancelled
     // work, instead of relying on the long-lived queue's inherited pool policy
-    private let queue = DispatchQueue(label: "com.Voltline.Vime.candidates", qos: .userInitiated,
-                                      autoreleaseFrequency: .workItem)
+    private let queue = JapaneseCandidateWorker.candidateQueue
     private let storage: Storage
     init(memoryDirectoryURL: URL? = nil) { storage = Storage(memoryDirectoryURL: memoryDirectoryURL) }
     private var pending: Request?
@@ -88,6 +112,7 @@ final class JapaneseCandidateWorker {
         let queue = self.queue
         let requestStartedAt = KeyboardPerformance.start()
         queue.async {
+            KeyboardPerformance.record(.candidateQueueWait, since: requestStartedAt)
             guard !request.isCancelled else { return }
             storage.engine.reconcileContext(leftContext)
             storage.engine.seedContinuity(continuity)
@@ -97,17 +122,19 @@ final class JapaneseCandidateWorker {
             KeyboardPerformance.record(.candidateRequestToResult, since: requestStartedAt)
             let readyAt = KeyboardPerformance.start()
             guard !request.isCancelled else { return }
-            DispatchQueue.main.async { completion(values, readyAt, false) }
+            DispatchQueue.main.async { if !request.isCancelled { completion(values, readyAt, false) } }
             // Normal prediction is delivered first. New input cancels this
             // supplementary search before it starts; running search checks every query.
+            let supplementaryQueuedAt = KeyboardPerformance.start()
             queue.async {
+                KeyboardPerformance.record(.supplementaryQueueWait, since: supplementaryQueuedAt)
                 guard !request.isCancelled else { return }
                 let sentence = VimeLanguageModel.sentenceContext(leftContext ?? "")
                 let rerank = { (values: [CandidateSnapshot]) -> [CandidateSnapshot] in
                     guard ranking == .languageModel, !request.isCancelled,
                           VimeLanguageModel.rerankingSlots(values, katakana: katakana).count > 1 else { return values }
                     return storage.languageModel?.rerank(values, context: sentence, katakana: katakana,
-                        cancelled: { request.isCancelled }) ?? values
+                        cancelled: { request.isCancelled || LanguageModelStorage.shared.isSuspended }) ?? values
                 }
                 let formatted = expanded
                     ? storage.engine.addingWidthCandidates(to: values, for: composing, katakana: katakana,
@@ -120,13 +147,13 @@ final class JapaneseCandidateWorker {
                 // hold the expanded menu's dictionary supplementation hostage.
                 if enriched.map(\.presentation) != values.map(\.presentation) {
                     let readyAt = KeyboardPerformance.start()
-                    DispatchQueue.main.async { completion(enriched, readyAt, true) }
+                    DispatchQueue.main.async { if !request.isCancelled { completion(enriched, readyAt, true) } }
                 }
                 let ranked = rerank(enriched)
                 guard !request.isCancelled else { return }
                 if ranked.map(\.presentation) != enriched.map(\.presentation) {
                     let readyAt = KeyboardPerformance.start()
-                    DispatchQueue.main.async { completion(ranked, readyAt, true) }
+                    DispatchQueue.main.async { if !request.isCancelled { completion(ranked, readyAt, true) } }
                 }
                 guard conversionLength == nil else { return }
                 let correctionStartedAt = KeyboardPerformance.start()
@@ -138,7 +165,7 @@ final class JapaneseCandidateWorker {
                 guard !request.isCancelled, expanded.map(\.presentation) != ranked.map(\.presentation) else { return }
                 KeyboardPerformance.record(.correctionRequestToResult, since: requestStartedAt)
                 let readyAt = KeyboardPerformance.start()
-                DispatchQueue.main.async { completion(expanded, readyAt, true) }
+                DispatchQueue.main.async { if !request.isCancelled { completion(expanded, readyAt, true) } }
             }
         }
     }
@@ -162,12 +189,12 @@ final class JapaneseCandidateWorker {
             guard useLanguageModel, !request.isCancelled else { return }
             let history = storage.engine.rememberedNextWords(context: prompt)
             let words = try? storage.languageModel?.scoredNextWords(prompt: prompt, history: history,
-                cancelled: { request.isCancelled })
+                cancelled: { request.isCancelled || LanguageModelStorage.shared.isSuspended })
             guard !request.isCancelled else { return }
             let neural = storage.engine.personalizedNextWords(words?.generated ?? [], history: words?.history ?? [], context: prompt)
             let pool = PostCompositionSuggestionReranker.merge(native: native, neural: neural)
             let suggestions = storage.languageModel?.rerankPostComposition(pool, prompt: prompt,
-                cancelled: { request.isCancelled }) ?? pool
+                cancelled: { request.isCancelled || LanguageModelStorage.shared.isSuspended }) ?? pool
             guard !suggestions.isEmpty else { return }
             DispatchQueue.main.async { if !request.isCancelled { completion(suggestions) } }
         }
@@ -208,7 +235,7 @@ final class JapaneseCandidateWorker {
         queue.async {
             storage.engine.complete(candidate)
             // Persistence occurs on confirmation boundaries, never on keystrokes.
-            queue.async { storage.engine.flushLearning() }
+            queue.async { storage.flushCachedLearning() }
         }
     }
 
@@ -219,11 +246,11 @@ final class JapaneseCandidateWorker {
 
     func disableLanguageModel() {
         cancelPending()
-        let storage = self.storage
-        queue.async { storage.releaseLanguageModel() }
+        queue.async { LanguageModelStorage.shared.release() }
     }
 
     func handleMemoryPressure() {
+        LanguageModelStorage.shared.setSuspended(true)
         cancelPending()
         let storage = self.storage
         queue.async { storage.handleMemoryPressure() }
@@ -232,8 +259,7 @@ final class JapaneseCandidateWorker {
     /// Only an explicit off-to-on settings change retries neural work after a
     /// memory warning; ordinary keystrokes and host changes must not reload it
     func allowLanguageModel() {
-        let storage = self.storage
-        queue.async { storage.modelSuspendedForMemoryPressure = false }
+        LanguageModelStorage.shared.setSuspended(false)
     }
 
     func resourceState() async -> ResourceState {
@@ -247,6 +273,12 @@ final class JapaneseCandidateWorker {
         cancelPending()
         let storage = self.storage
         queue.async { storage.resetCachedEngine(preservingContext: preservingContext) }
+    }
+
+    func releaseInactiveResources() {
+        cancelPending()
+        let storage = self.storage
+        queue.async { storage.releaseInactiveResources() }
     }
 
     func clearLearning() {

@@ -536,6 +536,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     private let brandButton = UIButton(type: .custom)
     private let globeButton = UIButton(type: .custom)
     private let modeButton = UIButton(type: .system)
+    private let neuralStatusLabel = UILabel()
     private let undoButton = UIButton(type: .system)
     private let settingsButton = UIButton(type: .system)
     private let expandButton = UIButton(type: .system)
@@ -558,6 +559,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     private weak var settingsHapticLabel: UILabel?
     private weak var settingsSoundSwitch: UISwitch?
     private weak var settingsNumberLayout: UISegmentedControl?
+    private weak var settingsNeuralStatusLabel: UILabel?
     private var symbolPanel: KeyboardSymbolPanel?
     private var rows: [[(KeyboardKey, CGFloat)]] = []
     private var rebuildingKeys = false
@@ -614,6 +616,12 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         globeButton.accessibilityLabel = "切换系统键盘"
         globeButton.addTarget(self, action: #selector(switchKeyboard), for: .touchUpInside)
         header.addSubview(modeButton)
+        header.addSubview(neuralStatusLabel)
+        neuralStatusLabel.font = .systemFont(ofSize: 12)
+        neuralStatusLabel.textColor = .secondaryLabel
+        neuralStatusLabel.text = "内存不足，暂用词典"
+        neuralStatusLabel.accessibilityIdentifier = "vime.neural.status"
+        neuralStatusLabel.isHidden = true
         modeButton.titleLabel?.font = .systemFont(ofSize: 17, weight: .semibold)
         modeButton.backgroundColor = KeyboardPalette.key
         modeButton.tintColor = .secondaryLabel
@@ -764,6 +772,8 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         brandButton.imageView?.isHidden = brandArtwork.image != nil
         modeButton.frame = CGRect(x: width - 92 * xScale, y: centerY - diameter / 2, width: diameter, height: diameter)
         undoButton.frame = CGRect(x: width - 138 * xScale, y: centerY - diameter / 2, width: diameter, height: diameter)
+        neuralStatusLabel.frame = CGRect(x: brandButton.frame.maxX + 8, y: centerY - diameter / 2,
+            width: max(0, undoButton.frame.minX - brandButton.frame.maxX - 16), height: diameter)
         expandButton.frame = CGRect(x: width - 46 * xScale, y: centerY - diameter / 2, width: diameter, height: diameter)
         for button in [brandButton, undoButton, modeButton, expandButton] { button.layer.cornerRadius = diameter / 2 }
         candidateScroll.frame = CGRect(x: 4 * xScale, y: centerY - (compact ? 13 : 17 * scale), width: width - 55 * xScale, height: compact ? 26 : 34 * scale)
@@ -1100,12 +1110,22 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         for row in rows { for (key, _) in row { key.stopTracking() } }
     }
 
+    func releaseInactiveResources() {
+        session.releaseInactiveResources()
+        spareCandidateButtons.removeAll(keepingCapacity: false)
+        sparePanelButtons.removeAll(keepingCapacity: false)
+        symbolPanel?.removeFromSuperview(); symbolPanel = nil
+        impactGenerators.removeAll(keepingCapacity: false)
+        emojiOpen = false
+    }
+
     func handleMemoryPressure() {
         spareCandidateButtons.removeAll(keepingCapacity: false)
         sparePanelButtons.removeAll(keepingCapacity: false)
         if !emojiOpen { symbolPanel?.removeFromSuperview(); symbolPanel = nil }
         impactGenerators.removeAll(keepingCapacity: false)
         session.handleMemoryPressure()
+        refresh()
     }
 
     private func refresh() {
@@ -1124,6 +1144,9 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         let composing = session.isComposing
         // Composition candidates and LM suggestions share the strip.
         let strip = session.showsStrip
+        let neuralPaused = session.neuralModeSuspendedForMemoryPressure
+        neuralStatusLabel.isHidden = !neuralPaused || strip || expanded || emojiOpen || settingsOpen
+        settingsNeuralStatusLabel?.isHidden = !neuralPaused
         header.isHidden = emojiOpen
         undoButton.isHidden = !canUndoLineDeletion || strip || expanded || settingsOpen || emojiOpen
         brandButton.isHidden = strip || expanded || emojiOpen
@@ -1436,6 +1459,14 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
             stack.bottomAnchor.constraint(equalTo: panel.contentLayoutGuide.bottomAnchor, constant: -16),
             stack.widthAnchor.constraint(equalTo: panel.frameLayoutGuide.widthAnchor, constant: -40)
         ])
+        let neuralStatus = UILabel()
+        neuralStatus.numberOfLines = 0
+        neuralStatus.font = .systemFont(ofSize: 13)
+        neuralStatus.textColor = .secondaryLabel
+        neuralStatus.text = "神经候选因内存不足暂时停用，词典输入仍可用。可在 Vime App 中关闭再开启神经候选重试。"
+        neuralStatus.accessibilityIdentifier = "vime.settings.neural.status"
+        stack.addArrangedSubview(neuralStatus)
+        settingsNeuralStatusLabel = neuralStatus
         func addSwitch(_ title: String, value: Bool, id: String, change: @escaping (Bool) -> Void) -> UISwitch {
             let row = UIStackView(); row.axis = .horizontal
             let label = UILabel(); label.text = title; label.font = .systemFont(ofSize: 15)
