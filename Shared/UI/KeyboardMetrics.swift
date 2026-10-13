@@ -12,7 +12,10 @@ struct KeyboardMetrics {
     let showsFooter: Bool
     var heightFactor: CGFloat = 1
     var scale: CGFloat { min(width / 440, 1.3) }
-    var headerHeight: CGFloat { compact ? 38 : 56 * scale }
+    var toolbarButtonDiameter: CGFloat { compact ? 30 : 34.5 * scale }
+    // Include space below the toolbar, as well as its top inset and controls.
+    // Otherwise a 30 pt control at y=8 touches the first key at y=38.
+    var headerHeight: CGFloat { compact ? Self.toolbarTopInset + toolbarButtonDiameter + 8 : 56 * scale }
     // A shorter portrait preference must not squeeze the landscape key plane.
     private var effectiveHeightFactor: CGFloat { compact ? max(1, heightFactor) : heightFactor }
     var keyHeight: CGFloat { (compact ? 33 : 46.5 * scale) * effectiveHeightFactor }

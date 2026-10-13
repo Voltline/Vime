@@ -27,6 +27,17 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
             let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "hittable == true"), object: enter)
             XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 5), .completed)
             XCTAssertTrue(space.isHittable)
+            let firstRow = app.buttons["vime.key.q"]
+            for control in [app.buttons["vime.brand.settings"], app.buttons["切换平假名和片假名"],
+                            app.buttons["vime.candidates.expand"]] {
+                XCTAssertTrue(control.isHittable)
+                XCTAssertGreaterThanOrEqual(firstRow.frame.minY - control.frame.maxY, 8,
+                    "Toolbar controls must not touch the first row")
+            }
+            app.buttons["vime.brand.settings"].tap()
+            XCTAssertTrue(app.scrollViews["vime.settings"].waitForExistence(timeout: 3))
+            app.buttons["vime.panel.close"].tap()
+            XCTAssertTrue(firstRow.waitForExistence(timeout: 3))
             for key in [space, enter] {
                 XCTAssertTrue(app.frame.contains(key.frame))
                 XCTAssertGreaterThanOrEqual(key.frame.height, 33)
@@ -35,6 +46,10 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
             }
             let previous = editor.value as? String ?? ""
             app.buttons["vime.key.a"].tap()
+            app.buttons["vime.candidates.expand"].tap()
+            XCTAssertTrue(app.scrollViews["vime.candidates.panel"].waitForExistence(timeout: 3))
+            app.buttons["vime.panel.close"].tap()
+            XCTAssertTrue(firstRow.waitForExistence(timeout: 3))
             space.tap()
             enter.tap()
             XCTAssertEqual(editor.value as? String, previous + "あ")
@@ -42,7 +57,15 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
             // The first return confirms the conversion; the second inserts a newline.
             enter.tap()
             XCTAssertEqual(editor.value as? String, previous + "あ\n")
-            let attachment = XCTAttachment(screenshot: app.screenshot())
+            app.buttons["表情"].tap()
+            let modes = app.segmentedControls["vime.symbols.mode"]
+            XCTAssertTrue(modes.waitForExistence(timeout: 3))
+            modes.buttons["颜文字"].tap()
+            modes.buttons["符号"].tap()
+            app.buttons["vime.symbols.close"].tap()
+            XCTAssertTrue(firstRow.waitForExistence(timeout: 3))
+            XCTAssertTrue(enter.isHittable)
+            let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
             attachment.name = "landscape-minimum-height-round-\(round)"
             attachment.lifetime = .keepAlways; add(attachment)
             XCUIDevice.shared.orientation = .portrait

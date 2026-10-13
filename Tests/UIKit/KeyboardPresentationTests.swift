@@ -25,6 +25,45 @@ final class KeyboardPresentationTests: XCTestCase {
         attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
     }
 
+    func testLandscapeToolbarAndAllRowsStaySeparatedAcrossSizesAndPages() throws {
+        let keyboard = KeyboardView(frame: .zero, session: KeyboardSession())
+        defer { keyboard.stopInteractions() }
+        keyboard.compact = true
+        keyboard.showsFooter = false
+        for width in [CGFloat(568), 680, 956] {
+            for factor in [CGFloat(0.85), 1, 1.6] {
+                keyboard.heightFactor = factor
+                for type in [UIKeyboardType.default, .numberPad] {
+                    keyboard.keyboardType = type
+                    keyboard.frame = CGRect(x: 0, y: 0, width: width,
+                        height: keyboard.preferredHeight(for: width))
+                    keyboard.layoutIfNeeded()
+                    let surface = try XCTUnwrap(descendants(keyboard).compactMap { $0 as? KeyboardTouchSurface }.first)
+                    let firstKeyY = try XCTUnwrap(surface.regions.map { $0.body.minY }.min())
+                    let controls = try [button("vime.brand.settings", in: keyboard),
+                        button("vime.candidates.expand", in: keyboard),
+                        XCTUnwrap(descendants(keyboard).first { $0.accessibilityLabel == "切换平假名和片假名" } as? UIButton)]
+                    for control in controls {
+                        let frame = control.convert(control.bounds, to: keyboard)
+                        XCTAssertGreaterThanOrEqual(frame.minY, 8)
+                        XCTAssertGreaterThanOrEqual(firstKeyY - frame.maxY, 8,
+                            "The toolbar needs breathing room above the first key row")
+                    }
+                    for region in surface.regions {
+                        XCTAssertTrue(keyboard.bounds.contains(region.body))
+                        XCTAssertGreaterThanOrEqual(keyboard.bounds.maxY - region.body.maxY, 36)
+                        for other in surface.regions where other.key !== region.key {
+                            XCTAssertFalse(region.body.intersects(other.body), "Painted keys must stay separated")
+                        }
+                    }
+                    if factor == 0.85 {
+                        capture(keyboard, name: "landscape-\(Int(width))-\(type.rawValue)-complete-layout")
+                    }
+                }
+            }
+        }
+    }
+
     func testLandscapeMinimumKeepsBottomRowAboveSystemFooterAfterRotation() throws {
         let keyboard = KeyboardView(frame: .zero, session: KeyboardSession())
         defer { keyboard.stopInteractions() }

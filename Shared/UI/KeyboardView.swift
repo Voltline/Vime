@@ -765,7 +765,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         let xScale = width / 440
         let headerHeight = metrics.headerHeight
         header.frame = CGRect(x: 0, y: 0, width: width, height: headerHeight)
-        let diameter: CGFloat = compact ? 30 : 34.5 * scale
+        let diameter = metrics.toolbarButtonDiameter
         let centerY = KeyboardMetrics.toolbarTopInset + diameter / 2
         brandButton.frame = CGRect(x: 12 * xScale, y: centerY - diameter / 2, width: diameter, height: diameter)
         brandArtwork.frame = brandButton.bounds.insetBy(dx: 2, dy: 2)
