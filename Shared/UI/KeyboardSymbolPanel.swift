@@ -1,7 +1,7 @@
 import UIKit
 
 /// Reused cells keep the complete emoji catalog cheap to open and scroll.
-final class KeyboardSymbolPanel: UIView, UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
+final class KeyboardSymbolPanel: UIView, UICollectionViewDataSource, UICollectionViewDelegateFlowLayout, UIGestureRecognizerDelegate {
     enum Mode: Int { case emoji, kaomoji, symbols }
     var onSelect: ((String) -> Void)?
     var onClose: (() -> Void)?
@@ -12,6 +12,7 @@ final class KeyboardSymbolPanel: UIView, UICollectionViewDataSource, UICollectio
     private let close = UIButton(type: .system)
     private let categories = UIScrollView()
     private let collection: UICollectionView
+    private lazy var categoryPan = UIPanGestureRecognizer(target: self, action: #selector(changeCategory(_:)))
     private var categoryButtons: [UIButton] = []
     private var selectedGroup = 0
     private var emojiRevision = 0
@@ -47,6 +48,12 @@ final class KeyboardSymbolPanel: UIView, UICollectionViewDataSource, UICollectio
         collection.dataSource = self; collection.delegate = self
         collection.register(SymbolCell.self, forCellWithReuseIdentifier: "symbol")
         collection.alwaysBounceVertical = true
+        categoryPan.maximumNumberOfTouches = 1
+        categoryPan.delegate = self
+        collection.addGestureRecognizer(categoryPan)
+        // Decide the axis before scrolling starts. A vertical drag immediately
+        // fails the category gesture, allowing the grid's normal scrolling.
+        collection.panGestureRecognizer.require(toFail: categoryPan)
         modes.selectedSegmentIndex = 0
         modes.accessibilityIdentifier = "vime.symbols.mode"
         modes.addAction(UIAction { [weak self] _ in
@@ -57,6 +64,7 @@ final class KeyboardSymbolPanel: UIView, UICollectionViewDataSource, UICollectio
         close.accessibilityIdentifier = "vime.symbols.close"
         close.addAction(UIAction { [weak self] _ in self?.onFeedback?(); self?.onClose?() }, for: .touchUpInside)
         categories.showsHorizontalScrollIndicator = false
+        categories.accessibilityIdentifier = "vime.symbols.categories"
         // Apply the same policy as the candidate strip: automatic Liquid Glass
         // scroll edges obscure short keyboard grids and category controls.
         for scroll in [categories, collection] {
@@ -117,15 +125,36 @@ final class KeyboardSymbolPanel: UIView, UICollectionViewDataSource, UICollectio
             button.titleLabel?.font = .systemFont(ofSize: 13)
             button.layer.cornerRadius = 6
             button.accessibilityIdentifier = "vime.symbols.category.\(index)"
-            button.addAction(UIAction { [weak self, weak button] _ in
-                guard let self else { return }; self.onFeedback?(); self.selectedGroup = index; self.reloadItems()
-                if let button { self.categories.scrollRectToVisible(button.frame.insetBy(dx: -8, dy: 0), animated: true) }
+            button.addAction(UIAction { [weak self] _ in
+                self?.selectGroup(index)
             }, for: .touchUpInside)
             categories.addSubview(button)
             return button
         }
         categories.setContentOffset(.zero, animated: false)
         reloadItems(); setNeedsLayout()
+    }
+
+    private func selectGroup(_ index: Int) {
+        guard groups.indices.contains(index) else { return }
+        onFeedback?(); selectedGroup = index; reloadItems()
+        layoutIfNeeded()
+        categories.scrollRectToVisible(categoryButtons[index].frame.insetBy(dx: -8, dy: 0), animated: true)
+    }
+
+    override func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        guard gestureRecognizer === categoryPan else { return super.gestureRecognizerShouldBegin(gestureRecognizer) }
+        let velocity = categoryPan.velocity(in: collection)
+        return groups.count > 1 && abs(velocity.x) > abs(velocity.y) * 1.5
+    }
+
+    @objc private func changeCategory(_ gesture: UIPanGestureRecognizer) {
+        guard gesture.state == .ended else { return }
+        let movement = gesture.translation(in: collection)
+        guard abs(movement.x) >= 44, abs(movement.x) > abs(movement.y) * 1.5 else { return }
+        // Switch only after release; cancelled and short drags keep the current
+        // category, and no neighboring grids or emoji images are preloaded.
+        selectGroup(selectedGroup + (movement.x < 0 ? 1 : -1))
     }
 
     private func reloadItems() {

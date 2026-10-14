@@ -4,6 +4,74 @@ import XCTest
 /// first responder, verifies disappearance, then focuses and types again.
 @MainActor
 final class KeyboardExtensionLifecycleTests: XCTestCase {
+    func testSymbolCategorySwipesPreserveScrollingAndSelection() throws {
+        continueAfterFailure = false
+        XCUIDevice.shared.orientation = .portrait
+        defer { XCUIDevice.shared.orientation = .portrait }
+        let app = XCUIApplication()
+        app.launchArguments = ["--keyboard-extension-test", "--keyboard-extension-test-ranking", "engine"]
+        app.launch()
+        let editor = app.textViews["vime.extension.editor"]
+        XCTAssertTrue(editor.waitForExistence(timeout: 10)); editor.tap()
+        XCTAssertTrue(app.buttons["vime.key.h"].waitForExistence(timeout: 5))
+        app.buttons["表情"].tap()
+        let grid = app.collectionViews["vime.symbols.grid"]
+        let categories = app.scrollViews["vime.symbols.categories"]
+        let modes = app.segmentedControls["vime.symbols.mode"]
+        XCTAssertTrue(grid.waitForExistence(timeout: 5))
+        func expectCategory(_ index: Int) {
+            let tab = app.buttons["vime.symbols.category.\(index)"]
+            let selected = XCTNSPredicateExpectation(predicate: NSPredicate(format: "selected == true"), object: tab)
+            XCTAssertEqual(XCTWaiter.wait(for: [selected], timeout: 3), .completed)
+            XCTAssertTrue(tab.isHittable, "Keep the selected category visible")
+            XCTAssertGreaterThanOrEqual(tab.frame.minX, categories.frame.minX - 1)
+            XCTAssertLessThanOrEqual(tab.frame.maxX, categories.frame.maxX + 1)
+        }
+        expectCategory(0)
+        let before = editor.value as? String ?? ""
+        grid.swipeRight(); expectCategory(0) // First category does not wrap.
+        grid.swipeLeft(); expectCategory(1)
+        let wave = app.descendants(matching: .any)["vime.symbol.👋"]
+        XCTAssertTrue(wave.waitForExistence(timeout: 3)); XCTAssertTrue(wave.isHittable)
+        grid.swipeUp(); expectCategory(1)
+        XCTAssertFalse(wave.isHittable, "Vertical scrolling must still move through the category")
+        grid.coordinate(withNormalizedOffset: CGVector(dx: 0.4, dy: 0.8)).press(forDuration: 0.05,
+            thenDragTo: grid.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2)))
+        expectCategory(1) // Predominantly vertical diagonal movement is scrolling.
+        XCTAssertEqual(editor.value as? String, before, "Dragging must not insert an emoji")
+        grid.swipeRight(); expectCategory(0)
+        for index in 1...9 {
+            grid.swipeLeft(); expectCategory(index)
+            XCTAssertEqual(editor.value as? String, before)
+        }
+        grid.swipeLeft(); expectCategory(9) // Last category does not wrap.
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        attachment.name = "emoji-swiped-to-last-category"; attachment.lifetime = .keepAlways; add(attachment)
+        grid.swipeRight(); expectCategory(8)
+        // Tapping and swiping share the same selected state and async loading.
+        modes.buttons["颜文字"].tap(); expectCategory(0)
+        grid.swipeLeft(); expectCategory(1)
+        let sad = app.descendants(matching: .any)["vime.symbol.(T_T)"]
+        XCTAssertTrue(sad.waitForExistence(timeout: 3)); sad.tap()
+        XCTAssertEqual(editor.value as? String, before + "(T_T)")
+        modes.buttons["符号"].tap(); expectCategory(0)
+        grid.swipeLeft(); expectCategory(1)
+        let arrow = app.descendants(matching: .any)["vime.symbol.↑"]
+        XCTAssertTrue(arrow.waitForExistence(timeout: 3)); arrow.tap()
+        XCTAssertEqual(editor.value as? String, before + "(T_T)↑")
+        modes.buttons["Emoji"].tap(); expectCategory(0)
+        XCUIDevice.shared.orientation = .landscapeLeft
+        grid.swipeLeft(); expectCategory(1)
+        grid.swipeRight(); expectCategory(0)
+        // A short horizontal drag cancels the cell tap without changing tabs.
+        let start = grid.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 25, dy: 0)))
+        expectCategory(0)
+        XCTAssertEqual(editor.value as? String, before + "(T_T)↑")
+        app.buttons["vime.symbols.close"].tap()
+        XCTAssertTrue(app.buttons["vime.key.h"].waitForExistence(timeout: 3))
+    }
+
     func testLandscapeMinimumHeightShowsAndTypesCompleteBottomRow() throws {
         continueAfterFailure = false
         XCUIDevice.shared.orientation = .portrait
