@@ -1,5 +1,6 @@
 import XCTest
 import UIKit
+import CoreText
 
 @MainActor
 final class KeyboardFeatureTests: XCTestCase {
@@ -319,6 +320,117 @@ final class KeyboardFeatureTests: XCTestCase {
         panel.selectMode(.emoji)
         try await Task.sleep(for: .milliseconds(250))
         XCTAssertGreaterThan(grid.numberOfItems(inSection: 0), 100)
+    }
+
+    func testEmojiCellsPreserveColorAndCompositeGlyphs() async throws {
+        let samples = ["😀", "🫡", "👩🏽‍💻", "🇯🇵", "1️⃣", "❤️", "👍🏿", "🫱🏻‍🫲🏼", "👩🏻‍❤️‍👨🏿", "👩🏻‍🤝‍👨🏼", "👨‍👩‍👧‍👦"]
+        let panel = KeyboardSymbolPanel(frame: CGRect(x: 0, y: 0, width: 440, height: 350))
+        let window = UIWindow(frame: UIScreen.main.bounds)
+        window.rootViewController = UIViewController(); window.makeKeyAndVisible()
+        window.rootViewController?.view.addSubview(panel)
+        defer { window.isHidden = true }
+        let grid = try XCTUnwrap(descendants(panel).compactMap { $0 as? UICollectionView }.first)
+        let font = CTFontCreateWithName("AppleColorEmoji" as CFString, 29, nil)
+        func reference(_ text: String) -> UIImage {
+            let line = CTLineCreateWithAttributedString(NSAttributedString(string: text,
+                attributes: [NSAttributedString.Key(kCTFontAttributeName as String): font]))
+            return UIGraphicsImageRenderer(size: CGSize(width: 36, height: 36)).image { renderer in
+                let context = renderer.cgContext, ink = CTLineGetImageBounds(line, renderer.cgContext)
+                guard !ink.isEmpty else { return }
+                let scale = min(1, min(34 / ink.width, 34 / ink.height))
+                context.translateBy(x: 18, y: 18); context.scaleBy(x: scale, y: -scale)
+                context.textPosition = CGPoint(x: -ink.midX, y: -ink.midY)
+                CTLineDraw(line, context)
+            }
+        }
+        func pixels(_ image: UIImage) throws -> [UInt8] {
+            let image = try XCTUnwrap(image.cgImage)
+            var bytes = [UInt8](repeating: 0, count: image.width * image.height * 4)
+            try bytes.withUnsafeMutableBytes { buffer in
+                let context = try XCTUnwrap(CGContext(data: buffer.baseAddress, width: image.width, height: image.height,
+                    bitsPerComponent: 8, bytesPerRow: image.width * 4, space: CGColorSpaceCreateDeviceRGB(),
+                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue))
+                context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+            }
+            return bytes
+        }
+        // UIKit centers a typographic line; the reference centers ink. Compare
+        // the actual colored shape after removing that intentional translation.
+        func normalizedInk(_ image: UIImage) throws -> UIImage {
+            let cg = try XCTUnwrap(image.cgImage), bytes = try pixels(image)
+            var minX = cg.width, minY = cg.height, maxX = -1, maxY = -1
+            for y in 0..<cg.height {
+                for x in 0..<cg.width where bytes[(y * cg.width + x) * 4 + 3] > 8 {
+                    minX = min(minX, x); maxX = max(maxX, x); minY = min(minY, y); maxY = max(maxY, y)
+                }
+            }
+            XCTAssertGreaterThan(maxX, minX, "Emoji must contain visible ink")
+            XCTAssertGreaterThan(minX, 0, "Keep the complete glyph inside the cell")
+            XCTAssertGreaterThan(minY, 0)
+            XCTAssertLessThan(maxX, cg.width - 1)
+            XCTAssertLessThan(maxY, cg.height - 1)
+            // The bitmap CGContext above has a bottom-left origin; CGImage's
+            // cropping coordinates start at the top left.
+            let cropped = try XCTUnwrap(cg.cropping(to: CGRect(x: minX, y: cg.height - maxY - 1,
+                width: maxX - minX + 1, height: maxY - minY + 1)))
+            let factor = min(32 / CGFloat(cropped.width), 32 / CGFloat(cropped.height))
+            let size = CGSize(width: CGFloat(cropped.width) * factor, height: CGFloat(cropped.height) * factor)
+            return UIGraphicsImageRenderer(size: CGSize(width: 36, height: 36)).image { _ in
+                UIImage(cgImage: cropped).draw(in: CGRect(x: (36 - size.width) / 2, y: (36 - size.height) / 2,
+                    width: size.width, height: size.height))
+            }
+        }
+        var images = [UIImage]()
+        for sample in samples {
+            let groupIndex = try XCTUnwrap(KeyboardSymbolCatalog.emoji.groups.firstIndex { $0.items.contains { $0.text == sample } })
+            let items = await withCheckedContinuation { continuation in
+                KeyboardEmojiAvailability.load(KeyboardSymbolCatalog.emoji.groups[groupIndex]) { continuation.resume(returning: $0) }
+            }
+            try button("vime.symbols.category.\(groupIndex)", in: panel).sendActions(for: .touchUpInside)
+            let deadline = Date().addingTimeInterval(5)
+            while grid.numberOfItems(inSection: 0) != items.count && Date() < deadline { try await Task.sleep(for: .milliseconds(10)) }
+            panel.layoutIfNeeded()
+            let path = IndexPath(item: try XCTUnwrap(items.firstIndex { $0.text == sample }), section: 0)
+            grid.scrollToItem(at: path, at: .top, animated: false); grid.layoutIfNeeded()
+            try await Task.sleep(for: .milliseconds(20))
+            let cell = try XCTUnwrap(grid.cellForItem(at: path))
+            let label = try XCTUnwrap(cell.contentView.subviews.compactMap { $0 as? UILabel }.first)
+            XCTAssertEqual(label.text, sample)
+            var selected: String?
+            panel.onSelect = { selected = $0 }; panel.collectionView(grid, didSelectItemAt: path)
+            XCTAssertEqual(selected, sample, "Insert the complete skin-tone/ZWJ sequence")
+            let expected = try normalizedInk(reference(sample))
+            let actual = try normalizedInk(UIGraphicsImageRenderer(size: label.bounds.size).image { label.layer.render(in: $0.cgContext) })
+            let a = try pixels(actual), b = try pixels(expected)
+            let opaque = stride(from: 3, to: a.count, by: 4).filter { a[$0] > 32 }.count
+            XCTAssertGreaterThan(opaque, 100, "Missing emoji ink: \(sample)")
+            let error = zip(a, b).reduce(0.0) { $0 + abs(Double($1.0) - Double($1.1)) } / Double(a.count)
+            print("VIME_EMOJI_RASTER sample=\(sample) mean_pixel_error=\(error) ink_pixels=\(opaque)")
+            // Native text and bitmap drawing can use different font strikes
+            // and antialiasing. Verify coverage and color rather than exact
+            // pixels; the gallery also exposes misplaced composite overlays.
+            let referenceOpaque = stride(from: 3, to: b.count, by: 4).filter { b[$0] > 32 }.count
+            let coverage = Double(opaque) / Double(referenceOpaque)
+            XCTAssertGreaterThan(coverage, 0.8, "A composite glyph must not lose an overlay: \(sample)")
+            XCTAssertLessThan(coverage, 1.2)
+            func meanColor(_ bytes: [UInt8], channel: Int) -> Double {
+                let pixels = stride(from: 0, to: bytes.count, by: 4).filter { bytes[$0 + 3] > 32 }
+                return pixels.reduce(0.0) { $0 + Double(bytes[$1 + channel]) } / Double(pixels.count)
+            }
+            for channel in 0..<3 {
+                XCTAssertLessThan(abs(meanColor(a, channel: channel) - meanColor(b, channel: channel)), 12,
+                    "Preserve emoji colors, including mixed skin tones: \(sample)")
+            }
+            images += [expected, actual]
+        }
+        let gallery = UIGraphicsImageRenderer(size: CGSize(width: CGFloat(samples.count) * 72, height: 144)).image { renderer in
+            UIColor.white.setFill(); renderer.fill(CGRect(x: 0, y: 0, width: samples.count * 72, height: 144))
+            for (index, image) in images.enumerated() {
+                image.draw(in: CGRect(x: (index / 2) * 72 + 18, y: (index % 2) * 72 + 18, width: 36, height: 36))
+            }
+        }
+        let attachment = XCTAttachment(image: gallery)
+        attachment.name = "emoji-reference-top-current-bottom"; attachment.lifetime = .keepAlways; add(attachment)
     }
 
     func testCompleteEmojiCatalogCanLoadEveryCategory() async throws {

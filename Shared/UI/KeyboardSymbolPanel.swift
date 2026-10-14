@@ -1,5 +1,4 @@
 import UIKit
-import CoreText
 
 /// Reused cells keep the complete emoji catalog cheap to open and scroll.
 final class KeyboardSymbolPanel: UIView, UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
@@ -161,10 +160,9 @@ final class KeyboardSymbolPanel: UIView, UICollectionViewDataSource, UICollectio
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
         let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "symbol", for: indexPath) as! SymbolCell
         let item = items[indexPath.item]
-        let isEmoji = modes.selectedSegmentIndex == Mode.emoji.rawValue
-        cell.label.text = isEmoji ? nil : item.text
-        cell.glyph.image = isEmoji ? EmojiGlyph.image(item.text) : nil
-        cell.glyph.isHidden = !isEmoji; cell.label.isHidden = isEmoji
+        cell.label.text = item.text
+        // Native labels avoid the per-emoji bitmap path: CTLineDraw retained
+        // decoded color glyphs even after our image cache had been cleared.
         cell.label.textColor = KeyboardPalette.text
         cell.label.font = .systemFont(ofSize: modes.selectedSegmentIndex == Mode.kaomoji.rawValue ? 16 :
             modes.selectedSegmentIndex == Mode.symbols.rawValue ? 23 : 29)
@@ -187,44 +185,15 @@ final class KeyboardSymbolPanel: UIView, UICollectionViewDataSource, UICollectio
 
     private final class SymbolCell: UICollectionViewCell {
         let label = UILabel()
-        let glyph = UIImageView()
         override init(frame: CGRect) {
             super.init(frame: frame)
             label.textAlignment = .center; label.adjustsFontSizeToFitWidth = true; label.minimumScaleFactor = 0.5
             contentView.addSubview(label); contentView.layer.cornerRadius = 6
-            glyph.contentMode = .scaleAspectFit; contentView.addSubview(glyph)
             isAccessibilityElement = true; accessibilityTraits = .button
         }
         required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
         override func layoutSubviews() {
             super.layoutSubviews(); label.frame = contentView.bounds.insetBy(dx: 3, dy: 2)
-            glyph.frame = contentView.bounds.insetBy(dx: 4, dy: 4)
-        }
-    }
-
-    /// Use the same native font as availability detection and fit its ink bounds
-    /// into a cell, including composite glyphs with more than one skin tone.
-    // Internal so the opt-in memory audit can separate drawing from grid reuse.
-    enum EmojiGlyph {
-        static let cache: NSCache<NSString, UIImage> = {
-            let cache = NSCache<NSString, UIImage>(); cache.countLimit = 180; return cache
-        }()
-        static let font = CTFontCreateWithName("AppleColorEmoji" as CFString, 30, nil)
-        static func image(_ text: String) -> UIImage {
-            if let image = cache.object(forKey: text as NSString) { return image }
-            let line = CTLineCreateWithAttributedString(NSAttributedString(string: text,
-                attributes: [NSAttributedString.Key(kCTFontAttributeName as String): font]))
-            let image = UIGraphicsImageRenderer(size: CGSize(width: 36, height: 36)).image { renderer in
-                let context = renderer.cgContext
-                let ink = CTLineGetImageBounds(line, context)
-                guard !ink.isEmpty else { return }
-                let scale = min(1, min(34 / ink.width, 34 / ink.height))
-                context.translateBy(x: 18, y: 18); context.scaleBy(x: scale, y: -scale)
-                context.textPosition = CGPoint(x: -ink.midX, y: -ink.midY)
-                CTLineDraw(line, context)
-            }
-            cache.setObject(image, forKey: text as NSString)
-            return image
         }
     }
 }
