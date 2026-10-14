@@ -25,6 +25,49 @@ final class KeyboardPresentationTests: XCTestCase {
         attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
     }
 
+    func testInputRootRequestsPreferredHeightDespiteStaleHostProposal() throws {
+        let keyboard = KeyboardView(frame: CGRect(x: 0, y: 0, width: 440, height: 224), session: KeyboardSession())
+        defer { keyboard.stopInteractions() }
+        let input = KeyboardInputView(keyboard: keyboard)
+        input.frame = CGRect(x: 0, y: 0, width: 375, height: 224)
+        for compact in [false, true, false] {
+            keyboard.compact = compact
+            for footer in [false, true] {
+                keyboard.showsFooter = footer
+                for factor in [CGFloat(0.85), 1, 1.6] {
+                    keyboard.heightFactor = factor
+                    let expected = keyboard.preferredHeight(for: 375)
+                    XCTAssertEqual(input.intrinsicContentSize.height, expected, accuracy: 0.001,
+                        "The root's width wins over the previous keyboard frame")
+                    for staleHeight in [CGFloat(0), 224, 239, 500] {
+                        let proposed = CGSize(width: 375, height: staleHeight)
+                        XCTAssertEqual(input.systemLayoutSizeFitting(proposed).height, expected, accuracy: 0.001)
+                        XCTAssertEqual(input.systemLayoutSizeFitting(proposed, withHorizontalFittingPriority: .required,
+                            verticalFittingPriority: .required).height, expected, accuracy: 0.001)
+                    }
+                }
+            }
+        }
+    }
+
+    func testHeightPreferenceUpdatesOuterConstraintBeforeNextLayout() throws {
+        let controller = KeyboardViewController()
+        controller.loadViewIfNeeded()
+        controller.view.frame = CGRect(x: 0, y: 0, width: 440, height: 224)
+        let keyboard = try XCTUnwrap(descendants(controller.view).compactMap { $0 as? KeyboardView }.first)
+        defer { keyboard.stopInteractions() }
+        let height = try XCTUnwrap(controller.view.constraints.first { $0.identifier == "vime.keyboard.height" })
+        for factor in [CGFloat(0.85), 1.6, 1] {
+            keyboard.heightFactor = factor
+            XCTAssertEqual(height.constant, keyboard.preferredHeight(for: 440), accuracy: 0.001,
+                "Changing the preference must update the outer request synchronously")
+        }
+        controller.viewWillDisappear(false); controller.viewDidDisappear(false)
+        controller.viewWillAppear(false)
+        XCTAssertTrue(height.isActive)
+        XCTAssertEqual(height.constant, keyboard.preferredHeight(for: 440), accuracy: 0.001)
+    }
+
     func testPortraitFitsShortReconnectFrameAndKeepsBottomRowHittable() throws {
         let keyboard = KeyboardView(frame: .zero, session: KeyboardSession())
         defer { keyboard.stopInteractions() }

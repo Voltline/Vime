@@ -493,8 +493,8 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     weak var inputModeListTarget: AnyObject? { didSet { configureGlobe() } }
     var inputModeListAction: Selector? { didSet { configureGlobe() } }
     var needsGlobe = false { didSet { if oldValue != needsGlobe { configureGlobe() } } }
-    var showsFooter = true { didSet { if oldValue != showsFooter { setNeedsLayout(); invalidateIntrinsicContentSize() } } }
-    var compact = false { didSet { if oldValue != compact { setNeedsLayout(); invalidateIntrinsicContentSize() } } }
+    var showsFooter = true { didSet { if oldValue != showsFooter { setNeedsLayout(); invalidateIntrinsicContentSize(); onHeightChange?() } } }
+    var compact = false { didSet { if oldValue != compact { setNeedsLayout(); invalidateIntrinsicContentSize(); onHeightChange?() } } }
     func preferredHeight(for width: CGFloat) -> CGFloat {
         KeyboardMetrics(width: width > 0 ? width : 440, compact: compact, showsFooter: showsFooter, heightFactor: heightFactor).height
     }

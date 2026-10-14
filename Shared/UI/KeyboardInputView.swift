@@ -59,6 +59,33 @@ final class KeyboardInputView: UIInputView, UIInputViewAudioFeedback {
         keyboard = nil
         invalidateIntrinsicContentSize()
     }
-    override var intrinsicContentSize: CGSize { keyboard?.intrinsicContentSize ?? super.intrinsicContentSize }
-    override func layoutSubviews() { super.layoutSubviews(); keyboard?.frame = bounds }
+    override var intrinsicContentSize: CGSize {
+        guard let keyboard else { return super.intrinsicContentSize }
+        return CGSize(width: UIView.noIntrinsicMetric, height: keyboard.preferredHeight(for: bounds.width))
+    }
+    // With allowsSelfSizing UIKit asks the root for its fitting size. Its
+    // proposed height can be the previous keyboard's height after reconnecting;
+    // use our preference rather than accepting that stale proposal.
+    override func systemLayoutSizeFitting(_ targetSize: CGSize) -> CGSize {
+        guard let keyboard else { return super.systemLayoutSizeFitting(targetSize) }
+        let width = targetSize.width > 0 ? targetSize.width : bounds.width
+        return CGSize(width: width, height: keyboard.preferredHeight(for: width))
+    }
+    override func systemLayoutSizeFitting(_ targetSize: CGSize,
+        withHorizontalFittingPriority horizontalFittingPriority: UILayoutPriority,
+        verticalFittingPriority: UILayoutPriority) -> CGSize {
+        guard keyboard != nil else {
+            return super.systemLayoutSizeFitting(targetSize,
+                withHorizontalFittingPriority: horizontalFittingPriority,
+                verticalFittingPriority: verticalFittingPriority)
+        }
+        let width = horizontalFittingPriority == .required && targetSize.width > 0
+            ? targetSize.width : bounds.width
+        return systemLayoutSizeFitting(CGSize(width: width, height: targetSize.height))
+    }
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        if let keyboard, keyboard.bounds.width != bounds.width { invalidateIntrinsicContentSize() }
+        keyboard?.frame = bounds
+    }
 }

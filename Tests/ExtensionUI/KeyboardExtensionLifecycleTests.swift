@@ -4,6 +4,63 @@ import XCTest
 /// first responder, verifies disappearance, then focuses and types again.
 @MainActor
 final class KeyboardExtensionLifecycleTests: XCTestCase {
+    func testPortraitHeightPreferenceSurvivesReconnectAndRotation() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        XCUIDevice.shared.orientation = .portrait
+        defer {
+            XCUIDevice.shared.orientation = .portrait
+            app.terminate()
+            app.launchArguments = ["--keyboard-extension-test", "--keyboard-extension-test-height", "1"]
+            app.launch()
+        }
+        var shortHeight: CGFloat?
+        for factor in [0.85, 1.6, 1.0] {
+            app.terminate()
+            app.launchArguments = ["--keyboard-extension-test", "--keyboard-extension-test-height", String(factor),
+                "--keyboard-extension-test-ranking", "engine"]
+            app.launch()
+            let editor = app.textViews["vime.extension.editor"]
+            XCTAssertTrue(editor.waitForExistence(timeout: 10)); editor.tap()
+            if !app.buttons["vime.key.h"].waitForExistence(timeout: 2) {
+                let globe = app.buttons.matching(NSPredicate(format: "label IN %@",
+                    ["Next keyboard", "下一键盘", "下一个键盘", "切换系统键盘", "次のキーボード"] as NSArray)).firstMatch
+                for _ in 0..<6 {
+                    guard !app.buttons["vime.key.h"].exists, globe.exists else { break }
+                    globe.tap()
+                    if app.buttons["vime.key.h"].waitForExistence(timeout: 2) { break }
+                }
+            }
+            XCTAssertTrue(app.buttons["vime.key.h"].exists)
+            let root = app.otherElements["vime.keyboard"]
+            XCTAssertTrue(root.waitForExistence(timeout: 3))
+            let height = root.frame.height
+            print("VIME_HEIGHT_PREFERENCE factor=\(factor) input=\(root.frame)")
+            if factor == 0.85 { shortHeight = height }
+            if factor == 1.6 {
+                XCTAssertGreaterThan(height - (try XCTUnwrap(shortHeight)), 100,
+                    "The saved tall preference must resize the installed extension, not just its preview")
+            }
+            for round in 0..<3 {
+                if round == 1 {
+                    XCUIDevice.shared.orientation = .landscapeLeft
+                    XCTAssertTrue(app.buttons["vime.key.return"].waitForExistence(timeout: 5))
+                    XCUIDevice.shared.orientation = .portrait
+                }
+                app.buttons["vime.extension.dismiss"].tap()
+                XCTAssertTrue(app.buttons["vime.key.h"].waitForNonExistence(timeout: 5))
+                app.buttons["vime.extension.focus"].tap()
+                XCTAssertTrue(app.buttons["vime.key.h"].waitForExistence(timeout: 5))
+                let stableHeight = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                    abs(root.frame.height - height) < 1
+                }, object: root)
+                XCTAssertEqual(XCTWaiter.wait(for: [stableHeight], timeout: 5), .completed,
+                    "Reconnecting after rotation must restore the saved portrait height")
+                XCTAssertTrue(app.buttons["vime.key.return"].isHittable)
+            }
+        }
+    }
+
     func testSymbolCategorySwipesPreserveScrollingAndSelection() throws {
         continueAfterFailure = false
         XCUIDevice.shared.orientation = .portrait

@@ -78,7 +78,7 @@ class KeyboardViewController: UIInputViewController {
         keyboard.onSwitchKeyboard = { [weak self] in self?.advanceToNextInputMode() }
         keyboard.onDismiss = { [weak self] in self?.dismissKeyboard() }
         host.onUndoAvailabilityChange = { [weak self] in self?.keyboard.canUndoLineDeletion = $0 }
-        keyboard.onHeightChange = { [weak self] in self?.view.setNeedsLayout() }
+        keyboard.onHeightChange = { [weak self] in self?.updatePreferredHeight() }
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -91,18 +91,31 @@ class KeyboardViewController: UIInputViewController {
         keyboard.resetComposition()
         keyboard.hasFullAccess = hasFullAccess
         keyboard.reloadHeightPreference()
+        updateKeyboardGeometry()
         updateTraits()
         rememberContext()
     }
 
     override func viewWillLayoutSubviews() {
         super.viewWillLayoutSubviews()
+        updateKeyboardGeometry()
+    }
+
+    private func updateKeyboardGeometry() {
         let landscape = view.window?.windowScene?.interfaceOrientation.isLandscape ?? false
         keyboard.compact = traitCollection.userInterfaceIdiom == .phone && landscape
         keyboard.showsFooter = needsInputModeSwitchKey
         keyboard.needsGlobe = needsInputModeSwitchKey
+        updatePreferredHeight()
+    }
+
+    private func updatePreferredHeight() {
         let preferred = keyboard.preferredHeight(for: view.bounds.width)
-        if heightConstraint?.constant != preferred { heightConstraint?.constant = preferred }
+        if heightConstraint?.constant != preferred {
+            heightConstraint?.constant = preferred
+            view.invalidateIntrinsicContentSize()
+            view.setNeedsLayout()
+        }
     }
 
     override func viewWillDisappear(_ animated: Bool) {
