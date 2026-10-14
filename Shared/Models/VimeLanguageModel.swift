@@ -180,10 +180,12 @@ nonisolated final class VimeLanguageModel {
         return values.indices.filter { (values[$0].source == .conversion || values[$0].source == .orthographicVariant || values[$0].source == .userDictionary) && values[$0].scopeFullConsumption && (values[$0].fullConsumption || values[$0].explicitScope)
             && values[$0].exactReading && values[$0].lexical }
     }
-    func rerank(_ values: [CandidateSnapshot], context: String, katakana: Bool,
+    func rerank(_ values: [CandidateSnapshot], context: String, katakana: Bool, maximumCandidates: Int? = nil,
                 cancelled: @escaping () -> Bool) -> [CandidateSnapshot] {
         guard !katakana, !cancelled() else { return values }
-        let slots = Self.rerankingSlots(values, katakana: katakana)
+        // Live typing limits refinement to the dictionary's strongest choices.
+        // Other callers can still score the complete eligible pool explicitly.
+        let slots = Array(Self.rerankingSlots(values, katakana: katakana).prefix(max(0, maximumCandidates ?? values.count)))
         guard slots.count > 1 else { return values }
         let started = ProcessInfo.processInfo.systemUptime
         let stop = { cancelled() || ProcessInfo.processInfo.systemUptime - started > 0.250 }

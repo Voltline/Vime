@@ -8,6 +8,10 @@ import KanaKanjiConverterModuleWithDefaultDictionary
 @MainActor
 final class JapaneseCandidateWorker {
     static var isLanguageModelSuspendedForMemoryPressure: Bool { LanguageModelStorage.shared.isSuspended }
+    // Neural ranking can participate before the first display, but never hold
+    // dictionary candidates behind a cold model or a long scoring request.
+    nonisolated static let initialRankingWindow: TimeInterval = 0.040
+    nonisolated static let initialRankingCandidateLimit = 3
 
     nonisolated struct ResourceState: Equatable, Sendable {
         let engineLoaded: Bool
@@ -92,8 +96,15 @@ final class JapaneseCandidateWorker {
     private nonisolated final class Request: @unchecked Sendable {
         private let lock = NSLock()
         private var cancelled = false
+        private var initiallyPublished = false
         func cancel() { lock.lock(); cancelled = true; lock.unlock() }
         var isCancelled: Bool { lock.lock(); defer { lock.unlock() }; return cancelled }
+        func claimInitialPublication() -> Bool {
+            lock.lock(); defer { lock.unlock() }
+            guard !cancelled, !initiallyPublished else { return false }
+            initiallyPublished = true
+            return true
+        }
     }
     // Drain Foundation/Core ML temporaries at every request, including cancelled
     // work, instead of relying on the long-lived queue's inherited pool policy
@@ -122,19 +133,49 @@ final class JapaneseCandidateWorker {
             KeyboardPerformance.record(.candidateRequestToResult, since: requestStartedAt)
             let readyAt = KeyboardPerformance.start()
             guard !request.isCancelled else { return }
-            DispatchQueue.main.async { if !request.isCancelled { completion(values, readyAt, false) } }
-            // Normal prediction is delivered first. New input cancels this
-            // supplementary search before it starts; running search checks every query.
+            // An empty sentence offers only unigram frequency, which must not
+            // displace dictionary evidence or a word the user has just taught us.
+            let sentence = VimeLanguageModel.sentenceContext(leftContext ?? "")
+            let neuralRanking = ranking == .languageModel && !sentence.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                && VimeLanguageModel.rerankingSlots(values, katakana: katakana).count > 1
+            let initialDeadline = ProcessInfo.processInfo.systemUptime + Self.initialRankingWindow
+            if neuralRanking {
+                DispatchQueue.main.asyncAfter(deadline: .now() + Self.initialRankingWindow) {
+                    if request.claimInitialPublication() { completion(values, readyAt, false) }
+                }
+            } else {
+                DispatchQueue.main.async {
+                    if request.claimInitialPublication() { completion(values, readyAt, false) }
+                }
+            }
+            // New input cancels supplementary work. Neural ranking gets one
+            // short opportunity before display; corrections supplement that
+            // published list without another model pass or visible permutation.
             let supplementaryQueuedAt = KeyboardPerformance.start()
             queue.async {
                 KeyboardPerformance.record(.supplementaryQueueWait, since: supplementaryQueuedAt)
                 guard !request.isCancelled else { return }
-                let sentence = VimeLanguageModel.sentenceContext(leftContext ?? "")
-                let rerank = { (values: [CandidateSnapshot]) -> [CandidateSnapshot] in
-                    guard ranking == .languageModel, !request.isCancelled,
-                          VimeLanguageModel.rerankingSlots(values, katakana: katakana).count > 1 else { return values }
-                    return storage.languageModel?.rerank(values, context: sentence, katakana: katakana,
-                        cancelled: { request.isCancelled || LanguageModelStorage.shared.isSuspended }) ?? values
+                if neuralRanking {
+                    // Load once even when cold initialization exceeds the window;
+                    // the timer still publishes promptly and later input uses the warm model.
+                    let model = storage.languageModel
+                    guard !request.isCancelled else { return }
+                    let ranked = model?.rerank(values, context: sentence,
+                        katakana: katakana, maximumCandidates: Self.initialRankingCandidateLimit, cancelled: {
+                            request.isCancelled || LanguageModelStorage.shared.isSuspended
+                                || ProcessInfo.processInfo.systemUptime >= initialDeadline
+                        }) ?? values
+                    let rankedReadyAt = KeyboardPerformance.start()
+                    DispatchQueue.main.async {
+                        guard request.claimInitialPublication() else { return }
+                        // Main-thread congestion must not let a late neural result
+                        // win the race against the dictionary fallback timer.
+                        if ProcessInfo.processInfo.systemUptime < initialDeadline {
+                            completion(ranked, rankedReadyAt, false)
+                        } else {
+                            completion(values, readyAt, false)
+                        }
+                    }
                 }
                 let formatted = expanded
                     ? storage.engine.addingWidthCandidates(to: values, for: composing, katakana: katakana,
@@ -143,17 +184,11 @@ final class JapaneseCandidateWorker {
                     ? storage.engine.addingPrefixCandidates(to: formatted, for: composing, katakana: katakana,
                         revision: revision, cancelled: { request.isCancelled }) : formatted
                 guard !request.isCancelled else { return }
-                // Prefix choices are useful immediately; a cold LM must not
-                // hold the expanded menu's dictionary supplementation hostage.
+                // Publish prefix/format choices separately from the slower
+                // correction search, retaining their native consumption payloads.
                 if enriched.map(\.presentation) != values.map(\.presentation) {
                     let readyAt = KeyboardPerformance.start()
                     DispatchQueue.main.async { if !request.isCancelled { completion(enriched, readyAt, true) } }
-                }
-                let ranked = rerank(enriched)
-                guard !request.isCancelled else { return }
-                if ranked.map(\.presentation) != enriched.map(\.presentation) {
-                    let readyAt = KeyboardPerformance.start()
-                    DispatchQueue.main.async { if !request.isCancelled { completion(ranked, readyAt, true) } }
                 }
                 guard conversionLength == nil else { return }
                 let correctionStartedAt = KeyboardPerformance.start()
@@ -161,11 +196,9 @@ final class JapaneseCandidateWorker {
                     revision: revision, cancelled: { request.isCancelled })
                 KeyboardPerformance.record(.correctionCompute, since: correctionStartedAt)
                 guard !request.isCancelled, corrected.map(\.presentation) != enriched.map(\.presentation) else { return }
-                let expanded = rerank(corrected)
-                guard !request.isCancelled, expanded.map(\.presentation) != ranked.map(\.presentation) else { return }
                 KeyboardPerformance.record(.correctionRequestToResult, since: requestStartedAt)
                 let readyAt = KeyboardPerformance.start()
-                DispatchQueue.main.async { if !request.isCancelled { completion(expanded, readyAt, true) } }
+                DispatchQueue.main.async { if !request.isCancelled { completion(corrected, readyAt, true) } }
             }
         }
     }

@@ -573,8 +573,24 @@ final class KeyboardSession: KeyboardInputSession {
         // This timestamp belongs only to the synchronous publication below.
         // Menu/context notifications must not measure time since an old result.
         defer { candidateResultReadyAt = nil }
-        candidateSnapshots = values
-        candidateListGeneration += 1
+        if supplementary {
+            // Every existing choice keeps its position for this input revision.
+            // Refresh its payload/annotation in place, then append new choices.
+            // Consumption is part of identity: selecting a word's prefix must
+            // never silently turn into selecting the same full word.
+            var updates = Dictionary(values.map { (CandidateIdentity($0), $0) }, uniquingKeysWith: { first, _ in first })
+            let retained = candidateSnapshots.map { updates.removeValue(forKey: CandidateIdentity($0)) ?? $0 }
+            var seen = Set(retained.map(CandidateIdentity.init))
+            let appended = values.filter { seen.insert(CandidateIdentity($0)).inserted }
+            let oldPresentations = candidateSnapshots.map(\.presentation)
+            candidateSnapshots = retained + appended
+            // A permutation or score-only refresh needs no UI rebuild. Tokens
+            // remain valid because existing text/consumption/index cannot change.
+            guard candidateSnapshots.map(\.presentation) != oldPresentations else { return }
+        } else {
+            candidateSnapshots = values
+            candidateListGeneration += 1
+        }
         if !supplementary {
             if pendingSpaces > 0, !values.isEmpty { selectedIndex = (pendingSpaces - 1) % values.count }
             pendingSpaces = 0

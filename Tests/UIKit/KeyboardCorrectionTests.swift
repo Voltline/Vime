@@ -287,8 +287,18 @@ final class KeyboardCorrectionTests: XCTestCase {
         XCTAssertEqual(snapshot.revision, session.revision)
         XCTAssertEqual(snapshot.correction?.originalInput, "shitsuka")
         XCTAssertEqual(snapshot.correction?.correctedReading, "しずか")
-        let panel = try XCTUnwrap(descendants(keyboard).first { $0.accessibilityIdentifier == "vime.candidates.panel" })
+        let panel = try XCTUnwrap(descendants(keyboard).first { $0.accessibilityIdentifier == "vime.candidates.panel" } as? UIScrollView)
         XCTAssertFalse(panel.isHidden)
+        // Late corrections now append without moving already displayed words.
+        // Exercise the real menu paging path to reach the appended choice.
+        let correctionIndex = try XCTUnwrap(session.candidateSnapshots.firstIndex {
+            $0.text == snapshot.text && $0.source == .correction
+        })
+        for _ in 0..<(correctionIndex / 40 + 1) {
+            panel.setContentOffset(CGPoint(x: 0, y: max(0, panel.contentSize.height - panel.bounds.height)), animated: false)
+            keyboard.scrollViewDidScroll(panel)
+            keyboard.layoutIfNeeded()
+        }
         let candidate = try XCTUnwrap(descendants(panel).first { $0.accessibilityLabel == snapshot.presentation.accessibilityLabel } as? UIButton)
         XCTAssertFalse(candidate.isHidden)
         XCTAssertTrue(descendants(candidate).contains { ($0 as? UILabel)?.text == "しずか · 建议" })

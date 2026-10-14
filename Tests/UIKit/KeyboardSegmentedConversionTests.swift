@@ -176,7 +176,7 @@ final class KeyboardSegmentedConversionTests: XCTestCase {
         XCTAssertFalse(session.isComposing)
     }
 
-    func testCandidateTouchCannotSelectReplacementAfterSupplementaryPublication() throws {
+    func testCandidateTouchCannotSelectReplacementAfterPrimaryPublication() throws {
         let session = KeyboardSession()
         let keyboard = KeyboardView(frame: CGRect(x: 0, y: 0, width: 440, height: 350), session: session)
         _ = session.type("tennanhantenn")
@@ -191,7 +191,7 @@ final class KeyboardSegmentedConversionTests: XCTestCase {
         var committed: [KeyboardEdit] = []
         keyboard.onEdit = { committed += $0 }
         button.sendActions(for: .touchDown)
-        session.acceptCandidateUpdate(Array(session.candidateSnapshots.reversed()), revision: session.revision, supplementary: true)
+        session.acceptCandidateUpdate(Array(session.candidateSnapshots.reversed()), revision: session.revision, supplementary: false)
         XCTAssertNotEqual(button.title(for: .normal), "天", "The same pooled button now presents another candidate")
         button.sendActions(for: .touchUpInside)
         XCTAssertEqual(session.raw, originalInput)

@@ -44,8 +44,8 @@ private final class CandidateButton: UIButton {
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-        // Supplementary results may repurpose pooled buttons while a finger is
-        // down. A release must resolve the touched list, never its replacement.
+        // A new query may repurpose pooled buttons while a finger is down.
+        // A release must resolve the touched list, never its replacement.
         addTarget(self, action: #selector(armSelection), for: .touchDown)
         addTarget(self, action: #selector(cancelSelection), for: [.touchCancel, .touchUpOutside])
         contentHorizontalAlignment = .left
@@ -1203,6 +1203,11 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         divider.backgroundColor = .separator
         let presentations = Array(session.stripPresentations.prefix(max(20, (session.selectedIndex ?? 0) + 1)))
         let candidatesChanged = displayedCandidates != presentations
+        let preservesCandidatePositions = !displayedCandidates.isEmpty && presentations.count >= displayedCandidates.count
+            && zip(displayedCandidates, presentations).allSatisfy { pair in
+                pair.0.text == pair.1.text && pair.0.consumedInputCount == pair.1.consumedInputCount
+                    && pair.0.selectionToken == pair.1.selectionToken
+            }
         let selectionChanged = displayedSelection != session.selectedIndex
         if candidatesChanged || selectionChanged {
             displayedCandidates = presentations
@@ -1227,7 +1232,9 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         }
         if let index = session.selectedIndex, stripButtons.indices.contains(index), selectionChanged {
             candidateScroll.scrollRectToVisible(stripButtons[index].frame, animated: true)
-        } else if candidatesChanged && session.selectedIndex == nil { candidateScroll.setContentOffset(.zero, animated: false) }
+        } else if candidatesChanged && !preservesCandidatePositions && session.selectedIndex == nil {
+            candidateScroll.setContentOffset(.zero, animated: false)
+        }
         // The retained list may belong to the previous input revision. Keep
         // its appearance, but never let a stale tap discard the newer letters.
         stripButtons.forEach { $0.isUserInteractionEnabled = session.candidatesAreCurrent && $0.selectionToken != nil }

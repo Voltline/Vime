@@ -30,9 +30,9 @@ final class KeyboardInputBoundaryTests: XCTestCase {
         _ = session.type("nihongo")
         let oldToken = try XCTUnwrap(session.candidatePresentations.first?.selectionToken)
         let revision = session.revision
-        session.acceptCandidateUpdate(Array(session.candidateSnapshots.reversed()), revision: revision, supplementary: true)
+        session.acceptCandidateUpdate(Array(session.candidateSnapshots.reversed()), revision: revision, supplementary: false)
         XCTAssertEqual(session.revision, revision)
-        XCTAssertTrue(session.chooseCandidate(oldToken).isEmpty, "Supplementary reranking must invalidate old UI identities")
+        XCTAssertTrue(session.chooseCandidate(oldToken).isEmpty, "Replacing the primary list must invalidate old UI identities")
         let currentToken = try XCTUnwrap(session.candidatePresentations.first?.selectionToken)
         let other = KeyboardSession()
         _ = other.type("nihongo")
