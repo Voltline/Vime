@@ -25,6 +25,36 @@ final class KeyboardPresentationTests: XCTestCase {
         attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
     }
 
+    func testPortraitFitsShortReconnectFrameAndKeepsBottomRowHittable() throws {
+        let keyboard = KeyboardView(frame: .zero, session: KeyboardSession())
+        defer { keyboard.stopInteractions() }
+        keyboard.showsFooter = false
+        keyboard.heightFactor = 1
+        let preferred = keyboard.preferredHeight(for: 440)
+        for height in [CGFloat(224), 239, preferred, preferred + 12] {
+            keyboard.frame = CGRect(x: 0, y: 0, width: 440, height: height)
+            keyboard.layoutIfNeeded()
+            let surface = try XCTUnwrap(descendants(keyboard).compactMap { $0 as? KeyboardTouchSurface }.first)
+            for region in surface.regions {
+                XCTAssertTrue(keyboard.bounds.contains(region.body), "Every row must fit the host's actual portrait frame")
+            }
+            for id in ["vime.key.space", "vime.key.return"] {
+                let key = try button(id, in: keyboard)
+                XCTAssertGreaterThanOrEqual(key.bounds.height, 36)
+                XCTAssertLessThan(key.frame.maxY, height)
+                XCTAssertLessThan(height - key.frame.maxY, 2)
+            }
+            let emoji = try XCTUnwrap(descendants(keyboard).first { $0.accessibilityLabel == "表情" } as? UIButton)
+            let center = emoji.convert(CGPoint(x: emoji.bounds.midX, y: emoji.bounds.midY), to: keyboard)
+            XCTAssertTrue(keyboard.bounds.contains(center))
+            XCTAssertNotNil(keyboard.hitTest(center, with: nil))
+            XCTAssertTrue(surface.resolvedKey(at: surface.convert(center, from: keyboard)) === emoji)
+            XCTAssertEqual(keyboard.preferredHeight(for: 440), preferred,
+                "An imposed short frame must never become the next preferred size")
+            if height == 224 { capture(keyboard, name: "portrait-short-reconnect-complete-bottom-row") }
+        }
+    }
+
     func testLandscapeToolbarAndAllRowsStaySeparatedAcrossSizesAndPages() throws {
         let keyboard = KeyboardView(frame: .zero, session: KeyboardSession())
         defer { keyboard.stopInteractions() }
@@ -131,8 +161,16 @@ final class KeyboardPresentationTests: XCTestCase {
                 XCTAssertEqual(tabs.frame.minX, left, accuracy: 0.001)
                 XCTAssertEqual(symbolClose.frame, close.frame)
                 XCTAssertLessThanOrEqual(tabs.frame.maxX + 8, symbolClose.frame.minX)
-                XCTAssertEqual(grid.frame.minX, left, accuracy: 0.001)
-                XCTAssertEqual(grid.frame.maxX, right, accuracy: 0.001)
+                let viewport = try XCTUnwrap(descendants(panel).first { $0.accessibilityIdentifier == "vime.symbols.pages" })
+                let viewportFrame = viewport.convert(viewport.bounds, to: keyboard)
+                XCTAssertEqual(viewportFrame.minX, left, accuracy: 0.001)
+                XCTAssertEqual(viewportFrame.maxX, right, accuracy: 0.001)
+                let gridFrame = grid.convert(grid.bounds, to: keyboard)
+                // UIScrollView rounds large page offsets to display pixels.
+                // The viewport must align exactly; rendered cells within it
+                // can differ by the subpixel remainder of that rounding.
+                XCTAssertEqual(gridFrame.minX, left, accuracy: pixel)
+                XCTAssertEqual(gridFrame.maxX, right, accuracy: pixel)
                 capture(keyboard, name: "landscape-\(Int(width))-symbols-\(mode.rawValue)")
             }
         }

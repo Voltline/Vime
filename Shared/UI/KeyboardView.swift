@@ -827,11 +827,12 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
                 pair.0.layer.cornerRadius = 6.2 * scale
                 // Compact phone keys are shorter despite the wider viewport.
                 // Typography follows their height rather than landscape width.
+                let textScale = compact ? scale : min(scale, metrics.keyHeight / 46.5)
                 let fontSize: CGFloat = compact ? (rowIndex == 3 ? 14 : 19)
-                    : (rowIndex == 3 ? 16.5 : 23) * scale
-                pair.0.hintLabel.font = .systemFont(ofSize: compact ? 8 : 9 * scale)
+                    : (rowIndex == 3 ? 16.5 : 23) * textScale
+                pair.0.hintLabel.font = .systemFont(ofSize: compact ? 8 : 9 * textScale)
                 pair.0.titleLabel?.font = .systemFont(ofSize: fontSize)
-                pair.0.applySkinMetrics(size: fontSize, scale: scale)
+                pair.0.applySkinMetrics(size: fontSize, scale: textScale)
             }
         }
         updateTouchBounds(metrics: metrics)
@@ -1143,6 +1144,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     }
 
     func releaseInactiveResources() {
+        KeyboardEmojiImages.clear()
         session.releaseInactiveResources()
         spareCandidateButtons.removeAll(keepingCapacity: false)
         sparePanelButtons.removeAll(keepingCapacity: false)
@@ -1152,6 +1154,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     }
 
     func handleMemoryPressure() {
+        KeyboardEmojiImages.clear()
         spareCandidateButtons.removeAll(keepingCapacity: false)
         sparePanelButtons.removeAll(keepingCapacity: false)
         if !emojiOpen { symbolPanel?.removeFromSuperview(); symbolPanel = nil }

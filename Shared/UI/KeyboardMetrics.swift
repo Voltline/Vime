@@ -31,7 +31,14 @@ struct KeyboardMetrics {
     var headerHeight: CGFloat { compact ? Self.toolbarTopInset + toolbarButtonDiameter + 8 : 56 * scale }
     // A shorter portrait preference must not squeeze the landscape key plane.
     private var effectiveHeightFactor: CGFloat {
-        guard compact else { return heightFactor }
+        guard compact else {
+            guard let availableHeight, availableHeight > 0 else { return heightFactor }
+            // A host can retain a shorter input-view frame across reconnects.
+            // Lay out all four rows in that actual space, while preferredHeight
+            // continues to use the user's factor without a feedback loop.
+            let keyPlane = availableHeight - headerHeight - footerHeight - 1.5 * scale
+            return max(0.1, keyPlane / ((56 * 3 + 46.5) * scale))
+        }
         let minimum = max(1, heightFactor)
         guard let availableHeight else { return minimum }
         // UIKit may give the extension more height after rotation. Fill that

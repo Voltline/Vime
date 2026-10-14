@@ -1,6 +1,7 @@
 import XCTest
 import UIKit
 import CoreText
+import Compression
 
 @MainActor
 final class KeyboardFeatureTests: XCTestCase {
@@ -188,10 +189,10 @@ final class KeyboardFeatureTests: XCTestCase {
         let mode = try XCTUnwrap(descendants(panel).first { $0.accessibilityIdentifier == "vime.symbols.mode" } as? UISegmentedControl)
         mode.selectedSegmentIndex = 1; mode.sendActions(for: .valueChanged); panel.layoutIfNeeded()
         XCTAssertEqual(KeyboardSymbolCatalog.kaomoji.flatMap(\.items).count, 160)
-        XCTAssertEqual(grid.numberOfItems(inSection: 0), 20)
+        XCTAssertEqual(grid.numberOfItems(inSection: 10), 20)
         grid.layoutIfNeeded()
         attachAppearance(keyboard, name: "kaomoji-panel")
-        panel.collectionView(grid, didSelectItemAt: IndexPath(item: 0, section: 0))
+        panel.collectionView(grid, didSelectItemAt: IndexPath(item: 0, section: 10))
         XCTAssertEqual(text.text, "(^_^)")
         XCTAssertFalse(panel.isHidden, "Keep the panel open for repeated symbol insertion")
         try button("vime.symbols.close", in: panel).sendActions(for: .touchUpInside)
@@ -285,9 +286,9 @@ final class KeyboardFeatureTests: XCTestCase {
             let arrows = try XCTUnwrap(descendants(panel).first { ($0 as? UIButton)?.title(for: .normal) == "箭头" } as? UIButton)
             arrows.sendActions(for: .touchUpInside); panel.layoutIfNeeded()
             let grid = try XCTUnwrap(descendants(panel).compactMap { $0 as? UICollectionView }.first)
-            XCTAssertGreaterThan(grid.numberOfItems(inSection: 0), 40)
+            XCTAssertGreaterThanOrEqual(grid.numberOfItems(inSection: 19), 4)
             text.text = ""; text.selectedRange = NSRange(location: 0, length: 0)
-            for i in 0..<4 { panel.collectionView(grid, didSelectItemAt: IndexPath(item: i, section: 0)) }
+            for i in 0..<4 { panel.collectionView(grid, didSelectItemAt: IndexPath(item: i, section: 19)) }
             XCTAssertEqual(text.text, "↑↓←→")
             XCTAssertFalse(panel.isHidden)
             attachAppearance(keyboard, name: nineKey ? "symbols-arrows" : "symbols-arrows-full-numbers")
@@ -303,6 +304,272 @@ final class KeyboardFeatureTests: XCTestCase {
         XCTAssertTrue(KeyboardSymbolCatalog.symbols[0].items.contains { $0.text == "|" })
     }
 
+    func testSymbolsScrollContinuouslyAndTabsTrackCategoryBoundaries() async throws {
+        let panel = KeyboardSymbolPanel(frame: CGRect(x: 0, y: 0, width: 440, height: 350))
+        let window = UIWindow(frame: UIScreen.main.bounds)
+        window.rootViewController = UIViewController(); window.makeKeyAndVisible()
+        window.rootViewController?.view.addSubview(panel)
+        defer { window.isHidden = true }
+        panel.layoutIfNeeded()
+        let grid = try XCTUnwrap(descendants(panel).first { $0.accessibilityIdentifier == "vime.symbols.grid" } as? UICollectionView)
+        let modes = try XCTUnwrap(descendants(panel).first { $0.accessibilityIdentifier == "vime.symbols.mode" } as? UISegmentedControl)
+        let categories = try XCTUnwrap(descendants(panel).first { $0.accessibilityIdentifier == "vime.symbols.categories" } as? UIScrollView)
+        let indicator = try XCTUnwrap(descendants(panel).first { $0.accessibilityIdentifier == "vime.symbols.category.indicator" })
+        var groups = [[KeyboardSymbolCatalog.Item]]()
+        for group in KeyboardSymbolCatalog.emoji.groups {
+            groups.append(await withCheckedContinuation { continuation in
+                KeyboardEmojiAvailability.load(group) { continuation.resume(returning: $0) }
+            })
+        }
+        groups += KeyboardSymbolCatalog.kaomoji.map(\.items) + KeyboardSymbolCatalog.symbols.map(\.items)
+        try await Task.sleep(for: .milliseconds(30)); panel.layoutIfNeeded(); grid.layoutIfNeeded()
+        XCTAssertFalse(grid.isPagingEnabled, "Continuous scrolling must not snap to pages")
+        XCTAssertEqual(descendants(panel).compactMap { $0 as? UICollectionView }.count, 1)
+        XCTAssertEqual(grid.contentSize.height, grid.bounds.height, "No competing vertical scrolling")
+        var inserted = [String](); panel.onSelect = { inserted.append($0) }
+        func first(_ section: Int) throws -> CGRect {
+            try XCTUnwrap(grid.collectionViewLayout.layoutAttributesForItem(at: IndexPath(item: 0, section: section))).frame
+        }
+        let column = try first(0)
+        let columnCells = (grid.collectionViewLayout.layoutAttributesForElements(in:
+            CGRect(x: column.minX, y: 0, width: column.width, height: grid.bounds.height)) ?? [])
+            .filter { $0.indexPath.section == 0 && abs($0.frame.minX - column.minX) < 0.1 }
+        XCTAssertEqual(columnCells.count, 5, "Portrait uses the reference keyboard's five rows")
+        XCTAssertLessThanOrEqual(columnCells.map(\.frame.minY).min() ?? 100, 4)
+        XCTAssertGreaterThanOrEqual(columnCells.map(\.frame.maxY).max() ?? 0, grid.bounds.height - 4,
+            "First and last rows fill the viewport without large top/bottom margins")
+        let boundary = try first(1).minX - 6
+        let columnStride = try first(0).width + 4
+        grid.contentOffset.x = 37.3
+        XCTAssertEqual(grid.contentOffset.x, 37.3, accuracy: 0.5, "A drag can stop between columns without snapping")
+        grid.contentOffset.x = boundary - columnStride * 0.6
+        XCTAssertEqual(indicator.frame.minX, 8 + 56 * 0.4, accuracy: 0.5)
+        let attachment = XCTAttachment(image: UIGraphicsImageRenderer(bounds: panel.bounds).image { panel.layer.render(in: $0.cgContext) })
+        attachment.name = "emoji-continuous-category-boundary"; attachment.lifetime = .keepAlways; add(attachment)
+        let travelBoundary = try first(5).minX - 6
+        grid.contentOffset.x = travelBoundary - columnStride * 0.6
+        let firstOffset = categories.contentOffset.x
+        grid.contentOffset.x = travelBoundary - columnStride * 0.3
+        XCTAssertEqual(categories.contentOffset.x - firstOffset, 56 * 0.3, accuracy: 0.5)
+        let kaomojiBoundary = try first(10).minX - 6
+        grid.contentOffset.x = kaomojiBoundary - columnStride * 0.4
+        XCTAssertEqual(modes.selectedSegmentIndex, 1, "Both tab levels follow a cross-mode drag")
+        try button("vime.symbols.category.1", in: panel).sendActions(for: .touchUpInside)
+        XCTAssertEqual(grid.contentOffset.x, try first(11).minX - 6, accuracy: 0.5)
+        // Every supported item must remain reachable and vertically fit the
+        // viewport, including long skin-tone groups and short categories.
+        for (section, items) in groups.enumerated() {
+            XCTAssertEqual(grid.numberOfItems(inSection: section), items.count)
+            var visited = Set<Int>()
+            for item in stride(from: 0, to: items.count, by: 20) {
+                grid.scrollToItem(at: IndexPath(item: item, section: section), at: .left, animated: false); grid.layoutIfNeeded()
+                for path in grid.indexPathsForVisibleItems where path.section == section {
+                    visited.insert(path.item)
+                    let cell = try XCTUnwrap(grid.cellForItem(at: path))
+                    XCTAssertGreaterThanOrEqual(cell.frame.minY, 0)
+                    XCTAssertLessThanOrEqual(cell.frame.maxY, grid.bounds.height)
+                    let label = try XCTUnwrap(cell.contentView.subviews.compactMap { $0 as? UILabel }.first)
+                    XCTAssertEqual(cell.accessibilityIdentifier, "vime.symbol.\(items[path.item].text)")
+                    if section >= 10 { XCTAssertEqual(label.text, items[path.item].text) }
+                    if section < 10 { XCTAssertEqual(cell.contentView.backgroundColor, .clear) }
+                }
+                XCTAssertLessThan(grid.visibleCells.count, 90, "Only viewport cells are realized, including the denser grid")
+            }
+            XCTAssertEqual(visited.count, items.count, "Continuous layout cannot omit items")
+        }
+        XCTAssertTrue(inserted.isEmpty)
+        panel.selectMode(.emoji)
+        grid.scrollToItem(at: IndexPath(item: 80, section: 0), at: .left, animated: false); grid.layoutIfNeeded()
+        panel.frame.size = CGSize(width: 860, height: 250); panel.compact = true; panel.layoutIfNeeded(); grid.layoutIfNeeded()
+        XCTAssertTrue(grid.indexPathsForVisibleItems.contains(IndexPath(item: 80, section: 0)), "Rotation keeps the visible item")
+        panel.selectMode(.kaomoji); panel.layoutIfNeeded()
+        panel.collectionView(grid, didSelectItemAt: IndexPath(item: 0, section: 10))
+        XCTAssertEqual(inserted, ["(^_^)"])
+    }
+
+    func testEmbeddedEmojiBitmapsCoverSupportedCatalog() async throws {
+        defer { KeyboardEmojiImages.clear() }
+        for group in KeyboardSymbolCatalog.emoji.groups {
+            let items = await withCheckedContinuation { continuation in
+                KeyboardEmojiAvailability.load(group) { continuation.resume(returning: $0) }
+            }
+            for item in items {
+                let prepared = await KeyboardEmojiImages.image(item.text, scale: 3)
+                autoreleasepool {
+                    guard let image = prepared?.cgImage,
+                          let data = image.dataProvider?.data else { return XCTFail("Embedded bitmap: \(item.text)") }
+                    XCTAssertEqual(image.bitsPerPixel, 32)
+                    let bytes = data as Data
+                    let alphaFirst = image.alphaInfo == .first || image.alphaInfo == .premultipliedFirst
+                    let littleEndian = image.bitmapInfo.contains(.byteOrder32Little)
+                    let alpha = alphaFirst == littleEndian ? 3 : 0
+                    XCTAssertTrue(bytes.withUnsafeBytes { (buffer: UnsafeRawBufferPointer) in
+                        stride(from: alpha, to: buffer.count, by: 4).contains { buffer[$0] != 0 }
+                    }, "The complete supported catalog contains no empty glyph: \(item.text)")
+                    XCTAssertLessThanOrEqual(KeyboardEmojiImages.retainedBytes, KeyboardEmojiImages.byteLimit)
+                }
+            }
+        }
+    }
+
+    func testEmojiRequestsCoalesceCancelAndDoNotRefillClearedCache() async throws {
+        KeyboardEmojiImages.clear()
+        defer { KeyboardEmojiImages.clear() }
+        var cancelledCalls = 0
+        let cancelled = KeyboardEmojiImages.request("👩🏻‍❤️‍👨🏿", scale: 3) { _ in cancelledCalls += 1 }
+        let ready = expectation(description: "Another subscriber receives the shared decode")
+        var delivered: UIImage?
+        KeyboardEmojiImages.request("👩🏻‍❤️‍👨🏿", scale: 3) { image in delivered = image; ready.fulfill() }
+        KeyboardEmojiImages.cancel(cancelled)
+        await fulfillment(of: [ready], timeout: 3)
+        XCTAssertNotNil(delivered)
+        XCTAssertTrue(delivered === KeyboardEmojiImages.cachedImage("👩🏻‍❤️‍👨🏿", scale: 3))
+        XCTAssertEqual(cancelledCalls, 0)
+        KeyboardEmojiImages.clear()
+        // No run-loop yield until cancellation: includes a running job and
+        // queued speculative jobs from a cold rapid change of direction.
+        for item in KeyboardSymbolCatalog.emoji.groups[0].items.prefix(100) {
+            KeyboardEmojiImages.request(item.text, scale: 3)
+        }
+        XCTAssertLessThanOrEqual(KeyboardEmojiImages.pendingCount, KeyboardEmojiImages.prefetchLimit)
+        KeyboardEmojiImages.clear()
+        try await Task.sleep(for: .milliseconds(100))
+        XCTAssertEqual(KeyboardEmojiImages.pendingCount, 0)
+        XCTAssertEqual(KeyboardEmojiImages.retainedBytes, 0, "Old work cannot refill cleared cache")
+        let recovered = await KeyboardEmojiImages.image("😀", scale: 3)
+        XCTAssertNotNil(recovered, "A new generation recovers normally")
+    }
+
+    func testRapidEmojiReuseKeepsImagesMatchedToCurrentItems() async throws {
+        KeyboardEmojiImages.clear()
+        let panel = KeyboardSymbolPanel(frame: CGRect(x: 0, y: 0, width: 440, height: 350))
+        let window = UIWindow(frame: UIScreen.main.bounds)
+        window.rootViewController = UIViewController(); window.makeKeyAndVisible()
+        window.rootViewController?.view.addSubview(panel)
+        defer { window.isHidden = true; KeyboardEmojiImages.clear() }
+        for group in KeyboardSymbolCatalog.emoji.groups {
+            _ = await withCheckedContinuation { continuation in
+                KeyboardEmojiAvailability.load(group) { continuation.resume(returning: $0) }
+            }
+        }
+        panel.layoutIfNeeded()
+        let grid = try XCTUnwrap(descendants(panel).compactMap { $0 as? UICollectionView }.first)
+        for index in [1, 6, 2, 8, 3, 9, 0] {
+            try button("vime.symbols.category.\(index)", in: panel).sendActions(for: .touchUpInside)
+            panel.layoutIfNeeded(); grid.layoutIfNeeded()
+        }
+        // Clearing in-flight work must not strand cell request handles or
+        // turn cancelled jobs into native-glyph fallbacks on reopening.
+        panel.applyTheme(); KeyboardEmojiImages.clear()
+        panel.isHidden = true; panel.isHidden = false
+        let deadline = Date().addingTimeInterval(3)
+        while grid.visibleCells.contains(where: { descendants($0).compactMap { $0 as? UIImageView }.first?.image == nil }) && Date() < deadline {
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        for cell in grid.visibleCells {
+            let identifier = try XCTUnwrap(cell.accessibilityIdentifier)
+            let text = String(identifier.dropFirst("vime.symbol.".count))
+            let image = try XCTUnwrap(descendants(cell).compactMap { $0 as? UIImageView }.first?.image)
+            let prepared = await KeyboardEmojiImages.image(text, scale: window.screen.scale)
+            let expected = try XCTUnwrap(prepared)
+            XCTAssertEqual(image.cgImage?.dataProvider?.data as Data?, expected.cgImage?.dataProvider?.data as Data?, "A reused cell never receives its previous emoji")
+        }
+    }
+
+    func testColdEmojiCategoryJumpsAreReadyInTheDisplayingTurn() async throws {
+        let panel = KeyboardSymbolPanel(frame: CGRect(x: 0, y: 0, width: 440, height: 350))
+        let window = UIWindow(frame: UIScreen.main.bounds)
+        window.rootViewController = UIViewController(); window.makeKeyAndVisible()
+        window.rootViewController?.view.addSubview(panel)
+        defer { window.isHidden = true; KeyboardEmojiImages.clear() }
+        for group in KeyboardSymbolCatalog.emoji.groups {
+            _ = await withCheckedContinuation { continuation in
+                KeyboardEmojiAvailability.load(group) { continuation.resume(returning: $0) }
+            }
+        }
+        panel.layoutIfNeeded()
+        let grid = try XCTUnwrap(descendants(panel).compactMap { $0 as? UICollectionView }.first)
+        // No sleeps or main-queue drain between movement and inspection. Jump
+        // beyond the lookahead, then reverse immediately with a cold cache.
+        for index in [6, 1, 8, 2, 9, 0] {
+            KeyboardEmojiImages.clear()
+            try button("vime.symbols.category.\(index)", in: panel).sendActions(for: .touchUpInside)
+            panel.layoutIfNeeded(); grid.layoutIfNeeded()
+            let paths = grid.indexPathsForVisibleItems.filter { $0.section < 10 }
+            XCTAssertFalse(paths.isEmpty)
+            for path in paths {
+                let cell = try XCTUnwrap(grid.cellForItem(at: path))
+                let image = try XCTUnwrap(descendants(cell).compactMap { $0 as? UIImageView }.first)
+                XCTAssertNotNil(image.image, "Ready before display, without asynchronous delivery: \(path)")
+                XCTAssertTrue(try XCTUnwrap(descendants(cell).compactMap { $0 as? UILabel }.first).isHidden)
+            }
+        }
+    }
+
+    func testEmojiDecoderContinuesWhileMainThreadIsBusyWithBoundedDeliveries() async throws {
+        _ = await KeyboardEmojiImages.image("😀", scale: 3)
+        KeyboardEmojiImages.clear()
+        KeyboardPerformance.configure(enabled: true, reset: true)
+        defer { KeyboardPerformance.configure(enabled: false); KeyboardEmojiImages.clear() }
+        for item in KeyboardSymbolCatalog.emoji.groups[0].items.prefix(80) {
+            KeyboardEmojiImages.request(item.text, scale: 3)
+        }
+        // Simulate gesture/layout work without servicing main-thread delivery.
+        // The former implementation could prepare only one image in this gap.
+        func busyMainThread() { Thread.sleep(forTimeInterval: 0.05) }
+        busyMainThread()
+        let decoded = KeyboardPerformance.takeWindowReport()["emojiDecode"]?["windowCount"] ?? 0
+        XCTAssertGreaterThan(decoded, 4, "Background throughput must not depend on a main-thread round trip per glyph")
+        XCTAssertLessThanOrEqual(decoded, 24, "Completed images awaiting delivery have a hard bound")
+        let alreadyCached = KeyboardSymbolCatalog.emoji.groups[0].items.prefix(80).filter {
+            KeyboardEmojiImages.cachedImage($0.text, scale: 3) != nil
+        }.count
+        XCTAssertGreaterThan(alreadyCached, 4, "Prepared pixels are readable before any main-thread delivery")
+        KeyboardEmojiImages.clear()
+        try await Task.sleep(for: .milliseconds(100))
+        XCTAssertEqual(KeyboardEmojiImages.pendingCount, 0)
+        XCTAssertEqual(KeyboardEmojiImages.retainedBytes, 0)
+    }
+
+    func testVisibleEmojiBypassesSaturatedPreparationQueue() throws {
+        KeyboardEmojiImages.clear()
+        defer { KeyboardEmojiImages.clear() }
+        for item in KeyboardSymbolCatalog.emoji.groups.flatMap(\.items).prefix(KeyboardEmojiImages.pendingLimit) {
+            KeyboardEmojiImages.request(item.text, scale: 3, priority: .prepared)
+        }
+        XCTAssertEqual(KeyboardEmojiImages.pendingCount, KeyboardEmojiImages.pendingLimit)
+        let text = "👩🏽‍💻"
+        XCTAssertNotNil(KeyboardEmojiImages.displayImage(text, scale: 3), "A full speculative queue cannot leave a visible cell blank")
+        XCTAssertNotNil(KeyboardEmojiImages.cachedImage(text, scale: 3))
+        XCTAssertLessThanOrEqual(KeyboardEmojiImages.retainedBytes, KeyboardEmojiImages.byteLimit)
+    }
+
+    func testEmojiBitmapDecoderChecksDimensionsStreamsAndAlpha() throws {
+        func fixture(_ alpha: UInt8 = 255, filter: UInt8 = 0) -> Data {
+            let raw: [UInt8] = [alpha, filter, 64, 0, 0]
+            var destination = [UInt8](repeating: 0, count: 1024)
+            let count = raw.withUnsafeBufferPointer { source in
+                destination.withUnsafeMutableBufferPointer {
+                    compression_encode_buffer($0.baseAddress!, $0.count, source.baseAddress!, source.count, nil, COMPRESSION_LZFSE)
+                }
+            }
+            var header = Data([0x65, 0x6d, 0x6a, 0x31, 0, 1, 1, 0xa1, 1, 0, 1, 0, 0, 0, 0, 0])
+            header.append(contentsOf: destination.prefix(count)); return header
+        }
+        let valid = fixture()
+        let image = try XCTUnwrap(EmojiBitmapDecoder.decode(valid))
+        XCTAssertEqual(image.width, 1); XCTAssertEqual(image.height, 1)
+        XCTAssertEqual(try XCTUnwrap(image.dataProvider?.data) as Data, Data([32, 32, 32, 255]))
+        let transparent = try XCTUnwrap(EmojiBitmapDecoder.decode(fixture(0)))
+        XCTAssertEqual((try XCTUnwrap(transparent.dataProvider?.data) as Data).last, 0)
+        XCTAssertNil(EmojiBitmapDecoder.decode(fixture(filter: 5)))
+        for length in 0..<valid.count { XCTAssertNil(EmojiBitmapDecoder.decode(Data(valid.prefix(length)))) }
+        var oversized = valid; oversized[8] = 1; oversized[9] = 2
+        XCTAssertNil(EmojiBitmapDecoder.decode(oversized))
+        var unknown = valid; unknown[4] = 2
+        XCTAssertNil(EmojiBitmapDecoder.decode(unknown))
+    }
+
     func testEmojiShapingAndLatestCategoryWins() async throws {
         for value in ["😀", "👩🏽‍💻", "🇯🇵", "1️⃣", "👨‍👩‍👧‍👦", "🏴", "❤️", "👍🏿", "🫱🏻‍🫲🏼", "👩🏻‍❤️‍👨🏿", "👩🏻‍🤝‍👨🏼"] {
             XCTAssertTrue(KeyboardEmojiAvailability.supports(value), value)
@@ -315,7 +582,7 @@ final class KeyboardFeatureTests: XCTestCase {
         try button("vime.symbols.category.1", in: panel).sendActions(for: .touchUpInside)
         panel.selectMode(.symbols)
         try await Task.sleep(for: .milliseconds(250))
-        XCTAssertEqual(grid.numberOfItems(inSection: 0), KeyboardSymbolCatalog.symbols[0].items.count,
+        XCTAssertEqual(grid.numberOfItems(inSection: 18), KeyboardSymbolCatalog.symbols[0].items.count,
             "An old emoji availability request must never overwrite the symbol category")
         panel.selectMode(.emoji)
         try await Task.sleep(for: .milliseconds(250))
@@ -323,7 +590,7 @@ final class KeyboardFeatureTests: XCTestCase {
     }
 
     func testEmojiCellsPreserveColorAndCompositeGlyphs() async throws {
-        let samples = ["😀", "🫡", "👩🏽‍💻", "🇯🇵", "1️⃣", "❤️", "👍🏿", "🫱🏻‍🫲🏼", "👩🏻‍❤️‍👨🏿", "👩🏻‍🤝‍👨🏼", "👨‍👩‍👧‍👦"]
+        let samples = ["😀", "🫡", "👩🏽‍💻", "🇯🇵", "1️⃣", "❤️", "👍🏿", "🫱🏻‍🫲🏼", "👩🏻‍❤️‍👨🏿", "👩🏻‍🤝‍👨🏼", "👨‍👩‍👧‍👦", "🚶‍➡️", "🧑🏽‍🦯‍➡️", "♀️", "♂️", "⚕️"]
         let panel = KeyboardSymbolPanel(frame: CGRect(x: 0, y: 0, width: 440, height: 350))
         let window = UIWindow(frame: UIScreen.main.bounds)
         window.rootViewController = UIViewController(); window.makeKeyAndVisible()
@@ -333,7 +600,7 @@ final class KeyboardFeatureTests: XCTestCase {
         let font = CTFontCreateWithName("AppleColorEmoji" as CFString, 29, nil)
         func reference(_ text: String) -> UIImage {
             let line = CTLineCreateWithAttributedString(NSAttributedString(string: text,
-                attributes: [NSAttributedString.Key(kCTFontAttributeName as String): font]))
+                attributes: [NSAttributedString.Key(kCTFontAttributeName as String): font, .foregroundColor: KeyboardPalette.text]))
             return UIGraphicsImageRenderer(size: CGSize(width: 36, height: 36)).image { renderer in
                 let context = renderer.cgContext, ink = CTLineGetImageBounds(line, renderer.cgContext)
                 guard !ink.isEmpty else { return }
@@ -387,20 +654,22 @@ final class KeyboardFeatureTests: XCTestCase {
                 KeyboardEmojiAvailability.load(KeyboardSymbolCatalog.emoji.groups[groupIndex]) { continuation.resume(returning: $0) }
             }
             try button("vime.symbols.category.\(groupIndex)", in: panel).sendActions(for: .touchUpInside)
-            let deadline = Date().addingTimeInterval(5)
-            while grid.numberOfItems(inSection: 0) != items.count && Date() < deadline { try await Task.sleep(for: .milliseconds(10)) }
             panel.layoutIfNeeded()
-            let path = IndexPath(item: try XCTUnwrap(items.firstIndex { $0.text == sample }), section: 0)
-            grid.scrollToItem(at: path, at: .top, animated: false); grid.layoutIfNeeded()
-            try await Task.sleep(for: .milliseconds(20))
+            let path = IndexPath(item: try XCTUnwrap(items.firstIndex { $0.text == sample }), section: groupIndex)
+            grid.scrollToItem(at: path, at: .left, animated: false); grid.layoutIfNeeded()
+            let deadline = Date().addingTimeInterval(2)
+            while grid.cellForItem(at: path)?.contentView.subviews.compactMap({ $0 as? UIImageView }).first?.image == nil && Date() < deadline {
+                try await Task.sleep(for: .milliseconds(5))
+            }
             let cell = try XCTUnwrap(grid.cellForItem(at: path))
             let label = try XCTUnwrap(cell.contentView.subviews.compactMap { $0 as? UILabel }.first)
-            XCTAssertEqual(label.text, sample)
+            XCTAssertEqual(cell.accessibilityIdentifier, "vime.symbol.\(sample)")
             var selected: String?
             panel.onSelect = { selected = $0 }; panel.collectionView(grid, didSelectItemAt: path)
             XCTAssertEqual(selected, sample, "Insert the complete skin-tone/ZWJ sequence")
             let expected = try normalizedInk(reference(sample))
-            let actual = try normalizedInk(UIGraphicsImageRenderer(size: label.bounds.size).image { label.layer.render(in: $0.cgContext) })
+            let decoded = try XCTUnwrap(cell.contentView.subviews.compactMap { $0 as? UIImageView }.first?.image, sample)
+            let actual = try normalizedInk(decoded)
             let a = try pixels(actual), b = try pixels(expected)
             let opaque = stride(from: 3, to: a.count, by: 4).filter { a[$0] > 32 }.count
             XCTAssertGreaterThan(opaque, 100, "Missing emoji ink: \(sample)")

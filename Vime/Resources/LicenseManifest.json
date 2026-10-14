@@ -130,5 +130,17 @@
     "revision": "1.0",
     "modified": "",
     "noticeFile": "vime"
+  },
+  {
+    "id": "emojifonts",
+    "name": "EmojiFonts",
+    "use": "表情位图按需解码",
+    "category": "语言与表情数据",
+    "license": "MIT",
+    "copyright": "PoomSmart；原始解码器分析 cc4966",
+    "source": "https://github.com/PoomSmart/EmojiFonts",
+    "revision": "EMJ1 format",
+    "modified": "Swift 实现，增加长度、版本和维度校验，支持有界缓存",
+    "noticeFile": "emojifonts"
   }
 ]

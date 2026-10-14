@@ -22,6 +22,7 @@
 - [候选与联想](Architecture/Candidates.md)：生成、统一排序、纠错和确认后联想。
 - [学习与个性化](Architecture/Personalization.md)：可信确认、两套学习机制及持久化。
 - [输入后端接口](Architecture/InputBackends.md)：语言接口、候选 token 和后端接入约定。
+- [表情显示](Architecture/EmojiRendering.md)：入屏准备、异步预取、内存边界及验证。
 
 ## 文档维护
 

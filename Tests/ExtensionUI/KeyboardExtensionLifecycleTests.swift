@@ -9,10 +9,23 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
         XCUIDevice.shared.orientation = .portrait
         defer { XCUIDevice.shared.orientation = .portrait }
         let app = XCUIApplication()
-        app.launchArguments = ["--keyboard-extension-test", "--keyboard-extension-test-ranking", "engine"]
+        app.launchArguments = ["--keyboard-extension-test", "--keyboard-extension-test-ranking", "engine",
+            "--v21-extension-audit-on", "--v21-extension-audit-duration-seconds", "600",
+            "--v21-extension-audit-sample-ms", "1000", "--v21-extension-audit-write-ms", "2000",
+            "--v21-extension-audit-run-id", "emoji-fast-predictive-20261014"]
         app.launch()
         let editor = app.textViews["vime.extension.editor"]
         XCTAssertTrue(editor.waitForExistence(timeout: 10)); editor.tap()
+        // Component tests can leave iOS's selected input mode on English.
+        // Select the installed extension through the same globe UI as a user.
+        if !app.buttons["vime.key.h"].waitForExistence(timeout: 2) {
+            let globe = app.buttons.matching(NSPredicate(format: "label == %@ OR label == %@", "下一个键盘", "Next keyboard"))
+            for _ in 0..<6 {
+                guard !app.buttons["vime.key.h"].exists, globe.firstMatch.exists else { break }
+                globe.firstMatch.tap()
+                if app.buttons["vime.key.h"].waitForExistence(timeout: 2) { break }
+            }
+        }
         XCTAssertTrue(app.buttons["vime.key.h"].waitForExistence(timeout: 5))
         app.buttons["表情"].tap()
         let grid = app.collectionViews["vime.symbols.grid"]
@@ -23,51 +36,63 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
             let tab = app.buttons["vime.symbols.category.\(index)"]
             let selected = XCTNSPredicateExpectation(predicate: NSPredicate(format: "selected == true"), object: tab)
             XCTAssertEqual(XCTWaiter.wait(for: [selected], timeout: 3), .completed)
-            XCTAssertTrue(tab.isHittable, "Keep the selected category visible")
+            XCTAssertTrue(tab.isHittable)
             XCTAssertGreaterThanOrEqual(tab.frame.minX, categories.frame.minX - 1)
             XCTAssertLessThanOrEqual(tab.frame.maxX, categories.frame.maxX + 1)
         }
+        func drag(_ dx: CGFloat, _ dy: CGFloat = 0) {
+            let start = grid.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: dx, dy: dy)))
+        }
         expectCategory(0)
         let before = editor.value as? String ?? ""
-        grid.swipeRight(); expectCategory(0) // First category does not wrap.
-        grid.swipeLeft(); expectCategory(1)
+        XCTAssertTrue(grid.cells.count > 0)
+        let smile = app.descendants(matching: .any)["vime.symbol.😀"]
+        XCTAssertTrue(smile.waitForExistence(timeout: 5)); XCTAssertTrue(smile.isHittable)
+        for _ in 0..<3 {
+            grid.swipeLeft(velocity: .fast); grid.swipeRight(velocity: .fast)
+        }
+        XCTAssertEqual(editor.value as? String, before, "Fast fling/reversal never inserts a pending or reused emoji")
+        app.buttons["vime.symbols.category.0"].tap(); expectCategory(0)
+        drag(-150); expectCategory(0)
+        XCTAssertFalse(smile.isHittable, "Scroll within a category rather than snapping to another tab")
+        drag(0, -50); expectCategory(0)
+        drag(-100, -30); expectCategory(0)
+        XCTAssertEqual(editor.value as? String, before, "Continuous and diagonal dragging never inserts")
+        app.buttons["vime.symbols.category.1"].tap(); expectCategory(1)
         let wave = app.descendants(matching: .any)["vime.symbol.👋"]
         XCTAssertTrue(wave.waitForExistence(timeout: 3)); XCTAssertTrue(wave.isHittable)
-        grid.swipeUp(); expectCategory(1)
-        XCTAssertFalse(wave.isHittable, "Vertical scrolling must still move through the category")
-        grid.coordinate(withNormalizedOffset: CGVector(dx: 0.4, dy: 0.8)).press(forDuration: 0.05,
-            thenDragTo: grid.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2)))
-        expectCategory(1) // Predominantly vertical diagonal movement is scrolling.
-        XCTAssertEqual(editor.value as? String, before, "Dragging must not insert an emoji")
-        grid.swipeRight(); expectCategory(0)
-        for index in 1...9 {
-            grid.swipeLeft(); expectCategory(index)
-            XCTAssertEqual(editor.value as? String, before)
-        }
-        grid.swipeLeft(); expectCategory(9) // Last category does not wrap.
+        wave.tap(); XCTAssertEqual(editor.value as? String, before + "👋")
+        for index in 2...9 { app.buttons["vime.symbols.category.\(index)"].tap(); expectCategory(index) }
         let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
-        attachment.name = "emoji-swiped-to-last-category"; attachment.lifetime = .keepAlways; add(attachment)
-        grid.swipeRight(); expectCategory(8)
-        // Tapping and swiping share the same selected state and async loading.
+        attachment.name = "emoji-continuous-flags"; attachment.lifetime = .keepAlways; add(attachment)
+        // A mode tap lands on its first item. A continuous drag across that
+        // boundary enters the preceding mode's final category, in either axis size.
         modes.buttons["颜文字"].tap(); expectCategory(0)
-        grid.swipeLeft(); expectCategory(1)
+        drag(150); expectCategory(9); XCTAssertTrue(modes.buttons["Emoji"].isSelected)
+        drag(-300); expectCategory(0); XCTAssertTrue(modes.buttons["颜文字"].isSelected)
+        app.buttons["vime.symbols.category.1"].tap(); expectCategory(1)
         let sad = app.descendants(matching: .any)["vime.symbol.(T_T)"]
         XCTAssertTrue(sad.waitForExistence(timeout: 3)); sad.tap()
-        XCTAssertEqual(editor.value as? String, before + "(T_T)")
+        for index in 2...7 { app.buttons["vime.symbols.category.\(index)"].tap(); expectCategory(index) }
         modes.buttons["符号"].tap(); expectCategory(0)
-        grid.swipeLeft(); expectCategory(1)
+        drag(150); expectCategory(7); XCTAssertTrue(modes.buttons["颜文字"].isSelected)
+        drag(-300); expectCategory(0); XCTAssertTrue(modes.buttons["符号"].isSelected)
+        app.buttons["vime.symbols.category.1"].tap(); expectCategory(1)
         let arrow = app.descendants(matching: .any)["vime.symbol.↑"]
         XCTAssertTrue(arrow.waitForExistence(timeout: 3)); arrow.tap()
-        XCTAssertEqual(editor.value as? String, before + "(T_T)↑")
+        for index in 2...10 { app.buttons["vime.symbols.category.\(index)"].tap(); expectCategory(index) }
+        drag(-150); expectCategory(10)
         modes.buttons["Emoji"].tap(); expectCategory(0)
         XCUIDevice.shared.orientation = .landscapeLeft
-        grid.swipeLeft(); expectCategory(1)
-        grid.swipeRight(); expectCategory(0)
-        // A short horizontal drag cancels the cell tap without changing tabs.
-        let start = grid.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-        start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 25, dy: 0)))
-        expectCategory(0)
-        XCTAssertEqual(editor.value as? String, before + "(T_T)↑")
+        for _ in 0..<3 {
+            grid.swipeLeft(velocity: .fast); grid.swipeRight(velocity: .fast)
+        }
+        app.buttons["vime.symbols.category.0"].tap(); expectCategory(0)
+        drag(-150); expectCategory(0)
+        app.buttons["vime.symbols.category.1"].tap(); expectCategory(1)
+        drag(-100, -25); expectCategory(1)
+        XCTAssertEqual(editor.value as? String, before + "👋(T_T)↑")
         app.buttons["vime.symbols.close"].tap()
         XCTAssertTrue(app.buttons["vime.key.h"].waitForExistence(timeout: 3))
     }

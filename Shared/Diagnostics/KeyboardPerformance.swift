@@ -4,6 +4,7 @@ import Foundation
 /// host text; disabled in normal operation. Converter measurements are thread safe.
 nonisolated enum KeyboardPerformance {
     enum Stage: String, CaseIterable, Sendable {
+        case emojiDecode, emojiVisibleDecode, symbolCellConfiguration, symbolHeaderUpdate
         case nativeNextWords
         case touchDownToVisual, touchUpToType, typeToMarked
         case candidateRequestToResult, candidateCompute, resultToCandidateUI, candidateUIUpdate
@@ -63,10 +64,10 @@ nonisolated enum KeyboardPerformance {
         let milliseconds = (ProcessInfo.processInfo.systemUptime - start) * 1000
         storage.lock.lock(); defer { storage.lock.unlock() }
         guard storage.enabled else { return }
-        var values = storage.samples[stage, default: []]
-        if values.count == 256 { values.removeFirst() }
-        values.append(milliseconds)
-        storage.samples[stage] = values
+        // Mutate the stored tail directly. A local array copy followed by
+        // append triggers CoW allocation for every instrumented cell/glyph.
+        if storage.samples[stage, default: []].count == 256 { storage.samples[stage]?.removeFirst() }
+        storage.samples[stage, default: []].append(milliseconds)
         storage.totalCounts[stage, default: 0] += 1
         storage.windows[stage, default: Window()].append(milliseconds)
     }

@@ -48,6 +48,9 @@ private nonisolated final class VimeMemorySampler: @unchecked Sendable {
         let unit = 1_048_576.0
         return ["physical_mib": Double(info.phys_footprint) / unit,
                 "process_lifetime_peak_mib": Double(info.ledger_phys_footprint_peak) / unit,
+                "compressed_mib": Double(info.compressed) / unit,
+                "internal_mib": Double(info.internal) / unit,
+                "external_mib": Double(info.external) / unit,
                 "resident_mib": Double(info.resident_size) / unit]
     }
     init() {
@@ -69,7 +72,116 @@ private nonisolated final class VimeMemorySampler: @unchecked Sendable {
 }
 
 @MainActor
+private final class EmojiScrollFrameProbe: NSObject {
+    var frames = 0
+    var intervals = [Double]()
+    var update: (() -> Void)?
+    private var previous: CFTimeInterval?
+    @objc func tick(_ link: CADisplayLink) {
+        if let previous { intervals.append((link.timestamp - previous) * 1000) }
+        previous = link.timestamp; frames += 1; update?()
+    }
+}
+
+@MainActor
 final class VimeLanguageModelMemoryTests: XCTestCase {
+    func testEmojiScrollPreparationPerformance() async throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["VIME_EMOJI_SCROLL_AUDIT"] == "1")
+        KeyboardEmojiImages.clear()
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let window = UIWindow(windowScene: scene)
+        window.rootViewController = UIViewController(); window.makeKeyAndVisible()
+        let landscape = ProcessInfo.processInfo.environment["VIME_EMOJI_SCROLL_LANDSCAPE"] == "1"
+        let step = CGFloat(Double(ProcessInfo.processInfo.environment["VIME_EMOJI_SCROLL_STEP"] ?? "160") ?? 160)
+        window.rootViewController?.setNeedsUpdateOfSupportedInterfaceOrientations()
+        scene.requestGeometryUpdate(.iOS(interfaceOrientations: landscape ? .landscapeLeft : .portrait))
+        let orientationDeadline = Date().addingTimeInterval(3)
+        while (window.bounds.width > window.bounds.height) != landscape && Date() < orientationDeadline {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        XCTAssertEqual(window.bounds.width > window.bounds.height, landscape)
+        let panel = KeyboardSymbolPanel(frame: CGRect(x: 0, y: max(0, window.bounds.height - (landscape ? 230 : 350)),
+            width: window.bounds.width, height: landscape ? 230 : 350))
+        panel.compact = landscape
+        window.rootViewController?.view.addSubview(panel)
+        func descendants(_ view: UIView) -> [UIView] { [view] + view.subviews.flatMap(descendants) }
+        for group in KeyboardSymbolCatalog.emoji.groups {
+            _ = await withCheckedContinuation { continuation in
+                KeyboardEmojiAvailability.load(group) { continuation.resume(returning: $0) }
+            }
+        }
+        panel.layoutIfNeeded()
+        let grid = try XCTUnwrap(descendants(panel).compactMap { $0 as? UICollectionView }.first)
+        let probe = EmojiScrollFrameProbe()
+        let link = CADisplayLink(target: probe, selector: #selector(EmojiScrollFrameProbe.tick(_:)))
+        let hz = Float(ProcessInfo.processInfo.environment["VIME_EMOJI_SCROLL_HZ"] ?? "60") ?? 60
+        link.preferredFrameRateRange = CAFrameRateRange(minimum: hz, maximum: hz, preferred: hz)
+        var direction: CGFloat = 1
+        var missing = [Double]()
+        var missingBeforeMove = [Double]()
+        var missingFrames = [[String: Double]]()
+        var movementTimes = [Double]()
+        func blankFraction() -> Double {
+            var total: CGFloat = 0, blank: CGFloat = 0
+            for attributes in grid.collectionViewLayout.layoutAttributesForElements(in: grid.bounds) ?? [] {
+                guard attributes.indexPath.section < KeyboardSymbolCatalog.emoji.groups.count else { continue }
+                let frame = attributes.frame.intersection(grid.bounds)
+                let area = frame.width * frame.height
+                guard area > 0 else { continue }
+                total += area
+                let image = grid.cellForItem(at: attributes.indexPath)?.contentView.subviews.compactMap { $0 as? UIImageView }.first
+                if image?.image == nil || image?.isHidden != false { blank += area }
+            }
+            return total > 0 ? Double(blank / total) : 0
+        }
+        let emojiEnd = try XCTUnwrap(grid.collectionViewLayout.layoutAttributesForItem(at: IndexPath(item: 0, section: 10))).frame.minX - 6
+        probe.update = {
+            if probe.frames > 10 { missingBeforeMove.append(blankFraction()) }
+            var offset = grid.contentOffset.x + direction * step
+            if offset >= emojiEnd { offset = emojiEnd; direction = -1 }
+            if offset <= 0 { offset = 0; direction = 1 }
+            let start = CACurrentMediaTime()
+            grid.setContentOffset(CGPoint(x: offset, y: 0), animated: false); grid.layoutIfNeeded()
+            movementTimes.append((CACurrentMediaTime() - start) * 1000)
+            if probe.frames > 10 {
+                let blank = blankFraction(); missing.append(blank)
+                if blank > 0.01, missingFrames.count < 20 {
+                    missingFrames.append(["frame": Double(probe.frames), "offset": Double(offset), "blank": blank,
+                        "pending": Double(KeyboardEmojiImages.pendingCount), "visible_cells": Double(grid.visibleCells.count)])
+                }
+            }
+        }
+        KeyboardPerformance.configure(enabled: true, reset: true)
+        link.add(to: .main, forMode: .common)
+        defer { link.invalidate(); KeyboardPerformance.configure(enabled: false); window.isHidden = true; KeyboardEmojiImages.clear() }
+        let deadline = Date().addingTimeInterval(20)
+        while probe.frames < 480 && Date() < deadline { try await Task.sleep(for: .milliseconds(20)) }
+        link.invalidate()
+        XCTAssertEqual(probe.frames >= 480, true)
+        let timings = KeyboardPerformance.takeWindowReport()
+        XCTAssertGreaterThan(timings["symbolCellConfiguration"]?["windowCount"] ?? 0, 1000)
+        XCTAssertGreaterThan(timings["emojiDecode"]?["windowCount"] ?? 0, 1000)
+        let intervals = probe.intervals.sorted()
+        let moves = movementTimes.sorted()
+        if ProcessInfo.processInfo.environment["VIME_EMOJI_SCROLL_BASELINE"] != "1" {
+            XCTAssertLessThan(missing.reduce(0, +) / Double(missing.count), 0.01, "Measure image readiness, not just fast cell configuration")
+            XCTAssertLessThan(missing.max() ?? 0, 0.15, "No large empty strip during fast entry or abrupt reversal")
+            XCTAssertLessThan(moves[Int(Double(moves.count - 1) * 0.95)], 1000 / Double(hz),
+                "Preparing pixels at the display boundary must not replace blanks with routine frame overruns")
+        }
+        var report: [String: Any] = ["scope": "optimized simulator; scene-connected; cold image cache; \(step)pt/frame continuous forward/reverse scroll; \(hz)Hz requested; not device touch latency",
+            "landscape": landscape, "frames": probe.frames, "timings": timings, "frame_interval_p95_ms": intervals[Int(Double(intervals.count - 1) * 0.95)],
+            "window_width": window.bounds.width, "window_height": window.bounds.height, "first_blank_frames": missingFrames,
+            "blank_area_after_move_mean": missing.reduce(0, +) / Double(missing.count),
+            "blank_area_after_move_max": missing.max() ?? 0,
+            "blank_area_next_tick_mean": missingBeforeMove.reduce(0, +) / Double(missingBeforeMove.count),
+            "blank_area_next_tick_max": missingBeforeMove.max() ?? 0,
+            "frame_interval_max_ms": intervals.last!, "cache_bytes": KeyboardEmojiImages.retainedBytes, "pending_keys": KeyboardEmojiImages.pendingCount]
+        report["movement_p95_ms"] = moves[Int(Double(moves.count - 1) * 0.95)]
+        report["movement_max_ms"] = moves.last!
+        print("VIME_EMOJI_SCROLL_AUDIT " + String(decoding: try JSONSerialization.data(withJSONObject: report, options: [.sortedKeys]), as: UTF8.self))
+    }
+
     /// Run alone in a fresh optimized host so unrelated font/model tests cannot
     /// populate caches first: TEST_RUNNER_VIME_EMOJI_MEMORY_AUDIT=1.
     func testEmojiBrowsingMemoryStaysBounded() async throws {
@@ -78,10 +190,31 @@ final class VimeLanguageModelMemoryTests: XCTestCase {
         let sampler = VimeMemorySampler()
         defer { sampler.stop() }
         let baseline = VimeMemorySampler.snapshot()
-        let session = KeyboardSession()
-        session.candidateRanking = .engine; session.phraseSuggestions = false
-        var keyboard: KeyboardView? = KeyboardView(frame: CGRect(x: 0, y: 240, width: 440, height: 350), session: session)
-        let window = UIWindow(frame: UIScreen.main.bounds)
+        let neural = ProcessInfo.processInfo.environment["VIME_EMOJI_MEMORY_NEURAL"] == "1"
+        let session = KeyboardSession(asynchronousCandidates: neural)
+        let suite = "vime.audit.emoji.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let preferences = KeyboardPreferences(defaults: defaults)
+        preferences.candidateRanking = neural ? .languageModel : .engine; preferences.phraseSuggestions = false
+        var keyboard: KeyboardView? = KeyboardView(frame: CGRect(x: 0, y: 240, width: 440, height: 350), session: session, preferences: preferences)
+        XCTAssertEqual(session.candidateRanking, preferences.candidateRanking)
+        if neural {
+            KeyboardPerformance.configure(enabled: true, reset: true)
+            _ = session.type("hashi")
+            let deadline = Date().addingTimeInterval(10)
+            while (KeyboardPerformance.report()["lmCandidateScoring"]?["totalCount"] ?? 0) == 0 && Date() < deadline {
+                try await Task.sleep(for: .milliseconds(20))
+            }
+            XCTAssertGreaterThan(KeyboardPerformance.report()["lmCandidateScoring"]?["totalCount"] ?? 0, 0)
+            XCTAssertFalse(session.neuralModeSuspendedForMemoryPressure)
+            // Match the engine audit: time model warmup, then measure footprint
+            // without per-cell timing instrumentation. CPU has its own audit.
+            KeyboardPerformance.configure(enabled: false)
+        }
+        defer { if neural { KeyboardPerformance.configure(enabled: false) } }
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let window = UIWindow(windowScene: scene)
         window.rootViewController = UIViewController(); window.makeKeyAndVisible()
         window.rootViewController?.view.addSubview(try XCTUnwrap(keyboard))
         defer { keyboard?.stopInteractions(); window.isHidden = true }
@@ -94,41 +227,50 @@ final class VimeLanguageModelMemoryTests: XCTestCase {
         }
         let total = available.reduce(0) { $0 + $1.count }
         XCTAssertGreaterThan(total, 3500, "Keep the full supported catalog, including skin tones")
+        let browsingBaseline = VimeMemorySampler.snapshot()
         var passes = [[String: Any]]()
         var firstFootprint = 0.0
+        var closedFootprints = [Double]()
         for pass in 0..<10 {
             let current = try XCTUnwrap(keyboard)
             let open = try XCTUnwrap(descendants(current).first { $0.accessibilityLabel == "表情" } as? UIButton)
             open.sendActions(for: .touchUpInside); current.layoutIfNeeded()
             do {
                 let panel = try XCTUnwrap(descendants(current).compactMap { $0 as? KeyboardSymbolPanel }.first)
-                let grid = try XCTUnwrap(descendants(panel).compactMap { $0 as? UICollectionView }.first)
+                let grid = try XCTUnwrap(descendants(panel).first { $0.accessibilityIdentifier == "vime.symbols.grid" } as? UICollectionView)
                 var visitedTotal = 0
                 for (index, items) in available.enumerated() {
-                    let category = try XCTUnwrap(descendants(panel).first {
-                        $0.accessibilityIdentifier == "vime.symbols.category.\(index)"
-                    } as? UIButton)
-                    category.sendActions(for: .touchUpInside)
+                    let category = try XCTUnwrap(descendants(panel).first { $0.accessibilityIdentifier == "vime.symbols.category.\(index)" } as? UIButton)
+                    category.sendActions(for: .touchUpInside); panel.layoutIfNeeded()
                     let deadline = Date().addingTimeInterval(5)
-                    while grid.numberOfItems(inSection: 0) != items.count && Date() < deadline {
+                    while grid.numberOfItems(inSection: index) != items.count && Date() < deadline {
                         try await Task.sleep(for: .milliseconds(10))
                     }
-                    XCTAssertEqual(grid.numberOfItems(inSection: 0), items.count)
+                    XCTAssertEqual(grid.numberOfItems(inSection: index), items.count)
                     var visited = Set<Int>()
                     for item in stride(from: 0, to: items.count, by: 20) {
                         autoreleasepool {
-                            grid.scrollToItem(at: IndexPath(item: item, section: 0), at: .top, animated: false)
+                            grid.scrollToItem(at: IndexPath(item: item, section: index), at: .left, animated: false)
                             grid.layoutIfNeeded()
                         }
-                        try await Task.sleep(for: .milliseconds(10))
-                        for path in grid.indexPathsForVisibleItems {
+                        let deadline = Date().addingTimeInterval(3)
+                        while grid.visibleCells.contains(where: { $0.contentView.subviews.compactMap { $0 as? UIImageView }.first?.image == nil }) && Date() < deadline {
+                            try await Task.sleep(for: .milliseconds(5))
+                        }
+                        try await Task.sleep(for: .milliseconds(35))
+                        XCTAssertLessThanOrEqual(KeyboardEmojiImages.pendingCount, KeyboardEmojiImages.pendingLimit)
+                        for path in grid.indexPathsForVisibleItems where path.section == index {
                             visited.insert(path.item)
                             let cell = try XCTUnwrap(grid.cellForItem(at: path))
                             let label = try XCTUnwrap(cell.contentView.subviews.compactMap { $0 as? UILabel }.first)
-                            XCTAssertEqual(label.text, items[path.item].text, "Cell reuse must retain the complete sequence")
+                            XCTAssertEqual(cell.accessibilityIdentifier, "vime.symbol.\(items[path.item].text)")
+                            XCTAssertTrue(label.isHidden, "No native glyph-cache fallback: \(items[path.item].text)")
+                            XCTAssertNil(label.text, "Hidden text would still populate CoreText's cache")
+                            XCTAssertNotNil(cell.contentView.subviews.compactMap { $0 as? UIImageView }.first?.image, items[path.item].text)
+                            XCTAssertLessThanOrEqual(KeyboardEmojiImages.retainedBytes, KeyboardEmojiImages.byteLimit)
                         }
                     }
-                    XCTAssertEqual(visited.count, items.count, "Every supported emoji must actually be visible: \(index)")
+                    XCTAssertEqual(visited.count, items.count, "Every supported emoji actually renders: \(index)")
                     visitedTotal += visited.count
                 }
                 let close = try XCTUnwrap(descendants(panel).first {
@@ -136,11 +278,13 @@ final class VimeLanguageModelMemoryTests: XCTestCase {
                 } as? UIButton)
                 close.sendActions(for: .touchUpInside); current.layoutIfNeeded()
                 XCTAssertTrue(panel.isHidden)
+                XCTAssertEqual(KeyboardEmojiImages.retainedBytes, 0, "Closing releases the prepared-pixel cache")
                 try await Task.sleep(for: .milliseconds(100))
                 let snapshot = VimeMemorySampler.snapshot()
                 let footprint = try XCTUnwrap(snapshot["physical_mib"])
                 if pass == 0 { firstFootprint = footprint }
-                XCTAssertLessThan(footprint - firstFootprint, 8, "Repeated full-catalog browsing must plateau")
+                closedFootprints.append(footprint)
+                XCTAssertLessThan(footprint - firstFootprint, 16, "Bound framework/model warmup across full-catalog passes")
                 passes.append(["pass": pass + 1, "visible_items": visitedTotal, "memory": snapshot])
                 print("VIME_EMOJI_PASS pass=\(pass + 1) visible_items=\(visitedTotal) physical_mib=\(footprint)")
             }
@@ -148,13 +292,30 @@ final class VimeLanguageModelMemoryTests: XCTestCase {
         keyboard?.releaseInactiveResources(); keyboard?.stopInteractions(); keyboard?.removeFromSuperview(); keyboard = nil
         try await Task.sleep(for: .seconds(1))
         let sampling = sampler.finish(), final = VimeMemorySampler.snapshot()
-        XCTAssertLessThan(try XCTUnwrap(sampling["sampled_peak_mib"]) - XCTUnwrap(baseline["physical_mib"]), 35,
+        let steady = Array(closedFootprints.suffix(4))
+        XCTAssertLessThan(try XCTUnwrap(steady.max()) - XCTUnwrap(steady.min()), 2,
+            "Later passes must plateau; warming caches cannot justify continued growth")
+        // Includes neural-model warmup, UIKit and font metadata, not just the
+        // 8 MiB pixel cache. This is a simulator regression budget, not Jetsam.
+        XCTAssertLessThan(try XCTUnwrap(sampling["sampled_peak_mib"]) - XCTUnwrap(baseline["physical_mib"]), 60,
             "Emoji decoding must not leave a catalog-sized bitmap cache")
-        let report: [String: Any] = ["format": "vime_emoji_memory_v1", "passes": passes,
-            "baseline": baseline, "sampling": sampling, "final": final,
-            "scope": "optimized simulator UIKit test host; fresh process; no neural model"]
+        XCTAssertLessThan(try XCTUnwrap(final["process_lifetime_peak_mib"]) - XCTUnwrap(baseline["physical_mib"]), 60)
+        let report: [String: Any] = ["format": "vime_emoji_memory_v2", "scene_connected": true, "display_frame_wait_ms": 35, "passes": passes,
+            "baseline": baseline, "browsing_baseline_after_model_and_shaping": browsingBaseline,
+            "sampling": sampling, "final": final,
+            "growth_from_first_closed_pass_mib": (closedFootprints.last ?? firstFootprint) - firstFootprint,
+            "steady_last_four_range_mib": (steady.max() ?? 0) - (steady.min() ?? 0),
+            "regression_peak_delta_budget_mib": 60,
+            "scope": neural ? "optimized simulator UIKit test host; fresh process; neural scoring warmed before full emoji browsing" : "optimized simulator UIKit test host; fresh process; no neural model",
+            "neural_model_warmed": neural, "timing": KeyboardPerformance.report()]
         let data = try JSONSerialization.data(withJSONObject: report, options: [.sortedKeys])
         print("VIME_EMOJI_AUDIT " + String(decoding: data, as: UTF8.self))
+        if ProcessInfo.processInfo.environment["VIME_EMOJI_DIAGNOSTIC_HOLD"] == "1" {
+            // Capture the audit BEFORE inspection; vmmap/heap may fault pages
+            // in and must not contaminate the no-instrumentation result.
+            print("VIME_EMOJI_HOLD pid=\(getpid())")
+            try await Task.sleep(for: .seconds(40))
+        }
     }
 
     /// Complement the fixed-word soak with changing shapes, incremental input,
@@ -167,6 +328,8 @@ final class VimeLanguageModelMemoryTests: XCTestCase {
         defer { sampler.stop() }
         let baseline = VimeMemorySampler.snapshot()
         var stages = [[String: Any]]()
+        if scenario == "typing" { KeyboardPerformance.configure(enabled: true, reset: true) }
+        defer { if scenario == "typing" { KeyboardPerformance.configure(enabled: false) } }
         func measure(_ label: String, inputCount: Int = 0, _ work: () async throws -> Void) async rethrows {
             sampler.reset()
             let before = VimeMemorySampler.snapshot()
@@ -340,13 +503,20 @@ final class VimeLanguageModelMemoryTests: XCTestCase {
             defer { try? FileManager.default.removeItem(at: directory) }
             let session = KeyboardSession(asynchronousCandidates: true, memoryDirectoryURL: directory)
             session.updateIntelligence(ranking: .languageModel, suggestionsEnabled: true)
+            let suite = "vime.audit.typing.\(UUID().uuidString)"
+            let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+            defer { defaults.removePersistentDomain(forName: suite) }
+            let preferences = KeyboardPreferences(defaults: defaults)
+            preferences.candidateRanking = .languageModel; preferences.phraseSuggestions = true
             var document = ""
             var keyboard: KeyboardView?
             let window = UIWindow(frame: UIScreen.main.bounds)
             window.rootViewController = UIViewController(); window.makeKeyAndVisible()
             defer { keyboard?.stopInteractions(); session.releaseInactiveResources(); window.isHidden = true }
             try await measure("typing_keyboard_init") {
-                keyboard = KeyboardView(frame: CGRect(x: 0, y: 240, width: 440, height: 350), session: session)
+                keyboard = KeyboardView(frame: CGRect(x: 0, y: 240, width: 440, height: 350), session: session, preferences: preferences)
+                XCTAssertEqual(session.candidateRanking, .languageModel)
+                XCTAssertFalse(session.neuralModeSuspendedForMemoryPressure)
                 keyboard?.leftContextProvider = { document }
                 window.rootViewController?.view.addSubview(try XCTUnwrap(keyboard)); keyboard?.layoutIfNeeded()
             }
@@ -388,6 +558,8 @@ final class VimeLanguageModelMemoryTests: XCTestCase {
                     }
                 }
             }
+            XCTAssertGreaterThan(KeyboardPerformance.report()["lmCandidateScoring"]?["totalCount"] ?? 0, 0,
+                "The neural scorer must actually run, rather than measuring a dictionary fallback")
             try await measure("typing_keyboard_release") {
                 keyboard?.releaseInactiveResources(); keyboard?.stopInteractions(); keyboard?.removeFromSuperview(); keyboard = nil
                 session.releaseInactiveResources()
@@ -482,7 +654,8 @@ final class VimeLanguageModelMemoryTests: XCTestCase {
         }
         let report: [String: Any] = ["format": "vime_step_attribution_v1", "scenario": scenario,
             "scope": "optimized simulator test-host components; not physical-device extension",
-            "baseline": baseline, "stages": stages, "final": VimeMemorySampler.snapshot()]
+            "baseline": baseline, "stages": stages, "final": VimeMemorySampler.snapshot(),
+            "timing": KeyboardPerformance.report()]
         let data = try JSONSerialization.data(withJSONObject: report, options: [.sortedKeys])
         print("VIME_STEP_AUDIT " + String(decoding: data, as: UTF8.self))
     }

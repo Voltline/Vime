@@ -211,6 +211,10 @@ nonisolated final class VimeExtensionAudit: @unchecked Sendable {
             value["physical_mib"] = Double(info.phys_footprint) / 1_048_576
             value["resident_mib"] = Double(info.resident_size) / 1_048_576
             value["process_lifetime_peak_mib"] = Double(info.ledger_phys_footprint_peak) / 1_048_576
+            value["available_memory_mib"] = Double(os_proc_available_memory()) / 1_048_576
+            value["compressed_mib"] = Double(info.compressed) / 1_048_576
+            value["internal_mib"] = Double(info.internal) / 1_048_576
+            value["external_mib"] = Double(info.external) / 1_048_576
         }
         if let cpu = Self.processCPU() {
             value["cpu_user_seconds"] = cpu.user
