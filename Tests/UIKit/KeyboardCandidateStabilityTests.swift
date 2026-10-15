@@ -170,12 +170,15 @@ final class KeyboardCandidateStabilityTests: XCTestCase {
             engine.reset(); engine.reconcileContext(context)
             let base = engine.candidates(for: query, revision: 2, includeCorrections: false)
             let started = ProcessInfo.processInfo.systemUptime
+            var completedOrders: [[String]] = []
             let ranked = model.rerank(base, context: context, katakana: false,
-                maximumCandidates: JapaneseCandidateWorker.initialRankingCandidateLimit, cancelled: { false })
+                maximumCandidates: JapaneseCandidateWorker.initialRankingCandidateLimit,
+                onRefinement: { completedOrders.append($0.map(\.text)) }, cancelled: { false })
             print("CANDIDATE_WARM_REFERENCE \(raw) ms=\((ProcessInfo.processInfo.systemUptime - started) * 1000) slots=\(min(JapaneseCandidateWorker.initialRankingCandidateLimit, VimeLanguageModel.rerankingSlots(base, katakana: false).count)) base=\(base.prefix(3).map(\.text)) ranked=\(ranked.prefix(3).map(\.text))")
-            let refinedSlots = Set(VimeLanguageModel.rerankingSlots(base, katakana: false).prefix(JapaneseCandidateWorker.initialRankingCandidateLimit))
+            let refinedSlots = Set(CandidateCompetitionPolicy.plan(base, katakana: false,
+                maximumCandidates: JapaneseCandidateWorker.initialRankingCandidateLimit).slots)
             for index in base.indices where !refinedSlots.contains(index) {
-                XCTAssertEqual(ranked[index].presentation, base[index].presentation, "Neural refinement must not pull candidates from the dictionary tail into the top choices")
+                XCTAssertEqual(ranked[index].presentation, base[index].presentation, "Neural refinement must preserve unselected slots")
             }
             guard ranked.map(\.presentation) != base.map(\.presentation) else { continue }
             worker.reset()
@@ -183,8 +186,7 @@ final class KeyboardCandidateStabilityTests: XCTestCase {
             let ready = expectation(description: "warm neural order is the first displayed order")
             worker.candidates(for: query, katakana: false, revision: 2, leftContext: context, continuity: nil) { values, _, supplementary in
                 guard !supplementary else { return }
-                XCTAssertEqual(values.map(\.text), ranked.map(\.text))
-                XCTAssertNotEqual(values.map(\.text), base.map(\.text), "The stability policy must retain real neural ranking before display")
+                XCTAssertTrue(completedOrders.contains(values.map(\.text)), "First display must use a completed comparison within the time budget")
                 ready.fulfill()
             }
             await fulfillment(of: [ready], timeout: 5)

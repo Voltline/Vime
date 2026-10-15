@@ -36,6 +36,7 @@ nonisolated struct CandidateSnapshot: Sendable {
     var orthographyScore = 0.0
     var features = CandidateScoreFeatures()
     var userPreferenceScore = 0.0
+    var userPreferenceConfidence = 0.0
     var interpretationGain = 0.0
     var syntheticSurface: Bool { !candidate.isLearningTarget && !candidate.data.isEmpty
         && text != candidate.data.map(\.word).joined() }

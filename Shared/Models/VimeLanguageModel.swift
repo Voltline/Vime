@@ -130,6 +130,11 @@ nonisolated final class VimeLanguageModel {
     /// Exactly the frozen scorer: joint encoding, common prefix, full-vocabulary log-softmax,
     /// BOS=2, right PAD=0, summed suffix scores, no candidate-final EOS or truncation.
     func scores(context: String, candidates: [String], cancelled: () -> Bool = { false }) throws -> [Double] {
+        try scores(context: context, candidates: candidates, progress: nil, cancelled: cancelled)
+    }
+
+    private func scores(context: String, candidates: [String], progress: (([Double]) -> Void)?,
+                        cancelled: () -> Bool) throws -> [Double] {
         let started = KeyboardPerformance.start()
         defer { KeyboardPerformance.record(.lmCandidateScoring, since: started) }
         guard !candidates.isEmpty, Set(candidates.map { Data($0.utf8) }).count == candidates.count,
@@ -150,10 +155,11 @@ nonisolated final class VimeLanguageModel {
         }
         guard common >= 1, sequences.allSatisfy({ $0.count > common }) else { throw Failure.ineligible }
         let length = sequences.map { $0.count - 1 }.max()!
-        return try sequenceScores(sequences, common: common, paddedLength: length, cancelled: cancelled)
+        return try sequenceScores(sequences, common: common, paddedLength: length, progress: progress, cancelled: cancelled)
     }
 
     private func sequenceScores(_ sequences: [[Int32]], common: Int, paddedLength length: Int,
+                                progress: (([Double]) -> Void)? = nil,
                                 cancelled: () -> Bool) throws -> [Double] {
         var sums = [Double]()
         for sequence in sequences {
@@ -170,6 +176,7 @@ nonisolated final class VimeLanguageModel {
             }
             guard sum.isFinite else { throw Failure.tensor }
             sums.append(sum) // Release each candidate's full logits before the next prediction.
+            progress?(sums)
         }
         return sums
     }
@@ -181,22 +188,20 @@ nonisolated final class VimeLanguageModel {
             && values[$0].exactReading && values[$0].lexical }
     }
     func rerank(_ values: [CandidateSnapshot], context: String, katakana: Bool, maximumCandidates: Int? = nil,
+                onRefinement: (([CandidateSnapshot]) -> Void)? = nil,
                 cancelled: @escaping () -> Bool) -> [CandidateSnapshot] {
         guard !katakana, !cancelled() else { return values }
-        // Live typing limits refinement to the dictionary's strongest choices.
-        // Other callers can still score the complete eligible pool explicitly.
-        let slots = Array(Self.rerankingSlots(values, katakana: katakana).prefix(max(0, maximumCandidates ?? values.count)))
+        let plan = CandidateCompetitionPolicy.plan(values, katakana: katakana, maximumCandidates: maximumCandidates ?? 6)
+        let slots = plan.slots
         guard slots.count > 1 else { return values }
         let started = ProcessInfo.processInfo.systemUptime
         let stop = { cancelled() || ProcessInfo.processInfo.systemUptime - started > 0.250 }
-        guard let sums = try? scores(context: context, candidates: slots.map { values[$0].text }, cancelled: stop),
-              !stop() else { return values }
-        let personalized = sums.indices.map { sums[$0] + values[slots[$0]].userPreferenceScore + values[slots[$0]].features.orthography + values[slots[$0]].features.source }
-        let order = personalized.indices.sorted {
-            personalized[$0] == personalized[$1] ? $0 < $1 : personalized[$0] > personalized[$1]
-        }
         var result = values
-        for (i, slot) in slots.enumerated() { result[slot] = values[slots[order[i]]] }
+        _ = try? scores(context: context, candidates: slots.map { values[$0].text }, progress: { sums in
+            guard sums.count >= 2, !stop() else { return }
+            result = CandidateCompetitionPolicy.applying(sums, slots: slots, limit: plan.adjustmentLimit, to: values)
+            onRefinement?(result)
+        }, cancelled: stop)
         return result
     }
     struct Suggestion: Sendable {

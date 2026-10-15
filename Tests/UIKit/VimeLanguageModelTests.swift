@@ -111,7 +111,7 @@ final class VimeLanguageModelTests: XCTestCase {
                 $0.text == surface && $0.source == .conversion && $0.fullConsumption && $0.exactReading && $0.lexical
             }, surface)
             value.userPreferenceScore = 0
-            value.features.orthography = 0; value.features.source = 0
+            value.features = CandidateScoreFeatures()
             return value
         }
         let drink = try native("nomu", "飲む")

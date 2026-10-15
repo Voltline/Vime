@@ -435,6 +435,23 @@ nonisolated final class JapaneseCandidateEngine {
             if value.learningEligible || value.source == .scriptVariant || value.source == .orthographicVariant {
                 value.userPreferenceScore = preferenceMemory?.score(reading: value.reading, surface: value.text,
                     context: committedContext, scope: (value.source == .scriptVariant || value.source == .orthographicVariant) ? "style" : "conversion") ?? 0
+                if let memory = preferenceMemory {
+                    let choice = memory.choicePreference(reading: value.reading, surface: value.text, context: committedContext)
+                    var wordBonus = 0.0
+                    if value.displaySurface == nil {
+                        var left = committedContext
+                        for element in value.candidate.data {
+                            if element.ruby.count >= 2 {
+                                wordBonus = max(wordBonus, memory.choicePreference(reading: element.ruby,
+                                    surface: element.word, context: left, word: true).bonus)
+                            }
+                            left = String((left + element.word).suffix(96))
+                        }
+                    }
+                    value.userPreferenceScore = min(CandidatePreferenceMemory.Policy.maximumChoiceBonus,
+                        value.userPreferenceScore + choice.bonus + wordBonus)
+                    value.userPreferenceConfidence = choice.confidence
+                }
             }
             value.orthographyScore = JapaneseLanguageResources.shared.preference(value)
             return value
@@ -725,14 +742,24 @@ nonisolated final class JapaneseCandidateEngine {
         Double(candidate.value) / Double(max(3, candidate.data.map(\.ruby).joined().count))
     }
 
-    /// Reject upstream's presentation-only kana fallbacks, including ones used
-    /// as lattice pieces. A sentence can contain multiple real dictionary words.
+    private static let literalSeparators = CharacterSet.punctuationCharacters.union(.whitespacesAndNewlines)
+
+    /// Literal separators are neutral: upstream can encode a bracket using the
+    /// same IDs as an unknown kana fallback. Require at least one dictionary word
+    /// and continue rejecting unknown word pieces anywhere in the sentence.
     static func hasDictionaryEvidence(_ candidate: Candidate) -> Bool {
-        !candidate.data.isEmpty && candidate.data.allSatisfy { element in
+        var hasWord = false
+        for element in candidate.data {
+            if !element.word.isEmpty, element.word == element.ruby,
+               element.word.unicodeScalars.allSatisfy({ literalSeparators.contains($0) }) {
+                continue
+            }
             guard !element.ruby.isEmpty,
                   !element.ruby.unicodeScalars.contains(where: { $0.isASCII }) else { return false }
-            return element.metadata.contains(.isFromUserDictionary) || !isKanaFallback(element)
+            guard element.metadata.contains(.isFromUserDictionary) || !isKanaFallback(element) else { return false }
+            hasWord = true
         }
+        return hasWord
     }
 
     private static func isKanaFallback(_ element: DicdataElement) -> Bool {
@@ -797,7 +824,7 @@ nonisolated final class JapaneseCandidateEngine {
         }
     }
 
-    func complete(_ snapshot: CandidateSnapshot) {
+    func complete(_ snapshot: CandidateSnapshot, explicit: Bool = true) {
         completeConversionContext(snapshot)
         if snapshot.learningEligible {
             converter.updateLearningData(snapshot.candidate)
@@ -808,6 +835,7 @@ nonisolated final class JapaneseCandidateEngine {
         if !snapshot.learningEligible && (snapshot.source == .orthographicVariant || snapshot.source == .scriptVariant) {
             preferenceMemory?.record(reading: snapshot.reading, surface: snapshot.text, scope: "style")
         }
+        if explicit { recordChoice(snapshot, context: committedContext, weight: 1, now: Date()) }
         committedContext = String((committedContext + snapshot.text).suffix(96))
         contextCandidate = snapshot.lexical && snapshot.displaySurface == nil ? snapshot.candidate : nil
     }
@@ -913,6 +941,9 @@ nonisolated final class JapaneseCandidateEngine {
                 preferenceMemory?.record(reading: snapshot.reading, surface: snapshot.text, context: pending.event.context,
                     scope: (snapshot.source == .scriptVariant || snapshot.source == .orthographicVariant) ? "style" : "conversion", weight: pending.event.weight,
                     now: pending.event.selectedAt)
+                if pending.event.kind == .explicitCandidate {
+                    recordChoice(snapshot, context: pending.event.context, weight: pending.event.weight, now: pending.event.selectedAt)
+                }
             }
         } else if let nativePrediction {
             let session = learningSession ?? converter.createSession(); learningSession = session
@@ -929,6 +960,30 @@ nonisolated final class JapaneseCandidateEngine {
                 weight: pending.event.weight, now: pending.event.selectedAt)
         }
         flushLearning()
+    }
+
+    private func recordChoice(_ snapshot: CandidateSnapshot, context: String, weight: Double, now: Date) {
+        guard snapshot.learningEligible || snapshot.source == .scriptVariant || snapshot.source == .orthographicVariant else { return }
+        preferenceMemory?.record(reading: snapshot.reading, surface: snapshot.text, context: context,
+                                 scope: "choice", weight: weight, now: now)
+        // Share modest word preferences across phrases. Never teach transformed
+        // display text as if it were the native word segmentation.
+        guard snapshot.learningEligible else { return }
+        var left = context
+        var seen = Set<String>()
+        var recorded = 0
+        for element in snapshot.candidate.data {
+            let key = element.ruby + "\0" + element.word
+            if recorded < 6, element.ruby.count >= 2,
+               element.ruby != snapshot.reading, seen.insert(key).inserted,
+               element.metadata.contains(.isFromUserDictionary) || !Self.isKanaFallback(element),
+               !element.word.unicodeScalars.allSatisfy({ Self.literalSeparators.contains($0) }) {
+                preferenceMemory?.record(reading: element.ruby, surface: element.word, context: left,
+                                         scope: "wordChoice", weight: weight, now: now)
+                recorded += 1
+            }
+            left = String((left + element.word).suffix(96))
+        }
     }
 
     func flushLearning() {

@@ -18,6 +18,10 @@ nonisolated final class CandidatePreferenceMemory {
         static let maximumFileBytes = 4 * 1024 * 1024
         static let maximumRememberedSuggestions = 3
         static let historyAdmissionMargin = 3.0 // LogP gap from best generated word; history must be LM-compatible.
+        static let maximumChoiceBonus = 6.0
+        static func rankingBonus(score: Double, confidence: Double) -> Double {
+            score * classicWeight + (confidence >= 0.65 ? 3 * confidence : 0)
+        }
     }
     private struct Entry: Codable {
         var scope: String
@@ -95,7 +99,7 @@ nonisolated final class CandidatePreferenceMemory {
         throw PersistenceFailure.invalidArchive
     }
     private func valid(_ e: Entry) -> Bool {
-        ["conversion", "style", "nextWord"].contains(e.scope) && e.evidence.isFinite
+        ["conversion", "style", "nextWord", "choice", "wordChoice"].contains(e.scope) && e.evidence.isFinite
             && e.evidence > 0 && e.evidence <= 1000 && (1...1000).contains(e.confirmations)
             && e.selectedAt.isFinite && !e.surface.isEmpty && e.surface.count <= 64
             && e.context.count <= 96 && e.reading.count <= 96
@@ -190,6 +194,40 @@ nonisolated final class CandidatePreferenceMemory {
     func score(reading: String, surface: String, context: String = "", scope: String = "conversion", now: Date = Date()) -> Double {
         min(Policy.maximumBonus, persistentScore(scope: scope, reading: reading, surface: surface, context: context, now: now)
             + recentScore(scope: scope, reading: reading, surface: surface, context: context, now: now))
+    }
+
+    struct ChoicePreference {
+        var bonus = 0.0
+        var confidence = 0.0
+    }
+
+    /// Deliberate selections have their own evidence, separate from accepting
+    /// the default result. Existing archives and weak automatic feedback keep
+    /// their original interpretation. Context keys remain hashed on disk.
+    func choicePreference(reading: String, surface: String, context: String, word: Bool = false,
+                          now: Date = Date()) -> ChoicePreference {
+        let scope = word ? "wordChoice" : "choice"
+        let global = rows(scope: scope, reading: reading, context: "")
+        let evidence = global[surface].map { effective($0, now: now) } ?? 0
+        guard evidence > 0 else { return ChoicePreference() }
+        var bonus = min(4, 2.4 * log1p(evidence))
+        var confidence = 0.0
+        let local = context.isEmpty ? global : rows(scope: scope, reading: reading, context: contextKey(context))
+        let support = local[surface].map { effective($0, now: now) } ?? 0
+        if !context.isEmpty { bonus += min(2, 1.5 * log1p(support)) }
+        if support > 0 {
+            let total = local.values.reduce(0) { $0 + effective($1, now: now) }
+            let otherLatest = local.filter { $0.key != surface }.values.map(\.selectedAt).max() ?? -.infinity
+            let selectedAt = local[surface]!.selectedAt
+            // A new correction must be able to replace an old habit. Counts
+            // still supply strength, while the latest deliberate choice decides
+            // which surface may claim protection in this context.
+            if selectedAt > otherLatest { confidence = min(1, support / 2) }
+            else if selectedAt == otherLatest { confidence = min(1, support / 2) * support / max(support, total) }
+            else { bonus *= 0.25 }
+        }
+        return ChoicePreference(bonus: word ? min(1.5, bonus * 0.35) : min(Policy.maximumChoiceBonus, bonus),
+                                confidence: word ? 0 : confidence)
     }
     func recordNextWord(_ text: String, context: String, weight: Double = 1, now: Date = Date()) {
         guard !context.isEmpty else { return }

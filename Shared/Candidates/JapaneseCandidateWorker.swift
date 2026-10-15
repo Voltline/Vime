@@ -11,7 +11,7 @@ final class JapaneseCandidateWorker {
     // Neural ranking can participate before the first display, but never hold
     // dictionary candidates behind a cold model or a long scoring request.
     nonisolated static let initialRankingWindow: TimeInterval = 0.040
-    nonisolated static let initialRankingCandidateLimit = 3
+    nonisolated static let initialRankingCandidateLimit = 6
 
     nonisolated struct ResourceState: Equatable, Sendable {
         let engineLoaded: Bool
@@ -97,13 +97,20 @@ final class JapaneseCandidateWorker {
         private let lock = NSLock()
         private var cancelled = false
         private var initiallyPublished = false
-        func cancel() { lock.lock(); cancelled = true; lock.unlock() }
+        private var refinement: [CandidateSnapshot]?
+        func cancel() { lock.lock(); cancelled = true; refinement = nil; lock.unlock() }
         var isCancelled: Bool { lock.lock(); defer { lock.unlock() }; return cancelled }
-        func claimInitialPublication() -> Bool {
+        func refine(_ values: [CandidateSnapshot], before deadline: TimeInterval) {
             lock.lock(); defer { lock.unlock() }
-            guard !cancelled, !initiallyPublished else { return false }
+            guard !cancelled, !initiallyPublished, ProcessInfo.processInfo.systemUptime < deadline else { return }
+            refinement = values
+        }
+        func claimInitialPublication(fallback: [CandidateSnapshot]) -> [CandidateSnapshot]? {
+            lock.lock(); defer { lock.unlock() }
+            guard !cancelled, !initiallyPublished else { return nil }
             initiallyPublished = true
-            return true
+            defer { refinement = nil }
+            return refinement ?? fallback
         }
     }
     // Drain Foundation/Core ML temporaries at every request, including cancelled
@@ -137,15 +144,15 @@ final class JapaneseCandidateWorker {
             // displace dictionary evidence or a word the user has just taught us.
             let sentence = VimeLanguageModel.sentenceContext(leftContext ?? "")
             let neuralRanking = ranking == .languageModel && !sentence.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                && VimeLanguageModel.rerankingSlots(values, katakana: katakana).count > 1
+                && CandidateCompetitionPolicy.plan(values, katakana: katakana, maximumCandidates: Self.initialRankingCandidateLimit).slots.count > 1
             let initialDeadline = ProcessInfo.processInfo.systemUptime + Self.initialRankingWindow
             if neuralRanking {
                 DispatchQueue.main.asyncAfter(deadline: .now() + Self.initialRankingWindow) {
-                    if request.claimInitialPublication() { completion(values, readyAt, false) }
+                    if let result = request.claimInitialPublication(fallback: values) { completion(result, readyAt, false) }
                 }
             } else {
                 DispatchQueue.main.async {
-                    if request.claimInitialPublication() { completion(values, readyAt, false) }
+                    if let result = request.claimInitialPublication(fallback: values) { completion(result, readyAt, false) }
                 }
             }
             // New input cancels supplementary work. Neural ranking gets one
@@ -160,21 +167,19 @@ final class JapaneseCandidateWorker {
                     // the timer still publishes promptly and later input uses the warm model.
                     let model = storage.languageModel
                     guard !request.isCancelled else { return }
-                    let ranked = model?.rerank(values, context: sentence,
-                        katakana: katakana, maximumCandidates: Self.initialRankingCandidateLimit, cancelled: {
+                    _ = model?.rerank(values, context: sentence,
+                        katakana: katakana, maximumCandidates: Self.initialRankingCandidateLimit, onRefinement: {
+                            request.refine($0, before: initialDeadline)
+                        }, cancelled: {
                             request.isCancelled || LanguageModelStorage.shared.isSuspended
                                 || ProcessInfo.processInfo.systemUptime >= initialDeadline
                         }) ?? values
                     let rankedReadyAt = KeyboardPerformance.start()
                     DispatchQueue.main.async {
-                        guard request.claimInitialPublication() else { return }
-                        // Main-thread congestion must not let a late neural result
-                        // win the race against the dictionary fallback timer.
-                        if ProcessInfo.processInfo.systemUptime < initialDeadline {
-                            completion(ranked, rankedReadyAt, false)
-                        } else {
-                            completion(values, readyAt, false)
-                        }
+                        // The timer and this callback use only refinements
+                        // completed within the window, including partial work.
+                        guard let result = request.claimInitialPublication(fallback: values) else { return }
+                        completion(result, rankedReadyAt, false)
                     }
                 }
                 let formatted = expanded
@@ -262,11 +267,11 @@ final class JapaneseCandidateWorker {
         queue.async { storage.engine.resolveFeedback(id, accepted: accepted) }
     }
 
-    func complete(_ candidate: CandidateSnapshot) {
+    func complete(_ candidate: CandidateSnapshot, explicit: Bool = true) {
         let storage = self.storage
         let queue = self.queue
         queue.async {
-            storage.engine.complete(candidate)
+            storage.engine.complete(candidate, explicit: explicit)
             // Persistence occurs on confirmation boundaries, never on keystrokes.
             queue.async { storage.flushCachedLearning() }
         }

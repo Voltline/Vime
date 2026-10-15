@@ -243,7 +243,8 @@ final class KeyboardSession: KeyboardInputSession {
             worker?.stageSelection(snapshot, event: event)
         } else if learningContextProvider == nil {
             // Trusted/headless conversion clients have no host receipt contract.
-            engine?.complete(snapshot); worker?.complete(snapshot)
+            engine?.complete(snapshot, explicit: feedbackKind == .explicitCandidate)
+            worker?.complete(snapshot, explicit: feedbackKind == .explicitCandidate)
         } else {
             // Redacted context still completes conversion, without learning.
             let event = CandidateLearningFeedback(id: UUID(), kind: feedbackKind, rank: index,

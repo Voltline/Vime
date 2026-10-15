@@ -58,8 +58,9 @@ nonisolated struct CandidateScoreFeatures: Codable, Sendable {
     var orthography = 0.0
     var segmentation = 0.0
     var source = 0.0
+    var languageModel = 0.0
     var total: Double { engine + exactReading + fullConsumption + script
-        + predictionOverrun + interpretationEvidence + continuity + userLearning + context + typoCost + orthography + segmentation + source }
+        + predictionOverrun + interpretationEvidence + continuity + userLearning + context + typoCost + orthography + segmentation + source + languageModel }
 }
 
 nonisolated struct CandidateContinuity: Sendable {
@@ -140,7 +141,9 @@ nonisolated struct CandidateReranker {
                 f.continuity = weights.continuity
             }
             f.context = max(-weights.contextLimit, min(weights.contextLimit, context(value) * weights.context))
-            f.userLearning = value.userPreferenceScore * CandidatePreferenceMemory.Policy.classicWeight
+            f.userLearning = CandidatePreferenceMemory.Policy.rankingBonus(
+                score: katakana ? min(CandidatePreferenceMemory.Policy.maximumBonus, value.userPreferenceScore) : value.userPreferenceScore,
+                confidence: katakana ? 0 : value.userPreferenceConfidence)
             value.features = f
             return value
         }
