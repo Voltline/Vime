@@ -44,6 +44,8 @@ final class KeyboardPresentationTests: XCTestCase {
                         XCTAssertEqual(input.systemLayoutSizeFitting(proposed).height, expected, accuracy: 0.001)
                         XCTAssertEqual(input.systemLayoutSizeFitting(proposed, withHorizontalFittingPriority: .required,
                             verticalFittingPriority: .required).height, expected, accuracy: 0.001)
+                        XCTAssertEqual(input.systemLayoutSizeFitting(CGSize(width: 0, height: staleHeight)).height,
+                            expected, accuracy: 0.001, "A compressed probe uses the root's current width")
                     }
                 }
             }
@@ -91,6 +93,39 @@ final class KeyboardPresentationTests: XCTestCase {
         let height = try XCTUnwrap(input.constraints.first { $0.identifier == "vime.keyboard.height" })
         XCTAssertTrue(height.isActive)
         XCTAssertEqual(height.constant, keyboard.preferredHeight(for: input.bounds.width), accuracy: 0.001)
+    }
+
+    func testHiddenRootKeepsAnExplicitHeightThroughoutHostMeasurement() throws {
+        let controller = KeyboardViewController()
+        controller.loadViewIfNeeded()
+        let input = try XCTUnwrap(controller.inputView as? KeyboardInputView)
+        let keyboard = try XCTUnwrap(input.keyboard)
+        input.bounds.size = CGSize(width: 440, height: 224)
+        keyboard.heightFactor = 1.6
+        let expected = keyboard.preferredHeight(for: 440)
+        let height = try XCTUnwrap(input.constraints.first { $0.identifier == "vime.keyboard.height" })
+        controller.viewWillDisappear(false)
+        controller.viewDidDisappear(false)
+        // The host can lay out its retained root before sending another
+        // appearance callback. Releasing the content must not release sizing.
+        XCTAssertTrue(height.isActive, "A retained input must remain explicitly sized while hidden")
+        XCTAssertEqual(height.constant, expected, accuracy: 0.001)
+        let wrapper = UIView()
+        input.translatesAutoresizingMaskIntoConstraints = false
+        wrapper.addSubview(input)
+        let previousHeight = wrapper.heightAnchor.constraint(equalToConstant: 224)
+        previousHeight.priority = .init(751)
+        NSLayoutConstraint.activate([
+            input.topAnchor.constraint(equalTo: wrapper.topAnchor),
+            input.bottomAnchor.constraint(equalTo: wrapper.bottomAnchor),
+            input.leadingAnchor.constraint(equalTo: wrapper.leadingAnchor),
+            input.trailingAnchor.constraint(equalTo: wrapper.trailingAnchor), previousHeight
+        ])
+        let measured = wrapper.systemLayoutSizeFitting(CGSize(width: 440, height: 0),
+            withHorizontalFittingPriority: .required, verticalFittingPriority: .fittingSizeLevel)
+        XCTAssertEqual(measured.height, expected, accuracy: 1 / input.traitCollection.displayScale,
+            "A wrapper's old height must not outrank the hidden root's sizing contract")
+        XCTAssertNil(input.keyboard)
     }
 
     func testPortraitFitsShortReconnectFrameAndKeepsBottomRowHittable() throws {

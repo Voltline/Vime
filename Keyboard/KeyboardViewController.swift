@@ -7,8 +7,6 @@ class KeyboardViewController: UIInputViewController {
     private let synchronizationLog = Logger(subsystem: "com.Voltline.Vime", category: "CompositionSync")
     private let lifecycleLog = Logger(subsystem: "com.Voltline.Vime", category: "ExtensionLifecycle")
     private let startedAt = ProcessInfo.processInfo.systemUptime
-    private var heightConstraint: NSLayoutConstraint?
-    private var keyboardAttached = false
     private var knownDocument: String?
     private var knownBefore: String?
     private var knownAfter: String?
@@ -27,7 +25,8 @@ class KeyboardViewController: UIInputViewController {
         undoAnchor: { [weak self] in self?.deletionUndoAnchor() }
     )
 
-    override func loadView() { inputView = KeyboardInputView.acquire(keyboard: keyboard, owner: self) }
+    // A retained input root belongs to its original controller/host connection.
+    override func loadView() { inputView = KeyboardInputView(keyboard: keyboard) }
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -38,14 +37,6 @@ class KeyboardViewController: UIInputViewController {
         keyboard.hasFullAccess = hasFullAccess
         keyboard.showsFooter = needsInputModeSwitchKey
         keyboard.needsGlobe = needsInputModeSwitchKey
-        attachKeyboardIfNeeded()
-        // Seed the host with the actual preferred height, including the saved
-        // factor/footer, rather than a different temporary keyboard height.
-        let height = view.heightAnchor.constraint(equalToConstant: keyboard.preferredHeight(for: view.bounds.width))
-        height.identifier = "vime.keyboard.height"
-        height.priority = .init(999)
-        height.isActive = true
-        heightConstraint = height
         keyboard.inputModeListAction = #selector(switchInputMode(_:event:))
         keyboard.inputModeListTarget = self
         keyboard.leftContextProvider = { [weak self] in
@@ -78,31 +69,20 @@ class KeyboardViewController: UIInputViewController {
         keyboard.onSwitchKeyboard = { [weak self] in self?.advanceToNextInputMode() }
         keyboard.onDismiss = { [weak self] in self?.dismissKeyboard() }
         host.onUndoAvailabilityChange = { [weak self] in self?.keyboard.canUndoLineDeletion = $0 }
-        keyboard.onHeightChange = { [weak self] in self?.updatePreferredHeight() }
     }
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        attachKeyboardIfNeeded()
-        heightConstraint?.isActive = true
+        keyboard.reloadHeightPreference()
+        (inputView as? KeyboardInputView)?.attachKeyboard(keyboard)
         logLifecycle("appearing")
         VimeExtensionAudit.recordLifecycle(event: .viewWillAppear)
         host.abandon()
         keyboard.resetComposition()
         keyboard.hasFullAccess = hasFullAccess
-        keyboard.reloadHeightPreference()
         updateKeyboardGeometry()
         updateTraits()
         rememberContext()
-    }
-
-    override func viewIsAppearing(_ animated: Bool) {
-        super.viewIsAppearing(animated)
-        // The host's final width and scene are available here, after the early
-        // reconnect measurement. Reissue the size even if its constant matches.
-        updateKeyboardGeometry()
-        view.invalidateIntrinsicContentSize()
-        view.setNeedsLayout()
     }
 
     override func viewWillLayoutSubviews() {
@@ -115,16 +95,7 @@ class KeyboardViewController: UIInputViewController {
         keyboard.compact = traitCollection.userInterfaceIdiom == .phone && landscape
         keyboard.showsFooter = needsInputModeSwitchKey
         keyboard.needsGlobe = needsInputModeSwitchKey
-        updatePreferredHeight()
-    }
-
-    private func updatePreferredHeight() {
-        let preferred = keyboard.preferredHeight(for: view.bounds.width)
-        if heightConstraint?.constant != preferred {
-            heightConstraint?.constant = preferred
-            view.invalidateIntrinsicContentSize()
-            view.setNeedsLayout()
-        }
+        (inputView as? KeyboardInputView)?.refreshSizing()
     }
 
     override func viewWillDisappear(_ animated: Bool) {
@@ -140,28 +111,11 @@ class KeyboardViewController: UIInputViewController {
     override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
         keyboard.releaseInactiveResources()
-        heightConstraint?.isActive = false
         if let input = inputView as? KeyboardInputView {
             input.detachKeyboard()
-            input.offerForReuse()
         }
-        keyboardAttached = false
         VimeExtensionAudit.recordLifecycle(event: .viewDidDisappear)
         logLifecycle("hidden-cleanup-enqueued")
-    }
-
-    private func attachKeyboardIfNeeded() {
-        guard !keyboardAttached || keyboard.superview !== view else { return }
-        keyboard.translatesAutoresizingMaskIntoConstraints = false
-        if let input = inputView as? KeyboardInputView { input.attachKeyboard(keyboard) }
-        else { view.addSubview(keyboard) }
-        NSLayoutConstraint.activate([
-            keyboard.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            keyboard.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            keyboard.topAnchor.constraint(equalTo: view.topAnchor),
-            keyboard.bottomAnchor.constraint(equalTo: view.bottomAnchor)
-        ])
-        keyboardAttached = true
     }
 
     override func didReceiveMemoryWarning() {

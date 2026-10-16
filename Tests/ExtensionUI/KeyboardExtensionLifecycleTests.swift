@@ -4,12 +4,37 @@ import XCTest
 /// first responder, verifies disappearance, then focuses and types again.
 @MainActor
 final class KeyboardExtensionLifecycleTests: XCTestCase {
+    override func setUp() {
+        super.setUp()
+#if targetEnvironment(simulator)
+        // Match Appium's simulator fixture: a headless device can otherwise
+        // focus its editor while automatically minimizing every software keyboard.
+        // This private API is confined to the UI test runner, never the app/extension.
+        guard let keyboardClass = NSClassFromString("UIKeyboardImpl") else { return }
+        let factory: AnyObject = keyboardClass
+        guard let keyboard = factory.perform(NSSelectorFromString("sharedInstance"))?.takeUnretainedValue() as? NSObject else { return }
+        typealias SetFlag = @convention(c) (AnyObject, Selector, Bool) -> Void
+        for (name, value) in [("setAutomaticMinimizationEnabled:", false), ("setSoftwareKeyboardShownByTouch:", true)] {
+            let selector = NSSelectorFromString(name)
+            if keyboard.responds(to: selector) {
+                unsafeBitCast(keyboard.method(for: selector), to: SetFlag.self)(keyboard, selector, value)
+            }
+        }
+#endif
+    }
+
     private func selectVimeKeyboard(in app: XCUIApplication) throws {
         let key = app.buttons["vime.key.h"]
         if key.waitForExistence(timeout: 2) { return }
         let globe = app.buttons.matching(NSPredicate(format: "label IN %@",
             ["Next keyboard", "下一键盘", "下一个键盘", "切换系统键盘", "次のキーボード"] as NSArray)).firstMatch
-        XCTAssertTrue(globe.waitForExistence(timeout: 5))
+        let hasGlobe = globe.waitForExistence(timeout: 5)
+        if !hasGlobe {
+            print("KEYBOARD_STARTUP_FAILURE \(app.debugDescription)")
+            let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+            attachment.name = "keyboard-startup-failure"; attachment.lifetime = .keepAlways; add(attachment)
+        }
+        XCTAssertTrue(hasGlobe)
         // A tap can alternate recently used keyboards instead of walking every
         // enabled input mode. Select the extension explicitly from the menu.
         globe.press(forDuration: 1)
@@ -73,8 +98,9 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
         XCTAssertEqual(first.label, "候选词：箸")
     }
 
-    func testPortraitHeightPreferenceSurvivesReconnectAndRotation() throws {
+    func testPortraitHeightPreferenceSurvivesReconnectRotationAndKeyboardSwitch() throws {
         continueAfterFailure = false
+        executionTimeAllowance = 600
         let app = XCUIApplication()
         XCUIDevice.shared.orientation = .portrait
         defer {
@@ -101,23 +127,59 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
                 XCTAssertGreaterThan(height - (try XCTUnwrap(shortHeight)), 100,
                     "The saved tall preference must resize the installed extension, not just its preview")
             }
-            for round in 0..<3 {
+            for round in 0..<6 {
                 if round == 1 {
                     XCUIDevice.shared.orientation = .landscapeLeft
                     XCTAssertTrue(app.buttons["vime.key.return"].waitForExistence(timeout: 5))
                     XCUIDevice.shared.orientation = .portrait
                 }
-                app.buttons["vime.extension.dismiss"].tap()
+                if round == 3 {
+                    let globe = app.buttons.matching(NSPredicate(format: "label IN %@",
+                        ["Next keyboard", "下一键盘", "下一个键盘", "切换系统键盘", "次のキーボード"] as NSArray)).firstMatch
+                    XCTAssertTrue(globe.exists)
+                    globe.tap()
+                    XCTAssertTrue(app.buttons["vime.key.h"].waitForNonExistence(timeout: 5))
+                    try selectVimeKeyboard(in: app)
+                }
+                // Tall landscape keyboards can cover the host's controls.
+                // Exercise the keyboard's own dismissal action instead.
+                app.buttons["vime.candidates.expand"].tap()
                 XCTAssertTrue(app.buttons["vime.key.h"].waitForNonExistence(timeout: 5))
-                app.buttons["vime.extension.focus"].tap()
-                XCTAssertTrue(app.buttons["vime.key.h"].waitForExistence(timeout: 5))
+                if round == 4 {
+                    // Change orientation while the root has no keyboard tree.
+                    XCUIDevice.shared.orientation = .landscapeRight
+                    editor.tap()
+                    XCTAssertTrue(app.buttons["vime.key.h"].waitForExistence(timeout: 5))
+                    app.buttons["vime.candidates.expand"].tap()
+                    XCTAssertTrue(app.buttons["vime.key.h"].waitForNonExistence(timeout: 5))
+                    XCUIDevice.shared.orientation = .portrait
+                }
+                editor.tap()
+                let reopened = app.buttons["vime.key.h"].waitForExistence(timeout: 5)
+                if !reopened {
+                    print("VIME_HEIGHT_RECONNECT_FAILURE factor=\(factor) round=\(round) \(app.debugDescription)")
+                    let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+                    attachment.name = "height-reconnect-failure"; attachment.lifetime = .keepAlways; add(attachment)
+                }
+                XCTAssertTrue(reopened)
                 let stableHeight = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
                     abs(root.frame.height - height) < 1
                 }, object: root)
                 XCTAssertEqual(XCTWaiter.wait(for: [stableHeight], timeout: 5), .completed,
                     "Reconnecting after rotation must restore the saved portrait height")
                 XCTAssertTrue(app.buttons["vime.key.return"].isHittable)
+                print("VIME_HEIGHT_RECONNECT factor=\(factor) round=\(round) input=\(root.frame)")
             }
+            // Check background restoration last: on some simulator runtimes
+            // subsequent synthesized taps wait for a missing animation notice.
+            XCUIDevice.shared.press(.home)
+            app.activate()
+            XCTAssertTrue(app.buttons["vime.key.h"].waitForExistence(timeout: 5))
+            let resumedHeight = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                abs(root.frame.height - height) < 1
+            }, object: root)
+            XCTAssertEqual(XCTWaiter.wait(for: [resumedHeight], timeout: 5), .completed)
+            print("VIME_HEIGHT_BACKGROUND factor=\(factor) input=\(root.frame)")
         }
     }
 

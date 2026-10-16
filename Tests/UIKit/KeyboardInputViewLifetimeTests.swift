@@ -42,7 +42,9 @@ final class KeyboardInputViewLifetimeTests: XCTestCase {
         input.layoutIfNeeded()
         XCTAssertTrue(keyboard.superview === input)
         XCTAssertTrue(input.keyboard === keyboard)
-        XCTAssertEqual(keyboard.frame, input.bounds)
+        XCTAssertEqual(keyboard.frame.origin, input.bounds.origin)
+        XCTAssertEqual(keyboard.frame.width, input.bounds.width)
+        XCTAssertEqual(keyboard.frame.height, input.bounds.height, accuracy: 1 / input.traitCollection.displayScale)
         XCTAssertEqual(input.intrinsicContentSize.height, keyboard.intrinsicContentSize.height)
     }
 
@@ -84,7 +86,7 @@ final class KeyboardInputViewLifetimeTests: XCTestCase {
         }
     }
 
-    func testRepeatedControllerCallbacksKeepExactlyOneSetOfEdgeConstraints() throws {
+    func testRepeatedControllerCallbacksKeepOneSetOfRootOwnedConstraints() throws {
         let controller = KeyboardViewController()
         controller.loadViewIfNeeded()
         let input = try XCTUnwrap(controller.inputView as? KeyboardInputView)
@@ -96,7 +98,8 @@ final class KeyboardInputViewLifetimeTests: XCTestCase {
             controller.viewWillAppear(false)
             controller.viewWillAppear(false)
             XCTAssertTrue(input.keyboard === keyboard)
-            XCTAssertEqual(edges().count, 4)
+            XCTAssertEqual(edges().count, 4, "The input root owns the child's layout")
+            XCTAssertEqual(input.constraints.filter { $0.identifier == "vime.keyboard.height" }.count, 1)
             // A cancelled disappearance never reaches didDisappear.
             controller.viewWillDisappear(false)
             controller.viewWillDisappear(false)
@@ -109,6 +112,8 @@ final class KeyboardInputViewLifetimeTests: XCTestCase {
             XCTAssertNil(input.keyboard)
             XCTAssertNil(keyboard.superview)
             XCTAssertTrue(edges().isEmpty)
+            XCTAssertEqual(input.constraints.filter { $0.identifier == "vime.keyboard.height" }.count, 1,
+                "Releasing the child must preserve the root's sizing constraint")
         }
         controller.viewWillAppear(false)
         XCTAssertEqual(edges().count, 4)
@@ -132,46 +137,15 @@ final class KeyboardInputViewLifetimeTests: XCTestCase {
             XCTAssertEqual(height.constant, keyboard.preferredHeight(for: width))
             input.bounds.size.height = height.constant
             input.setNeedsLayout(); input.layoutIfNeeded()
-            XCTAssertEqual(keyboard.frame, input.bounds)
+            XCTAssertEqual(keyboard.frame.origin, input.bounds.origin)
+            XCTAssertEqual(keyboard.frame.width, input.bounds.width)
+            XCTAssertEqual(keyboard.frame.height, input.bounds.height, accuracy: 1 / input.traitCollection.displayScale)
             XCTAssertFalse(keyboard.bounds.isEmpty)
             XCTAssertTrue(input.keyboard === keyboard)
         }
     }
 
-    func testRetiredRootCanBeReusedOnlyAfterItsControllerIsReleased() {
-        var owner: UIViewController? = UIViewController()
-        let firstKeyboard = KeyboardView(frame: .zero, session: KeyboardSession())
-        let input = KeyboardInputView.acquire(keyboard: firstKeyboard, owner: owner!)
-        input.detachKeyboard(); input.offerForReuse()
-        let nextOwner = UIViewController()
-        let nextKeyboard = KeyboardView(frame: .zero, session: KeyboardSession())
-        let whileOwned = KeyboardInputView.acquire(keyboard: nextKeyboard, owner: nextOwner)
-        XCTAssertFalse(whileOwned === input, "A hidden but live controller can still reappear")
-        owner = nil
-        let replacementOwner = UIViewController()
-        let replacementKeyboard = KeyboardView(frame: .zero, session: KeyboardSession())
-        let recycled = KeyboardInputView.acquire(keyboard: replacementKeyboard, owner: replacementOwner)
-        XCTAssertTrue(recycled === input)
-        XCTAssertTrue(recycled.keyboard === replacementKeyboard)
-        XCTAssertTrue(replacementKeyboard.superview === recycled)
-        XCTAssertNil(firstKeyboard.superview)
-    }
-
-    func testRetiredRootStillInAViewHierarchyCannotBeReused() {
-        let parent = UIView()
-        var owner: UIViewController? = UIViewController()
-        let input = KeyboardInputView.acquire(keyboard: KeyboardView(frame: .zero, session: KeyboardSession()), owner: owner!)
-        input.detachKeyboard(); input.offerForReuse()
-        owner = nil
-        parent.addSubview(input)
-        let replacementOwner = UIViewController()
-        let replacement = KeyboardInputView.acquire(keyboard: KeyboardView(frame: .zero, session: KeyboardSession()), owner: replacementOwner)
-        XCTAssertFalse(replacement === input)
-        XCTAssertTrue(input.superview === parent)
-        input.removeFromSuperview()
-    }
-
-    func testNewControllerReusesRetiredRootWithoutKeepingOldHeightConstraint() async throws {
+    func testNewControllerGetsIndependentSizingWhileOldHostRetainsItsRoot() async throws {
         weak var previous: KeyboardViewController?
         let (input, oldHeight) = try autoreleasepool {
             let controller = KeyboardViewController()
@@ -179,24 +153,31 @@ final class KeyboardInputViewLifetimeTests: XCTestCase {
             controller.loadViewIfNeeded()
             let input = try XCTUnwrap(controller.inputView as? KeyboardInputView)
             let height = try XCTUnwrap(input.constraints.first { $0.identifier == "vime.keyboard.height" })
+            input.keyboard?.heightFactor = 0.85
             controller.beginAppearanceTransition(true, animated: false)
             controller.endAppearanceTransition()
             controller.beginAppearanceTransition(false, animated: false)
             controller.endAppearanceTransition()
             return (input, height)
         }
-        XCTAssertFalse(oldHeight.isActive)
+        XCTAssertTrue(oldHeight.isActive)
         let released = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in previous == nil }, object: nil)
         await fulfillment(of: [released], timeout: 5)
-        XCTAssertNil(previous, "Do not test reuse until UIKit has released the previous controller")
+        XCTAssertNil(previous, "The old host may retain its root after releasing the controller")
         let replacement = KeyboardViewController()
         replacement.loadViewIfNeeded()
         replacement.viewWillAppear(false)
-        XCTAssertTrue(replacement.inputView === input)
-        let heights = input.constraints.filter { $0.identifier == "vime.keyboard.height" }
+        let replacementInput = try XCTUnwrap(replacement.inputView as? KeyboardInputView)
+        XCTAssertFalse(replacementInput === input, "UIKit roots must not move between controller/host connections")
+        let keyboard = try XCTUnwrap(replacementInput.keyboard)
+        let previousHeight = oldHeight.constant
+        keyboard.heightFactor = 1.6
+        let heights = replacementInput.constraints.filter { $0.identifier == "vime.keyboard.height" }
         XCTAssertEqual(heights.count, 1)
         XCTAssertTrue(heights[0].isActive)
         XCTAssertFalse(heights[0] === oldHeight)
-        XCTAssertNotNil(input.keyboard)
+        XCTAssertEqual(heights[0].constant, keyboard.preferredHeight(for: replacementInput.bounds.width), accuracy: 0.001)
+        XCTAssertEqual(oldHeight.constant, previousHeight, "An old root keeps only its own sizing state")
+        XCTAssertNil(input.keyboard)
     }
 }

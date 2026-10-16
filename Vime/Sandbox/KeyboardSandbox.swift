@@ -42,8 +42,7 @@ struct KeyboardSandbox: UIViewRepresentable {
         )
         context.coordinator.host?.onUndoAvailabilityChange = { [weak keyboard] in keyboard?.canUndoLineDeletion = $0 }
         keyboard.onHeightChange = { [weak input, weak view] in
-            input?.invalidateIntrinsicContentSize()
-            input?.setNeedsLayout()
+            input?.refreshSizing()
             view?.reloadInputViews()
         }
         keyboard.leftContextProvider = { [weak view] in

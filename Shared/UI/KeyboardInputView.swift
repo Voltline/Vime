@@ -3,105 +3,96 @@ import UIKit
 /// The actual input view must enable Apple's standard input clicks, rather than
 /// only a descendant view. Used by both the keyboard extension and the sandbox.
 final class KeyboardInputView: UIInputView, UIInputViewAudioFeedback {
-    private final class WeakInputView {
-        weak var value: KeyboardInputView?
-        init(_ value: KeyboardInputView) { self.value = value }
-    }
-    // A weak, bounded pool lets a subsequent controller reuse a retired root
-    // if UIKit keeps its private input-view wrappers alive. Never move a root
-    // away from a live controller, window or superview.
-    private static var retiredInputs: [WeakInputView] = []
-    private weak var owningController: UIViewController?
-
-    static func acquire(keyboard: KeyboardView, owner: UIViewController) -> KeyboardInputView {
-        retiredInputs.removeAll { $0.value == nil }
-        if let index = retiredInputs.firstIndex(where: {
-            guard let input = $0.value else { return false }
-            return input.owningController == nil && input.keyboard == nil
-                && input.window == nil && input.superview == nil
-        }), let input = retiredInputs.remove(at: index).value {
-            input.owningController = owner
-            input.attachKeyboard(keyboard)
-            return input
-        }
-        let input = KeyboardInputView(keyboard: keyboard)
-        input.owningController = owner
-        return input
-    }
-
-    func offerForReuse() {
-        guard keyboard == nil, !Self.retiredInputs.contains(where: { $0.value === self }) else { return }
-        Self.retiredInputs.removeAll { $0.value == nil }
-        if Self.retiredInputs.count == 2 { Self.retiredInputs.removeFirst() }
-        Self.retiredInputs.append(WeakInputView(self))
-    }
     // UIKit can retain old input views after their controller is deallocated.
     // The subview hierarchy owns the keyboard only while it is attached.
     private(set) weak var keyboard: KeyboardView?
-    // Hosts can measure a retired input before viewWillAppear reattaches its
-    // contents. Retain only scalar geometry so that releasing the keyboard
-    // hierarchy does not turn the next fitting request into a default height.
-    private var detachedMetrics: KeyboardMetrics?
+    // Sizing belongs to the root for its entire lifetime, including periods
+    // without content or a controller. UIKit can measure a retained root via
+    // its own wrapper rather than calling our fitting override directly.
+    private var sizing: KeyboardMetrics
+    private var heightConstraint: NSLayoutConstraint?
     var enableInputClicksWhenVisible: Bool { keyboard?.enableInputClicksWhenVisible ?? false }
 
     init(keyboard: KeyboardView) {
-        self.keyboard = keyboard
-        super.init(frame: CGRect(origin: .zero, size: CGSize(width: keyboard.bounds.width,
-            height: keyboard.preferredHeight(for: keyboard.bounds.width))), inputViewStyle: .keyboard)
+        sizing = KeyboardMetrics(width: keyboard.bounds.width > 0 ? keyboard.bounds.width : 440,
+            compact: keyboard.compact, showsFooter: keyboard.showsFooter, heightFactor: keyboard.heightFactor)
+        super.init(frame: CGRect(origin: .zero, size: CGSize(width: sizing.width, height: sizing.height)),
+            inputViewStyle: .keyboard)
         allowsSelfSizing = true
+        let height = heightAnchor.constraint(equalToConstant: sizing.height)
+        height.identifier = "vime.keyboard.height"
+        height.priority = .init(999)
+        height.isActive = true
+        heightConstraint = height
         attachKeyboard(keyboard)
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
     func attachKeyboard(_ keyboard: KeyboardView) {
+        if let previous = self.keyboard, previous !== keyboard {
+            previous.onHeightChange = nil
+            previous.removeFromSuperview()
+        }
         self.keyboard = keyboard
-        detachedMetrics = nil
-        if keyboard.superview !== self { addSubview(keyboard) }
+        keyboard.translatesAutoresizingMaskIntoConstraints = false
+        keyboard.onHeightChange = { [weak self] in self?.refreshSizing() }
+        if keyboard.superview !== self {
+            addSubview(keyboard)
+            NSLayoutConstraint.activate([
+                keyboard.leadingAnchor.constraint(equalTo: leadingAnchor),
+                keyboard.trailingAnchor.constraint(equalTo: trailingAnchor),
+                keyboard.topAnchor.constraint(equalTo: topAnchor),
+                keyboard.bottomAnchor.constraint(equalTo: bottomAnchor)
+            ])
+        }
+        refreshSizing()
+        setNeedsLayout()
+    }
+
+    func detachKeyboard() {
+        refreshSizing()
+        keyboard?.onHeightChange = nil
+        keyboard?.removeFromSuperview()
+        keyboard = nil
+        // Keep the root's explicit height and scalar sizing state. Releasing
+        // the expensive content must not opt back into the system's old height.
+    }
+
+    func refreshSizing() {
+        sizing = metrics(for: bounds.width)
+        guard heightConstraint?.constant != sizing.height else { return }
+        heightConstraint?.constant = sizing.height
         invalidateIntrinsicContentSize()
         setNeedsLayout()
     }
-    func detachKeyboard() {
-        if let keyboard {
-            detachedMetrics = KeyboardMetrics(width: bounds.width > 0 ? bounds.width : 440,
-                compact: keyboard.compact, showsFooter: keyboard.showsFooter, heightFactor: keyboard.heightFactor)
-        }
-        keyboard?.removeFromSuperview()
-        keyboard = nil
-        invalidateIntrinsicContentSize()
+
+    private func metrics(for proposedWidth: CGFloat) -> KeyboardMetrics {
+        let width = proposedWidth.isFinite && proposedWidth > 0 ? proposedWidth : sizing.width
+        return KeyboardMetrics(width: width, compact: keyboard?.compact ?? sizing.compact,
+            showsFooter: keyboard?.showsFooter ?? sizing.showsFooter,
+            heightFactor: keyboard?.heightFactor ?? sizing.heightFactor)
     }
+
     override var intrinsicContentSize: CGSize {
-        guard let height = preferredHeight(for: bounds.width) else { return super.intrinsicContentSize }
-        return CGSize(width: UIView.noIntrinsicMetric, height: height)
+        CGSize(width: UIView.noIntrinsicMetric, height: metrics(for: bounds.width).height)
     }
-    private func preferredHeight(for width: CGFloat) -> CGFloat? {
-        if let keyboard { return keyboard.preferredHeight(for: width) }
-        guard let detachedMetrics else { return nil }
-        return KeyboardMetrics(width: width > 0 ? width : detachedMetrics.width,
-            compact: detachedMetrics.compact, showsFooter: detachedMetrics.showsFooter,
-            heightFactor: detachedMetrics.heightFactor).height
-    }
-    // With allowsSelfSizing UIKit asks the root for its fitting size. Its
-    // proposed height can be the previous keyboard's height after reconnecting;
-    // use our preference rather than accepting that stale proposal.
+
+    // Fitting, intrinsic size and Auto Layout share the same height policy.
+    // The host supplies width; its previous keyboard height is not an input.
     override func systemLayoutSizeFitting(_ targetSize: CGSize) -> CGSize {
-        let width = targetSize.width > 0 ? targetSize.width : bounds.width
-        guard let height = preferredHeight(for: width) else { return super.systemLayoutSizeFitting(targetSize) }
-        return CGSize(width: width, height: height)
+        let width = targetSize.width.isFinite && targetSize.width > 0 ? targetSize.width : bounds.width
+        let metrics = metrics(for: width)
+        return CGSize(width: metrics.width, height: metrics.height)
     }
     override func systemLayoutSizeFitting(_ targetSize: CGSize,
         withHorizontalFittingPriority horizontalFittingPriority: UILayoutPriority,
         verticalFittingPriority: UILayoutPriority) -> CGSize {
-        guard keyboard != nil || detachedMetrics != nil else {
-            return super.systemLayoutSizeFitting(targetSize,
-                withHorizontalFittingPriority: horizontalFittingPriority,
-                verticalFittingPriority: verticalFittingPriority)
-        }
         let width = horizontalFittingPriority == .required && targetSize.width > 0
             ? targetSize.width : bounds.width
         return systemLayoutSizeFitting(CGSize(width: width, height: targetSize.height))
     }
     override func layoutSubviews() {
+        refreshSizing()
         super.layoutSubviews()
-        if let keyboard, keyboard.bounds.width != bounds.width { invalidateIntrinsicContentSize() }
-        keyboard?.frame = bounds
     }
 }
