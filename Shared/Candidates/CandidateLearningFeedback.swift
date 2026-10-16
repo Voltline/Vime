@@ -20,6 +20,7 @@ nonisolated struct CandidateLearningFeedback: Sendable {
     let context: String
     let selectedAt: Date
     var weight: Double { Policy.weight(kind: kind, rank: rank) }
+    var isDeliberateChoice: Bool { kind == .explicitCandidate || (kind == .conversionConfirmation && rank > 0) }
 }
 
 /// Nil/redacted text is not a receipt. Identity and right context prevent a
@@ -38,15 +39,21 @@ struct PendingCandidateFeedback {
     let text: String
     var remaining: Int
     var followingText = ""
+    var editsSubmitted = false
     var receiptVerified = false
 
     func matches(_ context: KeyboardLearningContext?) -> Bool {
         guard let context, context.document == anchor.document,
-              context.after == anchor.after, !context.hasSelection,
+              (context.after ?? "") == (anchor.after ?? ""), !context.hasSelection,
               let before = context.before, let original = anchor.before else { return false }
         let expected = String((String(original.suffix(CandidateLearningFeedback.Policy.anchorCharacters))
             + String(text.prefix(remaining)) + followingText).suffix(CandidateLearningFeedback.Policy.anchorCharacters))
-        // An empty anchor must match an actually empty prefix, not every string.
-        return expected.isEmpty ? before.isEmpty : before.hasSuffix(expected)
+        // A fixed-size proxy window drops older characters as text is inserted.
+        // Compare its shared suffix, while requiring the retained insertion to
+        // be visible; a one-character tail cannot verify a longer selected word.
+        guard !expected.isEmpty else { return before.isEmpty }
+        let count = min(before.count, expected.count)
+        guard count >= min(remaining + followingText.count, CandidateLearningFeedback.Policy.anchorCharacters) else { return false }
+        return count > 0 && before.suffix(count) == expected.suffix(count)
     }
 }

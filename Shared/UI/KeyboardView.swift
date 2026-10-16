@@ -689,7 +689,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
             guard let self else { return }
             if gesture == .horizontalCursor || gesture == .spaceCursor {
                 self.confirmComposition()
-                self.session.invalidateLearningFeedback()
+                self.session.finishLearningFeedback()
                 // A zero move starts a new caret gesture and resets its column.
                 self.onEdit?([.moveCursor(horizontal: 0, vertical: 0)])
             }
@@ -700,7 +700,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         }
         keysContainer.onCursorMove = { [weak self] x, y in
             guard let self else { return }
-            self.session.invalidateLearningFeedback()
+            self.session.finishLearningFeedback()
             self.onEdit?([.moveCursor(horizontal: x, vertical: y)])
         }
         keysContainer.onDeletePressChange = { [weak self] held in
@@ -710,7 +710,9 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         }
         keysContainer.onDeleteArmedChange = { [weak self] in self?.deletePrompt.armed = $0 }
         keysContainer.onDeleteLine = { [weak self] in
-            guard let self else { return }; self.apply(self.session.confirmAll() + [.deleteToLineStart])
+            guard let self else { return }
+            self.session.invalidateLearningFeedback()
+            self.apply(self.session.confirmAll() + [.deleteToLineStart])
         }
         divider.isHidden = true
         for button in [brandButton, modeButton, undoButton, settingsButton, expandButton, cancelButton] {
@@ -1127,6 +1129,9 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         get { session.learningContextProvider }
         set { session.learningContextProvider = newValue }
     }
+
+    func hostContextDidChange() { session.didApplyEdits([]) }
+    func finishLearningFeedback() { session.finishLearningFeedback() }
 
     func resetComposition() {
         session.reset()

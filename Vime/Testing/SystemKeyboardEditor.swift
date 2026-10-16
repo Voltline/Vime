@@ -9,6 +9,7 @@ struct SystemKeyboardEditor: UIViewRepresentable {
     var focusRequest: Int
     var clearRequest: Int = 0
     var dismissRequest: Int = 0
+    var sendRequest: Int = 0
     var onSnapshot: ((SystemKeyboardSnapshot) -> Void)?
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
@@ -40,6 +41,14 @@ struct SystemKeyboardEditor: UIViewRepresentable {
             view.resignFirstResponder()
             view.text = ""
         }
+#if DEBUG
+        if sendRequest != coordinator.lastSendRequest {
+            coordinator.lastSendRequest = sendRequest
+            // A chat app clears its document without hiding the keyboard.
+            view.text = ""
+            view.record("send")
+        }
+#endif
         if dismissRequest != coordinator.lastDismissRequest {
             coordinator.lastDismissRequest = dismissRequest
             view.resignFirstResponder()
@@ -55,6 +64,7 @@ struct SystemKeyboardEditor: UIViewRepresentable {
         var lastFocusRequest = 0
         var lastClearRequest = 0
         var lastDismissRequest = 0
+        var lastSendRequest = 0
         init(_ parent: SystemKeyboardEditor) { self.parent = parent }
         func publish(_ snapshot: SystemKeyboardSnapshot) {
             parent.text = snapshot.text

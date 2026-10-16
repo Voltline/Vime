@@ -3,6 +3,188 @@ import KanaKanjiConverterModuleWithDefaultDictionary
 
 @MainActor
 final class KeyboardPersonalizationTests: XCTestCase {
+    func testEmptyFieldNilContextStagesIntentButRequiresVisibleReceipt() throws {
+        for scenario in ["verified", "emptyRight", "redacted", "otherField", "changedRight", "partialReceipt"] {
+            let directory = isolatedLearningDirectory()
+            defer { try? FileManager.default.removeItem(at: directory) }
+            let session = KeyboardSession(memoryDirectoryURL: directory)
+            var context = KeyboardLearningContext(document: "A", before: nil, after: nil)
+            session.leftContextProvider = { context.before }; session.learningContextProvider = { context }
+            _ = session.type("toukyou")
+            let edits = session.choose(try XCTUnwrap(session.candidates.firstIndex(of: "東京")))
+            session.didApplyEdits(edits)
+            switch scenario {
+            case "verified": context = KeyboardLearningContext(document: "A", before: "東京", after: nil)
+            case "emptyRight": context = KeyboardLearningContext(document: "A", before: "東京", after: "")
+            case "otherField": context = KeyboardLearningContext(document: "B", before: "東京", after: nil)
+            case "changedRight": context = KeyboardLearningContext(document: "A", before: "東京", after: "別の文章")
+            case "partialReceipt": context = KeyboardLearningContext(document: "A", before: "京", after: nil)
+            default: break
+            }
+            session.didApplyEdits(); session.finishLearningFeedback()
+            let bonus = CandidatePreferenceMemory(directory: directory)
+                .choicePreference(reading: "トウキョウ", surface: "東京", context: "").bonus
+            if scenario == "verified" || scenario == "emptyRight" { XCTAssertGreaterThan(bonus, 0, scenario) }
+            else { XCTAssertEqual(bonus, 0, scenario) }
+        }
+    }
+
+    func testLearningAcceptsBoundedHostContextWindows() throws {
+        for window in [8, 20, 50, 64, 96] {
+            let directory = isolatedLearningDirectory()
+            defer { try? FileManager.default.removeItem(at: directory) }
+            let session = KeyboardSession(memoryDirectoryURL: directory)
+            var document = String(repeating: "過去の文章", count: 30)
+            session.leftContextProvider = { String(document.suffix(window)) }
+            session.learningContextProvider = {
+                KeyboardLearningContext(document: "A", before: String(document.suffix(window)), after: "")
+            }
+            _ = session.type("hashi")
+            let index = try XCTUnwrap(session.candidates.firstIndex(of: "箸"))
+            let edits = session.choose(index)
+            session.didApplyEdits(edits) // Remote write has not returned a receipt yet.
+            document += "箸"
+            session.didApplyEdits(); session.finishLearningFeedback()
+            let memory = CandidatePreferenceMemory(directory: directory)
+            XCTAssertGreaterThan(memory.choicePreference(reading: "ハシ", surface: "箸", context: "").bonus, 0,
+                "A full \(window)-character context window must not discard a successful commit")
+        }
+    }
+
+    func testVerifiedChoicesSurviveSendFieldSwitchAndCaretNavigation() throws {
+        for action in ["send", "field", "caret", "redacted"] {
+            let directory = isolatedLearningDirectory()
+            defer { try? FileManager.default.removeItem(at: directory) }
+            let session = KeyboardSession(memoryDirectoryURL: directory)
+            var context = KeyboardLearningContext(document: "A", before: "昨日", after: "")
+            session.leftContextProvider = { context.before }
+            session.learningContextProvider = { context }
+            _ = session.type("hashi")
+            let edits = session.choose(try XCTUnwrap(session.candidates.firstIndex(of: "箸")))
+            context = KeyboardLearningContext(document: "A", before: "昨日箸", after: "")
+            session.didApplyEdits(edits)
+            switch action {
+            case "send": context = KeyboardLearningContext(document: "A", before: "", after: "")
+            case "field": context = KeyboardLearningContext(document: "B", before: "", after: "")
+            case "caret": context = KeyboardLearningContext(document: "A", before: "昨日", after: "箸")
+            default: context = KeyboardLearningContext(document: "A", before: nil, after: nil)
+            }
+            session.reset()
+            XCTAssertGreaterThan(CandidatePreferenceMemory(directory: directory)
+                .choicePreference(reading: "ハシ", surface: "箸", context: "").bonus, 0, action)
+        }
+    }
+
+    func testUnverifiedChoiceCannotBeConfirmedByMatchingAnotherField() throws {
+        let directory = isolatedLearningDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let session = KeyboardSession(memoryDirectoryURL: directory)
+        var context = KeyboardLearningContext(document: "A", before: "昨日", after: "")
+        session.leftContextProvider = { context.before }; session.learningContextProvider = { context }
+        _ = session.type("hashi")
+        let edits = session.choose(try XCTUnwrap(session.candidates.firstIndex(of: "箸")))
+        session.didApplyEdits(edits)
+        context = KeyboardLearningContext(document: "B", before: "昨日箸", after: "")
+        session.didApplyEdits(); session.reset()
+        XCTAssertEqual(CandidatePreferenceMemory(directory: directory)
+            .choicePreference(reading: "ハシ", surface: "箸", context: "").bonus, 0)
+    }
+
+    func testAsyncKeyboardLearnsThreeDelayedChoicesAcrossSentences() async throws {
+        let directory = isolatedLearningDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let session = KeyboardSession(asynchronousCandidates: true, memoryDirectoryURL: directory)
+        session.candidateRanking = .languageModel
+        var before = ""
+        session.leftContextProvider = { before }
+        session.learningContextProvider = { KeyboardLearningContext(document: "field", before: before, after: "") }
+        func waitForCandidates() async throws {
+            let deadline = Date().addingTimeInterval(10)
+            while !session.candidatesAreCurrent && Date() < deadline { try await Task.sleep(for: .milliseconds(10)) }
+            XCTAssertTrue(session.candidatesAreCurrent)
+        }
+        func type(in context: String) async throws {
+            before = context; session.reset(); _ = session.type("hashi")
+            try await waitForCandidates()
+        }
+        for context in ["昨日", "今日は", "それから"] {
+            try await type(in: context)
+            let index = try XCTUnwrap(session.candidates.firstIndex(of: "箸"))
+            print("LEARNING_CHOICE context=\(context) rank=\(index + 1)")
+            let edits = session.choose(index)
+            session.didApplyEdits(edits)
+            // Keep typing before the previous commit's proxy notification.
+            // Its stale context must not silently discard staged learning.
+            _ = session.type("wo")
+            try await waitForCandidates()
+            before += "箸"; session.didApplyEdits(); session.finishLearningFeedback()
+        }
+        try await type(in: "新しい文章")
+        let selected = try XCTUnwrap(session.candidateSnapshots.first { $0.text == "箸" })
+        print("LEARNING_RESULT rank=\((session.candidates.firstIndex(of: "箸") ?? -1) + 1) score=\(selected.userPreferenceScore) confidence=\(selected.userPreferenceConfidence)")
+        XCTAssertEqual(session.candidates.first, "箸")
+        XCTAssertGreaterThanOrEqual(selected.userPreferenceConfidence, 0.65)
+        session.releaseInactiveResources()
+    }
+
+    func testDelayedHostReceiptStillLearnsAfterRepeatedChoices() throws {
+        let directory = isolatedLearningDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let session = KeyboardSession(memoryDirectoryURL: directory)
+        var before = "昨日"
+        session.leftContextProvider = { before }
+        session.learningContextProvider = { KeyboardLearningContext(document: "field", before: before, after: "") }
+        var selected: CandidateSnapshot?
+        for _ in 0..<3 {
+            before = "昨日"; session.reset()
+            _ = session.type("hashi")
+            let index = try XCTUnwrap(session.candidateSnapshots.firstIndex {
+                $0.text == (selected?.text ?? "箸") && $0.learningEligible && $0.fullConsumption
+            })
+            selected = session.candidateSnapshots[index]
+            let edits = session.choose(index)
+            // The remote proxy still exposes the pre-insertion document when
+            // insertText returns. Its notification publishes the receipt later.
+            session.didApplyEdits(edits)
+            before += try XCTUnwrap(selected).text
+            session.didApplyEdits()
+            session.finishLearningFeedback()
+        }
+        let value = try XCTUnwrap(selected)
+        let preference = CandidatePreferenceMemory(directory: directory)
+            .choicePreference(reading: value.reading, surface: value.text, context: "昨日")
+        XCTAssertGreaterThan(preference.bonus, 0)
+        XCTAssertGreaterThanOrEqual(preference.confidence, 0.65)
+        before = "昨日"; session.reset(); _ = session.type("hashi")
+        XCTAssertEqual(session.candidates.first, value.text)
+    }
+
+    func testSpaceCyclingLearnsTheChosenAlternativeThroughHostReceipts() throws {
+        let directory = isolatedLearningDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let session = KeyboardSession(memoryDirectoryURL: directory)
+        var before = "昨日"
+        session.leftContextProvider = { before }
+        session.learningContextProvider = { KeyboardLearningContext(document: "field", before: before, after: "") }
+        for attempt in 0..<3 {
+            before = "昨日"; session.reset(); _ = session.type("hashi")
+            let index = try XCTUnwrap(session.candidates.firstIndex(of: "箸"))
+            if attempt == 0 { XCTAssertGreaterThan(index, 0) }
+            for _ in 0...index { _ = session.space() }
+            XCTAssertEqual(session.selectedText, "箸")
+            let edits = session.enter()
+            before += "箸"; session.didApplyEdits(edits); session.finishLearningFeedback()
+        }
+        let preference = CandidatePreferenceMemory(directory: directory)
+            .choicePreference(reading: "ハシ", surface: "箸", context: "昨日")
+        XCTAssertGreaterThan(preference.bonus, 0)
+        // Once it reaches first place, accepting it normally stays weak
+        // feedback; the initial deliberate correction must still be retained.
+        XCTAssertGreaterThan(preference.confidence, 0)
+        before = "昨日"; session.reset(); _ = session.type("hashi")
+        XCTAssertEqual(session.candidates.first, "箸")
+    }
+
     func testFrequencyPersistenceDecayAndContextIsolation() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -87,7 +269,7 @@ final class KeyboardPersonalizationTests: XCTestCase {
         XCTAssertFalse(String(decoding: try JSONSerialization.data(withJSONObject: archive), as: UTF8.self).contains("ご飯を食べる"))
     }
 
-    func testHostReceiptRejectsDeletionFieldChangesAndMissingAcknowledgement() throws {
+    func testHostReceiptRejectsDeletionAndMissingAcknowledgementButRetainsVerifiedChoices() throws {
         for scenario in ["deleted", "partial", "field", "noReceipt", "retained"] {
             let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
             defer { try? FileManager.default.removeItem(at: directory) }
@@ -110,6 +292,7 @@ final class KeyboardPersonalizationTests: XCTestCase {
                 let edits = session.choose(index)
                 before += try XCTUnwrap(selected).text
                 if scenario != "noReceipt" { session.didApplyEdits(edits) }
+                else { session.didApplyEdits() } // A context notification is not a submitted edit.
                 if scenario == "deleted" || scenario == "partial" {
                     let count = scenario == "deleted" ? try XCTUnwrap(selected).text.count : 1
                     for _ in 0..<count { _ = session.backspace(); before.removeLast(); session.didApplyEdits() }
@@ -120,12 +303,12 @@ final class KeyboardPersonalizationTests: XCTestCase {
             let choice = try XCTUnwrap(selected)
             let memory = CandidatePreferenceMemory(directory: directory)
             let score = memory.score(reading: choice.reading, surface: choice.text, context: "昨日")
-            if scenario == "retained" { XCTAssertGreaterThan(score, 0) }
+            if scenario == "retained" || scenario == "field" { XCTAssertGreaterThan(score, 0) }
             else { XCTAssertEqual(score, 0, scenario) }
             let engine = JapaneseCandidateEngine(memoryDirectoryURL: directory, learningEnabled: true)
             var query = ComposingText(); RomajiConverter.insert(input, into: &query)
             let evidence = engine.candidates(for: query, revision: 1, includeCorrections: false).contains { $0.text == choice.text && $0.hasLearningEvidence }
-            XCTAssertEqual(evidence, scenario == "retained", scenario)
+            XCTAssertEqual(evidence, scenario == "retained" || scenario == "field", scenario)
         }
     }
 

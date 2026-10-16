@@ -212,9 +212,17 @@ nonisolated final class CandidatePreferenceMemory {
         guard evidence > 0 else { return ChoicePreference() }
         var bonus = min(4, 2.4 * log1p(evidence))
         var confidence = 0.0
-        let local = context.isEmpty ? global : rows(scope: scope, reading: reading, context: contextKey(context))
+        // Prefer the closest context with actual choices. New sentences still
+        // inherit a repeated reading preference, at lower confidence, instead
+        // of silently losing every bit of protection from neural reranking.
+        let contextual = buckets(context).enumerated().compactMap { level, bucket -> (rows: [String: Entry], limit: Double)? in
+            let values = rows(scope: scope, reading: reading, context: bucket)
+            return values.isEmpty ? nil : (values, level == 0 ? 1 : 0.85)
+        }.first
+        let local = contextual?.rows ?? global
+        let confidenceLimit = contextual?.limit ?? (context.isEmpty ? 1 : 0.8)
         let support = local[surface].map { effective($0, now: now) } ?? 0
-        if !context.isEmpty { bonus += min(2, 1.5 * log1p(support)) }
+        if contextual != nil { bonus += min(2, 1.5 * log1p(support)) }
         if support > 0 {
             let total = local.values.reduce(0) { $0 + effective($1, now: now) }
             let otherLatest = local.filter { $0.key != surface }.values.map(\.selectedAt).max() ?? -.infinity
@@ -222,9 +230,14 @@ nonisolated final class CandidatePreferenceMemory {
             // A new correction must be able to replace an old habit. Counts
             // still supply strength, while the latest deliberate choice decides
             // which surface may claim protection in this context.
-            if selectedAt > otherLatest { confidence = min(1, support / 2) }
-            else if selectedAt == otherLatest { confidence = min(1, support / 2) * support / max(support, total) }
+            let requiredSupport = contextual == nil && !context.isEmpty ? 3.0 : 2.0
+            let strength = min(confidenceLimit, support / requiredSupport)
+            if selectedAt > otherLatest { confidence = strength }
+            else if selectedAt == otherLatest { confidence = strength * support / max(support, total) }
             else { bonus *= 0.25 }
+        } else if contextual != nil {
+            // A local correction can override a globally common homophone.
+            bonus *= 0.25
         }
         return ChoicePreference(bonus: word ? min(1.5, bonus * 0.35) : min(Policy.maximumChoiceBonus, bonus),
                                 confidence: word ? 0 : confidence)

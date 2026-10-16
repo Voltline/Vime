@@ -7,6 +7,7 @@ struct KeyboardExtensionTestView: View {
     @State private var focusRequest = 0
     @State private var clearRequest = 0
     @State private var dismissRequest = 0
+    @State private var sendRequest = 0
     @State private var events: [String] = []
     private let blue = Color(uiColor: UIColor(cgColor: VimeLogo.blue))
     var body: some View {
@@ -14,7 +15,7 @@ struct KeyboardExtensionTestView: View {
             Text("点击输入框，通过地球键选择 Vime 日本語\n这里使用 iOS 加载的键盘扩展")
                 .font(.subheadline).foregroundStyle(.secondary)
             SystemKeyboardEditor(text: $text, composition: $composition, focusRequest: focusRequest,
-                clearRequest: clearRequest, dismissRequest: dismissRequest, onSnapshot: { snapshot in
+                clearRequest: clearRequest, dismissRequest: dismissRequest, sendRequest: sendRequest, onSnapshot: { snapshot in
                     events.append(snapshot.description)
                     if events.count > 64 { events.removeFirst(events.count - 64) }
                 })
@@ -34,6 +35,10 @@ struct KeyboardExtensionTestView: View {
                 }.accessibilityIdentifier("vime.extension.clear")
                 Button("复制测试记录") { UIPasteboard.general.string = events.joined(separator: "\n") }
             }.font(.subheadline).tint(blue)
+#if DEBUG
+            Button("模拟发送并保留键盘") { sendRequest += 1 }
+                .accessibilityIdentifier("vime.extension.send")
+#endif
             Text("可试：tennanhantenn → 展开候选 → 天 → 安 → 飯店\n点选前段后，剩余部分应继续显示为待确认文本")
                 .font(.caption).foregroundStyle(.secondary)
             Spacer(minLength: 0)

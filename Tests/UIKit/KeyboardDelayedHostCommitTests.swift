@@ -3,6 +3,69 @@ import UIKit
 
 @MainActor
 final class KeyboardDelayedHostCommitTests: XCTestCase {
+    func testEmptyFieldCommitReceiptWithNilContextExcludingOwnedMark() throws {
+        let receipt = try XCTUnwrap(KeyboardPartialCommitReceipt(document: "A", before: nil, after: nil,
+            selection: nil, ownedMark: "とうきょう", edits: [.insert("東京")], preedit: nil))
+        XCTAssertTrue(receipt.acknowledges(document: "A", before: "東京", after: nil, selection: nil))
+        XCTAssertTrue(receipt.acknowledges(document: "A", before: "東京", after: "", selection: nil))
+        XCTAssertFalse(receipt.acknowledges(document: "A", before: nil, after: nil, selection: nil))
+        XCTAssertFalse(receipt.acknowledges(document: "B", before: "東京", after: nil, selection: nil))
+    }
+
+    func testSuggestionCommitWithoutMarkedTextRecognizesDelayedReceipt() throws {
+        let receipt = try XCTUnwrap(KeyboardPartialCommitReceipt(document: "A",
+            before: "コーヒーを", after: "", selection: nil, ownedMark: nil,
+            edits: [.insert("飲む")], preedit: nil))
+        XCTAssertTrue(receipt.acknowledges(document: "A", before: "コーヒーを飲む", after: "", selection: nil))
+        XCTAssertFalse(receipt.acknowledges(document: "B", before: "コーヒーを飲む", after: "", selection: nil))
+        XCTAssertFalse(receipt.acknowledges(document: "A", before: "コーヒーを買う", after: "", selection: nil))
+    }
+
+    func testFullCommitReceiptRecognizesDelayedNotificationsAndNewPreedit() throws {
+        var receipt = try XCTUnwrap(KeyboardPartialCommitReceipt(document: "A",
+            before: "昨日はし", after: "。", selection: nil, ownedMark: "はし",
+            edits: [.insert("箸")], preedit: nil))
+        for before in ["昨日はし", "昨日", "昨日箸"] {
+            XCTAssertTrue(receipt.acknowledges(document: "A", before: before, after: "。", selection: nil))
+        }
+        receipt.updatePreedit(KeyboardPreedit(text: "を"))
+        XCTAssertTrue(receipt.acknowledges(document: "A", before: "昨日箸を", after: "。", selection: nil))
+        XCTAssertFalse(receipt.acknowledges(document: "B", before: "昨日箸", after: "。", selection: nil))
+        XCTAssertFalse(receipt.acknowledges(document: "A", before: "昨日", after: "箸。", selection: nil))
+        XCTAssertFalse(receipt.acknowledges(document: "A", before: "昨日別の文章", after: "。", selection: nil))
+    }
+
+    func testFullCommitNotificationPreservesTheNextComposition() async throws {
+        let controller = DelayedHostController()
+        controller.loadViewIfNeeded(); controller.viewWillAppear(false)
+        let window = UIWindow(frame: UIScreen.main.bounds)
+        window.rootViewController = UIViewController()
+        controller.view.frame = CGRect(x: 0, y: 240, width: 440, height: 350)
+        window.rootViewController?.view.addSubview(controller.view); window.isHidden = false
+        defer { controller.viewWillDisappear(false); window.isHidden = true }
+        func descendants(_ view: UIView) -> [UIView] { [view] + view.subviews.flatMap(descendants) }
+        let keyboard = try XCTUnwrap(descendants(controller.view).compactMap { $0 as? KeyboardView }.first)
+        keyboard.layoutIfNeeded()
+        func key(_ id: String) throws -> KeyboardKey {
+            try XCTUnwrap(descendants(keyboard).first { $0.accessibilityIdentifier == "vime.key." + id } as? KeyboardKey)
+        }
+        for c in "hashi" { try key(String(c)).action?() }
+        let deadline = Date().addingTimeInterval(10)
+        var candidate: UIButton?
+        while candidate == nil && Date() < deadline {
+            candidate = descendants(keyboard).compactMap { $0 as? UIButton }.first {
+                $0.title(for: .normal) == "箸" && $0.isUserInteractionEnabled
+            }
+            if candidate == nil { try await Task.sleep(for: .milliseconds(10)) }
+        }
+        try XCTUnwrap(candidate).sendActions(for: .touchUpInside)
+        try key("w").action?()
+        controller.proxy.acknowledge()
+        controller.textDidChange(nil); controller.selectionDidChange(nil)
+        XCTAssertEqual(controller.proxy.text.text, "箸w")
+        XCTAssertEqual(keyboard.accessibilityValue, "输入中：w")
+    }
+
     func testPartialReceiptRejectsCaretFieldAndExternalTextChanges() throws {
         var receipt = try XCTUnwrap(KeyboardPartialCommitReceipt(document: "document-A",
             before: "昨日てんあんはんてん", after: "。", selection: nil,

@@ -15,6 +15,14 @@ struct VimeApp: App {
         // Reproducible settings for opt-in tests of the installed extension.
         // Normal launches never change the user's choices.
         let arguments = ProcessInfo.processInfo.arguments
+#if targetEnvironment(simulator)
+        let testingDefaults = UserDefaults(suiteName: KeyboardPreferences.appGroup)
+        if arguments.contains("--keyboard-extension-test"),
+           let index = arguments.firstIndex(of: "--keyboard-extension-test-learning-id"),
+           index + 1 < arguments.count, let id = UUID(uuidString: arguments[index + 1]) {
+            testingDefaults?.set(id.uuidString, forKey: "VimeExtensionLearningTestID")
+        } else { testingDefaults?.removeObject(forKey: "VimeExtensionLearningTestID") }
+#endif
         if arguments.contains("--keyboard-extension-test"),
            let index = arguments.firstIndex(of: "--keyboard-extension-test-height"),
            index + 1 < arguments.count, let factor = Double(arguments[index + 1]) {

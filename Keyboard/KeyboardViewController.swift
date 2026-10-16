@@ -131,6 +131,7 @@ class KeyboardViewController: UIInputViewController {
         logLifecycle("disappearing")
         VimeExtensionAudit.recordLifecycle(event: .viewWillDisappear)
         keyboard.stopInteractions()
+        keyboard.finishLearningFeedback()
         host.abandon()
         keyboard.resetComposition()
         super.viewWillDisappear(animated)
@@ -190,6 +191,7 @@ class KeyboardViewController: UIInputViewController {
         }
         updateTraits()
         rememberContext()
+        if !isApplyingEdits { keyboard.hostContextDidChange() }
     }
 
     override func selectionDidChange(_ textInput: UITextInput?) {
@@ -199,6 +201,7 @@ class KeyboardViewController: UIInputViewController {
             host.abandon(); keyboard.resetComposition()
         }
         rememberContext()
+        if !isApplyingEdits { keyboard.hostContextDidChange() }
     }
 
     private func updateTraits() {

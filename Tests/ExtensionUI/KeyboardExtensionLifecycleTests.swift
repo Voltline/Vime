@@ -26,6 +26,53 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
         XCTAssertTrue(key.waitForExistence(timeout: 10))
     }
 
+    func testExplicitLearningSurvivesSendAndKeyboardReload() throws {
+        continueAfterFailure = false
+        XCUIDevice.shared.orientation = .portrait
+        let app = XCUIApplication()
+        defer {
+            app.terminate()
+            app.launchArguments = ["--keyboard-extension-test", "--keyboard-extension-test-ranking", "languageModel"]
+            app.launch() // Remove the simulator-only isolated-history override.
+        }
+        app.launchArguments = ["--keyboard-extension-test", "--keyboard-extension-test-ranking", "languageModel",
+            "--keyboard-extension-test-learning-id", UUID().uuidString]
+        app.launch()
+        let editor = app.textViews["vime.extension.editor"]
+        XCTAssertTrue(editor.waitForExistence(timeout: 10)); editor.tap()
+        try selectVimeKeyboard(in: app)
+        func typeHashi() {
+            for key in "hashi" { app.buttons["vime.key." + String(key)].tap() }
+            XCTAssertTrue(app.scrollViews["vime.candidates"].buttons["候选词：箸"].waitForExistence(timeout: 10))
+        }
+        for attempt in 1...3 {
+            typeHashi()
+            let strip = app.scrollViews["vime.candidates"]
+            let labels = strip.buttons.allElementsBoundByIndex.map(\.label)
+            print("EXTENSION_LEARNING attempt=\(attempt) candidates=\(labels)")
+            strip.buttons["候选词：箸"].tap()
+            let committed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                editor.value as? String == "箸"
+            }, object: editor)
+            XCTAssertEqual(XCTWaiter.wait(for: [committed], timeout: 5), .completed)
+            // Immediately submit while the 1.5-second feedback window is open.
+            app.buttons["vime.extension.send"].tap()
+            let cleared = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                (editor.value as? String ?? "").isEmpty
+            }, object: editor)
+            XCTAssertEqual(XCTWaiter.wait(for: [cleared], timeout: 5), .completed)
+            XCTAssertTrue(app.buttons["vime.key.h"].exists)
+        }
+        app.buttons["vime.extension.dismiss"].tap()
+        XCTAssertTrue(app.buttons["vime.key.h"].waitForNonExistence(timeout: 5))
+        app.buttons["vime.extension.focus"].tap()
+        XCTAssertTrue(app.buttons["vime.key.h"].waitForExistence(timeout: 10))
+        typeHashi()
+        let first = app.scrollViews["vime.candidates"].buttons.element(boundBy: 0)
+        print("EXTENSION_LEARNING_RELOADED first=\(first.label)")
+        XCTAssertEqual(first.label, "候选词：箸")
+    }
+
     func testPortraitHeightPreferenceSurvivesReconnectAndRotation() throws {
         continueAfterFailure = false
         let app = XCUIApplication()

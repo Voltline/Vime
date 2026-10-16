@@ -45,6 +45,14 @@ nonisolated final class JapaneseCandidateEngine {
         let sharedRoot = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.com.Voltline.Vime")
         let root = sharedRoot ?? localRoot
         var directory = memoryDirectoryURL ?? root.appendingPathComponent("Vime/AzooKeyMemory", isDirectory: true)
+#if DEBUG && targetEnvironment(simulator)
+        // Installed-extension UI tests use their own archive, never normal history.
+        if memoryDirectoryURL == nil,
+           let id = UserDefaults(suiteName: KeyboardPreferences.appGroup)?.string(forKey: "VimeExtensionLearningTestID"),
+           let uuid = UUID(uuidString: id) {
+            directory = root.appendingPathComponent("Vime/Testing/Learning/" + uuid.uuidString, isDirectory: true)
+        }
+#endif
         var writable = true
         do { try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true) }
         catch {
@@ -791,7 +799,9 @@ nonisolated final class JapaneseCandidateEngine {
         defer { KeyboardPerformance.record(.contextEvaluation, since: started) }
         let text = String((left ?? "").suffix(96))
         guard text != committedContext else { return }
-        if let pendingFeedback { resolveFeedback(pendingFeedback.event.id, accepted: false) }
+        // Queries may observe a stale remote proxy while the previous commit
+        // is still awaiting its receipt. Only the session's verified verdict
+        // may accept/reject that feedback; query context is not a receipt.
         preferenceMemory?.resetRecent()
         if let learningSession { try? converter.withSession(learningSession) { converter.stopComposition() } }
         committedContext = text; contextCandidate = nil; previousTop = nil
@@ -941,7 +951,7 @@ nonisolated final class JapaneseCandidateEngine {
                 preferenceMemory?.record(reading: snapshot.reading, surface: snapshot.text, context: pending.event.context,
                     scope: (snapshot.source == .scriptVariant || snapshot.source == .orthographicVariant) ? "style" : "conversion", weight: pending.event.weight,
                     now: pending.event.selectedAt)
-                if pending.event.kind == .explicitCandidate {
+                if pending.event.isDeliberateChoice {
                     recordChoice(snapshot, context: pending.event.context, weight: pending.event.weight, now: pending.event.selectedAt)
                 }
             }
@@ -975,7 +985,7 @@ nonisolated final class JapaneseCandidateEngine {
         for element in snapshot.candidate.data {
             let key = element.ruby + "\0" + element.word
             if recorded < 6, element.ruby.count >= 2,
-               element.ruby != snapshot.reading, seen.insert(key).inserted,
+               seen.insert(key).inserted,
                element.metadata.contains(.isFromUserDictionary) || !Self.isKanaFallback(element),
                !element.word.unicodeScalars.allSatisfy({ Self.literalSeparators.contains($0) }) {
                 preferenceMemory?.record(reading: element.ruby, surface: element.word, context: left,

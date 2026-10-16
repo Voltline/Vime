@@ -94,11 +94,13 @@ protocol KeyboardInputSession: AnyObject {
     func handleMemoryPressure()
     func releaseInactiveResources()
     func didApplyEdits(_ edits: [KeyboardEdit])
+    func finishLearningFeedback()
     func invalidateLearningFeedback()
     func takeInputTiming() -> TimeInterval?
 }
 
 extension KeyboardInputSession {
+    func finishLearningFeedback() {}
     var neuralModeSuspendedForMemoryPressure: Bool { false }
     func handleMemoryPressure() {}
     func releaseInactiveResources() {}

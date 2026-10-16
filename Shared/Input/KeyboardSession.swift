@@ -243,8 +243,9 @@ final class KeyboardSession: KeyboardInputSession {
             worker?.stageSelection(snapshot, event: event)
         } else if learningContextProvider == nil {
             // Trusted/headless conversion clients have no host receipt contract.
-            engine?.complete(snapshot, explicit: feedbackKind == .explicitCandidate)
-            worker?.complete(snapshot, explicit: feedbackKind == .explicitCandidate)
+            let deliberate = feedbackKind == .explicitCandidate || (feedbackKind == .conversionConfirmation && index > 0)
+            engine?.complete(snapshot, explicit: deliberate)
+            worker?.complete(snapshot, explicit: deliberate)
         } else {
             // Redacted context still completes conversion, without learning.
             let event = CandidateLearningFeedback(id: UUID(), kind: feedbackKind, rank: index,
@@ -382,7 +383,7 @@ final class KeyboardSession: KeyboardInputSession {
     }
 
     func reset(preservingContext: Bool = false) {
-        if !preservingContext { hostEpoch += 1; invalidateLearningFeedback() }
+        if !preservingContext { hostEpoch += 1; finishLearningFeedback() }
         candidateListGeneration += 1
         clearSuggestions()
         revision += 1
@@ -406,6 +407,7 @@ final class KeyboardSession: KeyboardInputSession {
     }
 
     func clearLearning() {
+        invalidateLearningFeedback()
         reset()
         engine?.clearLearning(); worker?.clearLearning()
     }
@@ -427,8 +429,12 @@ final class KeyboardSession: KeyboardInputSession {
     }
 
     private func beginLearningFeedback(text: String, rank: Int, kind: CandidateLearningFeedback.Kind, removingSuffix: String = "") -> CandidateLearningFeedback? {
-        guard var anchor = learningContextProvider?(), let original = anchor.before, !anchor.hasSelection,
-              original.hasSuffix(removingSuffix) else { return nil }
+        guard var anchor = learningContextProvider?(), !anchor.hasSelection else { return nil }
+        // UIKit reports nil around an empty field / owned preedit. Stage the
+        // intent with no left anchor; accepting still requires a nonnil receipt
+        // containing the committed text. A redacted host therefore never teaches.
+        let original = anchor.before ?? ""
+        guard original.hasSuffix(removingSuffix) else { return nil }
         let before = String(original.dropLast(removingSuffix.count))
         anchor = KeyboardLearningContext(document: anchor.document, before: before, after: anchor.after)
         let context = kind == .nextWord ? VimeLanguageModel.sentenceContext(original) : before
@@ -445,23 +451,27 @@ final class KeyboardSession: KeyboardInputSession {
     /// Called after the host has applied edits and updated its owned marked range.
     func didApplyEdits(_ edits: [KeyboardEdit] = []) {
         guard var pending = pendingFeedback else { return }
-        if !pending.receiptVerified, let insertion = edits.firstIndex(of: .insert(pending.text)) {
+        if !pending.editsSubmitted, let insertion = edits.firstIndex(of: .insert(pending.text)) {
             for edit in edits.dropFirst(insertion + 1) {
                 guard case let .insert(text) = edit else { invalidateLearningFeedback(); return }
                 pending.followingText += text
             }
+            pending.editsSubmitted = true
         }
-        guard pending.matches(learningContextProvider?()) else { invalidateLearningFeedback(); return }
-        pending.receiptVerified = true
+        // insertText is a remote write. The proxy may still expose the old
+        // document here; keep the event until a notification or the retention
+        // boundary can verify it. A submitted edit alone never teaches.
+        if pending.editsSubmitted && pending.matches(learningContextProvider?()) { pending.receiptVerified = true }
         pendingFeedback = pending
     }
 
     /// Retention timer or the next committed action closes this feedback window.
-    /// Partial deletion, field changes and missing host receipts never teach.
+    /// Own deletions cancel feedback. Sending, navigation and field changes do
+    /// not undo an already verified commit; missing receipts still never teach.
     func finishLearningFeedback() {
+        didApplyEdits()
         guard let pending = pendingFeedback else { return }
         let accepted = pending.receiptVerified && pending.remaining == pending.text.count
-            && pending.matches(learningContextProvider?())
         feedbackTask?.cancel(); feedbackTask = nil; pendingFeedback = nil
         engine?.resolveFeedback(pending.event.id, accepted: accepted)
         worker?.resolveFeedback(pending.event.id, accepted: accepted)

@@ -3,6 +3,94 @@ import KanaKanjiConverterModuleWithDefaultDictionary
 
 @MainActor
 final class KeyboardAdaptiveRankingTests: XCTestCase {
+    func testStandaloneWordPreferenceTransfersToUnseenPhrase() throws {
+        let directory = isolatedLearningDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let engine = JapaneseCandidateEngine(memoryDirectoryURL: directory, learningEnabled: true)
+        var word = ComposingText(); RomajiConverter.insert("hashi", into: &word)
+        for _ in 0..<3 {
+            let selected = try XCTUnwrap(engine.candidates(for: word, revision: 1, includeCorrections: false)
+                .first { $0.text == "箸" && $0.learningEligible })
+            engine.complete(selected); engine.flushLearning(); engine.reset()
+        }
+        var phrase = ComposingText(); RomajiConverter.insert("hashiwotsukau", into: &phrase)
+        let value = try XCTUnwrap(engine.candidates(for: phrase, revision: 2, includeCorrections: false)
+            .first { $0.text == "箸を使う" })
+        XCTAssertGreaterThan(value.userPreferenceScore, 0)
+        XCTAssertEqual(value.userPreferenceConfidence, 0, "A word habit must not lock an entire unseen phrase")
+    }
+
+    func testDiverseHomophoneChoicesSurviveModelAndDiskReload() throws {
+        let model = try VimeLanguageModel()
+        for input in ["hashi", "kami", "ame", "ishi", "kikai", "kikou", "katei", "kansei", "taishou", "shiyou", "kaeru", "koushou"] {
+            let directory = isolatedLearningDirectory()
+            defer { try? FileManager.default.removeItem(at: directory) }
+            var engine = JapaneseCandidateEngine(memoryDirectoryURL: directory, learningEnabled: true)
+            var query = ComposingText(); RomajiConverter.insert(input, into: &query)
+            func values(_ context: String) -> [CandidateSnapshot] {
+                engine.reconcileContext(context)
+                return model.rerank(engine.candidates(for: query, revision: 1, includeCorrections: false),
+                    context: context, katakana: false, cancelled: { false })
+            }
+            let initial = values("")
+            let eligible = initial.indices.filter { initial[$0].learningEligible && initial[$0].fullConsumption && initial[$0].exactReading }
+            let originalRank = try XCTUnwrap(eligible.dropFirst().prefix(4).last, input)
+            let target = initial[originalRank].text
+            var ranks = [originalRank + 1]
+            for _ in 0..<3 {
+                let current = values("")
+                let index = try XCTUnwrap(current.firstIndex { $0.text == target })
+                let event = CandidateLearningFeedback(id: UUID(), kind: .explicitCandidate, rank: index, context: "", selectedAt: Date())
+                engine.stageSelection(current[index], event: event); engine.resolveFeedback(event.id, accepted: true)
+                engine.reset()
+                ranks.append(try XCTUnwrap(values("").firstIndex { $0.text == target }) + 1)
+            }
+            engine = JapaneseCandidateEngine(memoryDirectoryURL: directory, learningEnabled: true)
+            let restored = values("")
+            let newContext = values("今日は")
+            let restoredRank = try XCTUnwrap(restored.firstIndex { $0.text == target }) + 1
+            let contextRank = try XCTUnwrap(newContext.firstIndex { $0.text == target }) + 1
+            print("LEARNING_MATRIX input=\(input) target=\(target) ranks=\(ranks) reload=\(restoredRank) newContext=\(contextRank)")
+            XCTAssertEqual(restoredRank, 1, "\(input): repeated deliberate choices must win after reload")
+            XCTAssertLessThanOrEqual(contextRank, 3, "\(input): a new sentence must retain the learned habit")
+        }
+    }
+
+    func testShortContextBackoffPreservesTheMoreSpecificPreference() throws {
+        let directory = isolatedLearningDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let memory = CandidatePreferenceMemory(directory: directory)
+        let date = Date()
+        for _ in 0..<2 {
+            memory.record(reading: "ハシ", surface: "橋", context: "昨日の川を渡る", scope: "choice", now: date)
+        }
+        let backoff = memory.choicePreference(reading: "ハシ", surface: "橋", context: "明日の川を渡る", now: date)
+        XCTAssertEqual(backoff.confidence, 0.85, accuracy: 0.001)
+        for _ in 0..<3 {
+            memory.record(reading: "ハシ", surface: "箸", context: "食事", scope: "choice", now: date.addingTimeInterval(1))
+        }
+        XCTAssertEqual(memory.choicePreference(reading: "ハシ", surface: "箸", context: "明日の川を渡る", now: date).confidence, 0)
+        XCTAssertEqual(memory.choicePreference(reading: "ハシ", surface: "橋", context: "明日の川を渡る", now: date).confidence, 0.85, accuracy: 0.001)
+    }
+
+    func testRepeatedChoicesCarryConfidenceToNewSentencesWithLocalOverrides() throws {
+        let directory = isolatedLearningDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let memory = CandidatePreferenceMemory(directory: directory)
+        var date = Date()
+        for context in ["昨日", "今日は", "それから"] {
+            date = date.addingTimeInterval(0.01)
+            memory.record(reading: "ハシ", surface: "箸", context: context, scope: "choice", now: date)
+        }
+        XCTAssertGreaterThanOrEqual(memory.choicePreference(reading: "ハシ", surface: "箸", context: "新しい文章", now: date).confidence, 0.65)
+        for _ in 0..<2 {
+            date = date.addingTimeInterval(0.01)
+            memory.record(reading: "ハシ", surface: "橋", context: "川を渡る", scope: "choice", now: date)
+        }
+        XCTAssertGreaterThanOrEqual(memory.choicePreference(reading: "ハシ", surface: "橋", context: "川を渡る", now: date).confidence, 0.65)
+        XCTAssertEqual(memory.choicePreference(reading: "ハシ", surface: "箸", context: "川を渡る", now: date).confidence, 0)
+    }
+
     private func pool(_ scores: [Double], surfaces: [String] = ["橋", "箸", "端", "梯", "嘴", "波止"]) -> [CandidateSnapshot] {
         zip(surfaces, scores).enumerated().map { rank, pair in
             let native = Candidate(text: pair.0, value: -10, composingCount: .inputCount(2), lastMid: MIDData.一般.mid,
