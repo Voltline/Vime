@@ -4,6 +4,28 @@ import XCTest
 /// first responder, verifies disappearance, then focuses and types again.
 @MainActor
 final class KeyboardExtensionLifecycleTests: XCTestCase {
+    private func selectVimeKeyboard(in app: XCUIApplication) throws {
+        let key = app.buttons["vime.key.h"]
+        if key.waitForExistence(timeout: 2) { return }
+        let globe = app.buttons.matching(NSPredicate(format: "label IN %@",
+            ["Next keyboard", "下一键盘", "下一个键盘", "切换系统键盘", "次のキーボード"] as NSArray)).firstMatch
+        XCTAssertTrue(globe.waitForExistence(timeout: 5))
+        // A tap can alternate recently used keyboards instead of walking every
+        // enabled input mode. Select the extension explicitly from the menu.
+        globe.press(forDuration: 1)
+        let choice = app.descendants(matching: .any).matching(NSPredicate(
+            format: "label BEGINSWITH[c] %@", "Vime 日本語")).firstMatch
+        if !choice.waitForExistence(timeout: 5) {
+            let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+            attachment.name = "keyboard-selection-menu"; attachment.lifetime = .keepAlways; add(attachment)
+            print("KEYBOARD_SELECTION_MENU \(app.debugDescription)")
+            XCTFail("Enable Vime in simulator keyboard settings before running extension tests")
+            return
+        }
+        choice.tap()
+        XCTAssertTrue(key.waitForExistence(timeout: 10))
+    }
+
     func testPortraitHeightPreferenceSurvivesReconnectAndRotation() throws {
         continueAfterFailure = false
         let app = XCUIApplication()
@@ -22,16 +44,7 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
             app.launch()
             let editor = app.textViews["vime.extension.editor"]
             XCTAssertTrue(editor.waitForExistence(timeout: 10)); editor.tap()
-            if !app.buttons["vime.key.h"].waitForExistence(timeout: 2) {
-                let globe = app.buttons.matching(NSPredicate(format: "label IN %@",
-                    ["Next keyboard", "下一键盘", "下一个键盘", "切换系统键盘", "次のキーボード"] as NSArray)).firstMatch
-                for _ in 0..<6 {
-                    guard !app.buttons["vime.key.h"].exists, globe.exists else { break }
-                    globe.tap()
-                    if app.buttons["vime.key.h"].waitForExistence(timeout: 2) { break }
-                }
-            }
-            XCTAssertTrue(app.buttons["vime.key.h"].exists)
+            try selectVimeKeyboard(in: app)
             let root = app.otherElements["vime.keyboard"]
             XCTAssertTrue(root.waitForExistence(timeout: 3))
             let height = root.frame.height
@@ -169,7 +182,7 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
         let editor = app.textViews["vime.extension.editor"]
         XCTAssertTrue(editor.waitForExistence(timeout: 10))
         editor.tap()
-        XCTAssertTrue(app.buttons["vime.key.h"].waitForExistence(timeout: 5))
+        try selectVimeKeyboard(in: app)
         for round in 1...3 {
             XCUIDevice.shared.orientation = round == 2 ? .landscapeRight : .landscapeLeft
             let space = app.buttons["vime.key.space"]

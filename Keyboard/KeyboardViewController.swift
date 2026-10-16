@@ -83,8 +83,8 @@ class KeyboardViewController: UIInputViewController {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        heightConstraint?.isActive = true
         attachKeyboardIfNeeded()
+        heightConstraint?.isActive = true
         logLifecycle("appearing")
         VimeExtensionAudit.recordLifecycle(event: .viewWillAppear)
         host.abandon()
@@ -94,6 +94,15 @@ class KeyboardViewController: UIInputViewController {
         updateKeyboardGeometry()
         updateTraits()
         rememberContext()
+    }
+
+    override func viewIsAppearing(_ animated: Bool) {
+        super.viewIsAppearing(animated)
+        // The host's final width and scene are available here, after the early
+        // reconnect measurement. Reissue the size even if its constant matches.
+        updateKeyboardGeometry()
+        view.invalidateIntrinsicContentSize()
+        view.setNeedsLayout()
     }
 
     override func viewWillLayoutSubviews() {

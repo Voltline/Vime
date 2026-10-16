@@ -68,6 +68,31 @@ final class KeyboardPresentationTests: XCTestCase {
         XCTAssertEqual(height.constant, keyboard.preferredHeight(for: 440), accuracy: 0.001)
     }
 
+    func testHiddenInputRootKeepsPreferredHeightBeforeControllerReappears() throws {
+        let controller = KeyboardViewController()
+        controller.loadViewIfNeeded()
+        let input = try XCTUnwrap(controller.inputView as? KeyboardInputView)
+        let keyboard = try XCTUnwrap(input.keyboard)
+        input.frame = CGRect(x: 0, y: 0, width: 440, height: 224)
+        keyboard.heightFactor = 1.6
+        controller.viewWillDisappear(false)
+        controller.viewDidDisappear(false)
+        XCTAssertNil(input.keyboard, "Releasing the hidden keyboard must remain possible")
+        for width in [CGFloat(440), 375] {
+            input.bounds.size = CGSize(width: width, height: 224)
+            let expected = keyboard.preferredHeight(for: width)
+            XCTAssertEqual(input.intrinsicContentSize.height, expected, accuracy: 0.001)
+            XCTAssertEqual(input.systemLayoutSizeFitting(input.bounds.size).height, expected, accuracy: 0.001)
+            XCTAssertEqual(input.systemLayoutSizeFitting(input.bounds.size,
+                withHorizontalFittingPriority: .required, verticalFittingPriority: .required).height,
+                expected, accuracy: 0.001)
+        }
+        controller.viewWillAppear(false)
+        let height = try XCTUnwrap(input.constraints.first { $0.identifier == "vime.keyboard.height" })
+        XCTAssertTrue(height.isActive)
+        XCTAssertEqual(height.constant, keyboard.preferredHeight(for: input.bounds.width), accuracy: 0.001)
+    }
+
     func testPortraitFitsShortReconnectFrameAndKeepsBottomRowHittable() throws {
         let keyboard = KeyboardView(frame: .zero, session: KeyboardSession())
         defer { keyboard.stopInteractions() }

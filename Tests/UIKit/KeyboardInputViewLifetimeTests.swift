@@ -58,6 +58,32 @@ final class KeyboardInputViewLifetimeTests: XCTestCase {
         XCTAssertNil(reference)
     }
 
+    func testDetachedRootRetainsOnlySizingAndAdoptsReplacementPreferences() {
+        let keyboard = KeyboardView(frame: .zero, session: KeyboardSession())
+        defer { keyboard.stopInteractions() }
+        let input = KeyboardInputView(keyboard: keyboard)
+        for compact in [false, true, false] {
+            for footer in [false, true] {
+                for factor in [CGFloat(0.85), 1.6] {
+                    input.attachKeyboard(keyboard)
+                    keyboard.compact = compact
+                    keyboard.showsFooter = footer
+                    keyboard.heightFactor = factor
+                    input.detachKeyboard()
+                    // Repeated cleanup must not discard the sizing snapshot.
+                    input.detachKeyboard()
+                    for width in [CGFloat(375), 844] {
+                        let proposed = CGSize(width: width, height: 224)
+                        XCTAssertEqual(input.systemLayoutSizeFitting(proposed).height,
+                            keyboard.preferredHeight(for: width), accuracy: 0.001)
+                    }
+                    XCTAssertNil(input.keyboard)
+                    XCTAssertNil(keyboard.superview)
+                }
+            }
+        }
+    }
+
     func testRepeatedControllerCallbacksKeepExactlyOneSetOfEdgeConstraints() throws {
         let controller = KeyboardViewController()
         controller.loadViewIfNeeded()
