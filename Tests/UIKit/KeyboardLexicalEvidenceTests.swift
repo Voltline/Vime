@@ -3,6 +3,44 @@ import KanaKanjiConverterModuleWithDefaultDictionary
 
 @MainActor
 final class KeyboardLexicalEvidenceTests: XCTestCase {
+    func testMixedPhraseCanCompeteWithoutAdmittingUnknownCorrection() {
+        let word = DicdataElement(word: "学校", ruby: "ガッコウ", cid: CIDData.一般名詞.cid,
+                                  mid: MIDData.一般.mid, value: -10)
+        let unknown = DicdataElement(word: "ミトウロク", ruby: "ミトウロク", cid: CIDData.固有名詞.cid,
+                                     mid: MIDData.一般.mid, value: -10)
+        let number = DicdataElement(word: "17", ruby: "17", cid: CIDData.固有名詞.cid,
+                                    mid: MIDData.一般.mid, value: -10)
+        for tail in [unknown, number] {
+            let native = Candidate(text: word.word + tail.word, value: -20, composingCount: .inputCount(8),
+                                   lastMid: MIDData.一般.mid, data: [word, tail])
+            let value = CandidateSnapshot(candidate: native, revision: 1, source: .conversion,
+                remainingComposition: ComposingText(), originalInputCount: 8, consumedInputCount: 8,
+                queryReading: word.ruby + tail.ruby)
+            XCTAssertFalse(JapaneseCandidateEngine.hasDictionaryEvidence(native), "Correction admission stays strict")
+            XCTAssertTrue(value.lexical)
+            XCTAssertTrue(value.exactReading)
+            XCTAssertEqual(VimeLanguageModel.rerankingSlots([value], katakana: false), [0])
+            let ranked = CandidateReranker().rank([value], input: value.queryReading, katakana: false, previous: nil)
+            XCTAssertEqual(ranked.first?.features.exactReading, CandidateRankingWeights().exactLexical)
+            XCTAssertEqual(ranked.first?.candidate, native, "Keep native segmentation and consumption for selection")
+        }
+        let fallback = Candidate(text: unknown.word, value: -10, composingCount: .inputCount(4),
+                                 lastMid: MIDData.一般.mid, data: [unknown])
+        XCTAssertFalse(JapaneseCandidateEngine.hasConversionEvidence(fallback))
+    }
+
+    func testUnfinishedRomanSuffixDoesNotReceiveExactConversionBonus() throws {
+        let engine = JapaneseCandidateEngine(memoryDirectoryURL: isolatedLearningDirectory(), learningEnabled: false)
+        var query = ComposingText()
+        RomajiConverter.insert("kouen", into: &query)
+        let values = engine.candidates(for: query, revision: 1, includeCorrections: false)
+        XCTAssertEqual(values.first?.text, "公園")
+        for value in values where value.reading.hasSuffix("n") {
+            XCTAssertFalse(value.exactReading)
+            XCTAssertEqual(value.features.exactReading, 0)
+        }
+    }
+
     func testPunctuationDoesNotHideDictionaryConversion() throws {
         let engine = JapaneseCandidateEngine(memoryDirectoryURL: isolatedLearningDirectory(), learningEnabled: false)
         for (reading, surface) in [("（がっこう", "（学校"), ("）としょかん", "）図書館")] {

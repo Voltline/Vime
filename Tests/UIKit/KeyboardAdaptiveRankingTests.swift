@@ -103,25 +103,46 @@ final class KeyboardAdaptiveRankingTests: XCTestCase {
         }
     }
 
-    func testCompetitionWidensOnlyForPlausibleContenders() {
+    func testCompetitionDoesNotMistakeHeuristicGapsForConfidence() {
         let close = pool([10, 9.8, 9.6, 9.4, 9.2, 9])
         XCTAssertEqual(CandidateCompetitionPolicy.plan(close, katakana: false).slots.count, 6)
-        XCTAssertTrue(CandidateCompetitionPolicy.plan(pool([10, 5]), katakana: false).slots.isEmpty)
-        XCTAssertEqual(CandidateCompetitionPolicy.plan(pool([10, 7, 6, 5]), katakana: false).slots.count, 2)
+        XCTAssertEqual(CandidateCompetitionPolicy.plan(pool([10, 5]), katakana: false).slots, [0, 1])
+        XCTAssertEqual(CandidateCompetitionPolicy.plan(pool([10, 7, 6, 5]), katakana: false).slots.count, 4)
         XCTAssertTrue(CandidateCompetitionPolicy.plan(close, katakana: true).slots.isEmpty)
         XCTAssertTrue(CandidateCompetitionPolicy.plan(close, katakana: false, maximumCandidates: 1).slots.isEmpty)
+        var learned = close
+        learned[0].userPreferenceConfidence = 0.85
+        XCTAssertTrue(CandidateCompetitionPolicy.plan(learned, katakana: false).slots.isEmpty,
+                      "A confirmed personal leader should not wait for redundant model work")
     }
 
-    func testModelAdjustmentPreservesEvidenceAndStrongPersonalChoice() {
+    func testModelCanOvercomeDictionaryPriorButPreservesStrongPersonalChoice() {
         let strongDictionary = pool([10, 8.5])
-        XCTAssertEqual(CandidateCompetitionPolicy.applying([-100, 0], slots: [0, 1], limit: 1,
-            to: strongDictionary).first?.text, "橋")
+        XCTAssertEqual(CandidateCompetitionPolicy.applying([-100, 0], slots: [0, 1],
+            to: strongDictionary).first?.text, "箸")
         var close = pool([10, 9.8])
-        XCTAssertEqual(CandidateCompetitionPolicy.applying([-100, 0], slots: [0, 1], limit: 4,
+        XCTAssertEqual(CandidateCompetitionPolicy.applying([-100, 0], slots: [0, 1],
             to: close).first?.text, "箸")
         close[0].userPreferenceConfidence = 1
-        XCTAssertEqual(CandidateCompetitionPolicy.applying([-100, 0], slots: [0, 1], limit: 4,
+        XCTAssertEqual(CandidateCompetitionPolicy.applying([-100, 0], slots: [0, 1],
             to: close).first?.text, "橋")
+    }
+
+    func testPersonalBonusIsNotScaledDownWithDictionaryPrior() {
+        var values = pool([10, 10])
+        values[1].userPreferenceScore = 2
+        let ranked = CandidateCompetitionPolicy.applying([0, -2], slots: [0, 1], to: values)
+        XCTAssertEqual(ranked.first?.text, "箸", "A deliberate choice retains its full learning bonus")
+        XCTAssertEqual(ranked.first?.features.userLearning, 3)
+    }
+
+    func testOverlongAlternativeDoesNotDisableValidComparison() throws {
+        let model = try VimeLanguageModel()
+        let values = pool([0, 0, 0], surfaces: ["買う", String(repeating: "東京", count: 200), "飲む"])
+        let ranked = model.rerank(values, context: "コーヒーを", katakana: false, cancelled: { false })
+        XCTAssertEqual(ranked.first?.text, "飲む")
+        XCTAssertEqual(ranked[1].presentation, values[1].presentation)
+        XCTAssertEqual(Set(ranked.map(\.text)), Set(values.map(\.text)))
     }
 
     func testCompletedCoreSurvivesCancellationDuringExpansion() throws {

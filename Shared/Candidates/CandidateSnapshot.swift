@@ -47,12 +47,15 @@ nonisolated struct CandidateSnapshot: Sendable {
     var surface: String { text }
     var fullConsumption: Bool { remainingComposition.isEmpty }
     var exactReading: Bool { !queryReading.isEmpty && reading == (scopeReading.isEmpty ? queryReading : scopeReading)
-        && !reading.unicodeScalars.contains(where: { $0.isASCII }) }
+        && !reading.unicodeScalars.contains(where: { (65...90).contains($0.value) || (97...122).contains($0.value) }) }
     var isPrediction: Bool { predictionStatus }
     var engineScore: Double { Double(candidate.value) }
     var composingCount: ComposingCount { candidate.composingCount }
     var scriptType: CandidateScript { CandidateScript.classify(text) }
-    var lexical: Bool { widthVariant == nil && source != .specialConversion && source != .emoji && JapaneseCandidateEngine.hasDictionaryEvidence(candidate) }
+    var lexical: Bool { widthVariant == nil && source != .specialConversion && source != .emoji
+        && ((source == .conversion || source == .userDictionary || source == .orthographicVariant)
+            ? JapaneseCandidateEngine.hasConversionEvidence(candidate)
+            : JapaneseCandidateEngine.hasDictionaryEvidence(candidate)) }
     var learningEligible: Bool { candidate.isLearningTarget && lexical && source != .scriptVariant && displaySurface == nil }
     var hasLearningEvidence: Bool { candidate.data.contains { $0.metadata.contains(.isLearned) } }
     var presentation: CandidatePresentation {

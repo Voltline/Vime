@@ -1,6 +1,7 @@
 import Foundation
 import CoreML
 import CSentencePiece
+import Accelerate
 
 /// Confined to the candidate worker's serial queue. No mutable state crosses actors.
 nonisolated final class VimeSentenceTokenizer {
@@ -128,7 +129,8 @@ nonisolated final class VimeLanguageModel {
         return values
     }
     /// Exactly the frozen scorer: joint encoding, common prefix, full-vocabulary log-softmax,
-    /// BOS=2, right PAD=0, summed suffix scores, no candidate-final EOS or truncation.
+    /// BOS=2, summed suffix scores, no candidate-final EOS or truncation. Causal
+    /// logits are unchanged when unused right padding is omitted.
     func scores(context: String, candidates: [String], cancelled: () -> Bool = { false }) throws -> [Double] {
         try scores(context: context, candidates: candidates, progress: nil, cancelled: cancelled)
     }
@@ -154,23 +156,29 @@ nonisolated final class VimeLanguageModel {
             if sequences.allSatisfy({ $0[i] == contextIDs[i] }) { common += 1 } else { break }
         }
         guard common >= 1, sequences.allSatisfy({ $0.count > common }) else { throw Failure.ineligible }
-        let length = sequences.map { $0.count - 1 }.max()!
-        return try sequenceScores(sequences, common: common, paddedLength: length, progress: progress, cancelled: cancelled)
+        return try sequenceScores(sequences, common: common, progress: progress, cancelled: cancelled)
     }
 
-    private func sequenceScores(_ sequences: [[Int32]], common: Int, paddedLength length: Int,
+    private func sequenceScores(_ sequences: [[Int32]], common: Int,
                                 progress: (([Double]) -> Void)? = nil,
                                 cancelled: () -> Bool) throws -> [Double] {
         var sums = [Double]()
         for sequence in sequences {
             if cancelled() { throw Failure.cancelled }
-            let input = Array(sequence.dropLast()) + Array(repeating: Int32(0), count: length - sequence.count + 1)
+            // A long all-kana alternative must not force every short native
+            // conversion through a larger transformer/output tensor. The
+            // causal model cannot attend to the unused right padding anyway.
+            let input = Array(sequence.dropLast())
             let sum: Double = try autoreleasepool {
                 let logits = try predict(input)
+                // Only the observed token's probability is needed. Reuse one
+                // vocabulary buffer and vectorize the full normalizer instead
+                // of allocating and normalizing a Swift array for every token.
+                var scratch = [Double](repeating: 0, count: Self.vocabulary)
                 var sum = 0.0
                 for row in (common - 1)..<(sequence.count - 1) {
-                    let probabilities = try Self.logProbabilities(logits, row: row)
-                    sum += probabilities[Int(sequence[row + 1])]
+                    if cancelled() { throw Failure.cancelled }
+                    sum += try Self.tokenLogProbability(logits, row: row, token: Int(sequence[row + 1]), scratch: &scratch)
                 }
                 return sum
             }
@@ -180,26 +188,67 @@ nonisolated final class VimeLanguageModel {
         }
         return sums
     }
-    /// Rerank full, literal dictionary conversions in their existing slots. Partial conversion,
-    /// script choice, reading alternatives and corrections retain the engine's UI semantics.
+    private static func tokenLogProbability(_ logits: MLMultiArray, row: Int, token: Int,
+                                            scratch: inout [Double]) throws -> Double {
+        let pointer = logits.dataPointer.assumingMemoryBound(to: Float.self)
+            .advanced(by: row * logits.strides[1].intValue)
+        let stride = logits.strides[2].intValue
+        let observed = Double(pointer[token * stride])
+        return try scratch.withUnsafeMutableBufferPointer { buffer in
+            let p = buffer.baseAddress!
+            let count = vDSP_Length(vocabulary)
+            vDSP_vspdp(pointer, vDSP_Stride(stride), p, 1, count)
+            var finiteCheck = 0.0
+            vDSP_sveD(p, 1, &finiteCheck, count)
+            guard finiteCheck.isFinite else { throw Failure.tensor }
+            var maximum = 0.0
+            vDSP_maxvD(p, 1, &maximum, count)
+            var shift = -maximum
+            vDSP_vsaddD(p, 1, &shift, p, 1, count)
+            var n = Int32(vocabulary)
+            vvexp(p, p, &n)
+            var total = 0.0
+            vDSP_sveD(p, 1, &total, count)
+            guard total.isFinite, total > 0 else { throw Failure.tensor }
+            return observed - maximum - log(total)
+        }
+    }
+    /// Compare native complete conversions and literal kana alternatives in
+    /// their existing slots. Partial, width, correction and prediction entries
+    /// keep their consumption and presentation semantics.
     static func rerankingSlots(_ values: [CandidateSnapshot], katakana: Bool) -> [Int] {
         guard !katakana else { return [] }
-        return values.indices.filter { (values[$0].source == .conversion || values[$0].source == .orthographicVariant || values[$0].source == .userDictionary) && values[$0].scopeFullConsumption && (values[$0].fullConsumption || values[$0].explicitScope)
-            && values[$0].exactReading && values[$0].lexical }
+        var seen = Set<String>()
+        return values.indices.filter { index in
+            let value = values[index]
+            let native = value.source == .conversion || value.source == .orthographicVariant || value.source == .userDictionary
+            let kana = value.source == .scriptVariant && RomajiConverter.katakana(value.text) == value.reading
+            return (native || kana) && value.widthVariant == nil && value.scopeFullConsumption
+                && (value.fullConsumption || value.explicitScope) && value.exactReading
+                && seen.insert(value.text).inserted
+        }
     }
     func rerank(_ values: [CandidateSnapshot], context: String, katakana: Bool, maximumCandidates: Int? = nil,
                 onRefinement: (([CandidateSnapshot]) -> Void)? = nil,
                 cancelled: @escaping () -> Bool) -> [CandidateSnapshot] {
-        guard !katakana, !cancelled() else { return values }
-        let plan = CandidateCompetitionPolicy.plan(values, katakana: katakana, maximumCandidates: maximumCandidates ?? 6)
-        let slots = plan.slots
-        guard slots.count > 1 else { return values }
+        guard !katakana, !context.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              !cancelled() else { return values }
+        let plan = CandidateCompetitionPolicy.plan(values, katakana: katakana, maximumCandidates: maximumCandidates ?? 8)
         let started = ProcessInfo.processInfo.systemUptime
         let stop = { cancelled() || ProcessInfo.processInfo.systemUptime - started > 0.250 }
+        // One unsupported symbol or overlong alternative must not disable
+        // scoring of every other candidate. Rejected entries keep their slots.
+        let slots = plan.slots.filter { index in
+            guard !stop(), let ids = try? tokenizer.encode(context + values[index].text),
+                  !ids.isEmpty, ids.count <= Self.contextLength,
+                  let decoded = try? tokenizer.decode(ids) else { return false }
+            return Self.exactText(decoded, context + values[index].text)
+        }
+        guard slots.count > 1 else { return values }
         var result = values
         _ = try? scores(context: context, candidates: slots.map { values[$0].text }, progress: { sums in
             guard sums.count >= 2, !stop() else { return }
-            result = CandidateCompetitionPolicy.applying(sums, slots: slots, limit: plan.adjustmentLimit, to: values)
+            result = CandidateCompetitionPolicy.applying(sums, slots: slots, to: values)
             onRefinement?(result)
         }, cancelled: stop)
         return result
@@ -358,8 +407,7 @@ nonisolated final class VimeLanguageModel {
                 values[i] = generated[i].score
             } else { uncached.append(i) }
         }
-        let fresh = try sequenceScores(uncached.map { sequences[$0] }, common: common,
-            paddedLength: sequences.map { $0.count - 1 }.max()!, cancelled: cancelled)
+        let fresh = try sequenceScores(uncached.map { sequences[$0] }, common: common, cancelled: cancelled)
         nextWordScoringPasses = uncached.count
         nextWordScoreReuses = texts.count - uncached.count
         for (index, value) in zip(uncached, fresh) { values[index] = value }

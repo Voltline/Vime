@@ -74,7 +74,7 @@ final class VimeLanguageModelTests: XCTestCase {
         let reordered = lm.rerank(values, context: "", katakana: false, cancelled: { false })
         XCTAssertEqual(Set(reordered.map(\.text)), Set(values.map(\.text)))
         XCTAssertTrue(reordered.allSatisfy { $0.revision == 73 })
-        for index in values.indices where !(values[index].source == .conversion && values[index].fullConsumption && values[index].exactReading && values[index].lexical) {
+        for index in values.indices where !VimeLanguageModel.rerankingSlots(values, katakana: false).contains(index) {
             XCTAssertEqual(reordered[index].presentation, values[index].presentation)
         }
     }

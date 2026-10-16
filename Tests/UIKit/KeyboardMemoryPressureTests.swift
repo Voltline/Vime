@@ -117,7 +117,7 @@ final class KeyboardMemoryPressureTests: XCTestCase {
             var composing = ComposingText(); RomajiConverter.insert(input, into: &composing)
             let ready = expectation(description: "Base candidates \(revision)")
             var snapshots: [CandidateSnapshot] = []
-            worker.candidates(for: composing, katakana: false, revision: revision, leftContext: "", continuity: nil) { values, _, secondary in
+            worker.candidates(for: composing, katakana: false, revision: revision, leftContext: "川を渡るための", continuity: nil) { values, _, secondary in
                 if !secondary { snapshots = values; ready.fulfill() }
             }
             await fulfillment(of: [ready], timeout: 10)
@@ -153,7 +153,7 @@ final class KeyboardMemoryPressureTests: XCTestCase {
         var composing = ComposingText(); RomajiConverter.insert("hashi", into: &composing)
         let ready = expectation(description: "Dictionary candidates \(revision)")
         var snapshots: [CandidateSnapshot] = []
-        worker.candidates(for: composing, katakana: false, revision: revision, leftContext: "", continuity: nil) { values, _, secondary in
+        worker.candidates(for: composing, katakana: false, revision: revision, leftContext: "川を渡るための", continuity: nil) { values, _, secondary in
             if !secondary { snapshots = values; ready.fulfill() }
         }
         await fulfillment(of: [ready], timeout: 10)

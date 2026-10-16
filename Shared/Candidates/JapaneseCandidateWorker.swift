@@ -11,7 +11,7 @@ final class JapaneseCandidateWorker {
     // Neural ranking can participate before the first display, but never hold
     // dictionary candidates behind a cold model or a long scoring request.
     nonisolated static let initialRankingWindow: TimeInterval = 0.040
-    nonisolated static let initialRankingCandidateLimit = 6
+    nonisolated static let initialRankingCandidateLimit = 8
 
     nonisolated struct ResourceState: Equatable, Sendable {
         let engineLoaded: Bool
@@ -140,10 +140,10 @@ final class JapaneseCandidateWorker {
             KeyboardPerformance.record(.candidateRequestToResult, since: requestStartedAt)
             let readyAt = KeyboardPerformance.start()
             guard !request.isCancelled else { return }
-            // An empty sentence offers only unigram frequency, which must not
-            // displace dictionary evidence or a word the user has just taught us.
             let sentence = VimeLanguageModel.sentenceContext(leftContext ?? "")
-            let neuralRanking = ranking == .languageModel && !sentence.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            // Sentence-initial ranking currently adds a publication window
+            // for little measured gain. Keep native/personal evidence there.
+            let neuralRanking = ranking == .languageModel && !sentence.isEmpty
                 && CandidateCompetitionPolicy.plan(values, katakana: katakana, maximumCandidates: Self.initialRankingCandidateLimit).slots.count > 1
             let initialDeadline = ProcessInfo.processInfo.systemUptime + Self.initialRankingWindow
             if neuralRanking {

@@ -206,15 +206,19 @@ final class KeyboardCandidateStabilityTests: XCTestCase {
         var query = ComposingText()
         RomajiConverter.insert("hashi", into: &query)
         let base = engine.candidates(for: query, revision: 1, includeCorrections: false)
-        let ready = expectation(description: "dictionary first without a sentence context")
+        let ready = expectation(description: "first publication without preceding sentence context")
+        var publications = 0
         worker.candidates(for: query, katakana: false, revision: 1, leftContext: "前の文。", continuity: nil) { values, _, supplementary in
             guard !supplementary else { return }
+            XCTAssertFalse(values.isEmpty)
             XCTAssertEqual(values.map(\.presentation), base.map(\.presentation))
-            ready.fulfill()
+            publications += 1
+            if publications == 1 { ready.fulfill() }
         }
         await fulfillment(of: [ready], timeout: 5)
         let resources = await worker.resourceState()
-        XCTAssertFalse(resources.modelLoaded, "An ended sentence cannot justify overriding native dictionary ranking with unigram likelihood")
+        XCTAssertFalse(resources.modelLoaded, "Sentence-initial scoring must earn its latency before being enabled")
+        XCTAssertEqual(publications, 1, "Cold scoring must not publish a second initial order")
         worker.reset()
     }
 }

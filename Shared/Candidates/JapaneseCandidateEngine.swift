@@ -752,6 +752,18 @@ nonisolated final class JapaneseCandidateEngine {
 
     private static let literalSeparators = CharacterSet.punctuationCharacters.union(.whitespacesAndNewlines)
 
+    /// A literal conversion may contain an unknown name, number or Latin word
+    /// alongside attested words. Corrections still require whole-candidate
+    /// dictionary evidence through hasDictionaryEvidence below.
+    static func hasConversionEvidence(_ candidate: Candidate) -> Bool {
+        candidate.data.contains { element in
+            !element.word.isEmpty && !element.ruby.isEmpty
+                && !element.word.unicodeScalars.allSatisfy { literalSeparators.contains($0) }
+                && !element.ruby.unicodeScalars.contains(where: { $0.isASCII })
+                && (element.metadata.contains(.isFromUserDictionary) || !isKanaFallback(element))
+        }
+    }
+
     /// Literal separators are neutral: upstream can encode a bracket using the
     /// same IDs as an unknown kana fallback. Require at least one dictionary word
     /// and continue rejecting unknown word pieces anywhere in the sentence.
