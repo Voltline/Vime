@@ -2,8 +2,9 @@ import UIKit
 
 /// The actual input view must enable Apple's standard input clicks, rather than
 /// only a descendant view. Used by both the keyboard extension and the sandbox.
-final class KeyboardInputView: UIInputView, UIInputViewAudioFeedback {
-    // UIKit can retain old input views after their controller is deallocated.
+final class KeyboardInputView: UIView, UIInputViewAudioFeedback {
+    // UIInputView's system content views retained retired roots during native
+    // host reconnects. Use an ordinary root; Vime draws its own background.
     // The subview hierarchy owns the keyboard only while it is attached.
     private(set) weak var keyboard: KeyboardView?
     // Sizing belongs to the root for its entire lifetime, including periods
@@ -16,9 +17,7 @@ final class KeyboardInputView: UIInputView, UIInputViewAudioFeedback {
     init(keyboard: KeyboardView) {
         sizing = KeyboardMetrics(width: keyboard.bounds.width > 0 ? keyboard.bounds.width : 440,
             compact: keyboard.compact, showsFooter: keyboard.showsFooter, heightFactor: keyboard.heightFactor)
-        super.init(frame: CGRect(origin: .zero, size: CGSize(width: sizing.width, height: sizing.height)),
-            inputViewStyle: .keyboard)
-        allowsSelfSizing = true
+        super.init(frame: CGRect(origin: .zero, size: CGSize(width: sizing.width, height: sizing.height)))
         let height = heightAnchor.constraint(equalToConstant: sizing.height)
         height.identifier = "vime.keyboard.height"
         height.priority = .init(999)

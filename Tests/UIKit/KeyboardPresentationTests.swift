@@ -73,7 +73,7 @@ final class KeyboardPresentationTests: XCTestCase {
     func testHiddenInputRootKeepsPreferredHeightBeforeControllerReappears() throws {
         let controller = KeyboardViewController()
         controller.loadViewIfNeeded()
-        let input = try XCTUnwrap(controller.inputView as? KeyboardInputView)
+        let input = try XCTUnwrap(controller.view as? KeyboardInputView)
         let keyboard = try XCTUnwrap(input.keyboard)
         input.frame = CGRect(x: 0, y: 0, width: 440, height: 224)
         keyboard.heightFactor = 1.6
@@ -98,7 +98,7 @@ final class KeyboardPresentationTests: XCTestCase {
     func testHiddenRootKeepsAnExplicitHeightThroughoutHostMeasurement() throws {
         let controller = KeyboardViewController()
         controller.loadViewIfNeeded()
-        let input = try XCTUnwrap(controller.inputView as? KeyboardInputView)
+        let input = try XCTUnwrap(controller.view as? KeyboardInputView)
         let keyboard = try XCTUnwrap(input.keyboard)
         input.bounds.size = CGSize(width: 440, height: 224)
         keyboard.heightFactor = 1.6

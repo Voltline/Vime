@@ -1,12 +1,42 @@
 import XCTest
+import ObjectiveC
 
 /// Uses the installed extension in a separate process. Every round resigns
 /// first responder, verifies disappearance, then focuses and types again.
 @MainActor
 final class KeyboardExtensionLifecycleTests: XCTestCase {
+#if targetEnvironment(simulator)
+    private static let waitForAppStateWithoutAnimationNotification: Void = {
+        // Headless rotations can lose XCTest's animation-complete notification
+        // after the keyboard has already finished. Keep app-state quiescence;
+        // every operation below also waits for its visible result explicitly.
+        // Like Appium's quiescence adapter, this affects only the test runner.
+        guard let process = NSClassFromString("XCUIApplicationProcess") else { return }
+        let selector = NSSelectorFromString("waitForQuiescenceIncludingAnimationsIdle:isPreEvent:")
+        if let method = class_getInstanceMethod(process, selector) {
+            typealias Wait = @convention(c) (AnyObject, Selector, Bool, Bool) -> Void
+            let original = unsafeBitCast(method_getImplementation(method), to: Wait.self)
+            let replacement: @convention(block) (AnyObject, Bool, Bool) -> Void = { object, _, preEvent in
+                original(object, selector, false, preEvent)
+            }
+            method_setImplementation(method, imp_implementationWithBlock(replacement))
+        } else {
+            let selector = NSSelectorFromString("waitForQuiescenceIncludingAnimationsIdle:")
+            guard let method = class_getInstanceMethod(process, selector) else { return }
+            typealias Wait = @convention(c) (AnyObject, Selector, Bool) -> Void
+            let original = unsafeBitCast(method_getImplementation(method), to: Wait.self)
+            let replacement: @convention(block) (AnyObject, Bool) -> Void = { object, _ in
+                original(object, selector, false)
+            }
+            method_setImplementation(method, imp_implementationWithBlock(replacement))
+        }
+    }()
+#endif
+
     override func setUp() {
         super.setUp()
 #if targetEnvironment(simulator)
+        _ = Self.waitForAppStateWithoutAnimationNotification
         // Match Appium's simulator fixture: a headless device can otherwise
         // focus its editor while automatically minimizing every software keyboard.
         // This private API is confined to the UI test runner, never the app/extension.
@@ -109,6 +139,19 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
             app.launchArguments = ["--keyboard-extension-test", "--keyboard-extension-test-height", "1"]
             app.launch()
         }
+        func waitForOrientation(_ landscape: Bool, keyboardVisible: Bool) {
+            let ready = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                let frame = app.frame
+                guard landscape ? frame.width > frame.height : frame.width < frame.height else { return false }
+                guard keyboardVisible else { return true }
+                let enter = app.buttons["vime.key.return"]
+                let dismiss = app.buttons["vime.candidates.expand"]
+                return enter.exists && dismiss.exists && enter.frame.width >= 20 && dismiss.frame.width >= 20
+                    && enter.isHittable && dismiss.isHittable
+            }, object: nil)
+            XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 5), .completed,
+                "Wait for the destination layout, not an element left over from the rotation animation")
+        }
         var shortHeight: CGFloat?
         for factor in [0.85, 1.6, 1.0] {
             app.terminate()
@@ -118,6 +161,7 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
             let editor = app.textViews["vime.extension.editor"]
             XCTAssertTrue(editor.waitForExistence(timeout: 10)); editor.tap()
             try selectVimeKeyboard(in: app)
+            waitForOrientation(false, keyboardVisible: true)
             let root = app.otherElements["vime.keyboard"]
             XCTAssertTrue(root.waitForExistence(timeout: 3))
             let height = root.frame.height
@@ -131,7 +175,9 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
                 if round == 1 {
                     XCUIDevice.shared.orientation = .landscapeLeft
                     XCTAssertTrue(app.buttons["vime.key.return"].waitForExistence(timeout: 5))
+                    waitForOrientation(true, keyboardVisible: true)
                     XCUIDevice.shared.orientation = .portrait
+                    waitForOrientation(false, keyboardVisible: true)
                 }
                 if round == 3 {
                     let globe = app.buttons.matching(NSPredicate(format: "label IN %@",
@@ -148,11 +194,14 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
                 if round == 4 {
                     // Change orientation while the root has no keyboard tree.
                     XCUIDevice.shared.orientation = .landscapeRight
+                    waitForOrientation(true, keyboardVisible: false)
                     editor.tap()
                     XCTAssertTrue(app.buttons["vime.key.h"].waitForExistence(timeout: 5))
+                    waitForOrientation(true, keyboardVisible: true)
                     app.buttons["vime.candidates.expand"].tap()
                     XCTAssertTrue(app.buttons["vime.key.h"].waitForNonExistence(timeout: 5))
                     XCUIDevice.shared.orientation = .portrait
+                    waitForOrientation(false, keyboardVisible: false)
                 }
                 editor.tap()
                 let reopened = app.buttons["vime.key.h"].waitForExistence(timeout: 5)
@@ -162,6 +211,7 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
                     attachment.name = "height-reconnect-failure"; attachment.lifetime = .keepAlways; add(attachment)
                 }
                 XCTAssertTrue(reopened)
+                waitForOrientation(false, keyboardVisible: true)
                 let stableHeight = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
                     abs(root.frame.height - height) < 1
                 }, object: root)

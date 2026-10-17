@@ -26,7 +26,7 @@ class KeyboardViewController: UIInputViewController {
     )
 
     // A retained input root belongs to its original controller/host connection.
-    override func loadView() { inputView = KeyboardInputView(keyboard: keyboard) }
+    override func loadView() { view = KeyboardInputView(keyboard: keyboard) }
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -74,7 +74,7 @@ class KeyboardViewController: UIInputViewController {
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         keyboard.reloadHeightPreference()
-        (inputView as? KeyboardInputView)?.attachKeyboard(keyboard)
+        (view as? KeyboardInputView)?.attachKeyboard(keyboard)
         logLifecycle("appearing")
         VimeExtensionAudit.recordLifecycle(event: .viewWillAppear)
         host.abandon()
@@ -95,7 +95,7 @@ class KeyboardViewController: UIInputViewController {
         keyboard.compact = traitCollection.userInterfaceIdiom == .phone && landscape
         keyboard.showsFooter = needsInputModeSwitchKey
         keyboard.needsGlobe = needsInputModeSwitchKey
-        (inputView as? KeyboardInputView)?.refreshSizing()
+        (view as? KeyboardInputView)?.refreshSizing()
     }
 
     override func viewWillDisappear(_ animated: Bool) {
@@ -111,7 +111,7 @@ class KeyboardViewController: UIInputViewController {
     override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
         keyboard.releaseInactiveResources()
-        if let input = inputView as? KeyboardInputView {
+        if let input = view as? KeyboardInputView {
             input.detachKeyboard()
         }
         VimeExtensionAudit.recordLifecycle(event: .viewDidDisappear)

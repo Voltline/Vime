@@ -8,6 +8,72 @@ final class KeyboardInputViewLifetimeTests: XCTestCase {
         weak var session: KeyboardSession?
     }
 
+    private final class NativeHostEditor: UITextView {
+        var suppliedKeyboard: KeyboardViewController?
+        override var inputViewController: UIInputViewController? { suppliedKeyboard }
+    }
+
+    private final class RootReference {
+        weak var value: KeyboardInputView?
+    }
+
+    private func nativeHostRootsAfterTeardown() async throws -> [RootReference] {
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            .first { $0.activationState == .foregroundActive })
+        let previousKeyWindow = scene.windows.first { $0.isKeyWindow }
+        let window = UIWindow(windowScene: scene)
+        window.frame = scene.coordinateSpace.bounds
+        let host = UIViewController()
+        window.rootViewController = host
+        window.makeKeyAndVisible()
+        let editor = NativeHostEditor(frame: CGRect(x: 20, y: 80, width: 300, height: 120))
+        host.view.addSubview(editor)
+        defer {
+            editor.resignFirstResponder()
+            editor.suppliedKeyboard = nil
+            window.isHidden = true
+            previousKeyWindow?.makeKeyAndVisible()
+        }
+        var roots: [RootReference] = []
+        for _ in 0..<8 {
+            try autoreleasepool {
+                let controller = KeyboardViewController()
+                controller.loadViewIfNeeded()
+                let reference = RootReference()
+                reference.value = try XCTUnwrap(controller.view as? KeyboardInputView)
+                roots.append(reference)
+                editor.suppliedKeyboard = controller
+            }
+            XCTAssertTrue(editor.becomeFirstResponder())
+            // Exercise UIKit's native input hosting, including its content
+            // wrappers; constructing and dropping a root alone misses the leak.
+            let visible = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                roots.last?.value?.window != nil
+            }, object: nil)
+            await fulfillment(of: [visible], timeout: 3)
+            XCTAssertNotNil(roots.last?.value?.window)
+            XCTAssertTrue(editor.resignFirstResponder())
+            editor.suppliedKeyboard = nil
+            try await Task.sleep(for: .milliseconds(350))
+        }
+        editor.removeFromSuperview()
+        return roots
+    }
+
+    func testNativeHostReleasesSupersededInputRoots() async throws {
+        let roots = try await nativeHostRootsAfterTeardown()
+        // In-process UIKit hosting caches its most recent input view even
+        // after the editor is removed. Earlier connections must not pile up.
+        let superseded = Array(roots.dropLast())
+        let released = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            superseded.allSatisfy { $0.value == nil }
+        }, object: nil)
+        await fulfillment(of: [released], timeout: 5)
+        print("NATIVE_HOST_RETAINED_ROOTS \(roots.enumerated().compactMap { $0.element.value == nil ? nil : $0.offset })")
+        XCTAssertTrue(superseded.allSatisfy { $0.value == nil }, "Superseded roots must release after native host teardown")
+        XCTAssertNil(roots.last?.value?.keyboard, "The last cached root must release its keyboard tree")
+    }
+
     func testThirtyRetainedInputViewsDoNotKeepDetachedKeyboardsOrSessionsAlive() {
         var references: [References] = []
         let retained = (0..<30).map { _ in
@@ -89,7 +155,7 @@ final class KeyboardInputViewLifetimeTests: XCTestCase {
     func testRepeatedControllerCallbacksKeepOneSetOfRootOwnedConstraints() throws {
         let controller = KeyboardViewController()
         controller.loadViewIfNeeded()
-        let input = try XCTUnwrap(controller.inputView as? KeyboardInputView)
+        let input = try XCTUnwrap(controller.view as? KeyboardInputView)
         let keyboard = try XCTUnwrap(input.keyboard)
         func edges() -> [NSLayoutConstraint] {
             input.constraints.filter { ($0.firstItem as? UIView) === keyboard && ($0.secondItem as? UIView) === input }
@@ -123,7 +189,7 @@ final class KeyboardInputViewLifetimeTests: XCTestCase {
     func testReattachedControllerUpdatesLayoutAcrossWidthAndTraitChanges() throws {
         let controller = KeyboardViewController()
         controller.loadViewIfNeeded()
-        let input = try XCTUnwrap(controller.inputView as? KeyboardInputView)
+        let input = try XCTUnwrap(controller.view as? KeyboardInputView)
         let keyboard = try XCTUnwrap(input.keyboard)
         for (width, style) in [(CGFloat(440), UIUserInterfaceStyle.light), (844, .dark), (390, .light)] {
             controller.viewWillDisappear(false)
@@ -151,7 +217,7 @@ final class KeyboardInputViewLifetimeTests: XCTestCase {
             let controller = KeyboardViewController()
             previous = controller
             controller.loadViewIfNeeded()
-            let input = try XCTUnwrap(controller.inputView as? KeyboardInputView)
+            let input = try XCTUnwrap(controller.view as? KeyboardInputView)
             let height = try XCTUnwrap(input.constraints.first { $0.identifier == "vime.keyboard.height" })
             input.keyboard?.heightFactor = 0.85
             controller.beginAppearanceTransition(true, animated: false)
@@ -167,7 +233,7 @@ final class KeyboardInputViewLifetimeTests: XCTestCase {
         let replacement = KeyboardViewController()
         replacement.loadViewIfNeeded()
         replacement.viewWillAppear(false)
-        let replacementInput = try XCTUnwrap(replacement.inputView as? KeyboardInputView)
+        let replacementInput = try XCTUnwrap(replacement.view as? KeyboardInputView)
         XCTAssertFalse(replacementInput === input, "UIKit roots must not move between controller/host connections")
         let keyboard = try XCTUnwrap(replacementInput.keyboard)
         let previousHeight = oldHeight.constant
