@@ -23,12 +23,11 @@ final class KeyboardTouchSurface: UIView {
     }
 
     private struct Press {
-        var key: KeyboardKey
-        var origin: CGPoint
-        var initialOrigin: CGPoint
+        let key: KeyboardKey
+        let origin: CGPoint
         var swipe = KeySwipeSelection()
         var alternateLocked = false
-        var sequence: Int
+        let sequence: Int
     }
 
     var regions: [Region] = [] {
@@ -82,7 +81,7 @@ final class KeyboardTouchSurface: UIView {
             return false
         }
         KeyboardTouchDiagnostics.record("surface.touchDown", point: point, view: self, result: key)
-        presses[id] = Press(key: key, origin: point, initialOrigin: point, sequence: nextSequence)
+        presses[id] = Press(key: key, origin: point, sequence: nextSequence)
         nextSequence += 1
         key.beginResolvedPress(deferRepeatingAction: key.repeats)
         if key.repeats { onDeleteArmedChange?(false) }
@@ -99,14 +98,14 @@ final class KeyboardTouchSurface: UIView {
     }
 
     func movePress(id: AnyHashable, to point: CGPoint) {
-        updatePress(id: id, to: point, allowsTransfer: true)
+        updatePress(id: id, to: point, allowsActivation: true)
     }
 
-    private func updatePress(id: AnyHashable, to point: CGPoint, allowsTransfer: Bool) {
+    private func updatePress(id: AnyHashable, to point: CGPoint, allowsActivation: Bool) {
         guard var press = presses[id] else { return }
         if gestureOwner == id {
             if gesture == .deleteLine {
-                let armed = point.y <= press.initialOrigin.y - 18 * scale && abs(point.x - press.initialOrigin.x) < 80 * scale
+                let armed = point.y <= press.origin.y - 18 * scale && abs(point.x - press.origin.x) < 80 * scale
                 if armed != deleteArmed { deleteArmed = armed; onDeleteArmedChange?(armed) }
                 return
             }
@@ -119,44 +118,26 @@ final class KeyboardTouchSurface: UIView {
             }
             return
         }
-        let initial = CGPoint(x: point.x - press.initialOrigin.x, y: point.y - press.initialOrigin.y)
-        if allowsTransfer, presses.count == 1 {
-            if press.key.repeats, initial.y <= -30 * scale, abs(initial.x) < 30 * scale {
+        let delta = CGPoint(x: point.x - press.origin.x, y: point.y - press.origin.y)
+        if allowsActivation, presses.count == 1 {
+            if press.key.repeats, delta.y <= -30 * scale, abs(delta.x) < 30 * scale {
                 startGesture(.deleteLine, owner: id, at: point); return
             }
-            if !press.key.repeats, !press.alternateLocked, abs(initial.x) >= 60 * scale,
-               abs(initial.x) > abs(initial.y) * 1.6 {
+            if !press.key.repeats, !press.alternateLocked, abs(delta.x) >= 60 * scale,
+               abs(delta.x) > abs(delta.y) * 1.6 {
                 startGesture(.horizontalCursor, owner: id, at: point)
-                onCursorMove?(initial.x > 0 ? 1 : -1, 0)
+                onCursorMove?(delta.x > 0 ? 1 : -1, 0)
                 return
             }
-            if hypot(initial.x, initial.y) > 12 * scale { spaceTimer?.invalidate(); spaceTimer = nil }
+            if hypot(delta.x, delta.y) > 12 * scale { spaceTimer?.invalidate(); spaceTimer = nil }
         }
-        let delta = CGPoint(x: point.x - press.origin.x, y: point.y - press.origin.y)
         if press.key.alternateAction != nil {
             press.swipe.move(x: Double(delta.x), y: Double(delta.y), scale: Double(scale),
-                allowActivation: allowsTransfer && point.y <= press.key.frame.minY - 2 * scale)
+                allowActivation: allowsActivation && point.y <= press.key.frame.minY - 2 * scale)
         }
         press.alternateLocked = press.alternateLocked || press.swipe.alternate
-        // A tiny move across a gap boundary keeps its original owner. A
-        // deliberate correction must enter the neighboring painted key's core
-        // and travel at least half a key (18 scaled points minimum). A release
-        // alone cannot retarget a tap. Alternate swipes never transfer.
-        let correctionDistance = max(18 * scale, min(press.key.bounds.width, press.key.bounds.height) / 2)
-        if allowsTransfer, !press.alternateLocked,
-           hypot(delta.x, delta.y) >= correctionDistance,
-           let neighbor = resolvedKey(at: point), neighbor !== press.key,
-           let region = regions.first(where: { $0.key === neighbor }),
-           region.body.insetBy(dx: 5 * scale, dy: 5 * scale).contains(point),
-           !press.key.repeats, !neighbor.repeats {
-            let previous = press
-            press.key = neighbor
-            press.origin = point
-            press.swipe.reset()
-            presses[id] = press
-            finish(previous, cancelled: true)
-            neighbor.beginResolvedPress(deferRepeatingAction: neighbor.repeats)
-        }
+        // Touch-down owns the key until release. Drift may activate an explicit
+        // gesture, but must never select or preview a neighboring character.
         presses[id] = press
         press.key.presentResolvedPress(alternate: press.swipe.alternate)
     }
@@ -165,7 +146,7 @@ final class KeyboardTouchSurface: UIView {
         let releaseTime = KeyboardPerformance.start()
         // The final sample may retain/cancel a swipe, but cannot start one. Don't reinterpret
         // the lift-off/rolling motion as a deliberate move to another key.
-        if !cancelled { updatePress(id: id, to: point, allowsTransfer: false) }
+        if !cancelled { updatePress(id: id, to: point, allowsActivation: false) }
         spaceTimer?.invalidate(); spaceTimer = nil
         if gestureOwner == id {
             if let press = presses.removeValue(forKey: id) { finish(press, cancelled: true) }

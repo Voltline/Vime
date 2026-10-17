@@ -78,6 +78,20 @@ final class KeyboardFeatureTests: XCTestCase {
         XCTAssertEqual(text.text, "abc👩🏽‍💻def")
     }
 
+    func testOneKeyHorizontalDriftInputsOriginalCharacterInHost() throws {
+        let session = KeyboardSession()
+        let (keyboard, surface, text, window) = try fixture(session: session)
+        defer { keyboard.stopInteractions(); window.isHidden = true }
+        let origin = try point("vime.key.e", in: surface)
+        let neighbor = try point("vime.key.w", in: surface)
+        surface.beginPress(id: 1, at: origin)
+        surface.movePress(id: 1, to: neighbor)
+        XCTAssertTrue(text.text.isEmpty, "Moving one key does not edit the host or move its caret")
+        surface.endPress(id: 1, at: neighbor)
+        XCTAssertEqual(session.composition, "え")
+        XCTAssertEqual(text.text, "え", "The original e key, not the neighboring w, reaches the host")
+    }
+
     func testLongSpaceMovesAcrossLinesAndShortSpaceStillInserts() async throws {
         let (keyboard, surface, text, window) = try fixture()
         defer { keyboard.stopInteractions(); window.isHidden = true }

@@ -143,7 +143,7 @@ final class KeyboardTouchTests: XCTestCase {
         XCTAssertTrue(edits.isEmpty, "A rolling tap must not confirm composition and insert punctuation")
     }
 
-    func testStickyReleaseNeighborCorrectionSwipeAndCancellation() throws {
+    func testStickyReleaseNeighborDriftSwipeAndCancellation() throws {
         let (_, surface) = makeKeyboard()
         let q = try XCTUnwrap(surface.regions.first { $0.key.accessibilityIdentifier == "vime.key.q" })
         let w = try XCTUnwrap(surface.regions.first { $0.key.accessibilityIdentifier == "vime.key.w" })
@@ -169,17 +169,18 @@ final class KeyboardTouchTests: XCTestCase {
         let wCenter = CGPoint(x: w.body.midX, y: w.body.midY)
         surface.beginPress(id: 2, at: qCenter)
         surface.movePress(id: 2, to: wCenter)
-        XCTAssertFalse(q.key.isHighlighted)
-        XCTAssertTrue(w.key.isHighlighted)
+        XCTAssertTrue(q.key.isHighlighted)
+        XCTAssertFalse(w.key.isHighlighted)
+        XCTAssertEqual(feedback, 2, "Drifting onto a neighbor must not start another key press")
         surface.endPress(id: 2, at: wCenter)
-        XCTAssertEqual(committed, ["q", "w"])
+        XCTAssertEqual(committed, ["q", "q"])
 
         surface.beginPress(id: 3, at: qCenter)
         surface.movePress(id: 3, to: CGPoint(x: qCenter.x, y: qCenter.y - 30))
         surface.movePress(id: 3, to: CGPoint(x: qCenter.x + 12, y: qCenter.y - 30))
         XCTAssertEqual(committed.count, 2, "Swipe does not commit before release")
         surface.endPress(id: 3, at: CGPoint(x: qCenter.x + 12, y: qCenter.y - 30))
-        XCTAssertEqual(committed, ["q", "w", "1"])
+        XCTAssertEqual(committed, ["q", "q", "1"])
         // After an alternate swipe, returning down into a neighbor cancels the
         // alternate selection, but cannot transfer ownership to that neighbor.
         surface.beginPress(id: 4, at: qCenter)
@@ -224,6 +225,78 @@ final class KeyboardTouchTests: XCTestCase {
         print("Touch resolver: 200 overlapping key presses in \((ProcessInfo.processInfo.systemUptime - start) * 1000) ms (excludes converter/host)")
     }
 
+    func testHorizontalDriftKeepsOriginalKeyUntilCursorGestureAcrossLayouts() throws {
+        for (width, compact) in [(CGFloat(375), false), (CGFloat(440), false), (CGFloat(680), true)] {
+            let (keyboard, surface) = makeKeyboard(width: width, compact: compact)
+            defer { keyboard.stopInteractions() }
+            let source = try XCTUnwrap(surface.regions.first { $0.key.accessibilityIdentifier == "vime.key.e" })
+            let origin = CGPoint(x: source.body.midX, y: source.body.midY)
+            var output: [String] = []
+            var feedback = 0
+            var movements: [Int] = []
+            for region in surface.regions {
+                let identifier = region.key.accessibilityIdentifier ?? ""
+                region.key.action = { output.append(identifier) }
+                region.key.feedback = { feedback += 1 }
+            }
+            surface.onCursorMove = { x, _ in movements.append(x) }
+            for (id, neighborID) in ["vime.key.w", "vime.key.r"].enumerated() {
+                let neighbor = try XCTUnwrap(surface.regions.first { $0.key.accessibilityIdentifier == neighborID })
+                let destination = CGPoint(x: neighbor.body.midX, y: neighbor.body.midY)
+                surface.beginPress(id: id, at: origin)
+                for fraction: CGFloat in [0.25, 0.5, 0.75, 1] {
+                    surface.movePress(id: id, to: CGPoint(x: origin.x + (destination.x - origin.x) * fraction, y: origin.y))
+                    XCTAssertTrue(source.key.isHighlighted, "Crossing a key boundary keeps the initial preview")
+                    XCTAssertFalse(neighbor.key.isHighlighted)
+                }
+                XCTAssertTrue(movements.isEmpty)
+                surface.endPress(id: id, at: destination)
+                XCTAssertEqual(output, Array(repeating: "vime.key.e", count: id + 1))
+                XCTAssertEqual(feedback, id + 1, "Drift never produces another key-down feedback")
+            }
+            // Both directions must transition directly from the original key
+            // to cursor control, without selecting an intermediate neighbor.
+            for direction: CGFloat in [-1, 1] {
+                movements = []
+                let before = output
+                surface.beginPress(id: 10, at: origin)
+                let below = CGPoint(x: origin.x + direction * 59 * surface.scale, y: origin.y)
+                surface.movePress(id: 10, to: below)
+                XCTAssertTrue(source.key.isHighlighted)
+                XCTAssertTrue(movements.isEmpty)
+                let beyond = CGPoint(x: origin.x + direction * 61 * surface.scale, y: origin.y)
+                surface.movePress(id: 10, to: beyond)
+                XCTAssertEqual(movements, [Int(direction)])
+                XCTAssertFalse(source.key.isHighlighted)
+                surface.movePress(id: 10, to: origin)
+                surface.endPress(id: 10, at: origin)
+                XCTAssertEqual(output, before, "Returning after a cursor gesture must not type a character")
+            }
+        }
+    }
+
+    func testOverlappingDriftsKeepEachFingersOriginalKey() throws {
+        let (keyboard, surface) = makeKeyboard()
+        defer { keyboard.stopInteractions() }
+        let e = try XCTUnwrap(surface.regions.first { $0.key.accessibilityIdentifier == "vime.key.e" })
+        let r = try XCTUnwrap(surface.regions.first { $0.key.accessibilityIdentifier == "vime.key.r" })
+        let w = try XCTUnwrap(surface.regions.first { $0.key.accessibilityIdentifier == "vime.key.w" })
+        let ePoint = CGPoint(x: e.body.midX, y: e.body.midY)
+        let rPoint = CGPoint(x: r.body.midX, y: r.body.midY)
+        let wPoint = CGPoint(x: w.body.midX, y: w.body.midY)
+        var output = ""
+        e.key.action = { output += "e" }; r.key.action = { output += "r" }; w.key.action = { output += "w" }
+        surface.beginPress(id: 1, at: ePoint); surface.beginPress(id: 2, at: rPoint)
+        surface.movePress(id: 1, to: wPoint); surface.movePress(id: 2, to: ePoint)
+        XCTAssertTrue(e.key.isHighlighted); XCTAssertTrue(r.key.isHighlighted)
+        XCTAssertFalse(w.key.isHighlighted)
+        surface.endPress(id: 1, at: wPoint)
+        XCTAssertEqual(output, "e")
+        XCTAssertTrue(r.key.isHighlighted)
+        surface.endPress(id: 2, at: ePoint)
+        XCTAssertEqual(output, "er")
+    }
+
     func testOverlappingTouchesOnSameKeyKeepIndependentSwipeAndFeedback() throws {
         let (_, surface) = makeKeyboard()
         let q = try XCTUnwrap(surface.regions.first { $0.key.accessibilityIdentifier == "vime.key.q" })
@@ -260,8 +333,8 @@ final class KeyboardTouchTests: XCTestCase {
             var output = ""
             q.key.action = { output += "q" }; w.key.action = { output += "w" }
             q.key.feedback = {}; w.key.feedback = {}
-            // A release is not a deliberate drag correction. Starting in the
-            // gap and rolling 12 pt into the adjacent key must retain its owner.
+            // Starting in the gap and rolling into the adjacent key must
+            // retain the owner chosen at touch-down.
             let start = CGPoint(x: q.cell.maxX - 0.5, y: q.body.midY)
             let end = CGPoint(x: start.x + 12 * surface.scale, y: start.y)
             surface.beginPress(id: 1, at: start)
