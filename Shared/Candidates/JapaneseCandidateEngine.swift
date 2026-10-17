@@ -25,8 +25,13 @@ nonisolated final class JapaneseCandidateEngine {
     private var contextSession: KanaKanjiConverter.ConversionSessionID?
     private var learningDirty = false
     private var learningSession: KanaKanjiConverter.ConversionSessionID?
-    private var pendingFeedback: (snapshot: CandidateSnapshot?, text: String, event: CandidateLearningFeedback)?
-    private var pendingNativePrediction: NativePostCompositionPrediction?
+    private struct PendingFeedback {
+        var snapshot: CandidateSnapshot? = nil
+        let text: String
+        let event: CandidateLearningFeedback
+        var nativePrediction: NativePostCompositionPrediction? = nil
+    }
+    private var pendingFeedback: PendingFeedback?
     private(set) var feedbackAccepted = 0
     private(set) var feedbackCancelled = 0
     private let preferenceMemory: CandidatePreferenceMemory?
@@ -820,12 +825,16 @@ nonisolated final class JapaneseCandidateEngine {
         converter.stopComposition()
         primaryQuery = nil
         correctionCache = [:]; correctionCacheOrder = []
-        guard !text.isEmpty else { return }
-        var query = ComposingText(); query.insertAtCursorPosition(text, inputStyle: .direct)
+        contextCandidate = parseCommittedContext()
+    }
+
+    private func parseCommittedContext() -> Candidate? {
+        guard !committedContext.isEmpty else { return nil }
+        var query = ComposingText(); query.insertAtCursorPosition(committedContext, inputStyle: .direct)
         let session = contextSession ?? converter.createSession(); contextSession = session
         var contextOptions = options; contextOptions.N_best = 1
         contextOptions.requireJapanesePrediction = .disabled
-        contextCandidate = try? converter.withSession(session) {
+        return try? converter.withSession(session) {
             converter.stopComposition()
             return converter.requestCandidates(query, options: contextOptions).mainResults.first
         }
@@ -868,7 +877,7 @@ nonisolated final class JapaneseCandidateEngine {
         completeConversionContext(snapshot)
         committedContext = String((committedContext + snapshot.text).suffix(96))
         contextCandidate = snapshot.lexical && snapshot.displaySurface == nil ? snapshot.candidate : nil
-        pendingFeedback = (snapshot, snapshot.text, event)
+        pendingFeedback = PendingFeedback(snapshot: snapshot, text: snapshot.text, event: event)
         if snapshot.learningEligible || snapshot.source == .scriptVariant || snapshot.source == .orthographicVariant {
             preferenceMemory?.stage(id: event.id, reading: snapshot.reading, surface: snapshot.text,
                 context: event.context, scope: (snapshot.source == .scriptVariant || snapshot.source == .orthographicVariant) ? "style" : "conversion",
@@ -878,7 +887,7 @@ nonisolated final class JapaneseCandidateEngine {
 
     func stageNextWord(_ text: String, event: CandidateLearningFeedback) {
         if let pendingFeedback { resolveFeedback(pendingFeedback.event.id, accepted: false) }
-        pendingFeedback = (nil, text, event)
+        pendingFeedback = PendingFeedback(text: text, event: event)
         committedContext = String((committedContext + text).suffix(96))
         contextCandidate = nil
         if let learningSession { try? converter.withSession(learningSession) { converter.stopComposition() } }
@@ -888,15 +897,7 @@ nonisolated final class JapaneseCandidateEngine {
 
     func postCompositionSuggestions(leftContext: String) -> [NextWordSuggestion] {
         reconcileContext(leftContext)
-        if contextCandidate == nil && !committedContext.isEmpty {
-            var query = ComposingText(); query.insertAtCursorPosition(committedContext, inputStyle: .direct)
-            let session = contextSession ?? converter.createSession(); contextSession = session
-            var contextOptions = options; contextOptions.N_best = 1; contextOptions.requireJapanesePrediction = .disabled
-            contextCandidate = try? converter.withSession(session) {
-                converter.stopComposition()
-                return converter.requestCandidates(query, options: contextOptions).mainResults.first
-            }
-        }
+        if contextCandidate == nil { contextCandidate = parseCommittedContext() }
         guard let base = contextCandidate, !base.data.isEmpty,
               committedContext.hasSuffix(base.text) else { return [] }
         let started = KeyboardPerformance.start()
@@ -916,8 +917,7 @@ nonisolated final class JapaneseCandidateEngine {
     func stageNativePrediction(_ prediction: NativePostCompositionPrediction, event: CandidateLearningFeedback) {
         if let pendingFeedback { resolveFeedback(pendingFeedback.event.id, accepted: false) }
         guard committedContext == prediction.expectedLeftContext else { return }
-        pendingFeedback = (nil, prediction.insertionText, event)
-        pendingNativePrediction = prediction
+        pendingFeedback = PendingFeedback(text: prediction.insertionText, event: event, nativePrediction: prediction)
         committedContext = String((String(committedContext.dropLast(prediction.replacedText.count)) + prediction.insertionText).suffix(96))
         contextCandidate = prediction.joined
         preferenceMemory?.stage(id: event.id, reading: "", surface: prediction.insertionText, context: event.context,
@@ -937,8 +937,6 @@ nonisolated final class JapaneseCandidateEngine {
     func resolveFeedback(_ id: UUID, accepted: Bool) {
         guard let pending = pendingFeedback, pending.event.id == id else { return }
         pendingFeedback = nil
-        let nativePrediction = pendingNativePrediction
-        pendingNativePrediction = nil
         guard accepted else {
             preferenceMemory?.cancel(id); feedbackCancelled += 1; return
         }
@@ -967,7 +965,7 @@ nonisolated final class JapaneseCandidateEngine {
                     recordChoice(snapshot, context: pending.event.context, weight: pending.event.weight, now: pending.event.selectedAt)
                 }
             }
-        } else if let nativePrediction {
+        } else if let nativePrediction = pending.nativePrediction {
             let session = learningSession ?? converter.createSession(); learningSession = session
             try? converter.withSession(session) {
                 converter.updateLearningData(nativePrediction.base, with: nativePrediction.native)

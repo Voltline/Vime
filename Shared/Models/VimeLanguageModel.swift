@@ -283,9 +283,22 @@ nonisolated final class VimeLanguageModel {
                   ids.count <= Self.contextLength, let decoded = try? tokenizer.decode(ids) else { return false }
             return Self.exactText(decoded, prompt + continuation)
         }
-        guard !stop(), eligible.count > 1,
-              let sums = try? scores(context: prompt, candidates: eligible.map { values[$0].nativePrediction?.text ?? values[$0].text }, cancelled: stop),
+        guard !stop(), eligible.count > 1 else { return values }
+        // Distinct host operations can share a scored continuation. Score it
+        // once: scores() intentionally rejects duplicate input strings.
+        let continuations = eligible.map { values[$0].nativePrediction?.text ?? values[$0].text }
+        var unique: [String] = []
+        var slots: [Data: Int] = [:]
+        let scoreIndices = continuations.map { text -> Int in
+            let key = Data(text.utf8)
+            if let slot = slots[key] { return slot }
+            let slot = unique.count
+            unique.append(text); slots[key] = slot
+            return slot
+        }
+        guard let uniqueSums = try? scores(context: prompt, candidates: unique, cancelled: stop),
               !stop() else { return values }
+        let sums = scoreIndices.map { uniqueSums[$0] }
         let order = sums.indices.sorted { sums[$0] == sums[$1] ? $0 < $1 : sums[$0] > sums[$1] }
         var result = values
         for (rank, index) in order.enumerated() {

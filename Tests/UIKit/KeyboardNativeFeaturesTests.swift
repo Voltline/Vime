@@ -164,4 +164,24 @@ final class KeyboardNativeFeaturesTests: XCTestCase {
         XCTAssertTrue(session.isComposing)
         XCTAssertEqual(edits, [.insert("1")], "Normal text keeps the digit editable until confirmation")
     }
+
+    func testNeuralRerankScoresSharedContinuationWithoutMergingHostOperations() throws {
+        let engine = JapaneseCandidateEngine()
+        let tokyo = try XCTUnwrap(engine.candidates(for: query("toukyou"), revision: 1, includeCorrections: false)
+            .first { $0.text == "東京" && $0.fullConsumption })
+        engine.complete(tokyo)
+        let replacement = try XCTUnwrap(engine.postCompositionSuggestions(leftContext: "東京")
+            .first { $0.nativePrediction?.isReplacement == true })
+        let continuation = try XCTUnwrap(replacement.nativePrediction?.text)
+        let addition = NextWordSuggestion(text: continuation, source: .contextPrediction, score: 0, userScore: 0)
+        let model = try VimeLanguageModel()
+        let expected = try XCTUnwrap(model.scores(context: "東京", candidates: [continuation]).first)
+        let ranked = model.rerankPostComposition([replacement, addition], prompt: "東京")
+        XCTAssertEqual(ranked.count, 2)
+        XCTAssertEqual(ranked.filter { $0.nativePrediction != nil }.count, 1)
+        XCTAssertEqual(ranked.filter { $0.nativePrediction == nil }.count, 1)
+        for value in ranked {
+            XCTAssertEqual(try XCTUnwrap(value.modelScore), expected, accuracy: 0.0001)
+        }
+    }
 }
