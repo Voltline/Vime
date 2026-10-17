@@ -20,6 +20,7 @@ enum KeyboardEmojiImages {
     private static var jobs: [String: Job] = [:]
     private static var tokens: [UUID: String] = [:]
     private static var generation = 0
+    private static var renderColor: CGColor?
     static let byteLimit = EmojiPreparedCache.byteLimit
     static let pendingLimit = 192
     static let prefetchLimit = 96
@@ -28,20 +29,34 @@ enum KeyboardEmojiImages {
     static var cacheGeneration: Int { generation }
     private static func key(_ text: String, _ scale: CGFloat) -> String { "\(scale):\(text)" }
 
+    /// Only outline glyphs depend on text color. UIKit can notify several
+    /// appearance traits when a panel attaches; invalidate pixels only when
+    /// their actual render color changes. Scale is already part of the key.
+    @discardableResult
+    static func synchronizeAppearance() -> CGColor {
+        let color = KeyboardPalette.text.cgColor
+        let previous = renderColor
+        renderColor = color
+        if let previous, previous != color { clear() }
+        return color
+    }
+
     static func cachedImage(_ text: String, scale: CGFloat) -> UIImage? {
-        cache.image(for: key(text, scale))
+        synchronizeAppearance()
+        return cache.image(for: key(text, scale))
     }
 
     /// Only call at the display boundary, never for speculative cells. This
     /// reads worker results before their main-queue callbacks are delivered.
     /// A cold miss paints one small bitmap without waiting behind queued work.
     static func displayImage(_ text: String, scale: CGFloat) -> UIImage? {
+        let color = synchronizeAppearance()
         let key = key(text, scale)
         if let image = cache.image(for: key) { return image }
         let timing = KeyboardPerformance.start()
         defer { KeyboardPerformance.record(.emojiVisibleDecode, since: timing) }
         let image = autoreleasepool {
-            EmojiRenderer.shared.render(text, scale: scale, color: KeyboardPalette.text.cgColor)
+            EmojiRenderer.shared.render(text, scale: scale, color: color)
                 .map { UIImage(cgImage: $0, scale: scale, orientation: .up) }
         }
         KeyboardPerformance.record(.emojiDecode, since: timing)
@@ -59,7 +74,8 @@ enum KeyboardEmojiImages {
 
     @discardableResult
     static func request(_ text: String, scale: CGFloat, priority: Priority? = nil, completion: ((UIImage?) -> Void)? = nil) -> UUID? {
-        if let image = cachedImage(text, scale: scale) { completion?(image); return nil }
+        let color = synchronizeAppearance()
+        if let image = cache.image(for: key(text, scale)) { completion?(image); return nil }
         let priority = priority ?? (completion == nil ? .prefetch : .visible)
         let key = key(text, scale), token = UUID()
         if jobs[key] == nil {
@@ -73,7 +89,7 @@ enum KeyboardEmojiImages {
         guard let job = jobs[key] else { return nil }
         let epoch = generation, id = job.id
         worker.enqueue(id: id, key: key, generation: epoch, text: text, scale: scale,
-            color: KeyboardPalette.text.cgColor, priority: job.priority.rawValue) { image in
+            color: color, priority: job.priority.rawValue) { image in
             guard epoch == generation, jobs[key]?.id == id, let completed = jobs.removeValue(forKey: key) else { return }
             for (token, client) in completed.clients { tokens.removeValue(forKey: token); client.completion?(image) }
         }

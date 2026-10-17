@@ -1,7 +1,7 @@
 import UIKit
 
 /// The actual input view must enable Apple's standard input clicks, rather than
-/// only a descendant view. Used by both the keyboard extension and the sandbox.
+/// only a descendant view.
 final class KeyboardInputView: UIView, UIInputViewAudioFeedback {
     // UIInputView's system content views retained retired roots during native
     // host reconnects. Use an ordinary root; Vime draws its own background.

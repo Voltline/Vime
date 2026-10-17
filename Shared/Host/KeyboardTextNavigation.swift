@@ -7,18 +7,6 @@ enum KeyboardTextNavigation {
         steps < 0 ? -before.suffix(-steps).utf16.count : after.prefix(steps).utf16.count
     }
 
-    static func verticalOffset(before: String, after: String, steps: Int, column: inout Int?) -> Int {
-        let text = Array(before + after)
-        let caret = before.count
-        let starts = [0] + text.indices.filter { text[$0].isNewline }.map { $0 + 1 }
-        let row = starts.lastIndex(where: { $0 <= caret }) ?? 0
-        let targetRow = min(starts.count - 1, max(0, row + steps))
-        let preferred = column ?? (caret - starts[row]); column = preferred
-        let end = targetRow + 1 < starts.count ? starts[targetRow + 1] - 1 : text.count
-        let target = min(end, starts[targetRow] + preferred)
-        return String(text.prefix(target)).utf16.count - before.utf16.count
-    }
-
     static func move(in view: UITextView, horizontal: Int, vertical: Int, preferredX: inout CGFloat?) {
         if horizontal == 0 && vertical == 0 { preferredX = nil; return }
         guard let range = view.selectedTextRange else { return }
@@ -82,14 +70,5 @@ final class KeyboardProxyCursorLayout {
         KeyboardTextNavigation.move(in: layout, horizontal: horizontal, vertical: vertical, preferredX: &gestureX)
         gestureCaret = layout.selectedRange.location
         return layout.selectedRange.location - caret
-    }
-    func verticalOffset(before: String, after: String, steps: Int, width: CGFloat, preferredX: inout CGFloat?) -> Int {
-        layout.frame = CGRect(x: 0, y: 0, width: max(80, width), height: 2000)
-        let text = before + after
-        if layout.text != text { layout.text = text }
-        layout.selectedRange = NSRange(location: before.utf16.count, length: 0)
-        layout.layoutManager.ensureLayout(for: layout.textContainer)
-        KeyboardTextNavigation.move(in: layout, horizontal: 0, vertical: steps, preferredX: &preferredX)
-        return layout.selectedRange.location - before.utf16.count
     }
 }

@@ -35,3 +35,15 @@ enum KeyboardTheme: String, CaseIterable {
     }
     var text: UIColor { self == .midnight ? .white : .label }
 }
+
+@MainActor
+enum KeyboardPalette {
+    static var theme = KeyboardTheme.system
+    static var skin: KeyboardSkinAppearance?
+    static let background = UIColor { $0.userInterfaceStyle == .dark ? UIColor(white: 0.12, alpha: 1) : UIColor(red: 232 / 255, green: 233 / 255, blue: 236 / 255, alpha: 1) }
+    static var key: UIColor { if let skin { return KeyboardSkinAppearance.color(skin.document.palette.key).withAlphaComponent(skin.document.style.keyOpacity) }; return theme.key }
+    static var utility: UIColor { if let skin { return KeyboardSkinAppearance.color(skin.document.palette.utility).withAlphaComponent(skin.document.style.keyOpacity) }; return theme.utility }
+    static var accent: UIColor { if let skin { return KeyboardSkinAppearance.color(skin.document.palette.accent) }; return theme.accent }
+    static var text: UIColor { if let skin { return KeyboardSkinAppearance.color(skin.document.palette.text) }; return theme.text }
+    static var pressed: UIColor { if let skin { return KeyboardSkinAppearance.color(skin.document.palette.pressed) }; return theme == .midnight ? UIColor(white: 0.40, alpha: 1) : UIColor { $0.userInterfaceStyle == .dark ? UIColor(white: 0.40, alpha: 1) : UIColor(white: 0.85, alpha: 1) } }
+}

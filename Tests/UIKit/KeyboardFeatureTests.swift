@@ -95,11 +95,14 @@ final class KeyboardFeatureTests: XCTestCase {
         surface.beginPress(id: 2, at: space); surface.endPress(id: 2, at: space)
         XCTAssertEqual(text.text, "abcdef\nabc def\nabcdef")
 
-        var column: Int?
-        let offset = KeyboardTextNavigation.verticalOffset(before: "abc👩🏽‍💻", after: "d\nx\nabcdef", steps: 1, column: &column)
+        let layout = KeyboardProxyCursorLayout()
+        let prefix = "abc👩🏽‍💻"
+        layout.beginGesture(before: prefix, after: "d\nx\nabc👩🏽‍💻d", width: 440)
+        let offset = layout.moveInGesture(horizontal: 0, vertical: 1)
         XCTAssertEqual(offset, 3, "Proxy offset uses UTF-16 and clamps the preferred column on a short line")
-        let next = KeyboardTextNavigation.verticalOffset(before: "abc👩🏽‍💻d\nx", after: "\nabcdef", steps: 1, column: &column)
-        XCTAssertEqual(next, 5, "The next long line restores the preferred character column")
+        let next = layout.moveInGesture(horizontal: 0, vertical: 1)
+        XCTAssertEqual(prefix.utf16.count + offset + next, "abc👩🏽‍💻d\nx\nabc👩🏽‍💻".utf16.count,
+                       "Production gesture navigation restores the column after a short line without splitting emoji")
     }
 
     func testDeleteSwipeRemovesOnlyPrefixAndCancellationDoesNotDelete() throws {
@@ -385,6 +388,37 @@ final class KeyboardFeatureTests: XCTestCase {
         panel.selectMode(.kaomoji); panel.layoutIfNeeded()
         panel.collectionView(grid, didSelectItemAt: IndexPath(item: 0, section: 10))
         XCTAssertEqual(inserted, ["(^_^)"])
+    }
+
+    func testEmojiPanelReusesWarmImagesUntilPressureOrAppearanceChange() throws {
+        let (keyboard, _, _, window) = try fixture()
+        defer { keyboard.stopInteractions(); window.isHidden = true; KeyboardEmojiImages.clear() }
+        let image = try XCTUnwrap(KeyboardEmojiImages.displayImage("😀", scale: 3))
+        let generation = KeyboardEmojiImages.cacheGeneration
+        for _ in 0..<3 {
+            try XCTUnwrap(descendants(keyboard).first { $0.accessibilityLabel == "表情" } as? UIButton)
+                .sendActions(for: .touchUpInside)
+            let panel = try XCTUnwrap(descendants(keyboard).compactMap { $0 as? KeyboardSymbolPanel }.first)
+            XCTAssertFalse(panel.isHidden)
+            XCTAssertTrue(KeyboardEmojiImages.cachedImage("😀", scale: 3) === image)
+            try button("vime.symbols.close", in: panel).sendActions(for: .touchUpInside)
+            XCTAssertTrue(panel.isHidden)
+            XCTAssertEqual(KeyboardEmojiImages.cacheGeneration, generation)
+            XCTAssertTrue(KeyboardEmojiImages.cachedImage("😀", scale: 3) === image)
+        }
+        XCTAssertLessThanOrEqual(KeyboardEmojiImages.retainedBytes, KeyboardEmojiImages.byteLimit)
+        keyboard.handleMemoryPressure()
+        XCTAssertNil(KeyboardEmojiImages.cachedImage("😀", scale: 3))
+        XCTAssertEqual(KeyboardEmojiImages.retainedBytes, 0)
+        try XCTUnwrap(descendants(keyboard).first { $0.accessibilityLabel == "表情" } as? UIButton)
+            .sendActions(for: .touchUpInside)
+        _ = try XCTUnwrap(KeyboardEmojiImages.displayImage("😀", scale: 3))
+        let oldSkin = KeyboardPalette.skin
+        defer { KeyboardPalette.skin = oldSkin }
+        var document = KeyboardSkinDocument(); document.palette.text = "#F01234"
+        KeyboardPalette.skin = KeyboardSkinAppearance(document)
+        try XCTUnwrap(descendants(keyboard).compactMap { $0 as? KeyboardSymbolPanel }.first).applyTheme()
+        XCTAssertNil(KeyboardEmojiImages.cachedImage("😀", scale: 3))
     }
 
     func testEmbeddedEmojiBitmapsCoverSupportedCatalog() async throws {
@@ -742,13 +776,11 @@ final class KeyboardFeatureTests: XCTestCase {
 
         let layout = KeyboardProxyCursorLayout()
         let ns = value as NSString
-        var x: CGFloat?
-        let offset = layout.verticalOffset(before: ns.substring(to: start), after: ns.substring(from: start),
-            steps: -1, width: 180, preferredX: &x)
+        layout.beginGesture(before: ns.substring(to: start), after: ns.substring(from: start), width: 180)
+        let offset = layout.moveInGesture(horizontal: 0, vertical: -1)
         XCTAssertLessThan(offset, 0, "A soft wrap must not resolve to the old zero offset")
         let moved = start + offset
-        let back = layout.verticalOffset(before: ns.substring(to: moved), after: ns.substring(from: moved),
-            steps: 1, width: 180, preferredX: &x)
+        let back = layout.moveInGesture(horizontal: 0, vertical: 1)
         XCTAssertGreaterThan(back, 0)
         XCTAssertEqual(moved + back, start, "Keep the horizontal column across wrapped lines")
         // A host may expose no after-context, even after moving up. Preserve

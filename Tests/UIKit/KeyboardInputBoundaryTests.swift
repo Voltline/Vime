@@ -86,6 +86,30 @@ final class KeyboardInputBoundaryTests: XCTestCase {
         XCTAssertEqual(edits, [.insert("一"), .insert("二"), .insert("三")])
     }
 
+    func testEveryPanelExitStopsExpandedCandidateWork() throws {
+        let session = BoundarySession()
+        let keyboard = KeyboardView(frame: CGRect(x: 0, y: 0, width: 440, height: 350), session: session)
+        keyboard.layoutIfNeeded()
+        for exit in ["settings", "reset", "commit", "close"] {
+            try button("vime.candidates.expand", in: keyboard).sendActions(for: .touchUpInside)
+            XCTAssertTrue(session.expandedCandidates)
+            switch exit {
+            case "settings":
+                try button("vime.brand.settings", in: keyboard).sendActions(for: .touchUpInside)
+                try button("vime.panel.close", in: keyboard).sendActions(for: .touchUpInside)
+            case "reset": keyboard.resetComposition()
+            case "commit":
+                let candidate = try XCTUnwrap(descendants(keyboard).compactMap { $0 as? UIButton }
+                    .first { $0.superview is UIScrollView && $0.accessibilityLabel == "候选词：中文，zhōng wén" })
+                candidate.sendActions(for: .touchUpInside)
+            default: try button("vime.panel.close", in: keyboard).sendActions(for: .touchUpInside)
+            }
+            XCTAssertFalse(session.expandedCandidates, exit)
+            session.markedText = KeyboardPreedit(text: "中wen")
+            session.onCandidatesChange?()
+        }
+    }
+
     private func descendants(_ view: UIView) -> [UIView] { [view] + view.subviews.flatMap(descendants) }
     private func button(_ id: String, in view: UIView) throws -> UIButton {
         try XCTUnwrap(descendants(view).first { $0.accessibilityIdentifier == id } as? UIButton)
@@ -115,6 +139,8 @@ private final class BoundarySession: KeyboardInputSession {
     var leftContextProvider: (() -> String?)?
     var learningContextProvider: (() -> KeyboardLearningContext?)?
     var chosenToken: CandidateSelectionToken?
+    var expandedCandidates = false
+    func setExpandedCandidates(_ enabled: Bool) { expandedCandidates = enabled }
     func chooseCandidate(_ token: CandidateSelectionToken) -> [KeyboardEdit] {
         guard isComposing, token == self.token else { return [] }
         chosenToken = token; markedText = nil

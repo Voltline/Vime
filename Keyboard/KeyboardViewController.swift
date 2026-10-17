@@ -73,7 +73,7 @@ class KeyboardViewController: UIInputViewController {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        keyboard.reloadHeightPreference()
+        keyboard.reloadPreferences()
         (view as? KeyboardInputView)?.attachKeyboard(keyboard)
         logLifecycle("appearing")
         VimeExtensionAudit.recordLifecycle(event: .viewWillAppear)

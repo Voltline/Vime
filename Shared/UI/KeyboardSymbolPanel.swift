@@ -72,7 +72,6 @@ final class KeyboardSymbolPanel: UIView, UICollectionViewDataSource, UICollectio
         close.addAction(UIAction { [weak self] _ in
             guard let self else { return }
             self.collection.setContentOffset(self.collection.contentOffset, animated: false)
-            KeyboardEmojiImages.clear()
             self.onFeedback?(); self.onClose?()
         }, for: .touchUpInside)
         categories.showsHorizontalScrollIndicator = false
@@ -289,8 +288,9 @@ final class KeyboardSymbolPanel: UIView, UICollectionViewDataSource, UICollectio
         KeyboardEmojiImages.protect([], scale: window?.screen.scale ?? traitCollection.displayScale)
     }
     func applyTheme() {
-        KeyboardEmojiImages.clear()
-        prefetches.removeAll(); lookahead.removeAll(); headerSelection = nil; headerProgress = nil
+        traitCollection.performAsCurrent { KeyboardEmojiImages.synchronizeAppearance() }
+        cancelPrefetches()
+        headerSelection = nil; headerProgress = nil
         modes.selectedSegmentTintColor = KeyboardPalette.utility
         collection.reloadData(); syncHeaderToScrolling()
     }

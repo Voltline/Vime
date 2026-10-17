@@ -3,7 +3,6 @@ import UIKit
 final class KeyboardHeightAdjustmentView: UIView {
     var onChange: ((CGFloat) -> Void)?
     let keyboard = KeyboardView()
-    private let material = UIInputView(frame: .zero, inputViewStyle: .keyboard)
     private let grip = UIView()
     private let line = UIView()
     private var startingFactor: CGFloat = 1
@@ -13,7 +12,7 @@ final class KeyboardHeightAdjustmentView: UIView {
     override init(frame: CGRect) {
         super.init(frame: frame)
         keyboard.isUserInteractionEnabled = false; keyboard.hasFullAccess = false
-        material.addSubview(keyboard); addSubview(material)
+        addSubview(keyboard)
         grip.backgroundColor = .tertiarySystemFill; grip.layer.cornerRadius = 10
         line.backgroundColor = .secondaryLabel; line.layer.cornerRadius = 3
         grip.addSubview(line); addSubview(grip)
@@ -25,9 +24,8 @@ final class KeyboardHeightAdjustmentView: UIView {
     override func layoutSubviews() {
         super.layoutSubviews()
         let height = keyboard.preferredHeight(for: bounds.width)
-        material.frame = CGRect(x: 0, y: max(36, bounds.height - height), width: bounds.width, height: height)
-        keyboard.frame = material.bounds
-        grip.frame = CGRect(x: 8, y: material.frame.minY - 36, width: bounds.width - 16, height: 32)
+        keyboard.frame = CGRect(x: 0, y: max(36, bounds.height - height), width: bounds.width, height: height)
+        grip.frame = CGRect(x: 8, y: keyboard.frame.minY - 36, width: bounds.width - 16, height: 32)
         line.frame = CGRect(x: (grip.bounds.width - 44) / 2, y: 13, width: 44, height: 6)
     }
     func beginAdjustment() { startingFactor = factor }

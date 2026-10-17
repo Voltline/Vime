@@ -1,6 +1,6 @@
 import XCTest
 
-/// Runs the installed extension through iOS, never the app's KeyboardSandbox.
+/// Runs the installed extension through a native iOS host field.
 @MainActor
 final class KeyboardExtensionTests: XCTestCase {
     func testExpandedPartialSelectionKeepsHostMarkedRange() throws {
@@ -42,15 +42,33 @@ final class KeyboardExtensionTests: XCTestCase {
             // The real menu loads pages on scroll; app-hosted tests previously
             // scrolled these offscreen candidates through a UIKit fixture.
             let panel = app.scrollViews["vime.candidates.panel"]
+            func hasVisibleCenter() -> Bool {
+                guard candidate.exists, panel.exists else { return false }
+                let frame = candidate.frame
+                return frame.width > 1 && frame.height > 1
+                    && panel.frame.contains(CGPoint(x: frame.midX, y: frame.midY))
+            }
             var settled = false
             for _ in 0..<20 {
-                if candidate.exists && candidate.isHittable {
+                // XCTest can fail outright when asking for a hit point on a
+                // cell with only a sliver visible outside the scroll viewport.
+                if hasVisibleCenter() && candidate.isHittable {
                     var previousFrame: CGRect?
+                    let viewport = panel.frame
                     let stable = NSPredicate { _, _ in
-                        guard candidate.exists && candidate.isHittable else { previousFrame = nil; return false }
+                        guard candidate.exists else { previousFrame = nil; return false }
                         let frame = candidate.frame
+                        guard viewport.contains(CGPoint(x: frame.midX, y: frame.midY)) else {
+                            previousFrame = nil; return false
+                        }
                         defer { previousFrame = frame }
-                        return previousFrame == frame
+                        guard let previousFrame else { return false }
+                        // Accessibility snapshots can round the same scroll
+                        // position to adjacent pixels. Ignore subpoint drift.
+                        return abs(previousFrame.minX - frame.minX) < 0.5
+                            && abs(previousFrame.minY - frame.minY) < 0.5
+                            && abs(previousFrame.width - frame.width) < 0.5
+                            && abs(previousFrame.height - frame.height) < 0.5
                     }
                     // A touch during UIScrollView deceleration stops scrolling
                     // rather than selecting; wait for a stationary target.
@@ -74,7 +92,7 @@ final class KeyboardExtensionTests: XCTestCase {
                     start.press(forDuration: 0.01, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.3)
                 }
             }
-            guard settled && candidate.exists && candidate.isHittable else {
+            guard settled && hasVisibleCenter() && candidate.isHittable else {
                 XCTFail("Missing or moving \(surface): \(app.debugDescription)")
                 throw NSError(domain: "VimeExtensionUITests.MissingCandidate", code: 1)
             }
