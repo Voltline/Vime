@@ -48,6 +48,44 @@ final class VimeLanguageModelTests: XCTestCase {
         XCTAssertThrowsError(try lm.predict([16384]))
         XCTAssertThrowsError(try lm.predict(Array(repeating: 2, count: 129)))
     }
+
+    func testNextWordFinalRankingReusesGeneratedScoresWithNumericalParity() throws {
+        let model = try VimeLanguageModel()
+        for prompt in ["明日は", "私は", "東京"] {
+            let cache = VimeLanguageModel.SuggestionScoreCache()
+            let words = try model.scoredNextWords(prompt: prompt, cache: cache)
+            let pool = words.generated.map { NextWordSuggestion(text: $0.text, source: .contextPrediction,
+                score: 0, userScore: 0) }
+            XCTAssertGreaterThan(pool.count, 1)
+            let ranked = model.rerankPostComposition(pool, prompt: prompt, cache: cache)
+            XCTAssertEqual(cache.reuses, pool.count)
+            XCTAssertEqual(cache.scoringPasses, 0, "No repeated inference for already-scored continuations")
+            let reference = model.rerankPostComposition(pool, prompt: prompt)
+            XCTAssertEqual(ranked.map(\.text), reference.map(\.text))
+            for (actual, expected) in zip(ranked, reference) {
+                XCTAssertEqual(try XCTUnwrap(actual.modelScore), try XCTUnwrap(expected.modelScore), accuracy: 0.0001)
+            }
+            print("NEXT_WORD_FINAL_CACHE", prompt, "reused", cache.reuses, "fresh", cache.scoringPasses)
+        }
+    }
+
+    func testScoreCacheRevalidatesBoundaryAndPromptAgainstFrozenReferences() throws {
+        let model = try VimeLanguageModel()
+        let cache = VimeLanguageModel.SuggestionScoreCache()
+        for item in try fixtures().scoring {
+            // Individually-scored candidates can have a different common
+            // boundary from the final pool. Reuse must preserve frozen scores.
+            for text in item.candidates { _ = try model.scores(context: item.context, candidates: [text], cache: cache) }
+            let actual = try model.scores(context: item.context, candidates: item.candidates, cache: cache)
+            for (value, reference) in zip(actual, item.sums) { XCTAssertEqual(value, reference, accuracy: 0.002) }
+        }
+        XCTAssertGreaterThan(cache.reuses, 0)
+        // Same continuations under another context must not inherit prior scores.
+        let candidates = ["飲む", "買う"]
+        let cached = try model.scores(context: "朝は", candidates: candidates, cache: cache)
+        let fresh = try model.scores(context: "朝は", candidates: candidates)
+        for (actual, expected) in zip(cached, fresh) { XCTAssertEqual(actual, expected, accuracy: 0.0001) }
+    }
     func testPaddingAndCausality() throws {
         let lm = try VimeLanguageModel()
         let ids: [Int32] = [2] + (try lm.tokenizer.encode("明日の会議までに、"))

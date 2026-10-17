@@ -52,6 +52,27 @@ nonisolated final class VimeLanguageModel {
     private let model: MLModel
     static let vocabulary = 16384
     static let contextLength = 128
+    /// Lives for one next-word request, never on the shared model. A score is
+    /// reusable only for the same prompt, joint tokens and suffix boundary.
+    final class SuggestionScoreCache {
+        private struct Key: Hashable {
+            let prompt: Data
+            let sequence: [Int32]
+            let common: Int
+        }
+        private var values: [Key: Double] = [:]
+        private(set) var reuses = 0
+        private(set) var scoringPasses = 0
+        func value(prompt: String, sequence: [Int32], common: Int) -> Double? {
+            let value = values[Key(prompt: Data(prompt.utf8), sequence: sequence, common: common)]
+            if value != nil { reuses += 1 } else { scoringPasses += 1 }
+            return value
+        }
+        func store(_ value: Double, prompt: String, sequence: [Int32], common: Int) {
+            guard values.count < 32 else { return }
+            values[Key(prompt: Data(prompt.utf8), sequence: sequence, common: common)] = value
+        }
+    }
     /// A failed model identity check uses the worker's dictionary fallback.
     let modelVersion: String
     init(bundle: Bundle = .main, computeUnits: MLComputeUnits = .cpuOnly) throws {
@@ -131,12 +152,13 @@ nonisolated final class VimeLanguageModel {
     /// Exactly the frozen scorer: joint encoding, common prefix, full-vocabulary log-softmax,
     /// BOS=2, summed suffix scores, no candidate-final EOS or truncation. Causal
     /// logits are unchanged when unused right padding is omitted.
-    func scores(context: String, candidates: [String], cancelled: () -> Bool = { false }) throws -> [Double] {
-        try scores(context: context, candidates: candidates, progress: nil, cancelled: cancelled)
+    func scores(context: String, candidates: [String], cache: SuggestionScoreCache? = nil,
+                cancelled: () -> Bool = { false }) throws -> [Double] {
+        try scores(context: context, candidates: candidates, progress: nil, cache: cache, cancelled: cancelled)
     }
 
     private func scores(context: String, candidates: [String], progress: (([Double]) -> Void)?,
-                        cancelled: () -> Bool) throws -> [Double] {
+                        cache: SuggestionScoreCache? = nil, cancelled: () -> Bool) throws -> [Double] {
         let started = KeyboardPerformance.start()
         defer { KeyboardPerformance.record(.lmCandidateScoring, since: started) }
         guard !candidates.isEmpty, Set(candidates.map { Data($0.utf8) }).count == candidates.count,
@@ -156,15 +178,20 @@ nonisolated final class VimeLanguageModel {
             if sequences.allSatisfy({ $0[i] == contextIDs[i] }) { common += 1 } else { break }
         }
         guard common >= 1, sequences.allSatisfy({ $0.count > common }) else { throw Failure.ineligible }
-        return try sequenceScores(sequences, common: common, progress: progress, cancelled: cancelled)
+        return try sequenceScores(sequences, common: common, progress: progress,
+            prompt: context, cache: cache, cancelled: cancelled)
     }
 
     private func sequenceScores(_ sequences: [[Int32]], common: Int,
                                 progress: (([Double]) -> Void)? = nil,
+                                prompt: String = "", cache: SuggestionScoreCache? = nil,
                                 cancelled: () -> Bool) throws -> [Double] {
         var sums = [Double]()
         for sequence in sequences {
             if cancelled() { throw Failure.cancelled }
+            if let cached = cache?.value(prompt: prompt, sequence: sequence, common: common) {
+                sums.append(cached); progress?(sums); continue
+            }
             // A long all-kana alternative must not force every short native
             // conversion through a larger transformer/output tensor. The
             // causal model cannot attend to the unused right padding anyway.
@@ -183,6 +210,7 @@ nonisolated final class VimeLanguageModel {
                 return sum
             }
             guard sum.isFinite else { throw Failure.tensor }
+            cache?.store(sum, prompt: prompt, sequence: sequence, common: common)
             sums.append(sum) // Release each candidate's full logits before the next prediction.
             progress?(sums)
         }
@@ -273,6 +301,7 @@ nonisolated final class VimeLanguageModel {
     /// Native replacements expose a suffix for scoring but carry a full host edit.
     /// Score the common continuation boundary, never prompt + the repeated base word.
     func rerankPostComposition(_ values: [NextWordSuggestion], prompt: String,
+                               cache: SuggestionScoreCache? = nil,
                                cancelled: @escaping () -> Bool = { false }) -> [NextWordSuggestion] {
         let started = ProcessInfo.processInfo.systemUptime
         let stop = { cancelled() || ProcessInfo.processInfo.systemUptime - started > 0.250 }
@@ -296,7 +325,7 @@ nonisolated final class VimeLanguageModel {
             unique.append(text); slots[key] = slot
             return slot
         }
-        guard let uniqueSums = try? scores(context: prompt, candidates: unique, cancelled: stop),
+        guard let uniqueSums = try? scores(context: prompt, candidates: unique, cache: cache, cancelled: stop),
               !stop() else { return values }
         let sums = scoreIndices.map { uniqueSums[$0] }
         let order = sums.indices.sorted { sums[$0] == sums[$1] ? $0 < $1 : sums[$0] > sums[$1] }
@@ -338,6 +367,7 @@ nonisolated final class VimeLanguageModel {
             return String(decoding: text.utf8.dropFirst(prompt.utf8.count), as: UTF8.self)
         }
         func distribution(_ ids: [Int32]) throws -> [Double] {
+            if cancelled() { throw Failure.cancelled }
             var values = try autoreleasepool {
                 try Self.logProbabilities(predict(prefix + ids), row: prefix.count + ids.count - 1)
             }
@@ -386,7 +416,8 @@ nonisolated final class VimeLanguageModel {
     /// so generated and remembered phrases have comparable log probabilities.
     /// Reuses generated probabilities only when canonical tokenization and the
     /// scoring boundary match. At most eight extra passes; usually only history.
-    func scoredNextWords(prompt: String, history: [String] = [], cancelled: () -> Bool = { false }) throws
+    func scoredNextWords(prompt: String, history: [String] = [], cache: SuggestionScoreCache? = nil,
+                         cancelled: () -> Bool = { false }) throws
         -> (generated: [ScoredNextWord], history: [ScoredNextWord]) {
         nextWordScoreReuses = 0; nextWordScoringPasses = 0
         let generated = try generateNextWords(prompt: prompt, cancelled: cancelled)
@@ -425,6 +456,7 @@ nonisolated final class VimeLanguageModel {
         nextWordScoreReuses = texts.count - uncached.count
         for (index, value) in zip(uncached, fresh) { values[index] = value }
         if cancelled() { throw Failure.cancelled }
+        for i in texts.indices { cache?.store(values[i], prompt: prompt, sequence: sequences[i], common: common) }
         let scored = texts.indices.map { ScoredNextWord(text: texts[$0], logProbabilitySum: values[$0],
             tokenCount: sequences[$0].count - common) }
         return (Array(scored.prefix(words.count)), Array(scored.dropFirst(words.count)))

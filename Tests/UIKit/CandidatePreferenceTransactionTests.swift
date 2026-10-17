@@ -27,6 +27,79 @@ final class CandidatePreferenceTransactionTests: XCTestCase {
         return Array(try XCTUnwrap(object["entries"] as? [String: [String: Any]]).values)
     }
 
+    func testReadOnlyInstanceRefreshesExternalLearningWithoutOwnWrite() throws {
+        let url = try directory()
+        let reader = CandidatePreferenceMemory(directory: url), writer = CandidatePreferenceMemory(directory: url)
+        for _ in 0..<3 { writer.record(reading: "ハシ", surface: "箸", now: date) }
+        writer.flush()
+        reader.refreshIfChanged()
+        XCTAssertEqual(reader.score(reading: "ハシ", surface: "箸", now: date), log(3), accuracy: 1e-9)
+        reader.refreshIfChanged(); reader.flush()
+        XCTAssertEqual(reader.pendingPersistenceEntryCount, 0)
+        XCTAssertEqual(try rows(url).first?["confirmations"] as? Int, 3, "Refreshing must not add evidence")
+        for _ in 0..<2 { writer.record(reading: "アメ", surface: "雨", now: date) }
+        writer.flush(); reader.flush()
+        XCTAssertEqual(reader.score(reading: "アメ", surface: "雨", now: date), log(2), accuracy: 1e-9)
+    }
+
+    func testRefreshMergesPendingDeltaOnceAndExternalClearDiscardsOldGeneration() throws {
+        let url = try directory()
+        let reader = CandidatePreferenceMemory(directory: url), writer = CandidatePreferenceMemory(directory: url)
+        for _ in 0..<2 {
+            reader.record(reading: "ハシ", surface: "箸", now: date)
+            writer.record(reading: "ハシ", surface: "箸", now: date)
+        }
+        writer.flush(); reader.refreshIfChanged(); reader.refreshIfChanged()
+        XCTAssertEqual(reader.score(reading: "ハシ", surface: "箸", now: date), log(4), accuracy: 1e-9)
+        reader.flush()
+        XCTAssertEqual(try rows(url).first?["confirmations"] as? Int, 4)
+        reader.record(reading: "ネコ", surface: "猫", now: date)
+        reader.stage(id: UUID(), reading: "ハシ", surface: "箸", context: "", weight: 1, now: date)
+        writer.clear(); reader.refreshIfChanged()
+        XCTAssertEqual(reader.pendingPersistenceEntryCount, 0)
+        XCTAssertEqual(reader.score(reading: "ハシ", surface: "箸", now: date), 0)
+        XCTAssertEqual(reader.score(reading: "ネコ", surface: "猫", now: date), 0)
+        reader.flush()
+        XCTAssertTrue(try rows(url).isEmpty)
+    }
+
+    func testCorruptRefreshKeepsLastGoodSnapshotAndPendingFeedback() throws {
+        let url = try directory()
+        let memory = CandidatePreferenceMemory(directory: url)
+        for _ in 0..<3 { memory.record(reading: "ハシ", surface: "箸", now: date) }
+        memory.flush(); memory.record(reading: "ネコ", surface: "猫", now: date)
+        let archive = url.appendingPathComponent("VimeSelectionFrequency.json")
+        let corrupt = Data("corrupt".utf8)
+        try corrupt.write(to: archive, options: .atomic)
+        memory.refreshIfChanged()
+        XCTAssertNotNil(memory.persistenceError)
+        XCTAssertEqual(memory.score(reading: "ハシ", surface: "箸", now: date), log(3), accuracy: 1e-9)
+        XCTAssertEqual(memory.pendingPersistenceEntryCount, 1)
+        XCTAssertEqual(try Data(contentsOf: archive), corrupt)
+    }
+
+    func testExternalClearRejectsOldEngineFeedbackAfterReadRefreshButAcceptsNewSelections() throws {
+        let url = try directory()
+        let engine = JapaneseCandidateEngine(memoryDirectoryURL: url, learningEnabled: true)
+        let writer = CandidatePreferenceMemory(directory: url)
+        let old = CandidateLearningFeedback(id: UUID(), kind: .nextWord, rank: 1, context: "本を", selectedAt: date)
+        engine.stageNextWord("読む", event: old)
+        writer.clear()
+        // A query updates the reader's epoch before the old host receipt arrives.
+        _ = engine.postCompositionSuggestions(leftContext: "本を読む")
+        engine.resolveFeedback(old.id, accepted: true)
+        XCTAssertEqual(engine.feedbackAccepted, 0)
+        XCTAssertEqual(engine.feedbackCancelled, 1)
+        XCTAssertTrue(try rows(url).isEmpty)
+        for _ in 0..<2 {
+            let event = CandidateLearningFeedback(id: UUID(), kind: .nextWord, rank: 1, context: "本を", selectedAt: date)
+            engine.stageNextWord("読む", event: event)
+            engine.resolveFeedback(event.id, accepted: true)
+        }
+        XCTAssertEqual(engine.feedbackAccepted, 2)
+        XCTAssertEqual(CandidatePreferenceMemory(directory: url).rememberedNextWords(context: "本を", now: date), ["読む"])
+    }
+
     func testStaleWritersMergeSameKeyExactlyOnceAcrossRepeatedFlushAndReload() throws {
         let url = try directory()
         let first = CandidatePreferenceMemory(directory: url), second = CandidatePreferenceMemory(directory: url)

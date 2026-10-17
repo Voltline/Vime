@@ -722,10 +722,10 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     }
 
     func releaseInactiveResources() {
-        KeyboardEmojiImages.clear()
         session.releaseInactiveResources()
         spareCandidateButtons.removeAll(keepingCapacity: false)
         sparePanelButtons.removeAll(keepingCapacity: false)
+        symbolPanel?.isHidden = true // Cancel this panel's preparation; retain the bounded shared bitmaps.
         symbolPanel?.removeFromSuperview(); symbolPanel = nil
         impactGenerators.removeAll(keepingCapacity: false)
         emojiOpen = false
@@ -735,7 +735,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         KeyboardEmojiImages.clear()
         spareCandidateButtons.removeAll(keepingCapacity: false)
         sparePanelButtons.removeAll(keepingCapacity: false)
-        if !emojiOpen { symbolPanel?.removeFromSuperview(); symbolPanel = nil }
+        if !emojiOpen { symbolPanel?.isHidden = true; symbolPanel?.removeFromSuperview(); symbolPanel = nil }
         impactGenerators.removeAll(keepingCapacity: false)
         session.handleMemoryPressure()
         refresh()

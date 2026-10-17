@@ -515,11 +515,28 @@ final class KeyboardSession: KeyboardInputSession {
             if let provider = self.leftContextProvider {
                 guard let actual = provider(), String(actual.suffix(96)) == context else { return }
             }
-            self.suggestionSnapshots = texts
-            self.suggestionAnchor = self.learningContextProvider?()
-            self.candidateListGeneration += 1
-            self.onCandidatesChange?()
+            self.publishSuggestions(texts)
         }
+    }
+
+    /// Published choices keep both their index and their host operation until
+    /// the context changes. Later neural results may only add new choices.
+    private func publishSuggestions(_ values: [NextWordSuggestion]) {
+        let wasEmpty = suggestionSnapshots.isEmpty
+        let count = suggestionSnapshots.count
+        for value in values where suggestionSnapshots.count < 20 {
+            guard !suggestionSnapshots.contains(where: {
+                $0.text.utf8.elementsEqual(value.text.utf8)
+                    && ($0.nativePrediction?.replacedText ?? "").utf8.elementsEqual((value.nativePrediction?.replacedText ?? "").utf8)
+            }) else { continue }
+            suggestionSnapshots.append(value)
+        }
+        guard suggestionSnapshots.count != count else { return }
+        if wasEmpty {
+            suggestionAnchor = learningContextProvider?()
+            candidateListGeneration += 1
+        }
+        onCandidatesChange?()
     }
 
     private func refresh(boundary: Bool = false, leftContextOverride: String? = nil) {

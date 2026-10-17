@@ -54,10 +54,23 @@ nonisolated final class CandidatePreferenceMemory {
     private var recent: [Recent] = []
     private var dirty = false
     private var epoch: UUID?
+    var clearEpoch: UUID? { epoch }
     // Only this instance's delta, coalesced by key. Failed disk writes must not
     // turn a bounded learning store into an unbounded event log.
     private var pendingEvents: [String: Entry] = [:]
     private var pendingClear = false
+    private struct Revision: Equatable {
+        let device: dev_t
+        let inode: ino_t
+        let size: off_t
+        let seconds: Int
+        let nanoseconds: Int
+        init(_ value: stat) {
+            device = value.st_dev; inode = value.st_ino; size = value.st_size
+            seconds = value.st_mtimespec.tv_sec; nanoseconds = value.st_mtimespec.tv_nsec
+        }
+    }
+    private var loadedRevision: Revision?
     private(set) var persistenceError: String?
     var pendingPersistenceEntryCount: Int { pendingEvents.count }
 
@@ -74,14 +87,20 @@ nonisolated final class CandidatePreferenceMemory {
     }
 
     private func readArchive() throws -> Archive {
-        guard FileManager.default.fileExists(atPath: url.path) else { return Archive(epoch: nil, entries: [:]) }
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            loadedRevision = nil
+            return Archive(epoch: nil, entries: [:])
+        }
         let handle = try FileHandle(forReadingFrom: url)
         defer { try? handle.close() }
+        var metadata = stat()
+        guard fstat(handle.fileDescriptor, &metadata) == 0 else { throw POSIXError(.EIO) }
         let data = try handle.read(upToCount: Policy.maximumFileBytes + 1) ?? Data()
         guard data.count <= Policy.maximumFileBytes else { throw PersistenceFailure.oversizedArchive }
         var decoded: [String: Entry] = [:]
         if let archive = try? JSONDecoder().decode(Archive.self, from: data), archive.version == 2 {
             for entry in archive.entries.values where valid(entry) { decoded[key(entry)] = entry }
+            loadedRevision = Revision(metadata)
             return Archive(epoch: archive.epoch, entries: decoded)
         } else if let old = try? JSONDecoder().decode(LegacyArchive.self, from: data), old.version == 1 {
             for item in old.entries.values {
@@ -92,11 +111,34 @@ nonisolated final class CandidatePreferenceMemory {
                 if valid(entry) { decoded[key(entry)] = entry }
             }
             dirty = true // Migration is persisted at the next confirmation/lifecycle boundary.
+            loadedRevision = Revision(metadata)
             return Archive(epoch: nil, entries: decoded)
         }
         // A failed/corrupt read is not permission to replace existing history
         // with an empty snapshot. Keep pending events available for a retry.
         throw PersistenceFailure.invalidArchive
+    }
+
+    /// Check once per candidate request, on the worker queue. Unchanged files
+    /// need only stat(); atomic replacement changes the inode. fstat() above
+    /// identifies the actual file read even if another writer replaces it.
+    func refreshIfChanged() {
+        guard !pendingClear else { return }
+        var metadata = stat()
+        let status = stat(url.path, &metadata)
+        guard status == 0 || errno == ENOENT else { return }
+        let revision = status == 0 ? Revision(metadata) : nil
+        guard revision != loadedRevision else { return }
+        do {
+            let latest = try readArchive()
+            if latest.epoch != epoch {
+                pendingEvents = [:]; recent = []; dirty = false
+            }
+            epoch = latest.epoch
+            entries = latest.entries
+            for event in pendingEvents.values { apply(event, to: &entries) }
+            prune(); rebuildIndex(); persistenceError = nil
+        } catch { persistenceError = String(describing: error) }
     }
     private func valid(_ e: Entry) -> Bool {
         ["conversion", "style", "nextWord", "choice", "wordChoice"].contains(e.scope) && e.evidence.isFinite
@@ -312,7 +354,7 @@ nonisolated final class CandidatePreferenceMemory {
         for (key, e) in entries { populations[population(e.scope, e.reading, e.context), default: [:]][e.surface] = key }
     }
     func flush() {
-        guard dirty else { return }
+        guard dirty else { refreshIfChanged(); return }
         do {
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             // Lock a separate, persistent inode: atomic replacement of the JSON
@@ -342,7 +384,9 @@ nonisolated final class CandidatePreferenceMemory {
                     let data = try JSONEncoder().encode(Archive(epoch: epoch, entries: entries))
                     guard data.count <= Policy.maximumFileBytes else { throw PersistenceFailure.oversizedOutput }
                     try data.write(to: url, options: .atomic)
-                } catch { entries = previous; throw error }
+                    var metadata = stat()
+                    loadedRevision = stat(url.path, &metadata) == 0 ? Revision(metadata) : nil
+                } catch { entries = previous; loadedRevision = nil; throw error }
             }
             pendingEvents = [:]; pendingClear = false; dirty = false
             rebuildIndex(); persistenceError = nil

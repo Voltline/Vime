@@ -29,6 +29,7 @@ nonisolated final class JapaneseCandidateEngine {
         var snapshot: CandidateSnapshot? = nil
         let text: String
         let event: CandidateLearningFeedback
+        let learningEpoch: UUID?
         var nativePrediction: NativePostCompositionPrediction? = nil
     }
     private var pendingFeedback: PendingFeedback?
@@ -92,6 +93,7 @@ nonisolated final class JapaneseCandidateEngine {
     private(set) var lastCorrectionMetrics = CorrectionSearchMetrics()
     func candidates(for composing: ComposingText, katakana: Bool = false, revision: Int,
                     includeCorrections: Bool = true, conversionLength: Int? = nil) -> [CandidateSnapshot] {
+        preferenceMemory?.refreshIfChanged()
         guard !composing.isEmpty else { return [] }
         var query = composing
         if let length = conversionLength {
@@ -874,10 +876,12 @@ nonisolated final class JapaneseCandidateEngine {
     /// Context completion is immediate; learning waits for a verified host receipt.
     func stageSelection(_ snapshot: CandidateSnapshot, event: CandidateLearningFeedback) {
         if let pendingFeedback { resolveFeedback(pendingFeedback.event.id, accepted: false) }
+        preferenceMemory?.refreshIfChanged()
         completeConversionContext(snapshot)
         committedContext = String((committedContext + snapshot.text).suffix(96))
         contextCandidate = snapshot.lexical && snapshot.displaySurface == nil ? snapshot.candidate : nil
-        pendingFeedback = PendingFeedback(snapshot: snapshot, text: snapshot.text, event: event)
+        pendingFeedback = PendingFeedback(snapshot: snapshot, text: snapshot.text, event: event,
+            learningEpoch: preferenceMemory?.clearEpoch)
         if snapshot.learningEligible || snapshot.source == .scriptVariant || snapshot.source == .orthographicVariant {
             preferenceMemory?.stage(id: event.id, reading: snapshot.reading, surface: snapshot.text,
                 context: event.context, scope: (snapshot.source == .scriptVariant || snapshot.source == .orthographicVariant) ? "style" : "conversion",
@@ -887,7 +891,8 @@ nonisolated final class JapaneseCandidateEngine {
 
     func stageNextWord(_ text: String, event: CandidateLearningFeedback) {
         if let pendingFeedback { resolveFeedback(pendingFeedback.event.id, accepted: false) }
-        pendingFeedback = PendingFeedback(text: text, event: event)
+        preferenceMemory?.refreshIfChanged()
+        pendingFeedback = PendingFeedback(text: text, event: event, learningEpoch: preferenceMemory?.clearEpoch)
         committedContext = String((committedContext + text).suffix(96))
         contextCandidate = nil
         if let learningSession { try? converter.withSession(learningSession) { converter.stopComposition() } }
@@ -896,6 +901,7 @@ nonisolated final class JapaneseCandidateEngine {
     }
 
     func postCompositionSuggestions(leftContext: String) -> [NextWordSuggestion] {
+        preferenceMemory?.refreshIfChanged()
         reconcileContext(leftContext)
         if contextCandidate == nil { contextCandidate = parseCommittedContext() }
         guard let base = contextCandidate, !base.data.isEmpty,
@@ -917,7 +923,9 @@ nonisolated final class JapaneseCandidateEngine {
     func stageNativePrediction(_ prediction: NativePostCompositionPrediction, event: CandidateLearningFeedback) {
         if let pendingFeedback { resolveFeedback(pendingFeedback.event.id, accepted: false) }
         guard committedContext == prediction.expectedLeftContext else { return }
-        pendingFeedback = PendingFeedback(text: prediction.insertionText, event: event, nativePrediction: prediction)
+        preferenceMemory?.refreshIfChanged()
+        pendingFeedback = PendingFeedback(text: prediction.insertionText, event: event,
+            learningEpoch: preferenceMemory?.clearEpoch, nativePrediction: prediction)
         committedContext = String((String(committedContext.dropLast(prediction.replacedText.count)) + prediction.insertionText).suffix(96))
         contextCandidate = prediction.joined
         preferenceMemory?.stage(id: event.id, reading: "", surface: prediction.insertionText, context: event.context,
@@ -937,7 +945,8 @@ nonisolated final class JapaneseCandidateEngine {
     func resolveFeedback(_ id: UUID, accepted: Bool) {
         guard let pending = pendingFeedback, pending.event.id == id else { return }
         pendingFeedback = nil
-        guard accepted else {
+        if accepted { preferenceMemory?.refreshIfChanged() }
+        guard accepted, pending.learningEpoch == preferenceMemory?.clearEpoch else {
             preferenceMemory?.cancel(id); feedbackCancelled += 1; return
         }
         let started = KeyboardPerformance.start()

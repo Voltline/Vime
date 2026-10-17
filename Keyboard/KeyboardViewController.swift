@@ -13,6 +13,7 @@ class KeyboardViewController: UIInputViewController {
     private var knownSelected: String?
     private var isApplyingEdits = false
     private var partialCommitReceipt: KeyboardPartialCommitReceipt?
+    private var consumedLineContext: KeyboardUndoAnchor?
     private static let documentIdentifierSelector = NSSelectorFromString("documentIdentifier")
     private let cursorLayout = KeyboardProxyCursorLayout()
     private lazy var host = KeyboardHostConnection(
@@ -78,6 +79,7 @@ class KeyboardViewController: UIInputViewController {
         logLifecycle("appearing")
         VimeExtensionAudit.recordLifecycle(event: .viewWillAppear)
         host.abandon()
+        consumedLineContext = nil
         keyboard.resetComposition()
         keyboard.hasFullAccess = hasFullAccess
         updateKeyboardGeometry()
@@ -172,6 +174,9 @@ class KeyboardViewController: UIInputViewController {
         knownBefore = proxy.documentContextBeforeInput
         knownAfter = proxy.documentContextAfterInput
         knownSelected = proxy.selectedText
+        if let consumedLineContext, deletionUndoAnchor() != consumedLineContext {
+            self.consumedLineContext = nil
+        }
     }
 
     private var contextChanged: Bool {
@@ -192,6 +197,7 @@ class KeyboardViewController: UIInputViewController {
 
     private func apply(_ edits: [KeyboardEdit]) {
         partialCommitReceipt = nil
+        if edits.contains(.undoLineDeletion) { consumedLineContext = nil }
         isApplyingEdits = true
         defer { isApplyingEdits = false }
         host.apply(edits)
@@ -238,16 +244,22 @@ class KeyboardViewController: UIInputViewController {
     }
 
     private func deleteLinePrefix() -> String {
-        var deleted = textDocumentProxy.selectedText ?? ""
-        if !deleted.isEmpty { textDocumentProxy.deleteBackward() }
-        // Re-read after each bounded context chunk so long explicit lines are
-        // handled without crossing a newline or reconstructing host content.
+        let proxy = textDocumentProxy
+        var deleted = ""
+        // A context snapshot authorizes one batch only. Remote proxies can
+        // return the same snapshot after every delete (and the next gesture).
+        // Continue through a truncated line only when the host shows progress.
         for _ in 0..<64 {
-            guard let before = textDocumentProxy.documentContextBeforeInput, !before.isEmpty else { break }
+            let snapshot = deletionUndoAnchor()
+            guard snapshot != consumedLineContext else { break }
+            let selected = snapshot.selection ?? ""
+            let before = snapshot.before ?? ""
             let prefix = before.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline).last ?? ""
-            guard !prefix.isEmpty else { break }
-            for _ in prefix { textDocumentProxy.deleteBackward() }
-            deleted = prefix + deleted
+            guard !prefix.isEmpty || !selected.isEmpty else { break }
+            consumedLineContext = snapshot
+            if !selected.isEmpty { proxy.deleteBackward() }
+            for _ in prefix { proxy.deleteBackward() }
+            deleted = prefix + selected + deleted
             if before.contains(where: \.isNewline) { break }
         }
         return deleted

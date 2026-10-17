@@ -225,13 +225,14 @@ final class JapaneseCandidateWorker {
                 DispatchQueue.main.async { if !request.isCancelled { completion(base) } }
             }
             guard useLanguageModel, !request.isCancelled else { return }
+            let scoreCache = VimeLanguageModel.SuggestionScoreCache()
             let history = storage.engine.rememberedNextWords(context: prompt)
-            let words = try? storage.languageModel?.scoredNextWords(prompt: prompt, history: history,
+            let words = try? storage.languageModel?.scoredNextWords(prompt: prompt, history: history, cache: scoreCache,
                 cancelled: { request.isCancelled || LanguageModelStorage.shared.isSuspended })
             guard !request.isCancelled else { return }
             let neural = storage.engine.personalizedNextWords(words?.generated ?? [], history: words?.history ?? [], context: prompt)
             let pool = PostCompositionSuggestionReranker.merge(native: native, neural: neural)
-            let suggestions = storage.languageModel?.rerankPostComposition(pool, prompt: prompt,
+            let suggestions = storage.languageModel?.rerankPostComposition(pool, prompt: prompt, cache: scoreCache,
                 cancelled: { request.isCancelled || LanguageModelStorage.shared.isSuspended }) ?? pool
             guard !suggestions.isEmpty else { return }
             DispatchQueue.main.async { if !request.isCancelled { completion(suggestions) } }
