@@ -38,8 +38,10 @@ struct AppSettingsActionRow: View {
                 Text(subtitle).font(.caption).foregroundStyle(.secondary)
             }
             Spacer(minLength: 8)
-            Image(systemName: accessory).font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
-                .accessibilityHidden(true)
+            if !accessory.isEmpty {
+                Image(systemName: accessory).font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
+                    .accessibilityHidden(true)
+            }
         }
         .padding(16)
         .frame(maxWidth: .infinity, minHeight: 60, alignment: .leading)

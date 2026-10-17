@@ -2,7 +2,7 @@ import UIKit
 
 nonisolated struct KeyboardQuickCandidate: Equatable {
     enum Action: Equatable {
-        case symbol(String), clipboard(String), replacement(KeyboardTextReplacement)
+        case symbol(String), replacement(KeyboardTextReplacement)
     }
     let title: String
     let action: Action
@@ -43,9 +43,6 @@ final class KeyboardQuickCandidateStrip: UIScrollView {
             button.titleLabel?.lineBreakMode = .byTruncatingTail
             button.accessibilityLabel = items[index].title
             switch items[index].action {
-            case .clipboard:
-                button.accessibilityIdentifier = "vime.clipboard.paste"
-                button.accessibilityHint = "输入剪贴板的完整文本"
             case .replacement:
                 button.accessibilityIdentifier = "vime.calculation.\(index)"
                 button.accessibilityHint = "替换光标前的完整算式"

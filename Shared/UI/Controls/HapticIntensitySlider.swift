@@ -123,15 +123,3 @@ final class HapticIntensityScale: UIView {
         }
     }
 }
-
-/// Keep horizontal control drags out of the quick panel's vertical scrolling.
-final class KeyboardSettingsScrollView: UIScrollView {
-    override func touchesShouldCancel(in view: UIView) -> Bool {
-        var current: UIView? = view
-        while let item = current, item !== self {
-            if item is UISlider { return false }
-            current = item.superview
-        }
-        return super.touchesShouldCancel(in: view)
-    }
-}

@@ -92,10 +92,12 @@ final class AppPresentationTests: XCTestCase {
         XCTAssertFalse(policy.introduction.isEmpty)
         XCTAssertEqual(policy.effective, policy.updated)
         XCTAssertTrue(policy.sections.contains { $0.title.contains("系统权限") })
-        let clipboardPolicy = try XCTUnwrap(policy.sections.first { $0.title.contains("剪贴板") })
-        XCTAssertTrue(clipboardPolicy.paragraphs.contains { $0.contains("默认关闭") })
-        XCTAssertTrue(clipboardPolicy.paragraphs.contains { $0.contains("不进行任何上传") })
-        XCTAssertTrue(policy.sections.flatMap(\.paragraphs).contains { $0.contains("已有学习数据") })
+        let paragraphs = policy.sections.flatMap(\.paragraphs)
+        let clipboardPolicy = try XCTUnwrap(paragraphs.first { $0.contains("剪贴板信息") })
+        XCTAssertTrue(clipboardPolicy.contains("默认关闭"))
+        XCTAssertTrue(clipboardPolicy.contains("仅保存在本机"))
+        XCTAssertTrue(clipboardPolicy.contains("不会上传"))
+        XCTAssertTrue(paragraphs.contains { $0.contains("不会同时删除已有学习记录") })
         let licenseComponent = try XCTUnwrap(catalog.components.first { $0.id == "azookey" })
         for (name, page) in [("数据与隐私", AnyView(Vime.KeyboardDataPrivacyView())),
                              ("数据与隐私-大字", AnyView(Vime.KeyboardDataPrivacyView().environment(\.dynamicTypeSize, .accessibility1))),

@@ -11,7 +11,7 @@ struct KeyboardSettingsView: View {
                     SettingsRow(title: "手感与布局", subtitle: "声音、振动、按键预览", symbol: "hand.tap")
                 }.accessibilityIdentifier("vime.settings.feedback")
                 NavigationLink { KeyboardClipboardSettingsView() } label: {
-                    SettingsRow(title: "剪贴板", subtitle: "自动读取、权限与使用说明", symbol: "doc.on.clipboard")
+                    SettingsRow(title: "剪贴板", subtitle: "自动读取、一天历史与权限说明", symbol: "doc.on.clipboard")
                 }.accessibilityIdentifier("vime.settings.clipboard")
                 NavigationLink { KeyboardDataPrivacyView() } label: {
                     SettingsRow(title: "数据与隐私", subtitle: "本地数据、隐私政策", symbol: "lock.shield")
@@ -167,7 +167,7 @@ struct KeyboardDataPrivacyView: View {
                         .accessibilityAddTraits(.isHeader)
                     AppSettingsActionGroup {
                         NavigationLink { KeyboardClipboardSettingsView() } label: {
-                            AppSettingsActionRow(title: "剪贴板自动读取", subtitle: "管理读取开关与系统授权", symbol: "doc.on.clipboard")
+                            AppSettingsActionRow(title: "剪贴板自动读取", subtitle: "管理一天历史、读取开关与系统授权", symbol: "doc.on.clipboard")
                         }.accessibilityIdentifier("vime.privacy.clipboard")
                         Divider().padding(.leading, 52)
                         NavigationLink { KeyboardUserDictionaryView() } label: {
@@ -183,7 +183,7 @@ struct KeyboardDataPrivacyView: View {
                 VStack(alignment: .leading, spacing: 20) {
                     Text("本地数据说明").font(.headline).accessibilityAddTraits(.isHeader)
                     information("输入与学习", text: "确认的词语、读音和使用情况用于本地学习，帮助调整候选。关闭智能排序或下一词联想会保留已有学习数据。")
-                    information("存储与备份", text: "App 与键盘在本机共享设置、皮肤、用户词典和学习文件。系统备份可能包含这些数据，恢复备份时也可能恢复。")
+                    information("存储与备份", text: "App 与键盘在本机共享设置、皮肤、用户词典和学习文件。系统备份可能包含这些数据，恢复备份时也可能恢复。剪贴板历史仅保留最近 24 小时，并排除在备份之外。")
                     information("管理与删除", text: "自定义皮肤可在“定制”页编辑、导出和删除。目前没有统一清空学习数据的入口；删除词典条目不会同时删除相关学习记录。")
                 }
                 .padding(.horizontal, 4)

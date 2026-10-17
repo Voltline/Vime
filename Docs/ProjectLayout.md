@@ -33,10 +33,12 @@ Vime 使用一个 Xcode 工程构建 iOS 主 App 和系统键盘扩展，共享 
 | --- | --- |
 | `Shared/UI/Keyboard` | 键盘主视图、输入根视图及布局尺寸 |
 | `Shared/UI/Keys` | 按键、触摸归属、手势及删除提示 |
-| `Shared/UI/Candidates` | 转换候选按钮及符号、计算、剪贴板快捷候选栏 |
+| `Shared/UI/Candidates` | 转换候选按钮及符号、计算快捷候选栏 |
 | `Shared/UI/Symbols` | 符号、Emoji 和颜文字面板及目录模型 |
 | `Shared/UI/Symbols/Emoji` | Emoji 可用性检测、字体位图解码和图片缓存 |
 | `Shared/UI/Appearance` | 主题、皮肤文字、图标和 Logo 绘制 |
+| `Shared/UI/Clipboard` | 候选栏行内剪贴板预览、一天历史列表与清空操作 |
+| `Shared/UI/Settings` | 键盘内快捷设置、分组控件与主题适配 |
 | `Shared/UI/Controls` | 振动强度滑块及高度调节控件 |
 
 ## 候选处理

@@ -11,7 +11,7 @@ final class KeyboardFeedbackUITests: XCTestCase {
         XCTAssertTrue(editor.waitForExistence(timeout: 10)); editor.tap()
         if !app.buttons["vime.brand.settings"].waitForExistence(timeout: 3) {
             let globe = app.buttons.matching(NSPredicate(format: "label IN %@",
-                ["Next keyboard", "下一键盘", "切换系统键盘", "次のキーボード"] as NSArray)).firstMatch
+                ["Next keyboard", "下一键盘", "下一个键盘", "切换系统键盘", "次のキーボード"] as NSArray)).firstMatch
             for _ in 0..<6 {
                 if app.buttons["vime.brand.settings"].exists { break }
                 guard globe.exists else { break }

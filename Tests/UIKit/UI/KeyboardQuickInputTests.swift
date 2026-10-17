@@ -26,56 +26,66 @@ final class KeyboardQuickInputTests: XCTestCase {
         }
     }
 
-    func testClipboardRequiresOptInAndFullAccessReadsChangedVersionsOnceAndBoundsStorage() {
+    func testClipboardRequiresOptInAndFullAccessReadsChangedVersionsOnceAndBoundsStorage() async {
         var version = 1, reads = 0, metadataReads = 0
         var value: String? = " first\nsecond "
-        let clipboard = KeyboardClipboard(changeCount: { metadataReads += 1; return version }, readText: { reads += 1; return value })
-        clipboard.poll(enabled: false, hasFullAccess: true)
-        clipboard.poll(enabled: true, hasFullAccess: false)
+        let clipboard = KeyboardClipboard(changeCount: { metadataReads += 1; return version }, readText: { reads += 1; return value }, history: ClipboardHistoryStore(inMemory: true))
+        clipboard.checkForChanges(enabled: false, hasFullAccess: true)
+        clipboard.checkForChanges(enabled: true, hasFullAccess: false)
         XCTAssertEqual(metadataReads, 0); XCTAssertEqual(reads, 0)
-        clipboard.poll(enabled: true, hasFullAccess: true)
+        clipboard.checkForChanges(enabled: true, hasFullAccess: true)
+        await settle(clipboard)
         XCTAssertEqual(clipboard.text, value)
-        for _ in 0..<10 { clipboard.poll(enabled: true, hasFullAccess: true) }
+        for _ in 0..<10 { clipboard.checkForChanges(enabled: true, hasFullAccess: true) }
         XCTAssertEqual(reads, 1)
         version += 1; value = nil // An image, empty clipboard or denied read.
-        clipboard.poll(enabled: true, hasFullAccess: true)
+        clipboard.checkForChanges(enabled: true, hasFullAccess: true)
+        await settle(clipboard)
         clipboard.clear()
-        clipboard.poll(enabled: true, hasFullAccess: true)
+        clipboard.checkForChanges(enabled: true, hasFullAccess: true)
+        await settle(clipboard)
         XCTAssertNil(clipboard.text); XCTAssertEqual(reads, 2, "A denied/empty read is not retried on every show")
         version += 1; value = String(repeating: "あ", count: 30_000)
-        clipboard.poll(enabled: true, hasFullAccess: true)
+        clipboard.checkForChanges(enabled: true, hasFullAccess: true)
+        await settle(clipboard)
         XCTAssertNil(clipboard.text, "Oversized text must not be truncated and offered as if complete")
         version += 1; value = " \n\t "
-        clipboard.poll(enabled: true, hasFullAccess: true)
+        clipboard.checkForChanges(enabled: true, hasFullAccess: true)
+        await settle(clipboard)
         XCTAssertNil(clipboard.text)
         version += 1; value = "latest"
-        clipboard.poll(enabled: true, hasFullAccess: true)
-        clipboard.poll(enabled: false, hasFullAccess: true)
+        clipboard.checkForChanges(enabled: true, hasFullAccess: true)
+        await settle(clipboard)
+        clipboard.checkForChanges(enabled: false, hasFullAccess: true)
         XCTAssertNil(clipboard.text)
     }
 
-    func testAsyncClipboardRejectsSupersededAndCancelledLoads() {
+    func testAsyncClipboardRejectsSupersededAndCancelledLoads() async {
         var version = 1
         var completions: [(String?) -> Void] = []
         var progress: [Progress] = []
         let clipboard = KeyboardClipboard(changeCount: { version }, loadText: { complete in
             completions.append(complete)
             let load = Progress(totalUnitCount: 1); progress.append(load); return load
-        })
-        clipboard.poll(enabled: true, hasFullAccess: true)
-        clipboard.poll(enabled: true, hasFullAccess: true)
+        }, history: ClipboardHistoryStore(inMemory: true))
+        clipboard.checkForChanges(enabled: true, hasFullAccess: true)
+        clipboard.checkForChanges(enabled: true, hasFullAccess: true)
+        await waitUntil { completions.count == 1 }
         XCTAssertEqual(completions.count, 1, "A pending read must not start another permission request")
         version += 1
-        clipboard.poll(enabled: true, hasFullAccess: true)
+        clipboard.checkForChanges(enabled: true, hasFullAccess: true)
         XCTAssertEqual(completions.count, 1, "Slow loads must not pile up even when the clipboard changes")
         completions[0]("old")
         XCTAssertNil(clipboard.text)
-        clipboard.poll(enabled: true, hasFullAccess: true)
+        clipboard.checkForChanges(enabled: true, hasFullAccess: true)
+        await waitUntil { completions.count == 2 }
         completions[1]("latest")
+        await settle(clipboard)
         XCTAssertEqual(clipboard.text, "latest")
         version += 1
-        clipboard.poll(enabled: true, hasFullAccess: true)
-        clipboard.poll(enabled: false, hasFullAccess: true)
+        clipboard.checkForChanges(enabled: true, hasFullAccess: true)
+        await waitUntil { completions.count == 3 }
+        clipboard.checkForChanges(enabled: false, hasFullAccess: true)
         XCTAssertTrue(progress[2].isCancelled)
         completions[2]("late after opt-out")
         XCTAssertNil(clipboard.text)
@@ -94,10 +104,10 @@ final class KeyboardQuickInputTests: XCTestCase {
         withExtendedLifetime(progress) {}
     }
 
-    func testNumericPageImmediatelyOffersSymbolsAndBothResultsReplaceWholeExpression() throws {
+    func testNumericPageImmediatelyOffersSymbolsAndBothResultsReplaceWholeExpression() async throws {
         for english in [false, true] {
             for choice in [0, 1] {
-                let fixture = try Fixture(english: english)
+                let fixture = try await Fixture(english: english)
                 defer { fixture.close() }
                 fixture.text.text = "前文👩🏽‍💻 "; fixture.text.selectedRange = NSRange(location: fixture.text.text.utf16.count, length: 0)
                 try fixture.tapKey(title: "123")
@@ -114,8 +124,8 @@ final class KeyboardQuickInputTests: XCTestCase {
         }
     }
 
-    func testMinusDoesNotBecomeJapaneseProlongedSoundAndSymbolsRemainAvailable() throws {
-        let fixture = try Fixture()
+    func testMinusDoesNotBecomeJapaneseProlongedSoundAndSymbolsRemainAvailable() async throws {
+        let fixture = try await Fixture()
         defer { fixture.close() }
         try fixture.tapKey(title: "123")
         for value in ["3", "-", "1"] { try fixture.tapKey(id: "vime.number." + value) }
@@ -129,8 +139,8 @@ final class KeyboardQuickInputTests: XCTestCase {
         XCTAssertEqual(fixture.text.selectedRange.location, 2)
     }
 
-    func testPairedBracketsNestAtCaretAndCanBeDisabledWithoutChangingPaste() throws {
-        let fixture = try Fixture(english: true, clipboardText: "(literal)")
+    func testPairedBracketsNestAtCaretAndCanBeDisabledWithoutChangingPaste() async throws {
+        let fixture = try await Fixture(english: true, clipboardText: "(literal)")
         defer { fixture.close() }
         try fixture.tapKey(title: "123")
         for _ in 0..<2 { try fixture.button("vime.quickSymbol.(").sendActions(for: .touchUpInside) }
@@ -143,13 +153,13 @@ final class KeyboardQuickInputTests: XCTestCase {
         try fixture.button("vime.quickSymbol.(").sendActions(for: .touchUpInside)
         XCTAssertEqual(fixture.text.text, "((1())")
         XCTAssertEqual(fixture.text.selectedRange.location, 4)
-        try fixture.button("vime.clipboard").sendActions(for: .touchUpInside)
+        try fixture.tapKey(title: "ABC")
         try fixture.button("vime.clipboard.paste").sendActions(for: .touchUpInside)
         XCTAssertEqual(fixture.text.text, "((1((literal)))")
     }
 
-    func testPairConfirmsNumericCompositionAndContinuesInsideJapaneseBrackets() throws {
-        let fixture = try Fixture()
+    func testPairConfirmsNumericCompositionAndContinuesInsideJapaneseBrackets() async throws {
+        let fixture = try await Fixture()
         defer { fixture.close() }
         try fixture.tapKey(title: "123")
         for value in ["1", "2"] { try fixture.tapKey(id: "vime.number." + value) }
@@ -191,8 +201,8 @@ final class KeyboardQuickInputTests: XCTestCase {
         XCTAssertNil(host.markedText)
     }
 
-    func testHeldCalculationCannotDeleteNewInputOrSelection() throws {
-        let fixture = try Fixture(english: true)
+    func testHeldCalculationCannotDeleteNewInputOrSelection() async throws {
+        let fixture = try await Fixture(english: true)
         defer { fixture.close() }
         try fixture.tapKey(title: "123")
         for value in ["1", "+", "1"] { try fixture.tapKey(id: "vime.number." + value) }
@@ -208,21 +218,18 @@ final class KeyboardQuickInputTests: XCTestCase {
         XCTAssertEqual(fixture.text.text, "1+12")
     }
 
-    func testClipboardEntryPreviewsAndPastesExactMultilineTextWithoutLearningOrHistory() throws {
+    func testClipboardAutomaticallyPreviewsAndPastesExactMultilineTextWithoutLearning() async throws {
         let value = " hello 👩🏽‍💻\n二行目\t "
-        let fixture = try Fixture(clipboardText: value)
+        let fixture = try await Fixture(clipboardText: value)
         defer { fixture.close() }
         XCTAssertTrue(fixture.preferences.clipboardSuggestions)
         XCTAssertEqual(fixture.clipboard.text, value)
-        let mode = try XCTUnwrap(fixture.descendants.compactMap { $0 as? UIButton }.first { $0.accessibilityLabel == "切换平假名和片假名" })
-        let entry = try fixture.button("vime.clipboard")
+        XCTAssertFalse(fixture.descendants.contains { $0.accessibilityIdentifier == "vime.clipboard" })
+        let preview = try XCTUnwrap(fixture.descendants.compactMap { $0 as? ClipboardSuggestionView }.first)
         fixture.keyboard.layoutIfNeeded()
-        XCTAssertFalse(entry.isHidden)
-        XCTAssertLessThan(entry.frame.midX, mode.frame.midX)
-        XCTAssertTrue(fixture.text.text.isEmpty)
-        entry.sendActions(for: .touchUpInside)
+        XCTAssertFalse(preview.isHidden)
+        XCTAssertFalse(fixture.text.hasText, "Showing the preview cannot insert")
         let paste = try fixture.button("vime.clipboard.paste")
-        XCTAssertFalse(fixture.text.hasText, "Opening a preview cannot insert")
         paste.sendActions(for: .touchDown); paste.sendActions(for: .touchUpInside)
         XCTAssertEqual(fixture.text.text, value)
         XCTAssertNil(fixture.clipboard.text)
@@ -231,10 +238,9 @@ final class KeyboardQuickInputTests: XCTestCase {
         XCTAssertFalse(fixture.session.isComposing)
     }
 
-    func testDisablingClipboardAndHidingKeyboardClearPreviewAndStopReads() throws {
-        let fixture = try Fixture(clipboardText: "private")
+    func testDisablingClipboardAndHidingKeyboardClearPreviewAndStopReads() async throws {
+        let fixture = try await Fixture(clipboardText: "private")
         defer { fixture.close() }
-        try fixture.button("vime.clipboard").sendActions(for: .touchUpInside)
         let held = try fixture.button("vime.clipboard.paste")
         held.sendActions(for: .touchDown)
         fixture.preferences.clipboardSuggestions = false
@@ -242,9 +248,10 @@ final class KeyboardQuickInputTests: XCTestCase {
         held.sendActions(for: .touchUpInside)
         XCTAssertTrue(fixture.text.text.isEmpty)
         XCTAssertNil(fixture.clipboard.text)
-        XCTAssertTrue(try fixture.button("vime.clipboard").isHidden)
+        XCTAssertTrue(try XCTUnwrap(fixture.descendants.compactMap { $0 as? ClipboardSuggestionView }.first).isHidden)
         fixture.preferences.clipboardSuggestions = true
         fixture.keyboard.reloadPreferences()
+        await settle(fixture.clipboard)
         XCTAssertNotNil(fixture.clipboard.text)
         fixture.keyboard.setClipboardActive(false)
         XCTAssertNil(fixture.clipboard.text)
@@ -263,8 +270,8 @@ final class KeyboardQuickInputTests: XCTestCase {
         XCTAssertFalse(app.clipboardSuggestions)
     }
 
-    func testReplacementRejectsChangedHostWithoutClearingOwnedMark() throws {
-        let fixture = try Fixture()
+    func testReplacementRejectsChangedHostWithoutClearingOwnedMark() async throws {
+        let fixture = try await Fixture()
         defer { fixture.close() }
         fixture.text.text = "1+"; fixture.text.selectedRange = NSRange(location: 2, length: 0)
         fixture.host.updatePreedit(.init(text: "1"))
@@ -291,28 +298,56 @@ final class KeyboardQuickInputTests: XCTestCase {
         XCTAssertNil(text.markedTextRange)
     }
 
-    func testClipboardPollingStopsWhileHiddenAndResumesWithLatestOnly() async throws {
+    func testClipboardNotificationsReadImmediatelyAndStopWhileHidden() async throws {
         var version = 1, reads = 0, value = "first"
-        let clipboard = KeyboardClipboard(changeCount: { version }, readText: { reads += 1; return value })
-        let fixture = try Fixture(clipboardOverride: clipboard)
+        let clipboard = KeyboardClipboard(changeCount: { version }, readText: { reads += 1; return value }, history: ClipboardHistoryStore(inMemory: true))
+        let fixture = try await Fixture(clipboardOverride: clipboard)
         defer { fixture.close() }
         XCTAssertEqual(reads, 1)
         version += 1; value = "second"
-        try await Task.sleep(for: .milliseconds(2600))
+        NotificationCenter.default.post(name: UIPasteboard.changedNotification, object: UIPasteboard.general)
+        await settle(clipboard)
         XCTAssertEqual(clipboard.text, "second")
         XCTAssertEqual(reads, 2)
+        NotificationCenter.default.post(name: UIPasteboard.changedNotification, object: UIPasteboard.general)
+        await settle(clipboard)
+        XCTAssertEqual(reads, 2, "Duplicate notifications must not re-read unchanged content")
         fixture.keyboard.setClipboardActive(false)
         XCTAssertNil(clipboard.text)
         version += 1; value = "third"
-        try await Task.sleep(for: .milliseconds(2600))
+        NotificationCenter.default.post(name: UIPasteboard.changedNotification, object: UIPasteboard.general)
+        await Task.yield()
         XCTAssertEqual(reads, 2)
         fixture.keyboard.setClipboardActive(true)
+        await settle(clipboard)
         XCTAssertEqual(clipboard.text, "third")
         XCTAssertEqual(reads, 3)
     }
 
-    func testQuickStripFitsNarrowPortraitCompactAndQwertyNumberLayout() throws {
-        let fixture = try Fixture(english: true, clipboardText: "待粘贴的文字")
+    func testClipboardFallbackDetectsMissedNotificationWithoutReloadingUnchangedText() async throws {
+        var version = 1, reads = 0, metadataReads = 0, value = "initial"
+        let clipboard = KeyboardClipboard(changeCount: { metadataReads += 1; return version },
+            readText: { reads += 1; return value }, history: ClipboardHistoryStore(inMemory: true))
+        let fixture = try await Fixture(clipboardOverride: clipboard)
+        defer { fixture.close() }
+        version = 2; value = "copied in another process"
+        let deadline = Date().addingTimeInterval(1.5)
+        while clipboard.text != value, Date() < deadline { try await Task.sleep(for: .milliseconds(5)) }
+        XCTAssertEqual(clipboard.text, value)
+        XCTAssertEqual(reads, 2)
+        try await Task.sleep(for: .milliseconds(650))
+        XCTAssertEqual(reads, 2, "Idle fallback must check metadata without loading text again")
+        fixture.keyboard.setClipboardActive(false)
+        let stoppedAt = metadataReads
+        version = 3
+        NotificationCenter.default.post(name: UIPasteboard.changedNotification, object: UIPasteboard.general)
+        try await Task.sleep(for: .milliseconds(650))
+        XCTAssertEqual(metadataReads, stoppedAt, "Hidden keyboard must stop both timer and notifications")
+        XCTAssertEqual(reads, 2)
+    }
+
+    func testQuickStripFitsNarrowPortraitCompactAndQwertyNumberLayout() async throws {
+        let fixture = try await Fixture(english: true, clipboardText: "待粘贴的文字")
         defer { fixture.close() }
         fixture.preferences.nineKeyNumbers = false
         fixture.keyboard.reloadPreferences()
@@ -322,9 +357,7 @@ final class KeyboardQuickInputTests: XCTestCase {
             fixture.keyboard.frame = CGRect(x: 0, y: 0, width: width, height: fixture.keyboard.preferredHeight(for: width))
             fixture.keyboard.layoutIfNeeded()
             let strip = try XCTUnwrap(fixture.descendants.compactMap { $0 as? KeyboardQuickCandidateStrip }.first)
-            let entry = try fixture.button("vime.clipboard")
             let expand = try fixture.button("vime.candidates.expand")
-            XCTAssertLessThanOrEqual(entry.frame.maxX, strip.frame.minX)
             XCTAssertLessThanOrEqual(strip.frame.maxX, expand.frame.minX)
             XCTAssertGreaterThan(strip.bounds.height, 20)
             XCTAssertFalse(strip.isHidden)
@@ -333,6 +366,204 @@ final class KeyboardQuickInputTests: XCTestCase {
             let attachment = XCTAttachment(image: image)
             attachment.name = "数字候选-\(Int(width))"; attachment.lifetime = .keepAlways; add(attachment)
         }
+    }
+
+    func testDismissOnlyHidesSuggestionAndAdjacentDedupStillAllowsAThenBThenA() async throws {
+        var version = 1, value = "A"
+        let clipboard = KeyboardClipboard(changeCount: { version }, readText: { value }, history: ClipboardHistoryStore(inMemory: true))
+        let fixture = try await Fixture(clipboardOverride: clipboard)
+        defer { fixture.close() }
+        let preview = try XCTUnwrap(fixture.descendants.compactMap { $0 as? ClipboardSuggestionView }.first)
+        let dismiss = try fixture.button("vime.clipboard.dismiss")
+        dismiss.sendActions(for: .touchDown); dismiss.sendActions(for: .touchUpInside)
+        XCTAssertTrue(preview.isHidden)
+        XCTAssertTrue(fixture.text.text.isEmpty)
+        let retained = try await clipboard.history.entries()
+        XCTAssertEqual(retained.map(\.text), ["A"])
+        fixture.keyboard.hostContextDidChange()
+        fixture.keyboard.setClipboardActive(false); fixture.keyboard.setClipboardActive(true)
+        await settle(clipboard)
+        XCTAssertTrue(preview.isHidden)
+        version += 1
+        clipboard.checkForChanges(enabled: true, hasFullAccess: true)
+        await settle(clipboard)
+        XCTAssertTrue(preview.isHidden, "Copying A again must not undo dismissal")
+        for text in ["B", "A"] {
+            version += 1; value = text
+            clipboard.checkForChanges(enabled: true, hasFullAccess: true)
+            await settle(clipboard)
+            XCTAssertFalse(preview.isHidden)
+            XCTAssertEqual(try fixture.button("vime.clipboard.paste").accessibilityLabel, text)
+        }
+    }
+
+    func testCompositionAndNumericShortcutsTakePriorityOverClipboardPreview() async throws {
+        let fixture = try await Fixture(clipboardText: "clipboard")
+        defer { fixture.close() }
+        let preview = try XCTUnwrap(fixture.descendants.compactMap { $0 as? ClipboardSuggestionView }.first)
+        let held = try fixture.button("vime.clipboard.paste")
+        held.sendActions(for: .touchDown)
+        try fixture.tapKey(id: "vime.key.a")
+        XCTAssertTrue(preview.isHidden)
+        held.sendActions(for: .touchUpInside)
+        XCTAssertEqual(fixture.text.text, "あ", "A held paste cannot replace active composition")
+        XCTAssertEqual(fixture.clipboard.text, "clipboard")
+        fixture.keyboard.confirmComposition()
+        XCTAssertFalse(preview.isHidden)
+        try fixture.tapKey(title: "123")
+        XCTAssertTrue(preview.isHidden)
+        let strip = try XCTUnwrap(fixture.descendants.compactMap { $0 as? KeyboardQuickCandidateStrip }.first)
+        XCTAssertFalse(strip.isHidden)
+        for digit in ["1", "+", "1"] { try fixture.tapKey(id: "vime.number." + digit) }
+        XCTAssertEqual(try fixture.button("vime.calculation.0").title(for: .normal), "2")
+    }
+
+    func testHeldClipboardActionsCannotPasteOrDismissANewerValue() async throws {
+        for action in ["paste", "dismiss"] {
+            var version = 1, value = "old"
+            let clipboard = KeyboardClipboard(changeCount: { version }, readText: { value }, history: ClipboardHistoryStore(inMemory: true))
+            let fixture = try await Fixture(clipboardOverride: clipboard)
+            defer { fixture.close() }
+            let button = try fixture.button("vime.clipboard." + action)
+            button.sendActions(for: .touchDown)
+            version += 1; value = "new"
+            clipboard.checkForChanges(enabled: true, hasFullAccess: true)
+            await settle(clipboard)
+            button.sendActions(for: .touchUpInside)
+            XCTAssertTrue(fixture.text.text.isEmpty)
+            XCTAssertEqual(clipboard.text, "new")
+        }
+    }
+
+    func testClipboardCardFitsNarrowPortraitCompactAndDarkAppearance() async throws {
+        let fixture = try await Fixture(clipboardText: String(repeating: "長いテキスト👩🏽‍💻", count: 50))
+        defer { fixture.close() }
+        let preview = try XCTUnwrap(fixture.descendants.compactMap { $0 as? ClipboardSuggestionView }.first)
+        for theme in [KeyboardTheme.system, .midnight] {
+            fixture.preferences.theme = theme; fixture.keyboard.reloadPreferences()
+            for width in [CGFloat(320), 440, 680] {
+                fixture.keyboard.compact = width > 600
+                fixture.keyboard.frame.size = CGSize(width: width, height: fixture.keyboard.preferredHeight(for: width))
+                fixture.keyboard.layoutIfNeeded(); preview.layoutIfNeeded()
+                let paste = try fixture.button("vime.clipboard.paste"), dismiss = try fixture.button("vime.clipboard.dismiss")
+                let brand = try fixture.button("vime.brand.settings")
+                XCTAssertFalse(preview.isHidden)
+                XCTAssertGreaterThanOrEqual(preview.frame.minX, brand.frame.maxX)
+                XCTAssertLessThanOrEqual(preview.frame.maxX, fixture.keyboard.bounds.maxX)
+                XCTAssertEqual(preview.frame.minY, brand.frame.minY)
+                XCTAssertEqual(preview.frame.height, brand.frame.height)
+                XCTAssertEqual(dismiss.bounds.width, 44)
+                XCTAssertLessThanOrEqual(paste.frame.maxX, dismiss.frame.minX)
+                XCTAssertGreaterThan(paste.bounds.width, 150)
+                XCTAssertTrue(preview.hitTest(CGPoint(x: dismiss.frame.midX, y: dismiss.frame.midY), with: nil) === dismiss)
+                let image = UIGraphicsImageRenderer(bounds: fixture.keyboard.bounds).image { fixture.keyboard.layer.render(in: $0.cgContext) }
+                let attachment = XCTAttachment(image: image)
+                attachment.name = "剪贴板预览-\(theme.rawValue)-\(Int(width))"; attachment.lifetime = .keepAlways; add(attachment)
+            }
+        }
+    }
+
+    func testSettingsHistoryComesFirstAndGroupedControlsFitPortraitAndLandscape() async throws {
+        let fixture = try await Fixture()
+        defer { fixture.close() }
+        try fixture.button("vime.brand.settings").sendActions(for: .touchUpInside)
+        for theme in [KeyboardTheme.system, .midnight] {
+            fixture.preferences.theme = theme; fixture.keyboard.reloadPreferences()
+            for width in [CGFloat(320), 440, 680] {
+                fixture.keyboard.compact = width > 600
+                fixture.keyboard.frame.size = CGSize(width: width, height: fixture.keyboard.preferredHeight(for: width))
+                fixture.keyboard.layoutIfNeeded()
+                let settings = try XCTUnwrap(fixture.descendants.compactMap { $0 as? KeyboardSettingsPanel }.first)
+                settings.layoutIfNeeded()
+                let history = try fixture.button("vime.setting.clipboardHistory")
+                let sound = try XCTUnwrap(fixture.descendants.first { $0.accessibilityIdentifier == "vime.setting.sound" })
+                let slider = try XCTUnwrap(fixture.descendants.first { $0.accessibilityIdentifier == "vime.setting.haptics" })
+                let numbers = try XCTUnwrap(fixture.descendants.first { $0.accessibilityIdentifier == "vime.setting.numbers" })
+                let historyFrame = history.convert(history.bounds, to: settings)
+                XCTAssertGreaterThanOrEqual(historyFrame.minY, 0)
+                XCTAssertLessThanOrEqual(historyFrame.maxY, settings.bounds.height)
+                XCTAssertLessThan(historyFrame.maxY, sound.convert(sound.bounds, to: settings).midY)
+                for control in [sound, slider, numbers] {
+                    let rect = control.convert(control.bounds, to: settings)
+                    XCTAssertGreaterThanOrEqual(rect.minX, 0)
+                    XCTAssertLessThanOrEqual(rect.maxX, settings.bounds.width)
+                    XCTAssertGreaterThan(rect.width, 30)
+                }
+                if width == 440, let numberRow = numbers.superview {
+                    XCTAssertLessThanOrEqual(numberRow.convert(numberRow.bounds, to: settings).maxY, settings.bounds.height,
+                        "All three setting groups must fit the default portrait height")
+                }
+                let image = UIGraphicsImageRenderer(bounds: fixture.keyboard.bounds).image { fixture.keyboard.layer.render(in: $0.cgContext) }
+                let attachment = XCTAttachment(image: image)
+                attachment.name = "快捷设置-\(theme.rawValue)-\(Int(width))"; attachment.lifetime = .keepAlways; add(attachment)
+            }
+        }
+    }
+
+    func testHistoryMenuPastesLiteralMultilineTextAndClearRejectsOldSelection() async throws {
+        let value = "(literal) 👩🏽‍💻\n第二行\t "
+        let fixture = try await Fixture(clipboardText: value)
+        defer { fixture.close() }
+        fixture.keyboard.setClipboardActive(false)
+        fixture.keyboard.setClipboardActive(true)
+        await settle(fixture.clipboard)
+        XCTAssertNil(fixture.clipboard.text, "Reopening must not re-arm the clipboard button")
+        try fixture.button("vime.brand.settings").sendActions(for: .touchUpInside)
+        try fixture.button("vime.setting.clipboardHistory").sendActions(for: .touchUpInside)
+        fixture.keyboard.layoutIfNeeded()
+        let panel = try XCTUnwrap(fixture.descendants.compactMap { $0 as? ClipboardHistoryPanel }.first)
+        let table = try XCTUnwrap(panel.subviews.compactMap { $0 as? UITableView }.first)
+        await waitUntil { table.numberOfRows(inSection: 0) == 1 }
+        for theme in [KeyboardTheme.system, .midnight] {
+            fixture.preferences.theme = theme; fixture.keyboard.reloadPreferences()
+            for width in [CGFloat(320), 440, 680] {
+                fixture.keyboard.compact = width > 600
+                fixture.keyboard.frame.size = CGSize(width: width, height: fixture.keyboard.preferredHeight(for: width))
+                fixture.keyboard.layoutIfNeeded(); panel.layoutIfNeeded(); table.layoutIfNeeded()
+                let image = UIGraphicsImageRenderer(bounds: fixture.keyboard.bounds).image { fixture.keyboard.layer.render(in: $0.cgContext) }
+                let attachment = XCTAttachment(image: image)
+                attachment.name = "剪贴板历史-\(theme.rawValue)-\(Int(width))"; attachment.lifetime = .keepAlways; add(attachment)
+            }
+        }
+        try fixture.button("vime.clipboard.history.back").sendActions(for: .touchUpInside)
+        XCTAssertTrue(panel.isHidden)
+        try fixture.button("vime.setting.clipboardHistory").sendActions(for: .touchUpInside)
+        await waitUntil { !panel.isHidden && table.numberOfRows(inSection: 0) == 1 }
+        table.delegate?.tableView?(table, didSelectRowAt: IndexPath(row: 0, section: 0))
+        await waitUntil { fixture.text.text == value }
+        XCTAssertTrue(fixture.session.suggestions.isEmpty)
+        XCTAssertTrue(fixture.session.candidates.isEmpty)
+        XCTAssertFalse(fixture.session.isComposing)
+        try fixture.button("vime.brand.settings").sendActions(for: .touchUpInside)
+        try fixture.button("vime.setting.clipboardHistory").sendActions(for: .touchUpInside)
+        await waitUntil { !panel.isHidden && table.numberOfRows(inSection: 0) == 1 }
+        let entries = try await fixture.clipboard.history.entries()
+        let held = try XCTUnwrap(entries.first)
+        try fixture.button("vime.clipboard.history.clear").sendActions(for: .touchUpInside)
+        await waitUntil { table.numberOfRows(inSection: 0) == 0 }
+        panel.onSelect?(held)
+        try await Task.sleep(for: .milliseconds(50))
+        XCTAssertEqual(fixture.text.text, value, "A cleared history row cannot insert old text")
+        let cleared = try await fixture.clipboard.history.entries()
+        XCTAssertTrue(cleared.isEmpty)
+        for width in [CGFloat(320), 440, 680] {
+            fixture.keyboard.compact = width > 600
+            fixture.keyboard.frame.size = CGSize(width: width, height: fixture.keyboard.preferredHeight(for: width))
+            fixture.keyboard.layoutIfNeeded()
+            XCTAssertLessThanOrEqual(panel.frame.maxY, fixture.keyboard.bounds.maxY)
+            let image = UIGraphicsImageRenderer(bounds: fixture.keyboard.bounds).image { fixture.keyboard.layer.render(in: $0.cgContext) }
+            let attachment = XCTAttachment(image: image)
+            attachment.name = "剪贴板历史-空状态-\(Int(width))"; attachment.lifetime = .keepAlways; add(attachment)
+        }
+    }
+
+    private func waitUntil(_ predicate: () -> Bool) async {
+        let deadline = Date().addingTimeInterval(3)
+        while !predicate(), Date() < deadline { try? await Task.sleep(for: .milliseconds(5)) }
+        XCTAssertTrue(predicate())
+    }
+    private func settle(_ clipboard: KeyboardClipboard) async {
+        await waitUntil { !clipboard.isLoading }
     }
 
     @MainActor private final class Fixture {
@@ -348,14 +579,14 @@ final class KeyboardQuickInputTests: XCTestCase {
             func all(_ view: UIView) -> [UIView] { [view] + view.subviews.flatMap(all) }
             return all(keyboard)
         }
-        init(english: Bool = false, clipboardText: String? = nil, clipboardOverride: KeyboardClipboard? = nil) throws {
+        init(english: Bool = false, clipboardText: String? = nil, clipboardOverride: KeyboardClipboard? = nil) async throws {
             suite = "vime.quick.\(UUID())"
             let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
             preferences = KeyboardPreferences(defaults: defaults)
             preferences.candidateRanking = .engine; preferences.phraseSuggestions = false
             preferences.sound = false; preferences.hapticIntensity = 0
             preferences.clipboardSuggestions = clipboardText != nil || clipboardOverride != nil
-            clipboard = clipboardOverride ?? KeyboardClipboard(changeCount: { 1 }, readText: { clipboardText })
+            clipboard = clipboardOverride ?? KeyboardClipboard(changeCount: { 1 }, readText: { clipboardText }, history: ClipboardHistoryStore(inMemory: true))
             session = KeyboardSession()
             if english { _ = session.activateEnglish() }
             keyboard = KeyboardView(frame: CGRect(x: 0, y: 400, width: 440, height: 350), session: session,
@@ -390,6 +621,9 @@ final class KeyboardQuickInputTests: XCTestCase {
             window.rootViewController?.view.addSubview(keyboard)
             window.isHidden = false
             keyboard.layoutIfNeeded()
+            let deadline = Date().addingTimeInterval(3)
+            while clipboard.isLoading, Date() < deadline { try await Task.sleep(for: .milliseconds(5)) }
+            XCTAssertFalse(clipboard.isLoading)
         }
         func button(_ id: String) throws -> UIButton {
             try XCTUnwrap(descendants.compactMap { $0 as? UIButton }.first { $0.accessibilityIdentifier == id }, id)

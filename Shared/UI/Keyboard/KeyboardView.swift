@@ -4,10 +4,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     var hasFullAccess = true {
         didSet {
             if oldValue != hasFullAccess { updateClipboardMonitoring() }
-            if oldValue != hasFullAccess, settingsPanel != nil {
-                settingsPanel?.removeFromSuperview(); settingsPanel = nil
-                createSettingsPanel(); refresh()
-            }
+            if oldValue != hasFullAccess { refresh() }
         }
     }
     var enableInputClicksWhenVisible: Bool { preferences.sound }
@@ -47,17 +44,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
             for key in letterKeys { key.showsPreview = next.previews }
         }
         if next.theme != previous?.theme || next.customSkinID != previous?.customSkinID || next.skinRevision != previous?.skinRevision { applyTheme() }
-        if settingsPanel != nil {
-            // Preference changes during a slider drag must not destroy its touch
-            // owner before it receives touch-up and applies the snap policy
-            settingsSoundSwitch?.isOn = next.sound
-            settingsNumberLayout?.selectedSegmentIndex = next.nineKeyNumbers ? 0 : 1
-            settingsHapticSlider?.tintColor = KeyboardPalette.accent
-            if settingsHapticSlider?.isAdjusting != true {
-                settingsHapticSlider?.setIntensity(next.hapticIntensity)
-                settingsHapticLabel?.text = "振动强度：" + HapticIntensity.description(next.hapticIntensity)
-            }
-        }
+        settingsPanel?.update(hasFullAccess: hasFullAccess, neuralPaused: session.neuralModeSuspendedForMemoryPressure)
     }
     weak var inputModeListTarget: AnyObject? { didSet { configureGlobe() } }
     var inputModeListAction: Selector? { didSet { configureGlobe() } }
@@ -96,7 +83,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     private var shifted = false
     private var capsLocked = false
     private var lastShiftTap: TimeInterval = 0
-    private enum Panel { case keyboard, candidates, settings, symbols }
+    private enum Panel { case keyboard, candidates, settings, symbols, clipboardHistory }
     private var panel: Panel = .keyboard {
         didSet {
             if (oldValue == .candidates) != (panel == .candidates) {
@@ -110,11 +97,12 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     private let candidateScroll = UIScrollView()
     private let candidateRow = UIView()
     private let quickCandidates = KeyboardQuickCandidateStrip()
-    private let clipboardButton = UIButton(type: .system)
+    private let clipboardSuggestion = ClipboardSuggestionView()
     private let clipboard: KeyboardClipboard
     private var clipboardTimer: Timer?
     private var clipboardActive = true
-    private var clipboardOpen = false
+    private var clipboardHistoryPanel: ClipboardHistoryPanel?
+    private var historyRequest = 0
     private var stripButtons: [KeyboardCandidateButton] = []
     private var spareCandidateButtons: [KeyboardCandidateButton] = []
     private var displayedLanguage: KeyboardInputLanguage?
@@ -138,13 +126,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     private let panelScroll = UIScrollView()
     private var panelCandidates: [KeyboardCandidateButton] = []
     private var sparePanelButtons: [KeyboardCandidateButton] = []
-    private var settingsPanel: UIView?
-    private var settingsHorizontalConstraints: [NSLayoutConstraint] = []
-    private weak var settingsHapticSlider: HapticIntensitySlider?
-    private weak var settingsHapticLabel: UILabel?
-    private weak var settingsSoundSwitch: UISwitch?
-    private weak var settingsNumberLayout: UISegmentedControl?
-    private weak var settingsNeuralStatusLabel: UILabel?
+    private var settingsPanel: KeyboardSettingsPanel?
     private var symbolPanel: KeyboardSymbolPanel?
     private var rows: [[(KeyboardKey, CGFloat)]] = []
     private var rebuildingKeys = false
@@ -228,17 +210,24 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         candidateScroll.addSubview(candidateRow)
         header.addSubview(quickCandidates)
         quickCandidates.onSelect = { [weak self] in self?.selectQuickCandidate($0) }
-        header.addSubview(clipboardButton)
-        clipboardButton.setImage(UIImage(systemName: "doc.on.clipboard"), for: .normal)
-        clipboardButton.accessibilityIdentifier = "vime.clipboard"
-        clipboardButton.accessibilityLabel = "显示剪贴板内容"
-        clipboardButton.addTarget(self, action: #selector(toggleClipboard), for: .touchUpInside)
+        header.addSubview(clipboardSuggestion)
+        clipboardSuggestion.onPaste = { [weak self] text in
+            guard let self, self.canUseClipboardSuggestion(text) else { return }
+            self.playFeedback()
+            self.insertClipboardText(text)
+            self.clipboard.consume()
+        }
+        clipboardSuggestion.onDismiss = { [weak self] text in
+            guard let self, self.canUseClipboardSuggestion(text) else { return }
+            self.playFeedback()
+            self.clipboard.consume()
+        }
         self.clipboard.onChange = { [weak self] in
             guard let self else { return }
             if !self.clipboardActive || self.window == nil || !self.preferences.clipboardSuggestions || !self.hasFullAccess {
                 self.clipboard.clear()
             }
-            if self.clipboard.text == nil { self.clipboardOpen = false }
+            if self.panel == .clipboardHistory { self.reloadClipboardHistory() }
             self.refresh()
         }
         header.addSubview(expandButton)
@@ -305,7 +294,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
             self.apply(self.session.confirmAll() + [.deleteToLineStart])
         }
         divider.isHidden = true
-        for button in [brandButton, modeButton, clipboardButton, undoButton, expandButton] {
+        for button in [brandButton, modeButton, undoButton, expandButton] {
             button.addTarget(self, action: #selector(toolbarFeedback), for: .touchDown)
         }
         configureGlobe()
@@ -337,27 +326,36 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     private func updateClipboardMonitoring() {
         let active = clipboardActive && window != nil && preferences.clipboardSuggestions && hasFullAccess
         guard active else {
-            clipboardTimer?.invalidate(); clipboardTimer = nil
-            clipboardOpen = false
-            clipboard.clear()
+            if clipboardTimer != nil {
+                NotificationCenter.default.removeObserver(self, name: UIPasteboard.changedNotification, object: nil)
+                clipboardTimer?.invalidate(); clipboardTimer = nil
+            }
+            historyRequest += 1
+            clipboardHistoryPanel?.present([])
+            if panel == .clipboardHistory { panel = .keyboard }
+            if preferences.clipboardSuggestions { clipboard.clear() }
+            else { clipboard.disable() }
             refresh()
             return
         }
-        guard clipboardTimer == nil else { return }
-        let timer = Timer(timeInterval: KeyboardClipboard.pollingInterval, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated { self?.pollClipboard() }
+        if clipboardTimer == nil {
+            NotificationCenter.default.addObserver(self, selector: #selector(checkClipboard),
+                name: UIPasteboard.changedNotification, object: nil)
+            let timer = Timer(timeInterval: KeyboardClipboard.fallbackInterval, repeats: true) { [weak self] _ in
+                MainActor.assumeIsolated { self?.checkClipboard() }
+            }
+            timer.tolerance = 0.1
+            clipboardTimer = timer
+            RunLoop.main.add(timer, forMode: .common)
         }
-        timer.tolerance = 0.4
-        clipboardTimer = timer
-        RunLoop.main.add(timer, forMode: .common)
-        pollClipboard()
+        checkClipboard()
     }
 
-    @objc private func pollClipboard() {
+    @objc private func checkClipboard() {
         guard clipboardActive, window != nil, preferences.clipboardSuggestions, hasFullAccess else {
             updateClipboardMonitoring(); return
         }
-        clipboard.poll(enabled: true, hasFullAccess: true)
+        clipboard.checkForChanges(enabled: true, hasFullAccess: true)
         if !clipboardActive || window == nil || !preferences.clipboardSuggestions || !hasFullAccess {
             updateClipboardMonitoring()
         }
@@ -408,12 +406,11 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         brandArtwork.frame = brandButton.bounds.insetBy(dx: 2, dy: 2)
         brandButton.imageView?.isHidden = brandArtwork.image != nil
         modeButton.frame = metrics.trailingToolbarFrame(index: 1)
-        clipboardButton.frame = metrics.trailingToolbarFrame(index: 2)
-        undoButton.frame = metrics.trailingToolbarFrame(index: clipboardButton.isHidden ? 2 : 3)
+        undoButton.frame = metrics.trailingToolbarFrame(index: 2)
         neuralStatusLabel.frame = CGRect(x: brandButton.frame.maxX + 8, y: centerY - diameter / 2,
             width: max(0, undoButton.frame.minX - brandButton.frame.maxX - 16), height: diameter)
         expandButton.frame = metrics.trailingToolbarFrame(index: 0)
-        for button in [brandButton, clipboardButton, undoButton, modeButton, expandButton] { button.layer.cornerRadius = diameter / 2 }
+        for button in [brandButton, undoButton, modeButton, expandButton] { button.layer.cornerRadius = diameter / 2 }
         candidateScroll.frame = CGRect(x: compact ? metrics.contentLeft : 4 * xScale,
             y: centerY - (compact ? 13 : 17 * scale),
             width: compact ? expandButton.frame.minX - KeyboardMetrics.toolbarGap - metrics.contentLeft : width - 55 * xScale,
@@ -421,14 +418,14 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         if !candidateScroll.isHidden || !quickCandidates.isHidden {
             var left = candidateScroll.frame.minX
             if !brandButton.isHidden { left = brandButton.frame.maxX + 4 }
-            if !clipboardButton.isHidden {
-                clipboardButton.frame = CGRect(x: left, y: centerY - diameter / 2, width: diameter, height: diameter)
-                left = clipboardButton.frame.maxX + 4
-            }
             let right = candidateScroll.frame.maxX
             candidateScroll.frame = CGRect(x: left, y: candidateScroll.frame.minY,
                 width: max(0, right - left), height: candidateScroll.frame.height)
         }
+        let previewLeft = brandButton.frame.maxX + 8
+        let previewRight = compact ? metrics.contentRight : width - 12 * xScale
+        clipboardSuggestion.frame = CGRect(x: previewLeft, y: brandButton.frame.minY,
+            width: max(0, previewRight - previewLeft), height: diameter)
         quickCandidates.frame = candidateScroll.frame
         layoutCandidateStrip()
         panelTitle.frame = CGRect(x: 12 * xScale, y: 0, width: width - 185 * xScale, height: headerHeight)
@@ -446,6 +443,10 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
                 width: max(0, titleRight - gap - metrics.contentLeft), height: diameter)
             divider.frame = CGRect(x: expandButton.frame.minX - gap / 2, y: centerY - 12, width: 0.5, height: 24)
         }
+        if panel == .settings {
+            panelTitle.frame = CGRect(x: brandButton.frame.maxX + 12, y: brandButton.frame.minY,
+                width: max(0, expandButton.frame.minX - brandButton.frame.maxX - 24), height: diameter)
+        }
         keysContainer.frame = bounds
         let body = CGRect(x: 0, y: headerHeight, width: width, height: metrics.contentHeight - headerHeight)
         gestureHint.frame = body
@@ -454,13 +455,12 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         symbolPanel?.frame = bounds
         previewOverlay.frame = bounds
         settingsPanel?.frame = body
-        if settingsHorizontalConstraints.count == 3 {
-            let left: CGFloat = compact ? metrics.contentLeft : 20
-            let right: CGFloat = compact ? width - metrics.contentRight : 20
-            settingsHorizontalConstraints[0].constant = left
-            settingsHorizontalConstraints[1].constant = -right
-            settingsHorizontalConstraints[2].constant = -left - right
-        }
+        clipboardHistoryPanel?.headerHeight = headerHeight
+        clipboardHistoryPanel?.contentMargins = UIEdgeInsets(top: 0, left: compact ? metrics.contentLeft : 12,
+            bottom: 0, right: compact ? width - metrics.contentRight : 12)
+        clipboardHistoryPanel?.frame = CGRect(x: 0, y: 0, width: width, height: metrics.contentHeight)
+        settingsPanel?.setContentMargins(left: compact ? metrics.contentLeft : 12,
+            right: compact ? width - metrics.contentRight : 12)
         for (rowIndex, row) in rows.enumerated() {
             for (column, pair) in row.enumerated() {
                 if page == .numbers && preferences.nineKeyNumbers {
@@ -791,7 +791,6 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     func finishLearningFeedback() { session.finishLearningFeedback() }
 
     func resetComposition() {
-        clipboardOpen = false
         session.reset()
         if panel == .candidates { panel = .keyboard }
         onPreeditChange?(nil)
@@ -817,8 +816,9 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     }
 
     func handleMemoryPressure() {
-        clipboardOpen = false
         clipboard.clear()
+        clipboardHistoryPanel?.present([])
+        if panel == .clipboardHistory { panel = .keyboard }
         KeyboardEmojiImages.clear()
         spareCandidateButtons.removeAll(keepingCapacity: false)
         sparePanelButtons.removeAll(keepingCapacity: false)
@@ -845,28 +845,30 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         // Composition candidates and LM suggestions share the strip.
         let quick = quickCandidateItems()
         let showsQuick = !quick.isEmpty
-        let strip = session.showsStrip || showsQuick
+        let showsClipboard = clipboard.text != nil && preferences.clipboardSuggestions && hasFullAccess
+            && clipboardActive && !composing && !showsQuick && panel == .keyboard
+        let strip = session.showsStrip || showsQuick || showsClipboard
         quickCandidates.present(quick)
         quickCandidates.isHidden = !showsQuick || panel != .keyboard
-        clipboardButton.isHidden = clipboard.text == nil || !preferences.clipboardSuggestions || !hasFullAccess
-            || panel != .keyboard
+        clipboardSuggestion.present(showsClipboard ? clipboard.text : nil)
+        clipboardSuggestion.isHidden = !showsClipboard
         let neuralPaused = session.neuralModeSuspendedForMemoryPressure
         neuralStatusLabel.isHidden = !neuralPaused || strip || panel != .keyboard
-        settingsNeuralStatusLabel?.isHidden = !neuralPaused
-        header.isHidden = panel == .symbols
+        settingsPanel?.update(hasFullAccess: hasFullAccess, neuralPaused: neuralPaused)
+        header.isHidden = panel == .symbols || panel == .clipboardHistory
         undoButton.isHidden = !canUndoLineDeletion || strip || panel != .keyboard
-        let showsQuickToolbar = showsQuick && !composing && !clipboardOpen
-        brandButton.isHidden = (strip && !showsQuickToolbar) || (panel == .candidates || panel == .symbols)
-        modeButton.isHidden = strip || (panel == .candidates || panel == .symbols) || !session.inputTraits.supportsPrimaryVariant
+        let showsQuickToolbar = (showsQuick || showsClipboard) && !composing
+        brandButton.isHidden = (panel == .keyboard && strip && !showsQuickToolbar) || (panel == .candidates || panel == .symbols || panel == .clipboardHistory)
+        modeButton.isHidden = strip || panel != .keyboard || !session.inputTraits.supportsPrimaryVariant
         modeButton.accessibilityLabel = session.inputTraits.primaryVariantAccessibilityLabel
-        candidateScroll.isHidden = !strip || showsQuick || panel != .keyboard
-        expandButton.isHidden = false
+        candidateScroll.isHidden = !strip || showsQuick || showsClipboard || panel != .keyboard
+        expandButton.isHidden = showsClipboard
         modeButton.setTitle(session.inputTraits.modeLabel, for: .normal)
         accessibilityValue = composing ? "输入中：" + (session.markedText?.text ?? "") : session.inputTraits.modeLabel
         expandButton.backgroundColor = composing ? KeyboardTouchBacking.color : KeyboardPalette.key
-        divider.isHidden = !strip || panel != .keyboard
-        panelTitle.isHidden = panel != .candidates
-        panelTitle.text = session.conversionRangeDescription ?? "候选词"
+        divider.isHidden = !strip || showsClipboard || panel != .keyboard
+        panelTitle.isHidden = panel != .candidates && panel != .settings
+        panelTitle.text = panel == .settings ? "快捷设置" : session.conversionRangeDescription ?? "候选词"
         for control in [shortenRange, lengthenRange, wholeRange] {
             control.isHidden = panel != .candidates || session.conversionRangeDescription == nil
         }
@@ -908,7 +910,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         // The retained list may belong to the previous input revision. Keep
         // its appearance, but never let a stale tap discard the newer letters.
         stripButtons.forEach { $0.isUserInteractionEnabled = session.candidatesAreCurrent && $0.selectionToken != nil }
-        let panelOpen = panel != .keyboard || clipboardOpen
+        let panelOpen = panel != .keyboard
         expandButton.setImage(UIImage(systemName: panelOpen ? "chevron.up" : "chevron.down"), for: .normal)
         expandButton.accessibilityLabel = panelOpen ? "返回键盘" : composing ? "展开候选词" : "收起键盘"
         expandButton.accessibilityIdentifier = panelOpen ? "vime.panel.close" : "vime.candidates.expand"
@@ -918,6 +920,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         panelScroll.isHidden = panel != .candidates
         symbolPanel?.isHidden = panel != .symbols
         settingsPanel?.isHidden = panel != .settings
+        clipboardHistoryPanel?.isHidden = panel != .clipboardHistory
         if panel == .candidates { rebuildCandidatePanel() }
         else if panel == .symbols { showSymbolPanel() }
         spaceKey?.setTitle(composing ? session.inputTraits.compositionSpaceTitle : "", for: .normal)
@@ -1065,7 +1068,6 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     @objc private func switchKeyboard() { confirmComposition(); onSwitchKeyboard?() }
 
     @objc private func headerArrow() {
-        if clipboardOpen { clipboardOpen = false; refresh(); return }
         if panel != .keyboard {
             panel = .keyboard; refresh()
         } else if session.isComposing { toggleExpanded() }
@@ -1107,19 +1109,13 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         rebuildKeys()
     }
 
-    @objc private func toggleClipboard() {
-        guard preferences.clipboardSuggestions, hasFullAccess, clipboard.text != nil else { return }
-        clipboardOpen.toggle()
-        panel = .keyboard
-        refresh()
+    private func canUseClipboardSuggestion(_ text: String) -> Bool {
+        !clipboardSuggestion.isHidden && panel == .keyboard && !session.isComposing
+            && clipboardActive && window != nil && preferences.clipboardSuggestions && hasFullAccess
+            && clipboard.text == text && quickCandidateItems().isEmpty
     }
 
     private func quickCandidateItems() -> [KeyboardQuickCandidate] {
-        if clipboardOpen, let text = clipboard.text {
-            let preview = String(String.UnicodeScalarView(text.unicodeScalars.prefix(160))).replacingOccurrences(of: "\n", with: " ↵ ")
-                .replacingOccurrences(of: "\r", with: "").replacingOccurrences(of: "\t", with: " ")
-            return [.init(title: preview, action: .clipboard(text))]
-        }
         guard page == .numbers else { return [] }
         // A word being converted keeps its full candidate strip. Pure numeric
         // input gets shortcuts immediately, including when digits are marked.
@@ -1145,18 +1141,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         playFeedback()
         switch item.action {
         case .symbol(let text):
-            clipboardOpen = false
             insertSymbol(text)
-        case .clipboard(let text):
-            guard preferences.clipboardSuggestions, hasFullAccess, clipboard.text == text else { return }
-            clipboardOpen = false
-            // Commit an existing reading, then insert the literal clipboard.
-            // Do not send the pasted text through candidate selection/learning.
-            let edits = session.confirmAll()
-            session.invalidateLearningFeedback()
-            session.reset()
-            apply(edits + [.insert(text)])
-            clipboard.consume()
         case .replacement(let replacement):
             guard learningContextProvider?() == replacement.anchor,
                   session.markedText?.text == replacement.markedText,
@@ -1206,77 +1191,84 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         refresh()
     }
 
-    private func createSettingsPanel() {
-        let panel = KeyboardSettingsScrollView()
-        panel.delaysContentTouches = false
-        configureScroll(panel)
-        panel.accessibilityIdentifier = "vime.settings"
-        addSubview(panel)
-        settingsPanel = panel
-        let stack = UIStackView()
-        stack.axis = .vertical; stack.spacing = 12
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        panel.addSubview(stack)
-        settingsHorizontalConstraints = [
-            stack.leadingAnchor.constraint(equalTo: panel.contentLayoutGuide.leadingAnchor, constant: 20),
-            stack.trailingAnchor.constraint(equalTo: panel.contentLayoutGuide.trailingAnchor, constant: -20),
-            stack.widthAnchor.constraint(equalTo: panel.frameLayoutGuide.widthAnchor, constant: -40)
-        ]
-        NSLayoutConstraint.activate(settingsHorizontalConstraints + [
-            stack.topAnchor.constraint(equalTo: panel.contentLayoutGuide.topAnchor, constant: 10),
-            stack.bottomAnchor.constraint(equalTo: panel.contentLayoutGuide.bottomAnchor, constant: -16)
-        ])
-        let neuralStatus = UILabel()
-        neuralStatus.numberOfLines = 0
-        neuralStatus.font = .systemFont(ofSize: 13)
-        neuralStatus.textColor = .secondaryLabel
-        neuralStatus.text = "神经候选因内存不足暂时停用，词典输入仍可用。可在 Vime App 中关闭再开启神经候选重试。"
-        neuralStatus.accessibilityIdentifier = "vime.settings.neural.status"
-        stack.addArrangedSubview(neuralStatus)
-        settingsNeuralStatusLabel = neuralStatus
-        func addSwitch(_ title: String, value: Bool, id: String, change: @escaping (Bool) -> Void) -> UISwitch {
-            let row = UIStackView(); row.axis = .horizontal
-            let label = UILabel(); label.text = title; label.font = .systemFont(ofSize: 15)
-            let control = UISwitch(); control.isOn = value; control.onTintColor = KeyboardPalette.accent
-            control.accessibilityLabel = title; control.accessibilityIdentifier = id
-            control.addAction(UIAction { [weak control] _ in if let control { change(control.isOn) } }, for: .valueChanged)
-            row.addArrangedSubview(label); row.addArrangedSubview(control); stack.addArrangedSubview(row)
-            return control
+    private func insertClipboardText(_ text: String) {
+        panel = .keyboard
+        let edits = session.confirmAll()
+        session.invalidateLearningFeedback()
+        session.reset()
+        apply(edits + [.insert(text)])
+    }
+
+    private func openClipboardHistory() {
+        panel = .clipboardHistory
+        if clipboardHistoryPanel == nil {
+            let view = ClipboardHistoryPanel()
+            view.onBack = { [weak self] in
+                guard let self else { return }
+                self.playFeedback(); self.panel = .settings; self.refresh()
+            }
+            view.onSelect = { [weak self] entry in self?.selectClipboardHistory(entry) }
+            view.onClear = { [weak self] in
+                guard let self else { return }
+                self.historyRequest += 1
+                self.clipboardHistoryPanel?.present([], message: "正在清空…")
+                Task { [weak self] in
+                    guard let self else { return }
+                    do { try await self.clipboard.clearHistory(); self.reloadClipboardHistory() }
+                    catch { self.clipboardHistoryPanel?.present([], message: "清空失败，请重试") }
+                }
+            }
+            addSubview(view)
+            clipboardHistoryPanel = view
         }
-        settingsSoundSwitch = addSwitch("按键声音", value: preferences.sound, id: "vime.setting.sound") { [weak self] in self?.preferences.sound = $0 }
-        let label = UILabel(); label.font = .systemFont(ofSize: 15)
-        label.text = "振动强度：" + HapticIntensity.description(preferences.hapticIntensity)
-        label.accessibilityIdentifier = "vime.setting.hapticValue"
-        stack.addArrangedSubview(label); settingsHapticLabel = label
-        let slider = HapticIntensitySlider(); settingsHapticSlider = slider
-        slider.setIntensity(preferences.hapticIntensity); slider.tintColor = KeyboardPalette.accent
-        slider.onValue = { [weak self] value, settled in
+        reloadClipboardHistory()
+        refresh()
+    }
+
+    private func reloadClipboardHistory() {
+        historyRequest += 1
+        let request = historyRequest
+        guard panel == .clipboardHistory else { return }
+        guard preferences.clipboardSuggestions, hasFullAccess, clipboardActive, window != nil else {
+            clipboardHistoryPanel?.present([], message: preferences.clipboardSuggestions
+                ? "请允许键盘完全访问后查看" : "请先在 Vime App 开启剪贴板功能")
+            return
+        }
+        Task { [weak self] in
             guard let self else { return }
-            self.preferences.hapticIntensity = value
-            label.text = "振动强度：" + HapticIntensity.description(value)
-            if settled { self.playFeedback() }
+            do {
+                let entries = try await self.clipboard.history.entries()
+                guard self.panel == .clipboardHistory, self.historyRequest == request else { return }
+                self.clipboardHistoryPanel?.present(entries)
+            } catch {
+                guard self.panel == .clipboardHistory, self.historyRequest == request else { return }
+                self.clipboardHistoryPanel?.present([], message: "历史暂时无法读取，请稍后重试")
+            }
         }
-        stack.addArrangedSubview(slider)
-        let scale = HapticIntensityScale()
-        scale.heightAnchor.constraint(greaterThanOrEqualToConstant: 24).isActive = true
-        stack.addArrangedSubview(scale)
-        let layout = UISegmentedControl(items: ["数字九宫格", "数字全键盘"]); settingsNumberLayout = layout
-        layout.selectedSegmentIndex = preferences.nineKeyNumbers ? 0 : 1
-        layout.accessibilityLabel = "数字键盘布局"; layout.accessibilityIdentifier = "vime.setting.numbers"
-        layout.addAction(UIAction { [weak self, weak layout] _ in
-            guard let self, let layout else { return }
-            self.preferences.nineKeyNumbers = layout.selectedSegmentIndex == 0; self.rebuildKeys()
-        }, for: .valueChanged)
-        stack.addArrangedSubview(layout)
-        let more = UILabel(); more.numberOfLines = 0; more.font = .systemFont(ofSize: 13)
-        more.textColor = .secondaryLabel
-        more.text = "更多设置请打开 Vime App：智能输入、皮肤、长音键、按键预览与键盘高度"
-        stack.addArrangedSubview(more)
-        let note = UILabel(); note.numberOfLines = 0; note.font = .systemFont(ofSize: 12); note.textColor = .secondaryLabel
-        note.text = hasFullAccess
-            ? "静音时不播放按键声\n振动强度受设备硬件限制，日语转换在本机完成"
-            : "声音与振动需允许完全访问\n设置 → 通用 → 键盘 → 键盘 → Vime 日本語\n无需完全访问也能离线输入"
-        stack.addArrangedSubview(note)
+    }
+
+    private func selectClipboardHistory(_ entry: ClipboardHistoryStore.Entry) {
+        let request = historyRequest
+        Task { [weak self] in
+            guard let self else { return }
+            let value = try? await self.clipboard.history.text(for: entry.id)
+            guard self.panel == .clipboardHistory, self.historyRequest == request,
+                  self.clipboardActive, self.window != nil, self.preferences.clipboardSuggestions,
+                  self.hasFullAccess, value == entry.text else { return }
+            self.playFeedback()
+            self.insertClipboardText(entry.text)
+            if self.clipboard.text == entry.text { self.clipboard.consume() }
+        }
+    }
+
+    private func createSettingsPanel() {
+        let view = KeyboardSettingsPanel(preferences: preferences)
+        configureScroll(view)
+        view.onHistory = { [weak self] in self?.openClipboardHistory() }
+        view.onFeedback = { [weak self] in self?.playFeedback() }
+        view.onNumberLayoutChange = { [weak self] in self?.rebuildKeys() }
+        addSubview(view)
+        settingsPanel = view
     }
 
     private func applyKeySkins() {
@@ -1317,14 +1309,15 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
             button.applyTheme()
             button.tintColor = KeyboardPalette.text
         }
-        for button in [brandButton, clipboardButton, undoButton, modeButton, expandButton] { button.backgroundColor = KeyboardPalette.key }
-        clipboardButton.tintColor = KeyboardPalette.accent
+        for button in [brandButton, undoButton, modeButton, expandButton] { button.backgroundColor = KeyboardPalette.key }
+        clipboardSuggestion.applyTheme()
         quickCandidates.applyTheme()
+        clipboardHistoryPanel?.applyTheme()
         undoButton.tintColor = KeyboardPalette.accent
         deletePrompt.applyTheme()
         panelTitle.textColor = KeyboardPalette.text
         gestureHint.textColor = KeyboardPalette.text
-        settingsPanel?.tintColor = KeyboardPalette.accent
+        settingsPanel?.applyTheme()
         symbolPanel?.applyTheme()
         refresh()
     }
