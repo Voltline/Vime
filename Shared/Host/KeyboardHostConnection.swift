@@ -43,10 +43,6 @@ final class KeyboardHostConnection {
         self.undoAnchor = undoAnchor
     }
 
-    func updateMarkedText(_ text: String?) {
-        updatePreedit(text.map { KeyboardPreedit(text: $0) })
-    }
-
     func updatePreedit(_ preedit: KeyboardPreedit?) {
         guard let preedit, !preedit.text.isEmpty else { clearMarkedText(); return }
         guard preedit != markedPreedit else { return }

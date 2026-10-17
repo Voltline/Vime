@@ -26,7 +26,7 @@ final class KeyboardPerformanceTests: XCTestCase {
         let host = KeyboardHostConnection(setMarkedText: { hostView.setMarkedText($0, selectedRange: $1) },
             unmarkText: { hostView.unmarkText() }, insertText: { hostView.insertText($0) }, deleteBackward: { hostView.deleteBackward() })
         keyboard.onEdit = { host.apply($0) }
-        keyboard.onMarkedTextChange = { host.updateMarkedText($0) }
+        keyboard.onPreeditChange = { host.updatePreedit($0) }
         let published = expectation(description: "Latest burst prediction")
         let update = session.onCandidatesChange
         session.onCandidatesChange = { update?(); published.fulfill() }
@@ -112,7 +112,7 @@ final class KeyboardPerformanceTests: XCTestCase {
         window.rootViewController?.view.addSubview(view)
         let host = KeyboardHostConnection(setMarkedText: { view.setMarkedText($0, selectedRange: $1) },
             unmarkText: { view.unmarkText() }, insertText: { view.insertText($0) }, deleteBackward: { view.deleteBackward() })
-        keyboard.onEdit = { host.apply($0) }; keyboard.onMarkedTextChange = { host.updateMarkedText($0) }
+        keyboard.onEdit = { host.apply($0) }; keyboard.onPreeditChange = { host.updatePreedit($0) }
         let update = session.onCandidatesChange
         defer { session.onCandidatesChange = nil; KeyboardPerformance.configure(enabled: false); window.isHidden = true }
         let words = ["nihongo", "nani", "nanim", "nanimo", "arigat"]

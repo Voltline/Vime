@@ -222,7 +222,7 @@ final class VimeLanguageModelTests: XCTestCase {
             if session.isComposing && session.candidatesAreCurrent && !delivered { delivered = true; candidates.fulfill() }
         }
         _ = session.type("ekini")
-        host.updateMarkedText(session.preedit)
+        host.updatePreedit(session.markedText)
         await fulfillment(of: [candidates], timeout: 10)
         let index = try XCTUnwrap(session.candidates.firstIndex(of: "駅に"))
         let suggested = expectation(description: "suggestions")

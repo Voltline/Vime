@@ -3,6 +3,38 @@ import UIKit
 
 @MainActor
 final class KeyboardSkinTests: XCTestCase {
+    func testPaletteEditsReuseArtworkWhileImageAndRoleChangesRefreshIt() throws {
+        let format = UIGraphicsImageRendererFormat(); format.scale = 1
+        func artwork(_ color: UIColor) throws -> Data {
+            let image = UIGraphicsImageRenderer(size: CGSize(width: 700, height: 300), format: format).image { context in
+                color.setFill(); context.fill(CGRect(x: 0, y: 0, width: 700, height: 300))
+            }
+            return try XCTUnwrap(image.pngData())
+        }
+        var document = KeyboardSkinDocument()
+        document.images["art"] = try artwork(.blue)
+        document.keyImages["letter"] = "art"
+        let initial = KeyboardSkinAppearance(document)
+        let keyImage = try XCTUnwrap(initial.image(for: "letter"))
+        XCTAssertEqual(keyImage.cgImage?.width, 256)
+
+        document.palette.key = "#123456"; document.style.cornerRadius = 12
+        let styled = KeyboardSkinAppearance(document, reusing: initial)
+        XCTAssertTrue(styled.image(for: "letter") === keyImage, "Style changes must reuse decoded pixels")
+        XCTAssertEqual(styled.document, document)
+
+        document.images["art"] = try artwork(.red)
+        let replaced = KeyboardSkinAppearance(document, reusing: styled)
+        XCTAssertFalse(replaced.image(for: "letter") === keyImage, "Replacing bytes under the same image ID must refresh")
+
+        document.backgroundImage = "art"
+        let background = KeyboardSkinAppearance(document, reusing: replaced)
+        XCTAssertEqual(background.backgroundImage?.cgImage?.width, 700, "A background needs a larger decode than a key")
+        document.keyImages = [:]; document.backgroundImage = nil
+        let removed = KeyboardSkinAppearance(document, reusing: background)
+        XCTAssertNil(removed.image(for: "letter")); XCTAssertNil(removed.backgroundImage)
+    }
+
     func testPortableSkinImportRoundTripAndValidation() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -15,15 +47,15 @@ final class KeyboardSkinTests: XCTestCase {
         try store.save(document)
         XCTAssertEqual(try store.load(document.id), document)
         let file = directory.appendingPathComponent("external.vimeskin"); try document.encoded().write(to: file)
-        let imported = try store.importFile(file)
-        XCTAssertNotEqual(imported.id, document.id)
-        XCTAssertEqual(imported.images, document.images)
-        XCTAssertEqual(store.summaries().count, 2)
+        XCTAssertEqual(try KeyboardSkinDocument.read(from: file), document)
+        XCTAssertEqual(store.summaries().count, 1)
         var invalid = document; invalid.id = "../escape"; XCTAssertThrowsError(try store.save(invalid))
         invalid = document; invalid.keyImages["space"] = "missing"; XCTAssertThrowsError(try invalid.encoded())
         invalid = document; invalid.palette.text = "red"; XCTAssertThrowsError(try invalid.encoded())
         invalid = document; invalid.images["badge"] = Data("invalid".utf8); XCTAssertThrowsError(try invalid.encoded())
         XCTAssertThrowsError(try KeyboardSkinDocument.decode(Data(count: KeyboardSkinDocument.maximumFileBytes + 1)))
+        try Data(count: KeyboardSkinDocument.maximumFileBytes + 1).write(to: file)
+        XCTAssertThrowsError(try KeyboardSkinDocument.read(from: file))
     }
 
     func testArtworkPreservesKeyTouchOwnershipAndActions() throws {

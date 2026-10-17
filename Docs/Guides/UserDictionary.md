@@ -33,4 +33,4 @@
 
 共享读取需要完全访问。共享容器不可用时使用本地 Application Support，这不保证 App 与扩展仍共享数据。读取失败保留最后一个合法 snapshot。当前编辑入口在主 App，词典文件没有多写入方的事务合并。
 
-实现见 [JapaneseUserDictionary.swift](../../Shared/Candidates/JapaneseUserDictionary.swift)。
+实现见 [JapaneseUserDictionary.swift](../../Shared/Candidates/Dictionary/JapaneseUserDictionary.swift)。

@@ -8,7 +8,7 @@ azooKey 是候选生成器，Vime 负责统一展示排序。原始转换和预�
 
 ## 基础排序
 
-[CandidateReranker](../../Shared/Candidates/CandidateReranker.swift) 集中管理权重和诊断特征：
+[CandidateReranker](../../Shared/Candidates/Ranking/CandidateReranker.swift) 集中管理权重和诊断特征：
 
 | 特征 | 作用 |
 | --- | --- |
@@ -65,4 +65,4 @@ Calendar、TimeExpression、CommaSeparatedNumber、Unicode、EmailAddress provid
 
 词语相关 emoji 来自依赖的 TextReplacer 数据，与 lexical 分源；其覆盖范围不同于 Vime 的完整 Emoji 面板。动态格式与 emoji 不冒充可学习的普通词条。
 
-入口代码：[引擎](../../Shared/Candidates/JapaneseCandidateEngine.swift)、[worker](../../Shared/Candidates/JapaneseCandidateWorker.swift)、[联想模型](../../Shared/Candidates/PostCompositionSuggestions.swift)。
+入口代码：[引擎](../../Shared/Candidates/Engine/JapaneseCandidateEngine.swift)、[worker](../../Shared/Candidates/Engine/JapaneseCandidateWorker.swift)、[联想模型](../../Shared/Candidates/Ranking/PostCompositionSuggestions.swift)。

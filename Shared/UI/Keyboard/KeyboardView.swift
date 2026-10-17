@@ -21,9 +21,6 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     var onEditsAndPreeditChange: (([KeyboardEdit], KeyboardPreedit?) -> Void)?
     var onSwitchKeyboard: (() -> Void)?
     var onDismiss: (() -> Void)?
-    var onCompositionChange: ((String) -> Void)?
-    var onMarkedTextChange: ((String?) -> Void)?
-    /// Preferred host callback. Falls back to the legacy text callback if unset.
     var onPreeditChange: ((KeyboardPreedit?) -> Void)?
     var onHeightChange: (() -> Void)?
     var onReplaceText: ((KeyboardTextReplacement) -> Bool)?
@@ -99,13 +96,14 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     private var shifted = false
     private var capsLocked = false
     private var lastShiftTap: TimeInterval = 0
-    private var expanded = false {
+    private enum Panel { case keyboard, candidates, settings, symbols }
+    private var panel: Panel = .keyboard {
         didSet {
-            if expanded != oldValue { session.setExpandedCandidates(expanded) }
+            if (oldValue == .candidates) != (panel == .candidates) {
+                session.setExpandedCandidates(panel == .candidates)
+            }
         }
     }
-    private var settingsOpen = false
-    private var emojiOpen = false
     private var previewsEnabled: Bool { preferences.previews }
     private var impactGenerators: [Int: UIImpactFeedbackGenerator] = [:]
     private let header = UIView()
@@ -126,9 +124,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     private let modeButton = UIButton(type: .system)
     private let neuralStatusLabel = UILabel()
     private let undoButton = UIButton(type: .system)
-    private let settingsButton = UIButton(type: .system)
     private let expandButton = UIButton(type: .system)
-    private let cancelButton = UIButton(type: .system)
     private let divider = UIView()
     private let panelTitle = UILabel()
     private let shortenRange = UIButton(type: .system)
@@ -223,12 +219,6 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         undoButton.accessibilityLabel = "撤回刚才的删行"
         undoButton.accessibilityIdentifier = "vime.delete.undo"
         undoButton.addAction(UIAction { [weak self] _ in self?.apply([.undoLineDeletion]) }, for: .touchUpInside)
-        settingsButton.isHidden = true
-        header.addSubview(settingsButton)
-        settingsButton.setImage(UIImage(systemName: "gearshape"), for: .normal)
-        settingsButton.tintColor = .secondaryLabel
-        settingsButton.addTarget(self, action: #selector(toggleSettings), for: .touchUpInside)
-        settingsButton.accessibilityLabel = "键盘设置"
         header.addSubview(candidateScroll)
         candidateScroll.accessibilityIdentifier = "vime.candidates"
         configureScroll(candidateScroll)
@@ -256,11 +246,6 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         expandButton.backgroundColor = KeyboardPalette.key
         expandButton.addTarget(self, action: #selector(headerArrow), for: .touchUpInside)
         expandButton.accessibilityLabel = "展开候选词"
-        header.addSubview(cancelButton)
-        cancelButton.setImage(UIImage(systemName: "xmark.circle.fill"), for: .normal)
-        cancelButton.tintColor = .tertiaryLabel
-        cancelButton.accessibilityLabel = "取消当前输入"
-        cancelButton.addTarget(self, action: #selector(cancelComposition), for: .touchUpInside)
         addSubview(divider)
         panelTitle.font = .systemFont(ofSize: 16, weight: .medium)
         panelTitle.accessibilityIdentifier = "vime.candidates.title"
@@ -320,7 +305,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
             self.apply(self.session.confirmAll() + [.deleteToLineStart])
         }
         divider.isHidden = true
-        for button in [brandButton, modeButton, clipboardButton, undoButton, settingsButton, expandButton, cancelButton] {
+        for button in [brandButton, modeButton, clipboardButton, undoButton, expandButton] {
             button.addTarget(self, action: #selector(toolbarFeedback), for: .touchDown)
         }
         configureGlobe()
@@ -446,7 +431,6 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         }
         quickCandidates.frame = candidateScroll.frame
         layoutCandidateStrip()
-        cancelButton.frame = .zero
         panelTitle.frame = CGRect(x: 12 * xScale, y: 0, width: width - 185 * xScale, height: headerHeight)
         shortenRange.frame = CGRect(x: width - 172 * xScale, y: 0, width: 40 * xScale, height: headerHeight)
         lengthenRange.frame = CGRect(x: width - 132 * xScale, y: 0, width: 40 * xScale, height: headerHeight)
@@ -503,7 +487,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
             deletePrompt.frame = CGRect(x: max(0, key.frame.maxX - promptWidth),
                 y: max(metrics.headerHeight, key.frame.minY - h - 6 * scale), width: promptWidth, height: h)
         }
-        globeButton.isHidden = !showsFooter || emojiOpen
+        globeButton.isHidden = !showsFooter || panel == .symbols
         globeButton.frame = CGRect(x: 22 * xScale, y: metrics.contentHeight + (compact ? 0 : 17 * scale), width: 40 * scale, height: compact ? 34 : 40 * scale)
         bringSubviewToFront(header)
         if !deletePrompt.isHidden { bringSubviewToFront(deletePrompt) }
@@ -777,8 +761,8 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
             if !edits.isEmpty { onEdit?(edits) }
             publishPreedit()
         }
-        if !session.isComposing { expanded = false }
-        else if !edits.isEmpty && expanded {
+        if !session.isComposing && panel == .candidates { panel = .keyboard }
+        else if !edits.isEmpty && panel == .candidates {
             // A committed prefix starts a new suffix candidate list. Keeping
             // the old page can hide its leading candidates above the viewport.
             panelLimit = 40
@@ -786,13 +770,11 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         }
         if !edits.isEmpty { session.didApplyEdits(edits) }
         KeyboardPerformance.record(.typeToMarked, since: session.takeInputTiming())
-        onCompositionChange?(session.composition)
         refresh()
     }
 
     private func publishPreedit() {
-        if let onPreeditChange { onPreeditChange(session.markedText) }
-        else { onMarkedTextChange?(session.markedText?.text) }
+        onPreeditChange?(session.markedText)
     }
 
     var leftContextProvider: (() -> String?)? {
@@ -811,9 +793,8 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     func resetComposition() {
         clipboardOpen = false
         session.reset()
-        expanded = false
-        if let onPreeditChange { onPreeditChange(nil) } else { onMarkedTextChange?(nil) }
-        onCompositionChange?("")
+        if panel == .candidates { panel = .keyboard }
+        onPreeditChange?(nil)
         refresh()
     }
 
@@ -832,7 +813,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         symbolPanel?.isHidden = true // Cancel this panel's preparation; retain the bounded shared bitmaps.
         symbolPanel?.removeFromSuperview(); symbolPanel = nil
         impactGenerators.removeAll(keepingCapacity: false)
-        emojiOpen = false
+        if panel == .symbols { panel = .keyboard }
     }
 
     func handleMemoryPressure() {
@@ -841,7 +822,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         KeyboardEmojiImages.clear()
         spareCandidateButtons.removeAll(keepingCapacity: false)
         sparePanelButtons.removeAll(keepingCapacity: false)
-        if !emojiOpen { symbolPanel?.isHidden = true; symbolPanel?.removeFromSuperview(); symbolPanel = nil }
+        if panel != .symbols { symbolPanel?.isHidden = true; symbolPanel?.removeFromSuperview(); symbolPanel = nil }
         impactGenerators.removeAll(keepingCapacity: false)
         session.handleMemoryPressure()
         refresh()
@@ -866,30 +847,28 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         let showsQuick = !quick.isEmpty
         let strip = session.showsStrip || showsQuick
         quickCandidates.present(quick)
-        quickCandidates.isHidden = !showsQuick || expanded || emojiOpen || settingsOpen
+        quickCandidates.isHidden = !showsQuick || panel != .keyboard
         clipboardButton.isHidden = clipboard.text == nil || !preferences.clipboardSuggestions || !hasFullAccess
-            || expanded || emojiOpen || settingsOpen
+            || panel != .keyboard
         let neuralPaused = session.neuralModeSuspendedForMemoryPressure
-        neuralStatusLabel.isHidden = !neuralPaused || strip || expanded || emojiOpen || settingsOpen
+        neuralStatusLabel.isHidden = !neuralPaused || strip || panel != .keyboard
         settingsNeuralStatusLabel?.isHidden = !neuralPaused
-        header.isHidden = emojiOpen
-        undoButton.isHidden = !canUndoLineDeletion || strip || expanded || settingsOpen || emojiOpen
+        header.isHidden = panel == .symbols
+        undoButton.isHidden = !canUndoLineDeletion || strip || panel != .keyboard
         let showsQuickToolbar = showsQuick && !composing && !clipboardOpen
-        brandButton.isHidden = (strip && !showsQuickToolbar) || expanded || emojiOpen
-        modeButton.isHidden = strip || expanded || emojiOpen || !session.inputTraits.supportsPrimaryVariant
+        brandButton.isHidden = (strip && !showsQuickToolbar) || (panel == .candidates || panel == .symbols)
+        modeButton.isHidden = strip || (panel == .candidates || panel == .symbols) || !session.inputTraits.supportsPrimaryVariant
         modeButton.accessibilityLabel = session.inputTraits.primaryVariantAccessibilityLabel
-        settingsButton.isHidden = true
-        candidateScroll.isHidden = !strip || showsQuick || expanded || emojiOpen || settingsOpen
+        candidateScroll.isHidden = !strip || showsQuick || panel != .keyboard
         expandButton.isHidden = false
-        cancelButton.isHidden = true
         modeButton.setTitle(session.inputTraits.modeLabel, for: .normal)
         accessibilityValue = composing ? "输入中：" + (session.markedText?.text ?? "") : session.inputTraits.modeLabel
         expandButton.backgroundColor = composing ? KeyboardTouchBacking.color : KeyboardPalette.key
-        divider.isHidden = !strip || expanded || emojiOpen || settingsOpen
-        panelTitle.isHidden = !expanded
+        divider.isHidden = !strip || panel != .keyboard
+        panelTitle.isHidden = panel != .candidates
         panelTitle.text = session.conversionRangeDescription ?? "候选词"
         for control in [shortenRange, lengthenRange, wholeRange] {
-            control.isHidden = !expanded || session.conversionRangeDescription == nil
+            control.isHidden = panel != .candidates || session.conversionRangeDescription == nil
         }
         divider.backgroundColor = .separator
         let presentations = Array(session.stripPresentations.prefix(max(20, (session.selectedIndex ?? 0) + 1)))
@@ -929,18 +908,18 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         // The retained list may belong to the previous input revision. Keep
         // its appearance, but never let a stale tap discard the newer letters.
         stripButtons.forEach { $0.isUserInteractionEnabled = session.candidatesAreCurrent && $0.selectionToken != nil }
-        let panelOpen = expanded || settingsOpen || emojiOpen || clipboardOpen
+        let panelOpen = panel != .keyboard || clipboardOpen
         expandButton.setImage(UIImage(systemName: panelOpen ? "chevron.up" : "chevron.down"), for: .normal)
         expandButton.accessibilityLabel = panelOpen ? "返回键盘" : composing ? "展开候选词" : "收起键盘"
         expandButton.accessibilityIdentifier = panelOpen ? "vime.panel.close" : "vime.candidates.expand"
-        let hidesKeys = expanded || settingsOpen || emojiOpen
+        let hidesKeys = panel != .keyboard
         if hidesKeys { keysContainer.cancelAllPresses() }
         keysContainer.isHidden = hidesKeys
-        panelScroll.isHidden = !expanded || settingsOpen || emojiOpen
-        symbolPanel?.isHidden = !emojiOpen
-        settingsPanel?.isHidden = !settingsOpen
-        if expanded { rebuildCandidatePanel() }
-        else if emojiOpen { showSymbolPanel() }
+        panelScroll.isHidden = panel != .candidates
+        symbolPanel?.isHidden = panel != .symbols
+        settingsPanel?.isHidden = panel != .settings
+        if panel == .candidates { rebuildCandidatePanel() }
+        else if panel == .symbols { showSymbolPanel() }
         spaceKey?.setTitle(composing ? session.inputTraits.compositionSpaceTitle : "", for: .normal)
         returnKey?.setTitle(composing ? session.inputTraits.compositionReturnTitle : returnTitle, for: .normal)
         let actionReturn = !composing && [.send, .search, .go, .done, .next, .join, .route, .continue].contains(returnKeyType)
@@ -1087,8 +1066,8 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
 
     @objc private func headerArrow() {
         if clipboardOpen { clipboardOpen = false; refresh(); return }
-        if expanded || settingsOpen || emojiOpen {
-            expanded = false; settingsOpen = false; emojiOpen = false; refresh()
+        if panel != .keyboard {
+            panel = .keyboard; refresh()
         } else if session.isComposing { toggleExpanded() }
         else { onDismiss?() }
     }
@@ -1099,9 +1078,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
 
     private func openSymbolPanel(mode: KeyboardSymbolPanel.Mode) {
         apply(session.confirm())
-        emojiOpen = true
-        expanded = false
-        settingsOpen = false
+        panel = .symbols
         panelScroll.setContentOffset(.zero, animated: false)
         refresh()
         symbolPanel?.selectMode(mode)
@@ -1133,7 +1110,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     @objc private func toggleClipboard() {
         guard preferences.clipboardSuggestions, hasFullAccess, clipboard.text != nil else { return }
         clipboardOpen.toggle()
-        expanded = false; settingsOpen = false
+        panel = .keyboard
         refresh()
     }
 
@@ -1186,13 +1163,10 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
                   onReplaceText?(replacement) == true else { refresh(); return }
             session.invalidateLearningFeedback()
             session.reset()
-            expanded = false
-            onCompositionChange?("")
+            if panel == .candidates { panel = .keyboard }
             refresh()
         }
     }
-
-    @objc private func cancelComposition() { resetComposition() }
 
     @objc private func shortenConversion() {
         panelLimit = 40
@@ -1212,7 +1186,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         refresh()
     }
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        guard scrollView === panelScroll, expanded, panelLimit < session.candidateCount,
+        guard scrollView === panelScroll, panel == .candidates, panelLimit < session.candidateCount,
               session.candidatesAreCurrent, scrollView.contentSize.height > scrollView.bounds.height,
               scrollView.contentOffset.y + scrollView.bounds.height >= scrollView.contentSize.height - 90 else { return }
         panelLimit += 40
@@ -1221,17 +1195,13 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     }
     @objc private func toggleExpanded() {
         panelLimit = 40
-        expanded.toggle()
-        settingsOpen = false
-        emojiOpen = false
+        panel = panel == .candidates ? .keyboard : .candidates
         panelScroll.setContentOffset(.zero, animated: false)
         refresh()
     }
 
     @objc private func toggleSettings() {
-        settingsOpen.toggle()
-        expanded = false
-        emojiOpen = false
+        panel = panel == .settings ? .keyboard : .settings
         if settingsPanel == nil { createSettingsPanel() }
         refresh()
     }
@@ -1326,7 +1296,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     private func applyTheme() {
         KeyboardPalette.theme = preferences.theme
         let document = preferences.theme == .custom ? try? KeyboardSkinStore().load(preferences.customSkinID) : nil
-        KeyboardPalette.skin = document.map(KeyboardSkinAppearance.init)
+        KeyboardPalette.skin = document.map { KeyboardSkinAppearance($0, reusing: skinCanvas.appearance) }
         skinCanvas.appearance = KeyboardPalette.skin
         brandArtwork.image = KeyboardPalette.skin?.image(for: "brand")
         brandButton.setImage(brandArtwork.image == nil ? KeyboardGlyphs.logo() : nil, for: .normal)

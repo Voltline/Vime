@@ -64,24 +64,26 @@ struct KeyboardHomeView: View {
 
 struct KeyboardSetupGuide: View {
     var body: some View {
-        List {
-            Section("添加键盘") {
-                Text("打开 iPhone 设置")
-                Text("进入 通用 → 键盘 → 键盘")
-                Text("点击 添加新键盘，选择 Vime")
+        AppSettingsPage {
+            AppInformationSection("添加键盘") {
+                Text("1. 打开 iPhone 的“设置”。")
+                Text("2. 进入“通用 → 键盘 → 键盘”。")
+                Text("3. 点击“添加新键盘”，选择 Vime。")
             }
-            Section("切换键盘") {
-                Text("打开输入框，长按地球键，选择 Vime 日本語")
-                Text("基本输入无需完全访问")
+            AppInformationSection("切换键盘") {
+                Text("打开输入框，长按地球键，选择 Vime 日本語。基本输入无需完全访问。")
             }
-            Section("声音与振动") {
-                Text("进入 设置 → 通用 → 键盘 → 键盘 → Vime 日本語，开启允许完全访问")
-                Text("声音与振动也可在键盘左上角快速调整，静音时不播放按键声")
-                NavigationLink("隐私政策") { PrivacyPolicyView() }
+            AppInformationSection("声音与振动") {
+                Text("进入“设置 → 通用 → 键盘 → 键盘 → Vime 日本語”，开启“允许完全访问”。")
+                Text("声音与振动也可在键盘左上角快速调整，静音时不播放按键声。")
             }
-            Section("系统限制") {
-                Text("密码输入框和部分 App 使用系统键盘")
-                Text("修改 App 设置后，重新打开键盘即可读取更新")
+            AppInformationSection("系统限制") {
+                Text("密码输入框和部分 App 使用系统键盘。修改 App 设置后，重新打开键盘即可读取更新。")
+            }
+            AppSettingsActionGroup {
+                NavigationLink { PrivacyPolicyView() } label: {
+                    AppSettingsActionRow(title: "隐私政策", subtitle: "了解输入数据和权限的处理方式", symbol: "lock.shield")
+                }.accessibilityIdentifier("vime.setup.privacy")
             }
         }
         .navigationTitle("启用键盘").navigationBarTitleDisplayMode(.inline)

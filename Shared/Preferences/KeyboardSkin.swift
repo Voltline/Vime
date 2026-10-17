@@ -75,6 +75,14 @@ nonisolated struct KeyboardSkinDocument: Codable, Identifiable, Equatable, Senda
         try value.validate()
         return value
     }
+    static func read(from url: URL) throws -> Self {
+        let access = url.startAccessingSecurityScopedResource()
+        defer { if access { url.stopAccessingSecurityScopedResource() } }
+        let handle = try FileHandle(forReadingFrom: url)
+        defer { try? handle.close() }
+        let data = try handle.read(upToCount: maximumFileBytes + 1) ?? Data()
+        return try decode(data)
+    }
     func encoded() throws -> Data {
         try validate()
         let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
@@ -116,11 +124,7 @@ final class KeyboardSkinStore {
     }
     func load(_ id: String) throws -> KeyboardSkinDocument {
         guard let file = file(id) else { throw KeyboardSkinDocument.SkinError.invalid }
-        // Check file size before base64 decoding an externally imported document.
-        let handle = try FileHandle(forReadingFrom: file)
-        defer { try? handle.close() }
-        let data = try handle.read(upToCount: KeyboardSkinDocument.maximumFileBytes + 1) ?? Data()
-        return try KeyboardSkinDocument.decode(data)
+        return try KeyboardSkinDocument.read(from: file)
     }
     func save(_ document: KeyboardSkinDocument) throws {
         let data = try document.encoded()
@@ -136,18 +140,6 @@ final class KeyboardSkinStore {
         try JSONEncoder().encode(index).write(to: indexURL, options: .atomic)
         let preferences = KeyboardPreferences()
         if preferences.customSkinID == document.id { preferences.skinRevision += 1 }
-    }
-    @discardableResult
-    func importFile(_ url: URL) throws -> KeyboardSkinDocument {
-        let access = url.startAccessingSecurityScopedResource()
-        defer { if access { url.stopAccessingSecurityScopedResource() } }
-        let handle = try FileHandle(forReadingFrom: url)
-        defer { try? handle.close() }
-        let data = try handle.read(upToCount: KeyboardSkinDocument.maximumFileBytes + 1) ?? Data()
-        var document = try KeyboardSkinDocument.decode(data)
-        document.id = UUID().uuidString // Never trust an imported ID as a file path or overwrite target.
-        try save(document)
-        return document
     }
     func select(_ document: KeyboardSkinDocument) {
         let preferences = KeyboardPreferences()
@@ -170,8 +162,16 @@ final class KeyboardSkinStore {
 final class KeyboardSkinAppearance {
     let document: KeyboardSkinDocument
     private let images: [String: UIImage]
-    init(_ document: KeyboardSkinDocument) {
+    init(_ document: KeyboardSkinDocument, reusing previous: KeyboardSkinAppearance? = nil) {
         self.document = document
+        // Palette/style edits do not change the decoded pixels or size policy.
+        // Reuse only this view's previous artwork, without retaining a history.
+        if let previous, previous.document.images == document.images,
+           previous.document.keyImages == document.keyImages,
+           previous.document.backgroundImage == document.backgroundImage {
+            images = previous.images
+            return
+        }
         let referenced = Set(document.keyImages.values).union([document.backgroundImage].compactMap { $0 })
         let keyLimit = referenced.count > 16 ? 128 : 256
         let wideArtwork = document.keyImages["space"]

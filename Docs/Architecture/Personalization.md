@@ -12,7 +12,7 @@ azooKey Learning Memory 记录真实候选选择，影响引擎转换与原生�
 
 只有接受的事件进入学习。点击候选、用空格切换到非首选再确认，都提供主动选择证据；惯性确认首选仅提供较弱的频次证据。无宿主的直接测试接口仅用于组件验证，不能证明真实扩展的回执路径正确。
 
-[CandidateLearningFeedback](../../Shared/Candidates/CandidateLearningFeedback.swift) 管理该边界；[KeyboardHostConnection](../../Shared/Host/KeyboardHostConnection.swift) 提供正文、字段与提交回执。
+[CandidateLearningFeedback](../../Shared/Candidates/Learning/CandidateLearningFeedback.swift) 管理该边界；[KeyboardHostConnection](../../Shared/Host/KeyboardHostConnection.swift) 提供正文、字段与提交回执。
 
 ## 原生学习
 
@@ -20,11 +20,11 @@ azooKey Learning Memory 记录真实候选选择，影响引擎转换与原生�
 
 引擎保留真实 Candidate，使用独立 learning session 管理 `setCompletedData` 与 `updateLearningData`，避免普通候选查询切换污染已确认上下文。原生确认后联想使用 `updateLearningData(base, with: prediction)`，不能把展示字符串伪装成原生对象。
 
-接受反馈及生命周期边界在后台调用 `commitUpdateLearningData()`；按键查询不写学习磁盘。当前 API 调用次序与 session 切换以 [引擎实现](../../Shared/Candidates/JapaneseCandidateEngine.swift) 为准。
+接受反馈及生命周期边界在后台调用 `commitUpdateLearningData()`；按键查询不写学习磁盘。当前 API 调用次序与 session 切换以 [引擎实现](../../Shared/Candidates/Engine/JapaneseCandidateEngine.swift) 为准。
 
 ## Vime 偏好
 
-[CandidatePreferenceMemory](../../Shared/Candidates/CandidatePreferenceMemory.swift) 按 scope、reading、surface 和上下文记录 evidence、确认次数及时间。普通频次至少需要两次确认；主动选择从第一次开始加分，同一上下文重复选择形成更强保护。频次按 30 天半衰期衰减，近期加分按较短窗口衰减。
+[CandidatePreferenceMemory](../../Shared/Candidates/Learning/CandidatePreferenceMemory.swift) 按 scope、reading、surface 和上下文记录 evidence、确认次数及时间。普通频次至少需要两次确认；主动选择从第一次开始加分，同一上下文重复选择形成更强保护。频次按 30 天半衰期衰减，近期加分按较短窗口衰减。
 
 主动偏好优先使用末尾 12 字的上下文，其次使用末尾 4 字；没有本地选择记录的新句子继承全局偏好，置信度最高为 0.8，约三次主动选择可达到保护门槛。具体上下文中的新选择可以覆盖全局习惯，更新的主动纠正也可以取代旧习惯。偏好加分有上限，神经重排尊重强偏好；同一轮已经显示的候选仍冻结顺序，学习影响后续输入。
 

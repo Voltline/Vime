@@ -127,12 +127,9 @@ struct KeyboardSkinsView: View {
             }.buttonStyle(SkinActionButtonStyle())
             ForEach(skins) { customSkinRow($0) }
             if skins.isEmpty {
-                HStack(spacing: 12) {
-                    Image(systemName: "paintpalette").font(.title3)
-                    Text("创建或导入自己的皮肤").font(.subheadline)
-                }
-                .foregroundStyle(.secondary).frame(maxWidth: .infinity, minHeight: 70)
-                .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(Color.secondary.opacity(0.2), style: StrokeStyle(lineWidth: 1, dash: [5, 4])))
+                Text("还没有自定义皮肤，可使用上方按钮创建或导入。")
+                    .font(.subheadline).foregroundStyle(.secondary)
+                    .padding(.vertical, 8)
             }
             if router.importing { ProgressView("正在导入") }
             Text("支持 .vimeskin 文件，可从文件 App 打开\n选中皮肤即可使用，修改后重新打开键盘")
@@ -393,7 +390,7 @@ private struct SkinPreview: UIViewRepresentable {
         required init?(coder: NSCoder) { fatalError() }
         func apply(_ doc: KeyboardSkinDocument) {
             guard document != doc else { return }; document = doc
-            let appearance = KeyboardSkinAppearance(doc); canvas.appearance = appearance
+            let appearance = KeyboardSkinAppearance(doc, reusing: canvas.appearance); canvas.appearance = appearance
             for (index, key) in keys.enumerated() {
                 key.textColor = KeyboardSkinAppearance.color(doc.palette.text)
                 key.font = appearance.font(size: 16)

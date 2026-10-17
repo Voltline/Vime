@@ -28,7 +28,12 @@ def validate(resources: Path, root: Path) -> None:
     if b"".join(text for _, text in sorted(sections)) != original:
         raise ValueError("Component notices do not cover ThirdPartyNotices exactly")
     policy = json.loads((resources / "PrivacyPolicy.json").read_text())
-    expected = "# Vime 隐私政策\n\n更新日期：" + policy["updated"] + "\n\n" + policy["scope"] + "\n"
+    expected = (
+        "# Vime 隐私政策\n\n更新日期：" + policy["updated"]
+        + "\n\n生效日期：" + policy["effective"]
+        + "\n\n" + policy["scope"]
+        + "\n\n" + policy["introduction"] + "\n"
+    )
     for section in policy["sections"]:
         expected += "\n## " + section["title"] + "\n\n" + "\n\n".join(section["paragraphs"]) + "\n"
     expected += "\n联系：[Vime Issues](https://github.com/Voltline/Vime/issues)\n"

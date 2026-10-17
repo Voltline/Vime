@@ -142,14 +142,14 @@ final class KeyboardCorrectionTests: XCTestCase {
         let view = UITextView(); view.text = "前後"; view.selectedRange = NSRange(location: 1, length: 0)
         let host = KeyboardHostConnection(setMarkedText: { view.setMarkedText($0, selectedRange: $1) },
             unmarkText: { view.unmarkText() }, insertText: { view.insertText($0) }, deleteBackward: { view.deleteBackward() })
-        _ = session.type("shitsuka"); host.updateMarkedText(session.preedit)
+        _ = session.type("shitsuka"); host.updatePreedit(session.markedText)
         XCTAssertEqual(view.text, "前しつか後")
         let index = try XCTUnwrap(session.candidateSnapshots.firstIndex { $0.text == "静か" && $0.source == .correction })
         let snapshot = session.candidateSnapshots[index]
         XCTAssertEqual(snapshot.originalInputCount, 8)
         XCTAssertEqual(snapshot.consumedInputCount, 8)
         XCTAssertEqual(snapshot.correction?.suggestedReading, "しずか")
-        host.apply(session.choose(index)); host.updateMarkedText(session.preedit)
+        host.apply(session.choose(index)); host.updatePreedit(session.markedText)
         XCTAssertEqual(view.text, "前静か後", "Only the body is inserted; annotation stays in UI")
         XCTAssertFalse(session.isComposing)
         var separated = ComposingText()
@@ -263,7 +263,7 @@ final class KeyboardCorrectionTests: XCTestCase {
         let view = UITextView()
         let host = KeyboardHostConnection(setMarkedText: { view.setMarkedText($0, selectedRange: $1) },
             unmarkText: { view.unmarkText() }, insertText: { view.insertText($0) }, deleteBackward: { view.deleteBackward() })
-        keyboard.onEdit = { host.apply($0) }; keyboard.onMarkedTextChange = { host.updateMarkedText($0) }
+        keyboard.onEdit = { host.apply($0) }; keyboard.onPreeditChange = { host.updatePreedit($0) }
         let renderUpdate = session.onCandidatesChange
         let correction = expectation(description: "real correction arrives for expanded query")
         var delivered = false
@@ -320,7 +320,7 @@ final class KeyboardCorrectionTests: XCTestCase {
         window.rootViewController?.view.addSubview(text)
         let host = KeyboardHostConnection(setMarkedText: { text.setMarkedText($0, selectedRange: $1) },
             unmarkText: { text.unmarkText() }, insertText: { text.insertText($0) }, deleteBackward: { text.deleteBackward() })
-        keyboard.onEdit = { host.apply($0) }; keyboard.onMarkedTextChange = { host.updateMarkedText($0) }
+        keyboard.onEdit = { host.apply($0) }; keyboard.onPreeditChange = { host.updatePreedit($0) }
         keyboard.layoutIfNeeded()
         let update = session.onCandidatesChange
         var normalWarmMB = 0.0, correctionWarmMB = 0.0, peakMB = 0.0

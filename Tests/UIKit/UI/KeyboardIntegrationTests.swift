@@ -145,7 +145,7 @@ final class KeyboardIntegrationTests: XCTestCase {
             deleteBackward: { view.deleteBackward() }
         )
         keyboard.onEdit = { host.apply($0) }
-        keyboard.onMarkedTextChange = { host.updateMarkedText($0) }
+        keyboard.onPreeditChange = { host.updatePreedit($0) }
         return host
     }
 

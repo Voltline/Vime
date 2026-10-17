@@ -52,9 +52,42 @@ final class KeyboardNativeFeaturesTests: XCTestCase {
         let restored = JapaneseUserDictionaryStore(directory: directory, defaults: defaults)
         XCTAssertEqual(try restored.entries().count, 2)
         try writer.save([])
+        let cleared = reader.nativeEntries()
+        XCTAssertTrue(cleared.words.isEmpty)
+        XCTAssertTrue(cleared.shortcuts.isEmpty, "A new revision must invalidate both cached entry kinds")
         XCTAssertFalse(engine.candidates(for: query("bimu"), revision: 2, includeCorrections: false).contains { $0.text == "Vime開発班" })
         XCTAssertThrowsError(try writer.importData(Data("{\"version\":2,\"entries\":[]}".utf8)))
         XCTAssertTrue(try writer.entries().isEmpty)
+    }
+
+    func testNearlyFullDictionaryExportCanBeImportedWithoutLosingEntries() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let suite = UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { try? FileManager.default.removeItem(at: directory); defaults.removePersistentDomain(forName: suite) }
+        let store = JapaneseUserDictionaryStore(directory: directory, defaults: defaults)
+        let all = (0..<JapaneseUserDictionaryStore.maximumEntries).map {
+            JapaneseUserDictionaryEntry(reading: String(repeating: "ア", count: 64),
+                surface: String(repeating: "☀️", count: 120) + String($0))
+        }
+        let encoder = JSONEncoder()
+        func archive(_ count: Int) -> JapaneseUserDictionaryStore.Archive { .init(entries: Array(all.prefix(count))) }
+        var lower = 1, upper = all.count
+        while lower < upper {
+            let middle = (lower + upper + 1) / 2
+            if try encoder.encode(archive(middle)).count <= JapaneseUserDictionaryStore.maximumBytes { lower = middle }
+            else { upper = middle - 1 }
+        }
+        let entries = archive(lower).entries
+        try store.save(entries)
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        XCTAssertGreaterThan(try encoder.encode(archive(lower)).count, JapaneseUserDictionaryStore.maximumBytes,
+            "Exercise a valid dictionary whose formatted export crosses the import limit")
+        let data = try store.exportData()
+        XCTAssertLessThanOrEqual(data.count, JapaneseUserDictionaryStore.maximumBytes)
+        XCTAssertEqual(try JapaneseUserDictionaryStore.decode(data), try store.entries())
+        try store.importData(data)
+        XCTAssertEqual(try store.entries(), entries, "Reimport must preserve every entry and deduplicate")
     }
 
     func testNativeSuggestionsWorkWithoutNeuralModelAndTerminalStops() throws {

@@ -2,28 +2,33 @@ import SwiftUI
 
 struct AboutVimeView: View {
     private var version: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0" }
-    private var build: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "" }
     var body: some View {
-        List {
-            Section {
-                HStack(spacing: 16) {
-                    Image(uiImage: KeyboardGlyphs.logo(size: 60, appIcon: true)).resizable()
-                        .frame(width: 60, height: 60).clipShape(RoundedRectangle(cornerRadius: 15))
-                    VStack(alignment: .leading, spacing: 5) {
-                        Text("Vime \(version)").font(.title2.weight(.semibold))
-                        Text("日语输入法").foregroundStyle(.secondary)
-                        if !build.isEmpty { Text("构建 \(build)").font(.caption).foregroundStyle(.secondary) }
-                    }
-                }.padding(.vertical, 8)
+        AppSettingsPage {
+            HStack(spacing: 16) {
+                Image(uiImage: KeyboardGlyphs.logo(size: 60, appIcon: true)).resizable()
+                    .frame(width: 60, height: 60).clipShape(RoundedRectangle(cornerRadius: 15))
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("Vime \(version)").font(.title2.weight(.semibold))
+                    Text("日语输入法").foregroundStyle(.secondary)
+                }
             }
-            Section {
-                Link("开源项目", destination: URL(string: "https://github.com/Voltline/Vime")!)
-                NavigationLink("隐私政策") { PrivacyPolicyView() }
-                NavigationLink("开源组件与许可") { LicenseListView() }.accessibilityIdentifier("vime.about.licenses")
+            AppSettingsActionGroup {
+                Link(destination: URL(string: "https://github.com/Voltline/Vime")!) {
+                    AppSettingsActionRow(title: "开源项目", subtitle: "在 GitHub 查看源码和反馈问题", symbol: "chevron.left.forwardslash.chevron.right", accessory: "arrow.up.right")
+                }
+                Divider().padding(.leading, 52)
+                NavigationLink { PrivacyPolicyView() } label: {
+                    AppSettingsActionRow(title: "隐私政策", subtitle: "了解本地数据与系统权限", symbol: "lock.shield")
+                }
+                Divider().padding(.leading, 52)
+                NavigationLink { LicenseListView() } label: {
+                    AppSettingsActionRow(title: "开源组件与许可", subtitle: "查看组件来源及完整许可", symbol: "doc.text")
+                }.accessibilityIdentifier("vime.about.licenses")
             }
-            Section("本地模型") {
+            AppInformationSection("本地模型") {
                 Text("Vime 日语模型 v2.1")
-                Text("用于候选排序和下一词联想，在设备上运行").foregroundStyle(.secondary)
+                Text("用于候选排序和下一词联想，在设备上运行。")
             }
         }
         .navigationTitle("关于 Vime").navigationBarTitleDisplayMode(.inline)
@@ -43,7 +48,7 @@ struct LicenseListView: View {
     }
     var body: some View {
         List {
-            if let error { Section { Text(error).foregroundStyle(.secondary) } }
+            if let error { Section {} footer: { Text(error) } }
             ForEach(categories, id: \.self) { category in
                 let rows = filtered.filter { $0.category == category }
                 if !rows.isEmpty {
@@ -62,7 +67,9 @@ struct LicenseListView: View {
                     }
                 }
             }
-            if catalog != nil && filtered.isEmpty { Text("没有匹配的组件").foregroundStyle(.secondary) }
+            if catalog != nil && filtered.isEmpty {
+                Section {} footer: { Text("没有匹配的组件") }
+            }
             if catalog != nil {
                 Section { NavigationLink("完整许可汇总") { FullLicenseNoticesView() } }
             }
@@ -78,17 +85,25 @@ struct LicenseDetailView: View {
     @State private var notice = ""
     @State private var error: String?
     var body: some View {
-        List {
-            Section {
+        AppSettingsPage {
+            AppInformationSection("组件信息") {
                 Text(component.use)
                 LabeledContent("许可", value: component.license)
-                Text("版权方\n\(component.copyright)").font(.subheadline)
-                if !component.revision.isEmpty { Text("版本 / 修订\n\(component.revision)").font(.subheadline) }
-                if let url = URL(string: component.source) { Link("查看来源", destination: url) }
+                Text("版权方\n\(component.copyright)")
+                if !component.revision.isEmpty { Text("版本 / 修订\n\(component.revision)") }
             }
-            if !component.modified.isEmpty { Section("补充说明") { Text(component.modified).font(.subheadline) } }
-            Section("许可原文") {
-                Text(error ?? notice).font(.footnote).textSelection(.enabled)
+            if let url = URL(string: component.source) {
+                AppSettingsActionGroup {
+                    Link(destination: url) {
+                        AppSettingsActionRow(title: "查看来源", subtitle: "打开组件的官方来源页面", symbol: "link", accessory: "arrow.up.right")
+                    }
+                }
+            }
+            if !component.modified.isEmpty {
+                AppInformationSection("补充说明") { Text(component.modified) }
+            }
+            AppInformationSection("许可原文") {
+                Text(error ?? notice).font(.footnote).foregroundStyle(.primary).textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .accessibilityIdentifier("vime.license.notice")
             }

@@ -1,6 +1,6 @@
 import AppKit
 
-// Run: swiftc Shared/UI/VimeLogo.swift Scripts/generate_icon.swift -o /tmp/vime-icon
+// Run: swiftc Shared/UI/Appearance/VimeLogo.swift Scripts/generate_icon.swift -o /tmp/vime-icon
 //      /tmp/vime-icon
 @main
 struct GenerateVimeIcon {

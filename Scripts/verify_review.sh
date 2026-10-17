@@ -94,7 +94,7 @@ if sys.argv[3] in {'full', 'focused', 'extension'}:
     expected = set()
     selectors = {arg.split(':', 1)[1].split('/', 1)[1] for arg in sys.argv[4:] if arg.startswith('-only-testing:')}
     folder = 'Tests/ExtensionUI' if sys.argv[3] == 'extension' else 'Tests/UIKit'
-    for path in pathlib.Path(folder).glob('*.swift'):
+    for path in pathlib.Path(folder).rglob('*.swift'):
         source = path.read_text()
         case = re.search(r'class\s+(\w+)\s*:\s*XCTestCase', source)
         if case:

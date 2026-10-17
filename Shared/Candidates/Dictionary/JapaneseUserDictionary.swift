@@ -31,6 +31,7 @@ nonisolated final class JapaneseUserDictionaryStore {
     private var revision: String?
     private var loaded = false
     private var cached: [JapaneseUserDictionaryEntry] = []
+    private var cachedNative: (words: [DicdataElement], shortcuts: [DicdataElement])?
 
     init(directory: URL? = nil, defaults: UserDefaults? = nil) {
         let shared = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: KeyboardPreferences.appGroup)
@@ -49,7 +50,7 @@ nonisolated final class JapaneseUserDictionaryStore {
             let data = try handle.read(upToCount: Self.maximumBytes + 1) ?? Data()
             values = try Self.decode(data)
         } else { values = [] }
-        cached = values; revision = current; loaded = true
+        cached = values; cachedNative = nil; revision = current; loaded = true
         return values
     }
 
@@ -98,12 +99,19 @@ nonisolated final class JapaneseUserDictionaryStore {
         try data.write(to: url, options: .atomic)
         let token = UUID().uuidString
         defaults.set(token, forKey: "vime.userDictionaryRevision")
-        cached = values; revision = token; loaded = true
+        cached = values; cachedNative = nil; revision = token; loaded = true
     }
     func importData(_ data: Data) throws { try save(try entries() + Self.decode(data)) }
     func exportData() throws -> Data {
         let encoder = JSONEncoder(); encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        return try encoder.encode(Archive(entries: entries()))
+        let archive = Archive(entries: try entries())
+        let formatted = try encoder.encode(archive)
+        if formatted.count <= Self.maximumBytes { return formatted }
+        // Whitespace must not make an otherwise valid dictionary unimportable.
+        encoder.outputFormatting = [.sortedKeys]
+        let compact = try encoder.encode(archive)
+        guard compact.count <= Self.maximumBytes else { throw Failure.tooLarge }
+        return compact
     }
     func nativeEntries() -> (words: [DicdataElement], shortcuts: [DicdataElement]) {
         let entries: [JapaneseUserDictionaryEntry]
@@ -114,12 +122,15 @@ nonisolated final class JapaneseUserDictionaryStore {
             loaded = true; revision = defaults.string(forKey: "vime.userDictionaryRevision")
             entries = cached
         }
+        if let cachedNative { return cachedNative }
         func elements(_ kind: JapaneseUserDictionaryEntry.Kind) -> [DicdataElement] {
             entries.filter { $0.kind == kind }.map {
                 DicdataElement(word: $0.surface, ruby: $0.reading, cid: CIDData.固有名詞.cid,
                     mid: MIDData.一般.mid, value: -8)
             }
         }
-        return (elements(.word), elements(.shortcut))
+        let result = (words: elements(.word), shortcuts: elements(.shortcut))
+        cachedNative = result
+        return result
     }
 }

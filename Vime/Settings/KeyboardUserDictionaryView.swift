@@ -42,10 +42,12 @@ struct KeyboardUserDictionaryView: View {
                     let values = entries.filter { !ids.contains($0.id) }
                     perform { try store.save(values); entries = values }
                 }
-                if entries.isEmpty { Text("添加姓名、专业词或常用短语").foregroundStyle(.secondary) }
-                else if visibleEntries.isEmpty { Text("没有匹配的词条").foregroundStyle(.secondary) }
             } footer: {
-                Text("词语可参与分段转换和预测；短语仅在完整读音匹配时出现\n读音支持假名或完整罗马字\n开启键盘完全访问后，词典会共享到其他 App；重新打开键盘或继续输入即可读取更新")
+                VStack(alignment: .leading, spacing: 8) {
+                    if entries.isEmpty { Text("词典为空，点击右上角 + 添加姓名、专业词或常用短语。") }
+                    else if visibleEntries.isEmpty { Text("没有匹配的词条，请尝试其他词语或读音。") }
+                    Text("词语可参与分段转换和预测；短语仅在完整读音匹配时出现\n读音支持假名或完整罗马字\n开启键盘完全访问后，词典会共享到其他 App；重新打开键盘或继续输入即可读取更新")
+                }
             }
             Section {
                 Button("导入词典 JSON") { importing = true }
@@ -95,14 +97,17 @@ private struct UserDictionaryEntryEditor: View {
     var body: some View {
         NavigationStack {
             Form {
-                TextField("读音，例如 とうきょう / toukyou", text: $entry.reading)
-                    .textInputAutocapitalization(.never).autocorrectionDisabled()
-                TextField("词语或短语", text: $entry.surface)
-                Picker("类型", selection: $entry.kind) {
-                    Text("词语").tag(JapaneseUserDictionaryEntry.Kind.word)
-                    Text("短语快捷输入").tag(JapaneseUserDictionaryEntry.Kind.shortcut)
+                Section {
+                    TextField("读音，例如 とうきょう / toukyou", text: $entry.reading)
+                        .textInputAutocapitalization(.never).autocorrectionDisabled()
+                    TextField("词语或短语", text: $entry.surface)
+                    Picker("类型", selection: $entry.kind) {
+                        Text("词语").tag(JapaneseUserDictionaryEntry.Kind.word)
+                        Text("短语快捷输入").tag(JapaneseUserDictionaryEntry.Kind.shortcut)
+                    }
+                } footer: {
+                    if let errorMessage { Text(errorMessage).foregroundStyle(.red) }
                 }
-                if let errorMessage { Text(errorMessage).foregroundStyle(.red) }
             }
             .navigationTitle("词条")
             .toolbar {

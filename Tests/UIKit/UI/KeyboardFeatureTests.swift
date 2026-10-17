@@ -29,7 +29,7 @@ final class KeyboardFeatureTests: XCTestCase {
                     after: value.substring(from: NSMaxRange(range)), selection: value.substring(with: range))
             })
         host.onUndoAvailabilityChange = { [weak keyboard] in keyboard?.canUndoLineDeletion = $0 }
-        keyboard.onEdit = { host.apply($0) }; keyboard.onMarkedTextChange = { host.updateMarkedText($0) }
+        keyboard.onEdit = { host.apply($0) }; keyboard.onPreeditChange = { host.updatePreedit($0) }
         keyboard.deletionAvailabilityProvider = { text.selectedRange.length > 0 || text.selectedRange.location > 0 }
         return (keyboard, try XCTUnwrap(descendants(keyboard).compactMap { $0 as? KeyboardTouchSurface }.first), text, window)
     }
@@ -167,6 +167,20 @@ final class KeyboardFeatureTests: XCTestCase {
         let session = KeyboardSession()
         let (keyboard, surface, text, window) = try fixture(session: session)
         defer { keyboard.stopInteractions(); window.isHidden = true }
+        let brand = try button("vime.brand.settings", in: keyboard)
+        let candidates = try XCTUnwrap(descendants(keyboard).first { $0.accessibilityIdentifier == "vime.candidates.panel" })
+        brand.sendActions(for: .touchUpInside)
+        let settings = try XCTUnwrap(descendants(keyboard).first { $0.accessibilityIdentifier == "vime.settings" })
+        XCTAssertFalse(settings.isHidden)
+        XCTAssertTrue(surface.isHidden)
+        XCTAssertTrue(candidates.isHidden)
+        brand.sendActions(for: .touchUpInside)
+        XCTAssertTrue(settings.isHidden)
+        XCTAssertFalse(surface.isHidden)
+        brand.sendActions(for: .touchUpInside)
+        try button("vime.panel.close", in: keyboard).sendActions(for: .touchUpInside)
+        XCTAssertTrue(settings.isHidden)
+        XCTAssertFalse(surface.isHidden)
         for c in "nihongo" { try button("vime.key.\(c)", in: keyboard).sendActions(for: .touchUpInside) }
         let index = try XCTUnwrap(session.candidates.firstIndex(of: "ニホンゴ"))
         XCTAssertLessThan(index, session.candidates.count, "Direct katakana remains available without a reserved slot")
@@ -175,8 +189,11 @@ final class KeyboardFeatureTests: XCTestCase {
         try button("vime.candidates.expand", in: keyboard).sendActions(for: .touchUpInside)
         XCTAssertTrue(strip.isHidden)
         XCTAssertTrue(surface.isHidden)
+        XCTAssertFalse(candidates.isHidden)
+        XCTAssertTrue(settings.isHidden)
         try button("vime.panel.close", in: keyboard).sendActions(for: .touchUpInside)
         XCTAssertFalse(strip.isHidden)
+        XCTAssertTrue(candidates.isHidden)
         keyboard.resetComposition()
         let emoji = try XCTUnwrap(descendants(keyboard).first { $0.accessibilityLabel == "表情" } as? UIButton)
         emoji.sendActions(for: .touchUpInside); keyboard.layoutIfNeeded()
@@ -190,6 +207,8 @@ final class KeyboardFeatureTests: XCTestCase {
             }
         }
         XCTAssertFalse(panel.isHidden)
+        XCTAssertTrue(candidates.isHidden)
+        XCTAssertTrue(settings.isHidden)
         XCTAssertEqual(panel.frame, keyboard.bounds, "Use the former header and footer for symbols")
         XCTAssertTrue(strip.superview?.isHidden ?? false, "No title/header above symbols")
         XCTAssertTrue(surface.isHidden)

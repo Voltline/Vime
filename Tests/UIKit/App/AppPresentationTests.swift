@@ -13,6 +13,10 @@ final class AppPresentationTests: XCTestCase {
         let router = Vime.AppRouter(store: store)
         var draft = Vime.KeyboardSkinDocument(); draft.name = "未保存草稿"
         var imported = Vime.KeyboardSkinDocument(); imported.name = "外部皮肤"
+        imported.images["badge"] = try XCTUnwrap(UIGraphicsImageRenderer(size: CGSize(width: 20, height: 20)).image {
+            UIColor.systemBlue.setFill(); $0.fill(CGRect(x: 0, y: 0, width: 20, height: 20))
+        }.pngData())
+        imported.keyImages["letter.a"] = "badge"
         let file = directory.appendingPathComponent("external.vimeskin")
         try imported.encoded().write(to: file)
         router.present(.skin(draft)); router.openSkin(file)
@@ -31,6 +35,7 @@ final class AppPresentationTests: XCTestCase {
         XCTAssertEqual(saved.name, "外部皮肤")
         XCTAssertNotEqual(saved.id, imported.id)
         XCTAssertEqual(try store.load(saved.id).palette, imported.palette)
+        XCTAssertEqual(try store.load(saved.id).images, imported.images)
         XCTAssertFalse(router.importing)
     }
     func testFailedImportDoesNotChangeSelectionAndQueuedFileWaitsForAcknowledgement() async throws {
@@ -91,7 +96,18 @@ final class AppPresentationTests: XCTestCase {
         XCTAssertTrue(clipboardPolicy.paragraphs.contains { $0.contains("默认关闭") })
         XCTAssertTrue(clipboardPolicy.paragraphs.contains { $0.contains("不进行任何上传") })
         XCTAssertTrue(policy.sections.flatMap(\.paragraphs).contains { $0.contains("已有学习数据") })
-        for (name, page) in [("剪贴板设置", AnyView(Vime.KeyboardClipboardSettingsView())),
+        let licenseComponent = try XCTUnwrap(catalog.components.first { $0.id == "azookey" })
+        for (name, page) in [("数据与隐私", AnyView(Vime.KeyboardDataPrivacyView())),
+                             ("数据与隐私-大字", AnyView(Vime.KeyboardDataPrivacyView().environment(\.dynamicTypeSize, .accessibility1))),
+                             ("剪贴板设置", AnyView(Vime.KeyboardClipboardSettingsView())),
+                             ("剪贴板设置-大字", AnyView(Vime.KeyboardClipboardSettingsView().environment(\.dynamicTypeSize, .accessibility1))),
+                             ("剪贴板设置-深色", AnyView(Vime.KeyboardClipboardSettingsView().environment(\.colorScheme, .dark))),
+                             ("启用键盘", AnyView(Vime.KeyboardSetupGuide())),
+                             ("关于", AnyView(Vime.AboutVimeView())),
+                             ("关于-大字", AnyView(Vime.AboutVimeView().environment(\.dynamicTypeSize, .accessibility1))),
+                             ("许可详情", AnyView(Vime.LicenseDetailView(component: licenseComponent))),
+                             ("用户词典", AnyView(Vime.KeyboardUserDictionaryView())),
+                             ("手感与布局", AnyView(Vime.KeyboardFeedbackSettingsView())),
                              ("隐私政策", AnyView(Vime.PrivacyPolicyView()))] {
             let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
             let controller = UIHostingController(rootView: NavigationStack { page })

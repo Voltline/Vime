@@ -54,12 +54,8 @@ final class AppRouter: ObservableObject {
         Task {
             do {
                 let document = try await Task.detached(priority: .userInitiated) {
-                    let access = url.startAccessingSecurityScopedResource()
-                    defer { if access { url.stopAccessingSecurityScopedResource() } }
-                    let handle = try FileHandle(forReadingFrom: url)
-                    defer { try? handle.close() }
-                    let data = try handle.read(upToCount: KeyboardSkinDocument.maximumFileBytes + 1) ?? Data()
-                    var document = try KeyboardSkinDocument.decode(data)
+                    var document = try KeyboardSkinDocument.read(from: url)
+                    // Imported files never overwrite an existing skin by ID.
                     document.id = UUID().uuidString
                     return document
                 }.value

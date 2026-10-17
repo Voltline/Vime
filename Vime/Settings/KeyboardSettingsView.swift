@@ -19,6 +19,7 @@ struct KeyboardSettingsView: View {
             }
             Section("帮助") {
                 NavigationLink { KeyboardSetupGuide() } label: { Label("启用键盘", systemImage: "plus.circle") }
+                    .accessibilityIdentifier("vime.settings.setup")
                 NavigationLink { KeyboardExtensionTestView() } label: { Label("问题诊断", systemImage: "stethoscope") }
             }
             Section {
@@ -111,16 +112,14 @@ struct KeyboardFeedbackSettingsView: View {
             } header: { Text("按键反馈") } footer: {
                 Text("靠近关闭、中、强时松手会吸附，档位之间可连续调节\n声音与振动需要允许完全访问\n静音时不播放按键声，振动效果以实际设备为准")
             }
-            Section("布局") {
+            Section {
                 Picker("数字布局", selection: $nineKeyNumbers) {
                     Text("九宫格").tag(true); Text("全键盘").tag(false)
                 }
                 Toggle("显示长音键 ー", isOn: $prolongedKey)
                 Toggle("按键预览", isOn: $previews)
-            }
-            Section {
+            } header: { Text("布局") } footer: {
                 Text("声音、振动和数字布局也可在键盘左上角快速调整\n修改后重新打开键盘即可读取更新")
-                    .font(.footnote).foregroundStyle(.secondary)
             }
         }
         .navigationTitle("手感与布局").navigationBarTitleDisplayMode(.inline)
@@ -148,23 +147,60 @@ private struct AppHapticScale: UIViewRepresentable {
 
 struct KeyboardDataPrivacyView: View {
     var body: some View {
-        List {
-            Section("本地数据") {
-                Text("转换、纠错、智能排序和联想在设备上运行")
-                Text("确认的词语、读音与使用情况用于本地学习，帮助调整以后的候选")
-                Text("App 与键盘通过 App Group 共享设置、皮肤、用户词典和学习文件")
+        ScrollView {
+            VStack(alignment: .leading, spacing: 28) {
+                HStack(alignment: .top, spacing: 14) {
+                    Image(systemName: "lock.shield")
+                        .font(.title2).foregroundStyle(.tint)
+                        .frame(width: 48, height: 48)
+                        .background(Color.accentColor.opacity(0.1), in: RoundedRectangle(cornerRadius: 14))
+                        .accessibilityHidden(true)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("输入数据留在本机").font(.headline)
+                        Text("转换、纠错、排序和联想在设备上完成，不上传输入或剪贴板内容。")
+                            .font(.subheadline).foregroundStyle(.secondary).lineSpacing(4)
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("管理与政策").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+                        .accessibilityAddTraits(.isHeader)
+                    AppSettingsActionGroup {
+                        NavigationLink { KeyboardClipboardSettingsView() } label: {
+                            AppSettingsActionRow(title: "剪贴板自动读取", subtitle: "管理读取开关与系统授权", symbol: "doc.on.clipboard")
+                        }.accessibilityIdentifier("vime.privacy.clipboard")
+                        Divider().padding(.leading, 52)
+                        NavigationLink { KeyboardUserDictionaryView() } label: {
+                            AppSettingsActionRow(title: "用户词典", subtitle: "编辑、删除或导出已添加的词条", symbol: "character.book.closed")
+                        }.accessibilityIdentifier("vime.privacy.dictionary")
+                        Divider().padding(.leading, 52)
+                        NavigationLink { PrivacyPolicyView() } label: {
+                            AppSettingsActionRow(title: "隐私政策", subtitle: "阅读完整的信息处理与权限说明", symbol: "doc.text")
+                        }.accessibilityIdentifier("vime.privacy.policy")
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 20) {
+                    Text("本地数据说明").font(.headline).accessibilityAddTraits(.isHeader)
+                    information("输入与学习", text: "确认的词语、读音和使用情况用于本地学习，帮助调整候选。关闭智能排序或下一词联想会保留已有学习数据。")
+                    information("存储与备份", text: "App 与键盘在本机共享设置、皮肤、用户词典和学习文件。系统备份可能包含这些数据，恢复备份时也可能恢复。")
+                    information("管理与删除", text: "自定义皮肤可在“定制”页编辑、导出和删除。目前没有统一清空学习数据的入口；删除词典条目不会同时删除相关学习记录。")
+                }
+                .padding(.horizontal, 4)
             }
-            Section("管理") {
-                NavigationLink("剪贴板自动读取") { KeyboardClipboardSettingsView() }
-                NavigationLink("用户词典") { KeyboardUserDictionaryView() }
-                Text("自定义皮肤可在定制页编辑、导出和删除")
-                Text("关闭智能排序或下一词联想只关闭对应功能，已有学习数据会保留")
-                Text("系统备份可能包含本地数据，恢复备份也可能恢复这些数据")
-            }
-            Section {
-                NavigationLink("隐私政策") { PrivacyPolicyView() }
-            }
+            .frame(maxWidth: 640, alignment: .leading)
+            .padding(20)
+            .frame(maxWidth: .infinity)
         }
+        .background(Color(uiColor: .systemGroupedBackground))
         .navigationTitle("数据与隐私").navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func information(_ title: String, text: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title).font(.subheadline.weight(.semibold)).accessibilityAddTraits(.isHeader)
+            Text(text).font(.subheadline).foregroundStyle(.secondary).lineSpacing(4)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 }

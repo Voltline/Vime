@@ -183,7 +183,7 @@ final class KeyboardQuickInputTests: XCTestCase {
         }, unmarkText: { text.unmarkText() }, insertText: { text.insertText($0) },
             deleteBackward: { text.deleteBackward() },
             undoAnchor: { .init(document: "remote", before: "KEEP 12+34", after: "", selection: nil) })
-        host.updateMarkedText("34")
+        host.updatePreedit(.init(text: "34"))
         XCTAssertTrue(host.replaceText(.init(anchor: .init(document: "remote", before: "KEEP 12+", after: ""),
             markedText: "34", committedSuffix: "12+", text: "46")))
         XCTAssertEqual(emptyMarks, 0)
@@ -267,7 +267,7 @@ final class KeyboardQuickInputTests: XCTestCase {
         let fixture = try Fixture()
         defer { fixture.close() }
         fixture.text.text = "1+"; fixture.text.selectedRange = NSRange(location: 2, length: 0)
-        fixture.host.updateMarkedText("1")
+        fixture.host.updatePreedit(.init(text: "1"))
         let request = KeyboardTextReplacement(anchor: .init(document: "wrong", before: "1+", after: ""),
             markedText: "1", committedSuffix: "1+", text: "2")
         XCTAssertFalse(fixture.host.replaceText(request))
@@ -283,7 +283,7 @@ final class KeyboardQuickInputTests: XCTestCase {
             unmarkText: { text.unmarkText() }, insertText: { text.insertText($0) },
             deleteBackward: { deletes += 1; text.deleteBackward() },
             undoAnchor: { .init(document: "delayed", before: "KEEP👩🏽‍💻 1+1", after: "", selection: nil) })
-        host.updateMarkedText("1")
+        host.updatePreedit(.init(text: "1"))
         XCTAssertTrue(host.replaceText(.init(anchor: .init(document: "delayed", before: "KEEP👩🏽‍💻 1+", after: ""),
             markedText: "1", committedSuffix: "1+", text: "1+1=2")))
         XCTAssertEqual(text.text, "KEEP👩🏽‍💻 1+1=2")
