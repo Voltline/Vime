@@ -3,6 +3,7 @@ import UIKit
 final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate {
     var hasFullAccess = true {
         didSet {
+            if oldValue != hasFullAccess { updateClipboardMonitoring() }
             if oldValue != hasFullAccess, settingsPanel != nil {
                 settingsPanel?.removeFromSuperview(); settingsPanel = nil
                 createSettingsPanel(); refresh()
@@ -25,6 +26,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     /// Preferred host callback. Falls back to the legacy text callback if unset.
     var onPreeditChange: ((KeyboardPreedit?) -> Void)?
     var onHeightChange: (() -> Void)?
+    var onReplaceText: ((KeyboardTextReplacement) -> Bool)?
     var deletionAvailabilityProvider: (() -> Bool)?
     var heightFactor: CGFloat = 1 {
         didSet {
@@ -40,6 +42,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         appliedPreferences = next
         heightFactor = CGFloat(next.heightFactor)
         session.updateIntelligence(ranking: next.candidateRanking, suggestionsEnabled: next.phraseSuggestions)
+        if next.clipboardSuggestions != previous?.clipboardSuggestions { updateClipboardMonitoring() }
         if next.nineKeyNumbers != previous?.nineKeyNumbers || next.prolongedKey != previous?.prolongedKey {
             rebuildKeys()
         }
@@ -83,6 +86,12 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         session.inputTraits.convertsNumbers && keyboardType == .default
             && !text.isEmpty && text.allSatisfy { $0.isASCII && $0.isNumber }
     }
+    private func composesNumberPageInput(_ text: String) -> Bool {
+        if shouldConvertNumber(text) { return true }
+        let mark = session.markedText?.text ?? ""
+        let numeric = !mark.isEmpty && mark.allSatisfy { "0123456789０１２３４５６７８９.．".contains($0) }
+        return session.isComposing && !numeric && session.inputTraits.compositionInputSymbols.contains(text)
+    }
     private let session: any KeyboardInputSession
     private var displayedCandidates: [CandidatePresentation] = []
     private var displayedSelection: Int?
@@ -102,6 +111,12 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     private let header = UIView()
     private let candidateScroll = UIScrollView()
     private let candidateRow = UIView()
+    private let quickCandidates = KeyboardQuickCandidateStrip()
+    private let clipboardButton = UIButton(type: .system)
+    private let clipboard: KeyboardClipboard
+    private var clipboardTimer: Timer?
+    private var clipboardActive = true
+    private var clipboardOpen = false
     private var stripButtons: [KeyboardCandidateButton] = []
     private var spareCandidateButtons: [KeyboardCandidateButton] = []
     private var displayedLanguage: KeyboardInputLanguage?
@@ -147,9 +162,11 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         self.init(frame: frame, session: KeyboardSession(asynchronousCandidates: true))
     }
 
-    init(frame: CGRect, session: any KeyboardInputSession, preferences: KeyboardPreferences = KeyboardPreferences()) {
+    init(frame: CGRect, session: any KeyboardInputSession, preferences: KeyboardPreferences = KeyboardPreferences(),
+         clipboard: KeyboardClipboard? = nil) {
         self.session = session
         self.preferences = preferences
+        self.clipboard = clipboard ?? KeyboardClipboard()
         super.init(frame: frame)
         heightFactor = CGFloat(preferences.heightFactor)
         KeyboardPalette.theme = preferences.theme
@@ -219,6 +236,21 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         panelScroll.accessibilityIdentifier = "vime.candidates.panel"
         candidateScroll.showsHorizontalScrollIndicator = false
         candidateScroll.addSubview(candidateRow)
+        header.addSubview(quickCandidates)
+        quickCandidates.onSelect = { [weak self] in self?.selectQuickCandidate($0) }
+        header.addSubview(clipboardButton)
+        clipboardButton.setImage(UIImage(systemName: "doc.on.clipboard"), for: .normal)
+        clipboardButton.accessibilityIdentifier = "vime.clipboard"
+        clipboardButton.accessibilityLabel = "显示剪贴板内容"
+        clipboardButton.addTarget(self, action: #selector(toggleClipboard), for: .touchUpInside)
+        self.clipboard.onChange = { [weak self] in
+            guard let self else { return }
+            if !self.clipboardActive || self.window == nil || !self.preferences.clipboardSuggestions || !self.hasFullAccess {
+                self.clipboard.clear()
+            }
+            if self.clipboard.text == nil { self.clipboardOpen = false }
+            self.refresh()
+        }
         header.addSubview(expandButton)
         expandButton.tintColor = .secondaryLabel
         expandButton.backgroundColor = KeyboardPalette.key
@@ -288,7 +320,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
             self.apply(self.session.confirmAll() + [.deleteToLineStart])
         }
         divider.isHidden = true
-        for button in [brandButton, modeButton, undoButton, settingsButton, expandButton, cancelButton] {
+        for button in [brandButton, modeButton, clipboardButton, undoButton, settingsButton, expandButton, cancelButton] {
             button.addTarget(self, action: #selector(toolbarFeedback), for: .touchDown)
         }
         configureGlobe()
@@ -306,6 +338,47 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        updateClipboardMonitoring()
+    }
+
+    func setClipboardActive(_ active: Bool) {
+        clipboardActive = active
+        updateClipboardMonitoring()
+    }
+
+    private func updateClipboardMonitoring() {
+        let active = clipboardActive && window != nil && preferences.clipboardSuggestions && hasFullAccess
+        guard active else {
+            clipboardTimer?.invalidate(); clipboardTimer = nil
+            clipboardOpen = false
+            clipboard.clear()
+            refresh()
+            return
+        }
+        guard clipboardTimer == nil else { return }
+        let timer = Timer(timeInterval: KeyboardClipboard.pollingInterval, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.pollClipboard() }
+        }
+        timer.tolerance = 0.4
+        clipboardTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
+        pollClipboard()
+    }
+
+    @objc private func pollClipboard() {
+        guard clipboardActive, window != nil, preferences.clipboardSuggestions, hasFullAccess else {
+            updateClipboardMonitoring(); return
+        }
+        clipboard.poll(enabled: true, hasFullAccess: true)
+        if !clipboardActive || window == nil || !preferences.clipboardSuggestions || !hasFullAccess {
+            updateClipboardMonitoring()
+        }
+    }
+
+    deinit { clipboardTimer?.invalidate() }
     override var intrinsicContentSize: CGSize { CGSize(width: UIView.noIntrinsicMetric, height: preferredHeight(for: bounds.width)) }
 
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
@@ -350,15 +423,28 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         brandArtwork.frame = brandButton.bounds.insetBy(dx: 2, dy: 2)
         brandButton.imageView?.isHidden = brandArtwork.image != nil
         modeButton.frame = metrics.trailingToolbarFrame(index: 1)
-        undoButton.frame = metrics.trailingToolbarFrame(index: 2)
+        clipboardButton.frame = metrics.trailingToolbarFrame(index: 2)
+        undoButton.frame = metrics.trailingToolbarFrame(index: clipboardButton.isHidden ? 2 : 3)
         neuralStatusLabel.frame = CGRect(x: brandButton.frame.maxX + 8, y: centerY - diameter / 2,
             width: max(0, undoButton.frame.minX - brandButton.frame.maxX - 16), height: diameter)
         expandButton.frame = metrics.trailingToolbarFrame(index: 0)
-        for button in [brandButton, undoButton, modeButton, expandButton] { button.layer.cornerRadius = diameter / 2 }
+        for button in [brandButton, clipboardButton, undoButton, modeButton, expandButton] { button.layer.cornerRadius = diameter / 2 }
         candidateScroll.frame = CGRect(x: compact ? metrics.contentLeft : 4 * xScale,
             y: centerY - (compact ? 13 : 17 * scale),
             width: compact ? expandButton.frame.minX - KeyboardMetrics.toolbarGap - metrics.contentLeft : width - 55 * xScale,
             height: compact ? 26 : 34 * scale)
+        if !candidateScroll.isHidden || !quickCandidates.isHidden {
+            var left = candidateScroll.frame.minX
+            if !brandButton.isHidden { left = brandButton.frame.maxX + 4 }
+            if !clipboardButton.isHidden {
+                clipboardButton.frame = CGRect(x: left, y: centerY - diameter / 2, width: diameter, height: diameter)
+                left = clipboardButton.frame.maxX + 4
+            }
+            let right = candidateScroll.frame.maxX
+            candidateScroll.frame = CGRect(x: left, y: candidateScroll.frame.minY,
+                width: max(0, right - left), height: candidateScroll.frame.height)
+        }
+        quickCandidates.frame = candidateScroll.frame
         layoutCandidateStrip()
         cancelButton.frame = .zero
         panelTitle.frame = CGRect(x: 12 * xScale, y: 0, width: width - 185 * xScale, height: headerHeight)
@@ -521,7 +607,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
                     item.0.alternateTitle = Self.letterHints[value]
                     item.0.alternateAction = { [weak self] in
                         guard let self, let hint = Self.letterHints[value] else { return }
-                        self.apply(self.session.insertLiteral(hint))
+                        self.insertSymbol(hint)
                     }
                     letterKeys.append(item.0)
                     row.append(item)
@@ -554,8 +640,8 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
                         case "符号": self.openSymbolPanel(mode: .symbols)
                         case "换行": self.apply(self.session.enter())
                         default:
-                            let composes = self.shouldConvertNumber(value) || (self.session.isComposing && self.session.inputTraits.compositionInputSymbols.contains(value))
-                            self.apply(composes ? self.session.type(value) : self.session.insertLiteral(value))
+                            let composes = self.composesNumberPageInput(value)
+                            if composes { self.apply(self.session.type(value)) } else { self.insertSymbol(value) }
                         }
                     }
                     item.0.accessibilityIdentifier = "vime.number." + value
@@ -574,10 +660,10 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
                 var row = values.map { value in
                     let item = key(value) { [weak self] in
                         guard let self else { return }
-                        if self.shouldConvertNumber(value) || (self.session.isComposing && self.session.inputTraits.compositionInputSymbols.contains(value)) {
+                        if self.composesNumberPageInput(value) {
                             self.apply(self.session.type(value))
                         } else {
-                            self.apply(self.session.insertLiteral(value))
+                            self.insertSymbol(value)
                         }
                     }
                     item.0.titleLabel?.font = .systemFont(ofSize: 21)
@@ -668,6 +754,22 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         session.isComposing || (deletionAvailabilityProvider?() ?? true)
     }
 
+    private static let bracketPairs: [String: String] = [
+        "(": ")", "（": "）", "[": "]", "［": "］", "{": "}", "｛": "｝",
+        "「": "」", "『": "』", "【": "】", "〔": "〕", "〈": "〉", "《": "》",
+        "〖": "〗", "〘": "〙", "〚": "〛", "⌈": "⌉", "⌊": "⌋", "⟨": "⟩"
+    ]
+
+    private func insertSymbol(_ text: String) {
+        guard preferences.autoPairBrackets, let closing = Self.bracketPairs[text] else {
+            apply(session.insertLiteral(text)); return
+        }
+        let edits = session.confirmAll()
+        session.invalidateLearningFeedback()
+        session.reset()
+        apply(edits + [.insertPair(opening: text, closing: closing)])
+    }
+
     private func apply(_ edits: [KeyboardEdit]) {
         if !edits.isEmpty, let onEditsAndPreeditChange {
             onEditsAndPreeditChange(edits, session.markedText)
@@ -703,10 +805,11 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         set { session.learningContextProvider = newValue }
     }
 
-    func hostContextDidChange() { session.didApplyEdits([]) }
+    func hostContextDidChange() { session.didApplyEdits([]); refresh() }
     func finishLearningFeedback() { session.finishLearningFeedback() }
 
     func resetComposition() {
+        clipboardOpen = false
         session.reset()
         expanded = false
         if let onPreeditChange { onPreeditChange(nil) } else { onMarkedTextChange?(nil) }
@@ -722,6 +825,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     }
 
     func releaseInactiveResources() {
+        setClipboardActive(false)
         session.releaseInactiveResources()
         spareCandidateButtons.removeAll(keepingCapacity: false)
         sparePanelButtons.removeAll(keepingCapacity: false)
@@ -732,6 +836,8 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     }
 
     func handleMemoryPressure() {
+        clipboardOpen = false
+        clipboard.clear()
         KeyboardEmojiImages.clear()
         spareCandidateButtons.removeAll(keepingCapacity: false)
         sparePanelButtons.removeAll(keepingCapacity: false)
@@ -756,17 +862,24 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         languageKey?.accessibilityLabel = traits.languageSwitchAccessibilityLabel
         let composing = session.isComposing
         // Composition candidates and LM suggestions share the strip.
-        let strip = session.showsStrip
+        let quick = quickCandidateItems()
+        let showsQuick = !quick.isEmpty
+        let strip = session.showsStrip || showsQuick
+        quickCandidates.present(quick)
+        quickCandidates.isHidden = !showsQuick || expanded || emojiOpen || settingsOpen
+        clipboardButton.isHidden = clipboard.text == nil || !preferences.clipboardSuggestions || !hasFullAccess
+            || expanded || emojiOpen || settingsOpen
         let neuralPaused = session.neuralModeSuspendedForMemoryPressure
         neuralStatusLabel.isHidden = !neuralPaused || strip || expanded || emojiOpen || settingsOpen
         settingsNeuralStatusLabel?.isHidden = !neuralPaused
         header.isHidden = emojiOpen
         undoButton.isHidden = !canUndoLineDeletion || strip || expanded || settingsOpen || emojiOpen
-        brandButton.isHidden = strip || expanded || emojiOpen
+        let showsQuickToolbar = showsQuick && !composing && !clipboardOpen
+        brandButton.isHidden = (strip && !showsQuickToolbar) || expanded || emojiOpen
         modeButton.isHidden = strip || expanded || emojiOpen || !session.inputTraits.supportsPrimaryVariant
         modeButton.accessibilityLabel = session.inputTraits.primaryVariantAccessibilityLabel
         settingsButton.isHidden = true
-        candidateScroll.isHidden = !strip || expanded || emojiOpen || settingsOpen
+        candidateScroll.isHidden = !strip || showsQuick || expanded || emojiOpen || settingsOpen
         expandButton.isHidden = false
         cancelButton.isHidden = true
         modeButton.setTitle(session.inputTraits.modeLabel, for: .normal)
@@ -816,7 +929,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         // The retained list may belong to the previous input revision. Keep
         // its appearance, but never let a stale tap discard the newer letters.
         stripButtons.forEach { $0.isUserInteractionEnabled = session.candidatesAreCurrent && $0.selectionToken != nil }
-        let panelOpen = expanded || settingsOpen || emojiOpen
+        let panelOpen = expanded || settingsOpen || emojiOpen || clipboardOpen
         expandButton.setImage(UIImage(systemName: panelOpen ? "chevron.up" : "chevron.down"), for: .normal)
         expandButton.accessibilityLabel = panelOpen ? "返回键盘" : composing ? "展开候选词" : "收起键盘"
         expandButton.accessibilityIdentifier = panelOpen ? "vime.panel.close" : "vime.candidates.expand"
@@ -973,6 +1086,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     @objc private func switchKeyboard() { confirmComposition(); onSwitchKeyboard?() }
 
     @objc private func headerArrow() {
+        if clipboardOpen { clipboardOpen = false; refresh(); return }
         if expanded || settingsOpen || emojiOpen {
             expanded = false; settingsOpen = false; emojiOpen = false; refresh()
         } else if session.isComposing { toggleExpanded() }
@@ -1001,7 +1115,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
                 guard let self else { return }
                 self.playFeedback()
                 let composes = self.session.isComposing && self.session.inputTraits.compositionInputSymbols.contains(text)
-                self.apply(composes ? self.session.type(text) : self.session.insertLiteral(text))
+                if composes { self.apply(self.session.type(text)) } else { self.insertSymbol(text) }
             }
             panel.onClose = { [weak self] in self?.headerArrow() }
             addSubview(panel); symbolPanel = panel
@@ -1014,6 +1128,68 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     @objc private func toggleKana() {
         apply(session.togglePrimaryVariant())
         rebuildKeys()
+    }
+
+    @objc private func toggleClipboard() {
+        guard preferences.clipboardSuggestions, hasFullAccess, clipboard.text != nil else { return }
+        clipboardOpen.toggle()
+        expanded = false; settingsOpen = false
+        refresh()
+    }
+
+    private func quickCandidateItems() -> [KeyboardQuickCandidate] {
+        if clipboardOpen, let text = clipboard.text {
+            let preview = String(String.UnicodeScalarView(text.unicodeScalars.prefix(160))).replacingOccurrences(of: "\n", with: " ↵ ")
+                .replacingOccurrences(of: "\r", with: "").replacingOccurrences(of: "\t", with: " ")
+            return [.init(title: preview, action: .clipboard(text))]
+        }
+        guard page == .numbers else { return [] }
+        // A word being converted keeps its full candidate strip. Pure numeric
+        // input gets shortcuts immediately, including when digits are marked.
+        let mark = session.markedText?.text ?? ""
+        guard mark.isEmpty || mark.allSatisfy({ "0123456789０１２３４５６７８９.．+-−－＋*/×÷＊／()（）%％".contains($0) }) else { return [] }
+        var items: [KeyboardQuickCandidate] = []
+        if onReplaceText != nil, let anchor = learningContextProvider?(), !anchor.hasSelection,
+           let before = anchor.before, let calculation = KeyboardCalculation.trailing(in: before + mark),
+           calculation.expression.hasSuffix(mark), calculation.expression.count >= mark.count {
+            let suffix = String(calculation.expression.dropLast(mark.count))
+            for text in [calculation.result, calculation.equation] {
+                let replacement = KeyboardTextReplacement(anchor: anchor, markedText: session.markedText?.text,
+                    committedSuffix: suffix, text: text)
+                items.append(.init(title: text, action: .replacement(replacement)))
+            }
+        }
+        items += KeyboardCalculation.symbols.map { .init(title: $0, action: .symbol($0)) }
+        return items
+    }
+
+    private func selectQuickCandidate(_ item: KeyboardQuickCandidate) {
+        guard quickCandidateItems().contains(item) else { refresh(); return }
+        playFeedback()
+        switch item.action {
+        case .symbol(let text):
+            clipboardOpen = false
+            insertSymbol(text)
+        case .clipboard(let text):
+            guard preferences.clipboardSuggestions, hasFullAccess, clipboard.text == text else { return }
+            clipboardOpen = false
+            // Commit an existing reading, then insert the literal clipboard.
+            // Do not send the pasted text through candidate selection/learning.
+            let edits = session.confirmAll()
+            session.invalidateLearningFeedback()
+            session.reset()
+            apply(edits + [.insert(text)])
+            clipboard.consume()
+        case .replacement(let replacement):
+            guard learningContextProvider?() == replacement.anchor,
+                  session.markedText?.text == replacement.markedText,
+                  onReplaceText?(replacement) == true else { refresh(); return }
+            session.invalidateLearningFeedback()
+            session.reset()
+            expanded = false
+            onCompositionChange?("")
+            refresh()
+        }
     }
 
     @objc private func cancelComposition() { resetComposition() }
@@ -1171,7 +1347,9 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
             button.applyTheme()
             button.tintColor = KeyboardPalette.text
         }
-        for button in [brandButton, undoButton, modeButton, expandButton] { button.backgroundColor = KeyboardPalette.key }
+        for button in [brandButton, clipboardButton, undoButton, modeButton, expandButton] { button.backgroundColor = KeyboardPalette.key }
+        clipboardButton.tintColor = KeyboardPalette.accent
+        quickCandidates.applyTheme()
         undoButton.tintColor = KeyboardPalette.accent
         deletePrompt.applyTheme()
         panelTitle.textColor = KeyboardPalette.text

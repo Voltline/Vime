@@ -32,6 +32,7 @@ nonisolated struct KeyboardInputTraits: Equatable, Sendable {
 
 nonisolated enum KeyboardEdit: Equatable, Sendable {
     case insert(String), deleteBackward, returnKey
+    case insertPair(opening: String, closing: String)
     case moveCursor(horizontal: Int, vertical: Int)
     case deleteToLineStart, undoLineDeletion
 }

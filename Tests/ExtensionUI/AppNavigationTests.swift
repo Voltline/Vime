@@ -35,7 +35,7 @@ final class AppNavigationTests: XCTestCase {
         app.buttons["隐私政策"].tap()
         XCTAssertTrue(app.navigationBars["隐私政策"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.scrollViews["vime.privacy.document"].exists)
-        XCTAssertTrue(app.staticTexts["概述"].exists)
+        XCTAssertTrue(app.staticTexts["一、信息处理的基本原则"].exists)
         capture(app, "Privacy")
         app.navigationBars.buttons.firstMatch.tap()
         app.navigationBars.buttons.firstMatch.tap()

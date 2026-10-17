@@ -12,6 +12,7 @@ class KeyboardViewController: UIInputViewController {
     private var knownAfter: String?
     private var knownSelected: String?
     private var isApplyingEdits = false
+    private var clipboardVisible = false
     private var partialCommitReceipt: KeyboardPartialCommitReceipt?
     private var consumedLineContext: KeyboardUndoAnchor?
     private static let documentIdentifierSelector = NSSelectorFromString("documentIdentifier")
@@ -22,6 +23,7 @@ class KeyboardViewController: UIInputViewController {
         insertText: { [weak self] in self?.textDocumentProxy.insertText($0) },
         deleteBackward: { [weak self] in self?.textDocumentProxy.deleteBackward() },
         moveCursor: { [weak self] in self?.moveCursor(horizontal: $0, vertical: $1) },
+        adjustInsertionPosition: { [weak self] in self?.textDocumentProxy.adjustTextPosition(byCharacterOffset: $0) },
         deleteToLineStart: { [weak self] in self?.deleteLinePrefix() ?? "" },
         undoAnchor: { [weak self] in self?.deletionUndoAnchor() }
     )
@@ -36,6 +38,7 @@ class KeyboardViewController: UIInputViewController {
         VimeExtensionAudit.start()
         VimeExtensionAudit.recordLifecycle(event: .viewDidLoad)
         keyboard.hasFullAccess = hasFullAccess
+        keyboard.setClipboardActive(false)
         keyboard.showsFooter = needsInputModeSwitchKey
         keyboard.needsGlobe = needsInputModeSwitchKey
         keyboard.inputModeListAction = #selector(switchInputMode(_:event:))
@@ -67,8 +70,13 @@ class KeyboardViewController: UIInputViewController {
         keyboard.onEdit = { [weak self] edits in self?.apply(edits) }
         keyboard.onEditsAndPreeditChange = { [weak self] in self?.apply($0, preedit: $1) }
         keyboard.onPreeditChange = { [weak self] in self?.updatePreedit($0) }
+        keyboard.onReplaceText = { [weak self] in self?.replaceText($0) ?? false }
         keyboard.onSwitchKeyboard = { [weak self] in self?.advanceToNextInputMode() }
         keyboard.onDismiss = { [weak self] in self?.dismissKeyboard() }
+        NotificationCenter.default.addObserver(self, selector: #selector(pauseClipboard),
+            name: .NSExtensionHostWillResignActive, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(resumeClipboard),
+            name: .NSExtensionHostDidBecomeActive, object: nil)
         host.onUndoAvailabilityChange = { [weak self] in self?.keyboard.canUndoLineDeletion = $0 }
     }
 
@@ -85,6 +93,12 @@ class KeyboardViewController: UIInputViewController {
         updateKeyboardGeometry()
         updateTraits()
         rememberContext()
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        clipboardVisible = true
+        keyboard.setClipboardActive(true)
     }
 
     override func viewWillLayoutSubviews() {
@@ -104,6 +118,8 @@ class KeyboardViewController: UIInputViewController {
         logLifecycle("disappearing")
         VimeExtensionAudit.recordLifecycle(event: .viewWillDisappear)
         keyboard.stopInteractions()
+        clipboardVisible = false
+        keyboard.setClipboardActive(false)
         keyboard.finishLearningFeedback()
         host.abandon()
         keyboard.resetComposition()
@@ -131,6 +147,13 @@ class KeyboardViewController: UIInputViewController {
         let seconds = Int(ProcessInfo.processInfo.systemUptime - startedAt)
         let instance = String(describing: ObjectIdentifier(self))
         lifecycleLog.notice("Keyboard \(event, privacy: .public); pid=\(ProcessInfo.processInfo.processIdentifier) instance=\(instance, privacy: .public) liveControllers=\(Self.liveControllers.allObjects.count) age=\(seconds)s footprint=\(VimeLanguageModel.footprintMB())MB")
+    }
+
+    @objc private func pauseClipboard() { keyboard.setClipboardActive(false) }
+    @objc private func resumeClipboard() {
+        guard clipboardVisible, isViewLoaded, view.window != nil else { return }
+        keyboard.reloadPreferences()
+        keyboard.setClipboardActive(true)
     }
 
     deinit {
@@ -202,6 +225,15 @@ class KeyboardViewController: UIInputViewController {
         defer { isApplyingEdits = false }
         host.apply(edits)
         rememberContext()
+    }
+
+    private func replaceText(_ replacement: KeyboardTextReplacement) -> Bool {
+        isApplyingEdits = true
+        defer { isApplyingEdits = false }
+        guard host.replaceText(replacement) else { return false }
+        partialCommitReceipt = KeyboardPartialCommitReceipt(replacement: replacement)
+        rememberContext()
+        return true
     }
 
     private func apply(_ edits: [KeyboardEdit], preedit: KeyboardPreedit?) {

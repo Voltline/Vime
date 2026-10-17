@@ -12,11 +12,22 @@ nonisolated struct KeyboardPartialCommitReceipt {
     private let prefix: String
     private let after: String?
     private var markedTails: [String]
+    private var replacementStages: [String] = []
+    private var pairedClosing: String?
 
     init?(document: String, before: String?, after: String?, selection: String?,
           ownedMark: String?, edits: [KeyboardEdit], preedit: KeyboardPreedit?) {
-        guard selection?.isEmpty != false, edits.count == 1,
-              case let .insert(text) = edits[0] else { return nil }
+        guard selection?.isEmpty != false, !edits.isEmpty else { return nil }
+        var text = ""
+        for (index, edit) in edits.enumerated() {
+            switch edit {
+            case .insert(let value): text += value
+            case .insertPair(let opening, let closing) where index == edits.count - 1:
+                text += opening
+                pairedClosing = closing
+            default: return nil
+            }
+        }
         // A proxy can exclude its owned mark and expose nil at an empty left
         // boundary. Its later nonnil committed suffix is still a valid receipt.
         let before = before ?? ""
@@ -31,6 +42,25 @@ nonisolated struct KeyboardPartialCommitReceipt {
         markedTails = preedit.map { [$0.text] } ?? []
     }
 
+    init?(replacement: KeyboardTextReplacement) {
+        guard !replacement.anchor.hasSelection, let before = replacement.anchor.before,
+              before.hasSuffix(replacement.committedSuffix),
+              replacement.committedSuffix.count + (replacement.markedText?.count ?? 0) <= KeyboardCalculation.maximumCharacters else { return nil }
+        document = replacement.anchor.document
+        originalBefore = String(before.suffix(96)) + (replacement.markedText ?? "")
+        left = String(before.dropLast(replacement.committedSuffix.count).suffix(96))
+        prefix = left + replacement.text
+        after = replacement.anchor.after
+        markedTails = []
+        let expression = replacement.committedSuffix + (replacement.markedText ?? "")
+        var stage = String((before + (replacement.markedText ?? "")).suffix(96 + expression.count))
+        replacementStages.append(stage)
+        for _ in expression {
+            stage.removeLast()
+            replacementStages.append(stage)
+        }
+    }
+
     mutating func updatePreedit(_ preedit: KeyboardPreedit) {
         if markedTails.last != preedit.text {
             markedTails.append(preedit.text)
@@ -39,11 +69,18 @@ nonisolated struct KeyboardPartialCommitReceipt {
     }
 
     func acknowledges(document: String, before: String?, after: String?, selection: String?) -> Bool {
-        guard document == self.document, (after ?? "") == (self.after ?? ""), selection?.isEmpty != false,
+        guard document == self.document, selection?.isEmpty != false,
               let before else { return false }
         // old mark -> empty mark -> committed prefix -> new mark. Context can
         // exclude the new mark entirely. Bounded suffixes match proxy windows.
-        return ([originalBefore, left, prefix] + markedTails.map { prefix + $0 }).contains {
+        let expectedStates: [String]
+        if let closing = pairedClosing, (after ?? "") == closing + (self.after ?? "") {
+            expectedStates = [prefix] + markedTails.map { prefix + $0 }
+        } else if (after ?? "") == (self.after ?? "") {
+            expectedStates = [originalBefore, left, prefix + (pairedClosing ?? "")] + replacementStages
+                + (pairedClosing == nil ? markedTails.map { prefix + $0 } : [])
+        } else { return false }
+        return expectedStates.contains {
             expected in
             guard !before.isEmpty, !expected.isEmpty else { return before == expected }
             // Deleting/replacing a mark changes how much older text fits in the

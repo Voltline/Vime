@@ -24,7 +24,7 @@ struct KeyboardPreferences {
         }
     }
     private static let sharedKeys = ["vime.sound", "vime.hapticLevel", "vime.hapticIntensity", "vime.nineKeyNumbers",
-        "vime.prolongedKey", "vime.previews", "vime.theme", "vime.candidateRanking", "vime.phraseSuggestions", "vime.customSkinID", "vime.skinRevision"]
+        "vime.prolongedKey", "vime.previews", "vime.theme", "vime.candidateRanking", "vime.phraseSuggestions", "vime.clipboardSuggestions", "vime.autoPairBrackets", "vime.customSkinID", "vime.skinRevision"]
     var store: UserDefaults { defaults }
     struct Snapshot: Equatable {
         let heightFactor: Double
@@ -38,11 +38,14 @@ struct KeyboardPreferences {
         let skinRevision: Int
         let candidateRanking: CandidateRankingMode
         let phraseSuggestions: Bool
+        let clipboardSuggestions: Bool
+        let autoPairBrackets: Bool
     }
     var snapshot: Snapshot {
         Snapshot(heightFactor: heightFactor, sound: sound, hapticIntensity: hapticIntensity,
             nineKeyNumbers: nineKeyNumbers, prolongedKey: prolongedKey, previews: previews,
-            theme: theme, customSkinID: customSkinID, skinRevision: skinRevision, candidateRanking: candidateRanking, phraseSuggestions: phraseSuggestions)
+            theme: theme, customSkinID: customSkinID, skinRevision: skinRevision, candidateRanking: candidateRanking, phraseSuggestions: phraseSuggestions,
+            clipboardSuggestions: clipboardSuggestions, autoPairBrackets: autoPairBrackets)
     }
     var heightFactor: Double {
         get {
@@ -99,6 +102,15 @@ struct KeyboardPreferences {
     var phraseSuggestions: Bool {
         get { defaults.object(forKey: "vime.phraseSuggestions") as? Bool ?? true }
         nonmutating set { defaults.set(newValue, forKey: "vime.phraseSuggestions") }
+    }
+    /// Only the containing app exposes the opt-in, alongside its explanation.
+    var clipboardSuggestions: Bool {
+        get { defaults.object(forKey: "vime.clipboardSuggestions") as? Bool ?? false }
+        nonmutating set { defaults.set(newValue, forKey: "vime.clipboardSuggestions") }
+    }
+    var autoPairBrackets: Bool {
+        get { defaults.object(forKey: "vime.autoPairBrackets") as? Bool ?? true }
+        nonmutating set { defaults.set(newValue, forKey: "vime.autoPairBrackets") }
     }
 }
 

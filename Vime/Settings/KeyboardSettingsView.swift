@@ -6,10 +6,13 @@ struct KeyboardSettingsView: View {
             Section {
                 NavigationLink { KeyboardInputSettingsView() } label: {
                     SettingsRow(title: "输入与联想", subtitle: "排序、下一词联想、用户词典", symbol: "text.cursor")
-                }
+                }.accessibilityIdentifier("vime.settings.input")
                 NavigationLink { KeyboardFeedbackSettingsView() } label: {
                     SettingsRow(title: "手感与布局", subtitle: "声音、振动、按键预览", symbol: "hand.tap")
                 }.accessibilityIdentifier("vime.settings.feedback")
+                NavigationLink { KeyboardClipboardSettingsView() } label: {
+                    SettingsRow(title: "剪贴板", subtitle: "自动读取、权限与使用说明", symbol: "doc.on.clipboard")
+                }.accessibilityIdentifier("vime.settings.clipboard")
                 NavigationLink { KeyboardDataPrivacyView() } label: {
                     SettingsRow(title: "数据与隐私", subtitle: "本地数据、隐私政策", symbol: "lock.shield")
                 }.accessibilityIdentifier("vime.settings.privacy")
@@ -43,10 +46,12 @@ private struct SettingsRow: View {
 struct KeyboardInputSettingsView: View {
     @AppStorage private var ranking: CandidateRankingMode
     @AppStorage private var suggestions: Bool
+    @AppStorage private var autoPairBrackets: Bool
     init() {
         let prefs = KeyboardPreferences()
         _ranking = AppStorage(wrappedValue: prefs.candidateRanking, "vime.candidateRanking", store: prefs.store)
         _suggestions = AppStorage(wrappedValue: prefs.phraseSuggestions, "vime.phraseSuggestions", store: prefs.store)
+        _autoPairBrackets = AppStorage(wrappedValue: prefs.autoPairBrackets, "vime.autoPairBrackets", store: prefs.store)
     }
     var body: some View {
         Form {
@@ -57,6 +62,12 @@ struct KeyboardInputSettingsView: View {
                 Toggle("下一词联想", isOn: $suggestions)
             } footer: {
                 Text("智能排序使用本地模型调整候选顺序\n下一词联想在确认文字后提供建议\n关闭智能排序或联想不会清除已有学习数据")
+            }
+            Section {
+                Toggle("自动补全括号", isOn: $autoPairBrackets)
+                    .accessibilityIdentifier("vime.settings.autoPairBrackets")
+            } header: { Text("符号输入") } footer: {
+                Text("输入左括号时补上右括号，光标移到中间\n支持 ()、（）、「」等括号；关闭后只输入单个括号\n剪贴板粘贴保持原样")
             }
             Section {
                 NavigationLink("用户词典") { KeyboardUserDictionaryView() }
@@ -144,6 +155,7 @@ struct KeyboardDataPrivacyView: View {
                 Text("App 与键盘通过 App Group 共享设置、皮肤、用户词典和学习文件")
             }
             Section("管理") {
+                NavigationLink("剪贴板自动读取") { KeyboardClipboardSettingsView() }
                 NavigationLink("用户词典") { KeyboardUserDictionaryView() }
                 Text("自定义皮肤可在定制页编辑、导出和删除")
                 Text("关闭智能排序或下一词联想只关闭对应功能，已有学习数据会保留")

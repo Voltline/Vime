@@ -756,7 +756,7 @@ final class VimeLanguageModelMemoryTests: XCTestCase {
                     case .insert(let text): before += text
                     case .deleteBackward: if !before.isEmpty { before.removeLast() }
                     case .returnKey: before += "\n"
-                    case .moveCursor, .deleteToLineStart, .undoLineDeletion:
+                    case .insertPair, .moveCursor, .deleteToLineStart, .undoLineDeletion:
                         throw NSError(domain: "VimeMemoryAudit.UnexpectedNonTextCommit", code: 1)
                     }
                 }

@@ -3,6 +3,49 @@ import UIKit
 
 @MainActor
 final class KeyboardDelayedHostCommitTests: XCTestCase {
+    func testCalculationReplacementReceiptsPreserveNewInputAcrossQueuedHostStages() throws {
+        let preferences = KeyboardPreferences(), previousLayout = preferences.nineKeyNumbers
+        preferences.nineKeyNumbers = true
+        defer { preferences.nineKeyNumbers = previousLayout }
+        let controller = DelayedHostController()
+        controller.loadViewIfNeeded(); controller.viewWillAppear(false)
+        let window = UIWindow(frame: UIScreen.main.bounds)
+        window.rootViewController = UIViewController()
+        controller.view.frame = CGRect(x: 0, y: 240, width: 440, height: 350)
+        window.rootViewController?.view.addSubview(controller.view); window.isHidden = false
+        defer { controller.viewWillDisappear(false); window.isHidden = true }
+        func descendants(_ view: UIView) -> [UIView] { [view] + view.subviews.flatMap(descendants) }
+        let keyboard = try XCTUnwrap(descendants(controller.view).compactMap { $0 as? KeyboardView }.first)
+        func key(title: String) throws -> KeyboardKey {
+            try XCTUnwrap(descendants(keyboard).compactMap { $0 as? KeyboardKey }.first { $0.title(for: .normal) == title })
+        }
+        try key(title: "123").action?()
+        for value in ["1", "+", "1"] {
+            try key(title: value).action?()
+            controller.proxy.acknowledge()
+        }
+        keyboard.hostContextDidChange()
+        let result = try XCTUnwrap(descendants(keyboard).compactMap { $0 as? UIButton }.first {
+            $0.accessibilityIdentifier == "vime.calculation.0"
+        })
+        controller.proxy.captureStages = true
+        result.sendActions(for: .touchUpInside)
+        XCTAssertEqual(controller.proxy.text.text, "2")
+        let replacementStages = controller.proxy.stages
+        try key(title: "ABC").action?()
+        try key(title: "W").action?()
+        controller.proxy.acknowledge()
+        controller.textDidChange(nil)
+        XCTAssertEqual(keyboard.accessibilityValue, "输入中：w")
+        for (before, after) in replacementStages {
+            controller.proxy.publish(before: before, after: after)
+            controller.textDidChange(nil); controller.selectionDidChange(nil)
+            XCTAssertEqual(keyboard.accessibilityValue, "输入中：w", "Late replacement state must not clear the next reading")
+        }
+        controller.proxy.acknowledge(); controller.textDidChange(nil)
+        XCTAssertEqual(controller.proxy.text.text, "2w")
+    }
+
     func testEmptyFieldCommitReceiptWithNilContextExcludingOwnedMark() throws {
         let receipt = try XCTUnwrap(KeyboardPartialCommitReceipt(document: "A", before: nil, after: nil,
             selection: nil, ownedMark: "とうきょう", edits: [.insert("東京")], preedit: nil))
@@ -218,7 +261,7 @@ private final class DelayedDocumentProxy: NSObject, UITextDocumentProxy {
         (publishedBefore, publishedAfter) = context()
     }
     func insertText(_ value: String) { delayed = true; text.insertText(value); capture() }
-    func deleteBackward() { text.deleteBackward(); if !delayed { acknowledge() } }
+    func deleteBackward() { text.deleteBackward(); capture(); if !delayed { acknowledge() } }
     func adjustTextPosition(byCharacterOffset offset: Int) {
         text.selectedRange = NSRange(location: text.selectedRange.location + offset, length: 0)
         if !delayed { acknowledge() }

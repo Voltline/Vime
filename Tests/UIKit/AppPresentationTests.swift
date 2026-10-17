@@ -1,5 +1,6 @@
 import XCTest
 import Combine
+import SwiftUI
 @testable import Vime
 
 @MainActor
@@ -68,7 +69,7 @@ final class AppPresentationTests: XCTestCase {
         XCTAssertEqual(preferences.snapshot, previous)
         withExtendedLifetime((errorSubscription, decoderSubscription, sheetSubscription)) {}
     }
-    func testBundledComponentNoticesCoverOriginalBytesAndPolicyLoadsOffline() throws {
+    func testBundledComponentNoticesCoverOriginalBytesAndPolicyLoadsOffline() async throws {
         let catalog = try Vime.LicenseCatalog()
         XCTAssertEqual(catalog.components.count, 12)
         let url = try XCTUnwrap(Bundle.main.url(forResource: "ThirdPartyNotices", withExtension: "txt"))
@@ -83,8 +84,25 @@ final class AppPresentationTests: XCTestCase {
         let own = try XCTUnwrap(catalog.components.first { $0.id == "vime" })
         XCTAssertTrue(try catalog.notice(for: own).contains("GNU GENERAL PUBLIC LICENSE"))
         let policy = try Vime.PrivacyPolicy.load()
-        XCTAssertEqual(policy.sections.count, 9)
-        XCTAssertTrue(policy.sections.contains { $0.title == "完全访问" })
+        XCTAssertFalse(policy.introduction.isEmpty)
+        XCTAssertEqual(policy.effective, policy.updated)
+        XCTAssertTrue(policy.sections.contains { $0.title.contains("系统权限") })
+        let clipboardPolicy = try XCTUnwrap(policy.sections.first { $0.title.contains("剪贴板") })
+        XCTAssertTrue(clipboardPolicy.paragraphs.contains { $0.contains("默认关闭") })
+        XCTAssertTrue(clipboardPolicy.paragraphs.contains { $0.contains("不进行任何上传") })
         XCTAssertTrue(policy.sections.flatMap(\.paragraphs).contains { $0.contains("已有学习数据") })
+        for (name, page) in [("剪贴板设置", AnyView(Vime.KeyboardClipboardSettingsView())),
+                             ("隐私政策", AnyView(Vime.PrivacyPolicyView()))] {
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+            let controller = UIHostingController(rootView: NavigationStack { page })
+            window.rootViewController = controller; window.isHidden = false
+            defer { window.isHidden = true }
+            controller.view.frame = window.bounds
+            controller.view.setNeedsLayout(); controller.view.layoutIfNeeded()
+            try await Task.sleep(for: .milliseconds(200))
+            let image = UIGraphicsImageRenderer(bounds: window.bounds).image { window.layer.render(in: $0.cgContext) }
+            let attachment = XCTAttachment(image: image)
+            attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
+        }
     }
 }

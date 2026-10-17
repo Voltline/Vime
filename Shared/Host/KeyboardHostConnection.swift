@@ -9,13 +9,14 @@ struct KeyboardUndoAnchor: Equatable {
 
 /// Tracks the preedit sent to the host. Each setMarkedText replaces its range;
 /// compound writes through a remote proxy are not an atomic transaction.
-/// No reconstruction or backward deletion of surrounding text is used.
+/// Ordinary commits do not reconstruct or delete surrounding text.
 final class KeyboardHostConnection {
     private let setMarkedText: (String, NSRange) -> Void
     private let unmarkText: () -> Void
     private let insertText: (String) -> Void
     private let deleteBackward: () -> Void
     private let moveCursor: (Int, Int) -> Void
+    private let adjustInsertionPosition: (Int) -> Void
     private let deleteToLineStart: () -> String
     private let undoAnchor: () -> KeyboardUndoAnchor?
     private var deletedLine: (text: String, anchor: KeyboardUndoAnchor?)?
@@ -29,6 +30,7 @@ final class KeyboardHostConnection {
          insertText: @escaping (String) -> Void,
          deleteBackward: @escaping () -> Void,
          moveCursor: @escaping (Int, Int) -> Void = { _, _ in },
+         adjustInsertionPosition: @escaping (Int) -> Void = { _ in },
          deleteToLineStart: @escaping () -> String = { "" },
          undoAnchor: @escaping () -> KeyboardUndoAnchor? = { nil }) {
         self.setMarkedText = setMarkedText
@@ -36,6 +38,7 @@ final class KeyboardHostConnection {
         self.insertText = insertText
         self.deleteBackward = deleteBackward
         self.moveCursor = moveCursor
+        self.adjustInsertionPosition = adjustInsertionPosition
         self.deleteToLineStart = deleteToLineStart
         self.undoAnchor = undoAnchor
     }
@@ -65,6 +68,31 @@ final class KeyboardHostConnection {
         updatePreedit(preedit)
     }
 
+    /// Verify before touching the mark; delete a fixed, known suffix exactly
+    /// once. Never loop on a proxy context that may lag behind remote writes.
+    @discardableResult
+    func replaceText(_ replacement: KeyboardTextReplacement) -> Bool {
+        guard let snapshot = undoAnchor(), snapshot.selection?.isEmpty != false,
+              snapshot.document == replacement.anchor.document,
+              !replacement.anchor.hasSelection,
+              snapshot.after == replacement.anchor.after,
+              markedText == replacement.markedText,
+              let before = snapshot.before, let expected = replacement.anchor.before else { return false }
+        let mark = markedText ?? ""
+        let committed = !mark.isEmpty && before.hasSuffix(mark) ? String(before.dropLast(mark.count)) : before
+        guard committed == expected, committed.hasSuffix(replacement.committedSuffix),
+              replacement.committedSuffix.count + mark.count <= KeyboardCalculation.maximumCharacters else { return false }
+        // Commit the owned mark before deleting the known expression. An empty
+        // setMarkedText can be deferred remotely; deleting a live marked range
+        // can remove the whole mark rather than a single character.
+        if markedPreedit != nil { unmarkText() }
+        markedPreedit = nil
+        discardDeletionUndo()
+        for _ in replacement.committedSuffix + mark { deleteBackward() }
+        insertText(replacement.text)
+        return true
+    }
+
     private func apply(_ edits: [KeyboardEdit], keepsMarkedSession: Bool) {
         guard !edits.isEmpty else { return }
         clearMarkedText(endsSession: !keepsMarkedSession)
@@ -72,6 +100,9 @@ final class KeyboardHostConnection {
             if case .undoLineDeletion = edit {} else { discardDeletionUndo() }
             switch edit {
             case .insert(let text): insertText(text)
+            case .insertPair(let opening, let closing):
+                insertText(opening + closing)
+                adjustInsertionPosition(-closing.utf16.count)
             case .deleteBackward: deleteBackward()
             case .returnKey: insertText("\n")
             case .moveCursor(let horizontal, let vertical): moveCursor(horizontal, vertical)
