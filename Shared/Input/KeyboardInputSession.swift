@@ -93,6 +93,7 @@ protocol KeyboardInputSession: AnyObject {
     func togglePrimaryVariant() -> [KeyboardEdit]
     func updateIntelligence(ranking: CandidateRankingMode, suggestionsEnabled: Bool)
     func prepareForInput()
+    func setCandidatePresentationPreparation(_ prepare: @escaping @Sendable (CandidatePresentation, Bool) -> Void)
     func reset(preservingContext: Bool)
     func handleMemoryPressure()
     func releaseInactiveResources()
@@ -104,6 +105,7 @@ protocol KeyboardInputSession: AnyObject {
 
 extension KeyboardInputSession {
     func prepareForInput() {}
+    func setCandidatePresentationPreparation(_ prepare: @escaping @Sendable (CandidatePresentation, Bool) -> Void) {}
     var candidateInitialRequestStartedAt: TimeInterval? { nil }
     func finishLearningFeedback() {}
     var neuralModeSuspendedForMemoryPressure: Bool { false }

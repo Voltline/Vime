@@ -3,6 +3,35 @@ import UIKit
 
 @MainActor
 final class KeyboardQuickInputTests: XCTestCase {
+    func testConcurrentBackgroundPreparationLeavesOnlyCacheLookupsForMainThread() async {
+        let identifier = UUID().uuidString
+        let values = (0..<64).map { index in
+            var value = CandidatePresentation(text: "\(identifier)·\(index)ㇱ日本語", source: .conversion,
+                consumedInputCount: 1, correction: nil)
+            value.detailAnnotation = "注釈 \(identifier) \(index)"
+            return value
+        }
+        await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                DispatchQueue.concurrentPerform(iterations: 8) { _ in
+                    for value in values { KeyboardCandidateTextMetrics.prepare(value, first: true) }
+                }
+                continuation.resume()
+            }
+        }
+        KeyboardPerformance.configure(enabled: true, reset: true)
+        defer { KeyboardPerformance.configure(enabled: false) }
+        for value in values {
+            for font in [UIFont.systemFont(ofSize: 18), .systemFont(ofSize: 18, weight: .medium)] {
+                XCTAssertGreaterThan(KeyboardCandidateTextMetrics.width(of: value.text, font: font), 0)
+            }
+            XCTAssertGreaterThan(KeyboardCandidateTextMetrics.width(of: value.annotation!, font: .systemFont(ofSize: 10)), 0)
+        }
+        let report = KeyboardPerformance.report()
+        XCTAssertNil(report["candidateTextLayout"], "UI must reuse all prepared widths even after concurrent cache misses")
+        XCTAssertEqual(report["candidateWidthCacheLookup"]?["totalCount"], 192)
+    }
+
     func testCandidateMetricsPreserveJapaneseLatinEmojiAndAnnotationWidths() {
         for font in [UIFont.systemFont(ofSize: 18), .systemFont(ofSize: 18, weight: .medium), .systemFont(ofSize: 10)] {
             for text in ["日本語", "ひらがな", "半角片假名 · 前段", "GitHub 123", "ｶﾞｯｺｳ", "ㇱㇿ", "2️⃣", "👨‍👩‍👧‍👦", "1+1=2", "長い候補\n短い", " "] {

@@ -154,6 +154,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         self.clipboard = clipboard ?? KeyboardClipboard()
         super.init(frame: frame)
         KeyboardCandidateTextMetrics.prepareFonts()
+        session.setCandidatePresentationPreparation { KeyboardCandidateTextMetrics.prepare($0, first: $1) }
         heightFactor = CGFloat(preferences.heightFactor)
         KeyboardPalette.theme = preferences.theme
         session.updateIntelligence(ranking: preferences.candidateRanking, suggestionsEnabled: preferences.phraseSuggestions)

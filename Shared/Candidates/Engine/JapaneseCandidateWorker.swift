@@ -145,6 +145,20 @@ final class JapaneseCandidateWorker {
     init(memoryDirectoryURL: URL? = nil) { storage = Storage(memoryDirectoryURL: memoryDirectoryURL) }
     private var pending: Request?
     private var preparation: Request?
+    /// The view supplies immutable presentation work, keeping UIKit/font policy
+    /// out of the converter. Invoked off-main before publishing a first screen.
+    var prepareCandidatePresentation: (@Sendable (CandidatePresentation, Bool) -> Void)?
+
+    private nonisolated static func preparePresentations(_ values: [CandidatePresentation], request: Request,
+        prepare: @Sendable (CandidatePresentation, Bool) -> Void) -> Bool {
+        let started = KeyboardPerformance.start()
+        defer { KeyboardPerformance.record(.candidatePresentationPreparation, since: started) }
+        for (index, value) in values.enumerated() {
+            guard !request.isCancelled else { return false }
+            prepare(value, index == 0)
+        }
+        return !request.isCancelled
+    }
 
     /// Called only when a keyboard becomes visible. Hidden/unused controllers
     /// keep no converter, and queued preparation is cancelled during teardown.
@@ -178,6 +192,12 @@ final class JapaneseCandidateWorker {
         pending = request
         let storage = self.storage
         let queue = self.queue
+        let preparePresentation = prepareCandidatePresentation
+        let prepare: @Sendable ([CandidateSnapshot]) -> Bool = { values in
+            guard let preparePresentation else { return !request.isCancelled }
+            return Self.preparePresentations(values.prefix(expanded ? 40 : 20).map(\.presentation),
+                request: request, prepare: preparePresentation)
+        }
         queue.async {
             KeyboardPerformance.record(.candidateQueueWait, since: requestStartedAt)
             guard !request.isCancelled else { return }
@@ -188,6 +208,7 @@ final class JapaneseCandidateWorker {
             let values = storage.engine.candidates(for: composing, katakana: katakana, revision: revision,
                 includeCorrections: false, conversionLength: conversionLength, cancelled: { request.isCancelled })
             KeyboardPerformance.record(.candidateCompute, since: computeStartedAt)
+            guard prepare(values) else { return }
             KeyboardPerformance.record(.candidateRequestToResult, since: requestStartedAt)
             let readyAt = KeyboardPerformance.start()
             guard !request.isCancelled else { return }
@@ -218,6 +239,7 @@ final class JapaneseCandidateWorker {
                     // Publish prefix/format choices separately from the slower
                     // correction search, retaining their native consumption payloads.
                     if enriched.map(\.presentation) != values.map(\.presentation) {
+                        guard prepare(enriched) else { return }
                         let readyAt = KeyboardPerformance.start()
                         DispatchQueue.main.async { if !request.isCancelled { completion(enriched, readyAt, true) } }
                     }
@@ -227,6 +249,7 @@ final class JapaneseCandidateWorker {
                         revision: revision, cancelled: { request.isCancelled })
                     KeyboardPerformance.record(.correctionCompute, since: correctionStartedAt)
                     guard !request.isCancelled, corrected.map(\.presentation) != enriched.map(\.presentation) else { return }
+                    guard prepare(corrected) else { return }
                     KeyboardPerformance.record(.correctionRequestToResult, since: requestStartedAt)
                     let readyAt = KeyboardPerformance.start()
                     DispatchQueue.main.async { if !request.isCancelled { completion(corrected, readyAt, true) } }
@@ -252,6 +275,8 @@ final class JapaneseCandidateWorker {
                           ProcessInfo.processInfo.systemUptime < initialDeadline else { return }
                     _ = model?.rerank(values, context: sentence,
                         katakana: katakana, maximumCandidates: Self.initialRankingCandidateLimit, onRefinement: {
+                            guard !request.isCancelled, ProcessInfo.processInfo.systemUptime < initialDeadline,
+                                  prepare($0) else { return }
                             request.refine($0, before: initialDeadline)
                         }, cancelled: {
                             request.isCancelled || LanguageModelStorage.shared.isSuspended
@@ -272,12 +297,18 @@ final class JapaneseCandidateWorker {
         let request = Request()
         pending = request
         let storage = self.storage
+        let preparePresentation = prepareCandidatePresentation
+        let prepare: @Sendable ([NextWordSuggestion]) -> Bool = { values in
+            guard let preparePresentation else { return !request.isCancelled }
+            return Self.preparePresentations(values.prefix(20).map(\.presentation), request: request, prepare: preparePresentation)
+        }
         queue.async {
             guard !request.isCancelled else { return }
             let native = storage.engine.postCompositionSuggestions(leftContext: leftContext)
             guard !request.isCancelled else { return }
             let base = PostCompositionSuggestionReranker.merge(native: native, neural: [])
             if !base.isEmpty {
+                guard prepare(base) else { return }
                 DispatchQueue.main.async { if !request.isCancelled { completion(base) } }
             }
             guard useLanguageModel, !request.isCancelled else { return }
@@ -301,6 +332,7 @@ final class JapaneseCandidateWorker {
                         let suggestions = LanguageModelStorage.shared.model?.rerankPostComposition(pool, prompt: prompt, cache: scoring.cache,
                             cancelled: { request.isCancelled || LanguageModelStorage.shared.isSuspended }) ?? pool
                         guard !request.isCancelled, !suggestions.isEmpty else { return }
+                        guard prepare(suggestions) else { return }
                         DispatchQueue.main.async { if !request.isCancelled { completion(suggestions) } }
                     }
                 }

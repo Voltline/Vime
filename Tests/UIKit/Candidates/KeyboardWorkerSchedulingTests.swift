@@ -3,6 +3,38 @@ import KanaKanjiConverterModuleWithDefaultDictionary
 
 @MainActor
 final class KeyboardWorkerSchedulingTests: XCTestCase {
+    func testNewInputCancelsBackgroundPresentationBeforeOldCandidatesReachUI() async {
+        let directory = isolatedLearningDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let worker = JapaneseCandidateWorker(memoryDirectoryURL: directory)
+        let entered = expectation(description: "presentation preparation runs off-main")
+        let release = DispatchSemaphore(value: 0)
+        defer { release.signal(); worker.releaseInactiveResources() }
+        worker.prepareCandidatePresentation = { _, first in
+            XCTAssertFalse(Thread.isMainThread)
+            if first {
+                entered.fulfill()
+                _ = release.wait(timeout: .now() + 5)
+            } else {
+                XCTFail("Cancelled preparation must stop before the next candidate")
+            }
+        }
+        var stalePublications = 0
+        worker.candidates(for: query("nihongo"), katakana: false, revision: 1, leftContext: "", continuity: nil,
+            ranking: .engine) { _, _, _ in stalePublications += 1 }
+        await fulfillment(of: [entered], timeout: 3)
+        worker.prepareCandidatePresentation = nil
+        let ready = expectation(description: "new input still converts after cancelling presentation")
+        worker.candidates(for: query("hashi"), katakana: false, revision: 2, leftContext: "", continuity: nil,
+            ranking: .engine) { values, _, supplementary in
+            if !supplementary { XCTAssertFalse(values.isEmpty); ready.fulfill() }
+        }
+        release.signal()
+        await fulfillment(of: [ready], timeout: 3)
+        _ = await worker.resourceState()
+        XCTAssertEqual(stalePublications, 0)
+    }
+
     func testVisiblePreparationLoadsOnlyDictionaryAndIsReleasedWhenHidden() async throws {
         let directory = isolatedLearningDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }

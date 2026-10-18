@@ -406,6 +406,9 @@ final class KeyboardSession: KeyboardInputSession {
     }
 
     func prepareForInput() { worker?.prepareForInput() }
+    func setCandidatePresentationPreparation(_ prepare: @escaping @Sendable (CandidatePresentation, Bool) -> Void) {
+        worker?.prepareCandidatePresentation = prepare
+    }
 
     func releaseInactiveResources() {
         reset()

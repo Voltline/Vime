@@ -13,6 +13,7 @@ nonisolated enum KeyboardPerformance {
         case inputToCandidateInteractive, candidateRequestCancelled
         case candidateButtonConfiguration, candidateTitleMeasurement, candidatePublication
         case candidateWidthCacheLookup, candidateTextLayout, candidateWidthCacheInsert
+        case candidatePresentationPreparation
         case correctionCompute, correctionRequestToResult
         case baseConversion, candidateReranking, classicTypo, experimentalTypo, contextEvaluation
         case lexiconLookup, prefixConversion
