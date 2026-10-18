@@ -28,6 +28,12 @@ struct KeyboardUserDictionaryView: View {
     var body: some View {
         List {
             Section {
+                if visibleEntries.isEmpty {
+                    ContentUnavailableView(entries.isEmpty ? "添加你的常用词" : "没有匹配的词条",
+                        systemImage: "character.book.closed",
+                        description: Text(entries.isEmpty ? "点右上角 +，记下姓名、专业词或常用短语。" : "试试其他词语或读音。"))
+                        .listRowBackground(Color.clear)
+                }
                 ForEach(visibleEntries) { entry in
                     Button { editing = entry } label: {
                         VStack(alignment: .leading, spacing: 4) {
@@ -42,19 +48,20 @@ struct KeyboardUserDictionaryView: View {
                     let values = entries.filter { !ids.contains($0.id) }
                     perform { try store.save(values); entries = values }
                 }
-            } footer: {
-                VStack(alignment: .leading, spacing: 8) {
-                    if entries.isEmpty { Text("词典为空，点击右上角 + 添加姓名、专业词或常用短语。") }
-                    else if visibleEntries.isEmpty { Text("没有匹配的词条，请尝试其他词语或读音。") }
-                    Text("词语可参与分段转换和预测；短语仅在完整读音匹配时出现\n读音支持假名或完整罗马字\n开启键盘完全访问后，词典会共享到其他 App；重新打开键盘或继续输入即可读取更新")
-                }
             }
             Section {
-                Button("导入词典 JSON") { importing = true }
-                Button("导出词典 JSON") { perform { exportDocument = UserDictionaryDocument(data: try store.exportData()); exporting = true } }
-            } footer: { Text("导入会与已有词条合并并去重，最多 1,024 条\n词典只保存在本机") }
+                Button("导入词典", systemImage: "square.and.arrow.down") { importing = true }
+                Button("导出词典", systemImage: "square.and.arrow.up") { perform { exportDocument = UserDictionaryDocument(data: try store.exportData()); exporting = true } }
+            } footer: { Text("词典只保存在本机。导入会与已有词条合并。") }
+            Section {
+                DisclosureGroup("词典使用说明") {
+                    Text("词语可参与分段转换和预测；短语仅在完整读音匹配时出现。\n\n读音支持假名或完整罗马字。开启键盘完全访问后，词典会共享到其他 App；重新打开键盘或继续输入即可读取更新。\n\n导入与导出使用 JSON 文件，最多保留 1,024 条。")
+                        .font(.subheadline).foregroundStyle(.secondary).padding(.vertical, 8)
+                }
+            }
         }
-        .navigationTitle("用户词典")
+        .listStyle(.insetGrouped)
+        .navigationTitle("用户词典").navigationBarTitleDisplayMode(.inline)
         .searchable(text: $search, prompt: "搜索词语或读音")
         .toolbar { ToolbarItem(placement: .primaryAction) {
             Button { editing = .init(reading: "", surface: "") } label: { Image(systemName: "plus") }.accessibilityLabel("添加词条")

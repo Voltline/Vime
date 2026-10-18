@@ -34,24 +34,20 @@ struct KeyboardSkinsView: View {
     private let store = KeyboardSkinStore()
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 26) {
-                currentSkinSection
-                builtInSection
-                customSkinSection
-                VStack(alignment: .leading, spacing: 12) {
-                    sectionTitle("布局")
-                    HStack(spacing: 12) {
-                        Button("键盘高度", systemImage: "arrow.up.and.down") { router.present(.height) }
-                        NavigationLink { KeyboardFeedbackSettingsView() } label: { Label("输入布局", systemImage: "keyboard") }
-                    }
-                    .buttonStyle(SkinActionButtonStyle())
+        List {
+            currentSkinSection
+            builtInSection
+            customSkinSection
+            Section("布局") {
+                Button { router.present(.height) } label: {
+                    AppSettingsLabel(title: "键盘高度", symbol: "arrow.up.and.down")
+                }
+                NavigationLink { KeyboardFeedbackSettingsView() } label: {
+                    AppSettingsLabel(title: "输入布局", symbol: "keyboard")
                 }
             }
-            .frame(maxWidth: 740, alignment: .leading)
-            .padding(20).frame(maxWidth: .infinity)
         }
-        .background(Color(uiColor: .systemGroupedBackground))
+        .listStyle(.insetGrouped)
         .disabled(router.importing)
         .navigationTitle("定制")
         .onAppear(perform: reload)
@@ -72,68 +68,58 @@ struct KeyboardSkinsView: View {
         }
     }
     private var currentSkinSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                VStack(alignment: .leading, spacing: 5) {
-                    Text("当前皮肤").font(.caption).foregroundStyle(.secondary)
+        Section("当前外观") {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
                     Text(currentName).font(.headline)
                         .accessibilityIdentifier("vime.skin.currentName")
+                    Spacer()
+                    Label("使用中", systemImage: "checkmark.circle.fill")
+                        .font(.caption).foregroundStyle(.secondary)
                 }
-                Spacer()
-                Text("使用中").font(.caption.weight(.medium)).foregroundStyle(.tint)
-            }
-            if let previewDocument {
-                SkinPreview(document: previewDocument).frame(height: 155)
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
-                    .accessibilityLabel("当前皮肤预览")
-            }
+                if let previewDocument {
+                    SkinPreview(document: previewDocument).frame(height: 130)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .accessibilityLabel("当前皮肤预览")
+                }
+            }.padding(.vertical, 4)
         }
-        .padding(16)
-        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 22))
     }
     private var builtInSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            sectionTitle("内置皮肤")
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 145), spacing: 12)], spacing: 12) {
+        Section("内置外观") {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 125), spacing: 16)], spacing: 16) {
                 ForEach(KeyboardTheme.allCases.filter { $0 != .custom }, id: \.self) { item in
                     Button { theme = item; reload() } label: {
-                        VStack(spacing: 12) {
-                            SkinColorPreview(palette: builtInDocument(item).palette).frame(height: 68)
+                        VStack(spacing: 8) {
+                            SkinColorPreview(palette: builtInDocument(item).palette).frame(height: 48)
+                                .overlay(RoundedRectangle(cornerRadius: 10)
+                                    .strokeBorder(theme == item ? Color.accentColor : .clear, lineWidth: 2))
                             HStack {
                                 Text(item.title).font(.subheadline.weight(.medium)).foregroundStyle(.primary)
                                 Spacer()
                                 selectionMark(theme == item)
                             }
                         }
-                        .padding(12).skinCard(selected: theme == item)
-                        .contentShape(RoundedRectangle(cornerRadius: 18))
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("vime.skin.builtin." + item.rawValue)
                     .accessibilityLabel(item.title)
                     .accessibilityValue(theme == item ? "当前使用" : "")
                 }
-            }
+            }.padding(.vertical, 6)
         }
     }
     private var customSkinSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            sectionTitle("我的皮肤")
-            HStack(spacing: 12) {
-                Button("创建皮肤", systemImage: "plus") { router.present(.skin(KeyboardSkinDocument())) }
-                Button("导入皮肤", systemImage: "square.and.arrow.down") {
-                    router.beginFilePicker(); importing = true
-                }
-            }.buttonStyle(SkinActionButtonStyle())
+        Section {
             ForEach(skins) { customSkinRow($0) }
-            if skins.isEmpty {
-                Text("还没有自定义皮肤，可使用上方按钮创建或导入。")
-                    .font(.subheadline).foregroundStyle(.secondary)
-                    .padding(.vertical, 8)
+            Button("创建皮肤", systemImage: "plus") { router.present(.skin(KeyboardSkinDocument())) }
+            Button("导入皮肤", systemImage: "square.and.arrow.down") {
+                router.beginFilePicker(); importing = true
             }
             if router.importing { ProgressView("正在导入") }
-            Text("支持 .vimeskin 文件，可从文件 App 打开\n选中皮肤即可使用，修改后重新打开键盘")
-                .font(.caption).foregroundStyle(.secondary).lineSpacing(4)
+        } header: { Text("我的皮肤") } footer: {
+            Text(skins.isEmpty ? "创建自己的配色，也可以导入别人分享的皮肤。" : "点选皮肤即可使用，重新打开键盘后生效。")
         }
     }
     private func customSkinRow(_ skin: KeyboardSkinStore.Summary) -> some View {
@@ -146,9 +132,7 @@ struct KeyboardSkinsView: View {
                 theme = .custom; selectedID = document.id; previewDocument = document
             } } label: {
                 HStack {
-                    Image(systemName: "paintpalette")
-                        .foregroundStyle(.tint).frame(width: 38, height: 38)
-                        .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+                    Image(systemName: "paintpalette").foregroundStyle(.tint).frame(width: 24)
                     Text(skin.name).foregroundStyle(.primary)
                     Spacer()
                     selectionMark(selectedID == skin.id && theme == .custom)
@@ -169,11 +153,6 @@ struct KeyboardSkinsView: View {
             .buttonStyle(.plain)
             .accessibilityLabel("\(skin.name)的操作")
         }
-        .padding(.leading, 12).padding(.trailing, 4).padding(.vertical, 8)
-        .skinCard(selected: selectedID == skin.id && theme == .custom)
-    }
-    private func sectionTitle(_ title: String) -> some View {
-        Text(title).font(.headline)
     }
     private func selectionMark(_ selected: Bool) -> some View {
         Image(systemName: "checkmark")
@@ -203,23 +182,6 @@ struct KeyboardSkinsView: View {
         return document
     }
     private func perform(_ action: () throws -> Void) { do { try action() } catch { self.error = error.localizedDescription } }
-}
-
-private extension View {
-    func skinCard(selected: Bool) -> some View {
-        background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18))
-            .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(selected ? Color.accentColor : .clear, lineWidth: 1.5))
-    }
-}
-
-private struct SkinActionButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label.font(.subheadline.weight(.medium))
-            .frame(maxWidth: .infinity, minHeight: 48)
-            .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14))
-            .opacity(configuration.isPressed ? 0.65 : 1)
-            .contentShape(RoundedRectangle(cornerRadius: 14))
-    }
 }
 
 /// Lightweight palette thumbnails, without decoding custom artwork for every card
@@ -256,54 +218,55 @@ struct KeyboardSkinEditor: View {
     }
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                SkinPreview(document: draft).frame(height: 205).padding(.horizontal, 16)
-                Form {
-                    Section("皮肤信息") {
-                        TextField("名称", text: $draft.name).accessibilityIdentifier("vime.skin.name")
-                        TextField("作者（可选）", text: $draft.author)
+            Form {
+                Section {
+                    SkinPreview(document: draft).frame(height: 160)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                }.listRowInsets(EdgeInsets()).listRowBackground(Color.clear)
+                Section("皮肤信息") {
+                    TextField("名称", text: $draft.name).accessibilityIdentifier("vime.skin.name")
+                    TextField("作者（可选）", text: $draft.author)
+                }
+                Section("配色") {
+                    colorPicker("背景", \KeyboardSkinDocument.Palette.background)
+                    colorPicker("菱格", \KeyboardSkinDocument.Palette.pattern)
+                    colorPicker("普通按键", \KeyboardSkinDocument.Palette.key)
+                    colorPicker("功能按键", \KeyboardSkinDocument.Palette.utility)
+                    colorPicker("文字", \KeyboardSkinDocument.Palette.text)
+                    colorPicker("强调色", \KeyboardSkinDocument.Palette.accent)
+                    colorPicker("按下颜色", \KeyboardSkinDocument.Palette.pressed)
+                }
+                Section("样式") {
+                    Picker("字体", selection: $draft.style.font) {
+                        Text("系统").tag("system"); Text("圆体").tag("rounded"); Text("手写").tag("handwritten")
                     }
-                    Section("配色") {
-                        colorPicker("背景", \KeyboardSkinDocument.Palette.background)
-                        colorPicker("菱格", \KeyboardSkinDocument.Palette.pattern)
-                        colorPicker("普通按键", \KeyboardSkinDocument.Palette.key)
-                        colorPicker("功能按键", \KeyboardSkinDocument.Palette.utility)
-                        colorPicker("文字", \KeyboardSkinDocument.Palette.text)
-                        colorPicker("强调色", \KeyboardSkinDocument.Palette.accent)
-                        colorPicker("按下颜色", \KeyboardSkinDocument.Palette.pressed)
+                    Picker("背景图案", selection: $draft.style.pattern) {
+                        Text("纯色").tag("none"); Text("菱格").tag("diamonds")
                     }
-                    Section("样式") {
-                        Picker("字体", selection: $draft.style.font) {
-                            Text("系统").tag("system"); Text("圆体").tag("rounded"); Text("手写").tag("handwritten")
-                        }
-                        Picker("背景图案", selection: $draft.style.pattern) {
-                            Text("纯色").tag("none"); Text("菱格").tag("diamonds")
-                        }
-                        slider("键帽不透明度", value: $draft.style.keyOpacity, range: 0...1)
-                        slider("键帽圆角", value: $draft.style.cornerRadius, range: 0...24)
-                        slider("阴影", value: $draft.style.shadowOpacity, range: 0...0.5)
+                    slider("键帽不透明度", value: $draft.style.keyOpacity, range: 0...1)
+                    slider("键帽圆角", value: $draft.style.cornerRadius, range: 0...24)
+                    slider("阴影", value: $draft.style.shadowOpacity, range: 0...0.5)
+                }
+                Section {
+                    Toggle("逐字母图片", isOn: $advancedImages)
+                        .onChange(of: advancedImages) { if !advancedImages && imageTarget.hasPrefix("letter.") { imageTarget = "letter" } }
+                    Picker("图片位置", selection: $imageTarget) {
+                        Text("背景").tag("background"); Text("所有字母").tag("letter")
+                        Text("左上角设置").tag("brand")
+                        Text("空格").tag("space"); Text("退格").tag("backspace")
+                        Text("回车").tag("return"); Text("Shift").tag("shift")
+                        Text("表情").tag("emoji"); Text("数字切换").tag("numbers")
+                        if advancedImages { ForEach(Array("abcdefghijklmnopqrstuvwxyz").map(String.init), id: \.self) { Text("字母 \($0.uppercased())").tag("letter." + $0) } }
                     }
-                    Section {
-                        Toggle("逐字母图片", isOn: $advancedImages)
-                            .onChange(of: advancedImages) { if !advancedImages && imageTarget.hasPrefix("letter.") { imageTarget = "letter" } }
-                        Picker("图片位置", selection: $imageTarget) {
-                            Text("背景").tag("background"); Text("所有字母").tag("letter")
-                            Text("左上角设置").tag("brand")
-                            Text("空格").tag("space"); Text("退格").tag("backspace")
-                            Text("回车").tag("return"); Text("Shift").tag("shift")
-                            Text("表情").tag("emoji"); Text("数字切换").tag("numbers")
-                            if advancedImages { ForEach(Array("abcdefghijklmnopqrstuvwxyz").map(String.init), id: \.self) { Text("字母 \($0.uppercased())").tag("letter." + $0) } }
-                        }
-                        PhotosPicker("从照片选择图片", selection: $photo, matching: .images)
-                            .disabled(importingPhoto)
-                        Button("移除当前位置图片", role: .destructive) {
-                            if imageTarget == "background" { draft.backgroundImage = nil }
-                            else { draft.keyImages.removeValue(forKey: imageTarget) }
-                            pruneImages()
-                        }
-                    } header: { Text("背景和按键图片") } footer: {
-                        Text("单独字母图片优先于所有字母\n背景会裁切填满键盘，透明 PNG 适合按键贴图\n保存后在定制页选中皮肤即可使用")
+                    PhotosPicker("从照片选择图片", selection: $photo, matching: .images)
+                        .disabled(importingPhoto)
+                    Button("移除当前位置图片", role: .destructive) {
+                        if imageTarget == "background" { draft.backgroundImage = nil }
+                        else { draft.keyImages.removeValue(forKey: imageTarget) }
+                        pruneImages()
                     }
+                } header: { Text("背景和按键图片") } footer: {
+                    Text("单独字母图片优先于所有字母\n背景会裁切填满键盘，透明 PNG 适合按键贴图\n保存后在定制页选中皮肤即可使用")
                 }
             }
             .navigationTitle("编辑皮肤").navigationBarTitleDisplayMode(.inline)

@@ -18,6 +18,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     var onEditsAndPreeditChange: (([KeyboardEdit], KeyboardPreedit?) -> Void)?
     var onSwitchKeyboard: (() -> Void)?
     var onDismiss: (() -> Void)?
+    var onOpenNumberSymbolSettings: (() -> Void)?
     var onPreeditChange: ((KeyboardPreedit?) -> Void)?
     var onHeightChange: (() -> Void)?
     var onReplaceText: ((KeyboardTextReplacement) -> Bool)?
@@ -40,6 +41,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         if next.nineKeyNumbers != previous?.nineKeyNumbers || next.prolongedKey != previous?.prolongedKey {
             rebuildKeys()
         }
+        if next.numberSymbols != previous?.numberSymbols { numberSymbolRail?.present(next.numberSymbols) }
         if next.previews != previous?.previews {
             for key in letterKeys { key.showsPreview = next.previews }
         }
@@ -135,6 +137,9 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     private var spaceKey: KeyboardKey?
     private var languageKey: KeyboardKey?
     private var returnKey: KeyboardKey?
+    private var numberSymbolRail: KeyboardNumberSymbolRail?
+    private var numberBackKey: KeyboardKey?
+    private var usesNumberPad: Bool { page == .numbers && preferences.nineKeyNumbers }
 
     override convenience init(frame: CGRect) {
         self.init(frame: frame, session: KeyboardSession(asynchronousCandidates: true))
@@ -464,7 +469,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         for (rowIndex, row) in rows.enumerated() {
             for (column, pair) in row.enumerated() {
                 if page == .numbers && preferences.nineKeyNumbers {
-                    pair.0.frame = metrics.numberPadFrame(row: rowIndex, column: column)
+                    pair.0.frame = metrics.numberPadFrame(row: rowIndex, column: column + (rowIndex < 3 ? 1 : 0))
                 } else {
                     pair.0.frame = metrics.frame(row: rowIndex, column: column, letters: page == .letters,
                                                 prolonged: rowIndex == 1 && row.count == 10)
@@ -473,12 +478,26 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
                 // Compact phone keys are shorter despite the wider viewport.
                 // Typography follows their height rather than landscape width.
                 let textScale = compact ? scale : min(scale, metrics.keyHeight / 46.5)
-                let fontSize: CGFloat = compact ? (rowIndex == 3 ? 14 : 19)
+                var fontSize: CGFloat = compact ? (rowIndex == 3 ? 14 : 19)
                     : (rowIndex == 3 ? 16.5 : 23) * textScale
+                if usesNumberPad {
+                    let isDigit = Int(pair.0.title(for: .normal) ?? "") != nil
+                    fontSize = compact ? (isDigit ? 20 : rowIndex == 3 ? 13 : 16)
+                        : (isDigit ? 22 : rowIndex == 3 ? 15 : 17) * textScale
+                    pair.0.setPreferredSymbolConfiguration(UIImage.SymbolConfiguration(pointSize: compact ? 16 : 18 * textScale),
+                        forImageIn: .normal)
+                }
                 pair.0.hintLabel.font = .systemFont(ofSize: compact ? 8 : 9 * textScale)
                 pair.0.titleLabel?.font = .systemFont(ofSize: fontSize)
                 pair.0.applySkinMetrics(size: fontSize, scale: textScale)
             }
+        }
+        if usesNumberPad {
+            let top = metrics.numberPadFrame(row: 0, column: 0)
+            let bottom = metrics.numberPadFrame(row: 2, column: 0)
+            numberSymbolRail?.frame = top.union(bottom)
+            numberSymbolRail?.scale = scale
+            numberSymbolRail?.layoutIfNeeded()
         }
         updateTouchBounds(metrics: metrics)
         if let key = rows.flatMap({ $0 }).first(where: { $0.0.repeats })?.0 {
@@ -519,7 +538,9 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
                 let key = pair.0
                 // Boundaries lie in the gaps, never inside a painted key. This
                 // respects wide utility keys as well as staggered letter rows.
-                let left = column == 0 ? 0 : (row[column - 1].0.frame.maxX + key.frame.minX) / 2
+                let leading = usesNumberPad && rowIndex < 3
+                    ? (metrics.numberPadFrame(row: rowIndex, column: 0).maxX + first.frame.minX) / 2 : 0
+                let left = column == 0 ? leading : (row[column - 1].0.frame.maxX + key.frame.minX) / 2
                 let right = column == row.count - 1 ? bounds.width : (key.frame.maxX + row[column + 1].0.frame.minX) / 2
                 key.touchBounds = CGRect(x: left - key.frame.minX, y: top - key.frame.minY,
                                          width: right - left, height: bottom - top)
@@ -569,6 +590,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         spaceKey = nil
         languageKey = nil
         returnKey = nil
+        numberBackKey = nil
         if page == .letters {
             for letters in ["qwertyuiop", "asdfghjkl", "zxcvbnm"] {
                 var row: [(KeyboardKey, CGFloat)] = []
@@ -609,18 +631,40 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
                 rows.append(row)
             }
         } else if page == .numbers && preferences.nineKeyNumbers {
-            let values = [["#+=", "1", "2", "3", "删除"],
-                          ["+", "4", "5", "6", "-"],
-                          ["/", "7", "8", "9", "*"],
+            if numberSymbolRail == nil {
+                let rail = KeyboardNumberSymbolRail()
+                rail.onSelect = { [weak self] symbol in
+                    guard let self, self.usesNumberPad, self.panel == .keyboard else { return }
+                    self.playFeedback()
+                    if self.composesNumberPageInput(symbol) { self.apply(self.session.type(symbol)) }
+                    else { self.insertSymbol(symbol) }
+                }
+                rail.onEdit = { [weak self] in
+                    guard let self, self.panel == .keyboard, self.usesNumberPad else { return }
+                    self.stopInteractions()
+                    self.onOpenNumberSymbolSettings?()
+                }
+                numberSymbolRail = rail
+                addSubview(rail)
+            }
+            numberSymbolRail?.present(preferences.numberSymbols)
+            let values = [["1", "2", "3", "删除"],
+                          ["4", "5", "6", "空格"],
+                          ["7", "8", "9", "表情"],
                           ["ABC", "符号", "0", ".", "换行"]]
             for (r, values) in values.enumerated() {
                 rows.append(values.map { value in
                     if value == "删除" { return deleteKey(weight: 1) }
-                    let item = key(value, utility: ["ABC", "#+=", "符号", "换行"].contains(value)) { [weak self] in
+                    if value == "表情" {
+                        let item = symbol("face.smiling", label: "表情", weight: 1) { [weak self] in self?.toggleEmoji() }
+                        item.0.accessibilityIdentifier = "vime.number.emoji"
+                        return item
+                    }
+                    let item = key(value, utility: ["ABC", "符号", "空格", "换行"].contains(value)) { [weak self] in
                         guard let self else { return }
                         switch value {
                         case "ABC": self.page = .letters; self.rebuildKeys()
-                        case "#+=": self.page = .symbols; self.rebuildKeys()
+                        case "空格": self.apply(self.session.insertLiteral(" "))
                         case "符号": self.openSymbolPanel(mode: .symbols)
                         case "换行": self.apply(self.session.enter())
                         default:
@@ -629,8 +673,12 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
                         }
                     }
                     item.0.accessibilityIdentifier = "vime.number." + value
+                    if value == "ABC" { numberBackKey = item.0 }
                     if r == 3 && value == "换行" {
                         returnKey = item.0; item.0.accessibilityIdentifier = "vime.key.return"
+                    }
+                    if value == "空格" {
+                        spaceKey = item.0; item.0.accessibilityIdentifier = "vime.key.space"
                     }
                     return item
                 })
@@ -916,6 +964,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         expandButton.accessibilityLabel = panelOpen ? "返回键盘" : composing ? "展开候选词" : "收起键盘"
         expandButton.accessibilityIdentifier = panelOpen ? "vime.panel.close" : "vime.candidates.expand"
         let hidesKeys = panel != .keyboard
+        numberSymbolRail?.isHidden = hidesKeys || !usesNumberPad
         if hidesKeys { keysContainer.cancelAllPresses() }
         keysContainer.isHidden = hidesKeys
         panelScroll.isHidden = panel != .candidates
@@ -924,7 +973,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         clipboardHistoryPanel?.isHidden = panel != .clipboardHistory
         if panel == .candidates { rebuildCandidatePanel() }
         else if panel == .symbols { showSymbolPanel() }
-        spaceKey?.setTitle(composing ? session.inputTraits.compositionSpaceTitle : "", for: .normal)
+        spaceKey?.setTitle(usesNumberPad ? "空格" : composing ? session.inputTraits.compositionSpaceTitle : "", for: .normal)
         returnKey?.setTitle(composing ? session.inputTraits.compositionReturnTitle : returnTitle, for: .normal)
         let actionReturn = !composing && [.send, .search, .go, .done, .next, .join, .route, .continue].contains(returnKeyType)
         returnKey?.fillColor = actionReturn ? UIColor(cgColor: VimeLogo.blue) : KeyboardPalette.utility
@@ -932,6 +981,10 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         if returnKey?.hasSkinArtwork == true {
             returnKey?.fillColor = KeyboardPalette.key
             returnKey?.setTitleColor(KeyboardPalette.text, for: .normal)
+        }
+        if let numberBackKey, !numberBackKey.hasSkinArtwork {
+            numberBackKey.fillColor = KeyboardPalette.accent
+            numberBackKey.setTitleColor(.white, for: .normal)
         }
         setNeedsLayout()
     }
@@ -971,8 +1024,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     private func presentCandidate(_ button: KeyboardCandidateButton, presentation: CandidatePresentation, index: Int) {
         let configurationStartedAt = KeyboardPerformance.start()
         defer { KeyboardPerformance.record(.candidateButtonConfiguration, since: configurationStartedAt) }
-        button.present(presentation, index: index, highlighted: session.isComposing && index == (session.selectedIndex ?? 0),
-                       cornerRadius: 6.2 * KeyboardMetrics(width: bounds.width, compact: compact, showsFooter: showsFooter).scale)
+        button.present(presentation, index: index, highlighted: session.isComposing && index == (session.selectedIndex ?? 0))
     }
 
     @objc private func selectCandidate(_ sender: UIButton) {
@@ -1313,6 +1365,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         for button in [brandButton, undoButton, modeButton, expandButton] { button.backgroundColor = KeyboardPalette.key }
         clipboardSuggestion.applyTheme()
         quickCandidates.applyTheme()
+        numberSymbolRail?.applyTheme()
         clipboardHistoryPanel?.applyTheme()
         undoButton.tintColor = KeyboardPalette.accent
         deletePrompt.applyTheme()

@@ -5,12 +5,12 @@ struct AboutVimeView: View {
     var body: some View {
         AppSettingsPage {
             HStack(spacing: 16) {
-                Image(uiImage: KeyboardGlyphs.logo(size: 60, appIcon: true)).resizable()
-                    .frame(width: 60, height: 60).clipShape(RoundedRectangle(cornerRadius: 15))
+                Image(uiImage: KeyboardGlyphs.logo(size: 48, appIcon: true)).resizable()
+                    .frame(width: 48, height: 48).clipShape(RoundedRectangle(cornerRadius: 12))
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 5) {
-                    Text("Vime \(version)").font(.title2.weight(.semibold))
-                    Text("日语输入法").foregroundStyle(.secondary)
+                    Text("Vime \(version)").font(.headline)
+                    Text("日语输入法").font(.subheadline).foregroundStyle(.secondary)
                 }
             }
             AppSettingsActionGroup {

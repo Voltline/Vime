@@ -56,8 +56,8 @@ struct KeyboardMetrics {
 
     func numberPadFrame(row: Int, column: Int) -> CGRect {
         // Digits occupy the central 3 × 3 grid; utilities flank it.
-        let positions: [CGFloat] = [5, 72, 172, 272, 372]
-        let widths: [CGFloat] = [61, 94, 94, 94, 63]
+        let positions: [CGFloat] = [5, 90, 184, 278, 372]
+        let widths: [CGFloat] = [79, 88, 88, 88, 63]
         return CGRect(x: positions[column] * width / 440, y: headerHeight + CGFloat(row) * rowStep,
                       width: widths[column] * width / 440, height: keyHeight)
     }

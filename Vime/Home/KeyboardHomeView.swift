@@ -6,57 +6,55 @@ struct KeyboardHomeView: View {
     @State private var focusRequest = 0
     @State private var clearRequest = 0
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 22) {
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack {
-                        Text("试打一段文字").font(.headline)
-                        Spacer()
-                        Button("清空") { text = ""; composition = ""; clearRequest += 1 }
-                            .disabled(text.isEmpty && composition.isEmpty)
-                    }
+        List {
+            Section {
+                VStack(alignment: .leading, spacing: 14) {
                     ZStack(alignment: .topLeading) {
                         if text.isEmpty {
-                            Text("输入 nihongo").foregroundStyle(.tertiary)
-                                .padding(.horizontal, 13).padding(.top, 17)
+                            Text("输入一段文字").foregroundStyle(.tertiary)
+                                .padding(.horizontal, 6).padding(.top, 4)
                                 .allowsHitTesting(false)
                         }
                         // Keep the genuine system host intact; no embedded keyboard.
                         SystemKeyboardEditor(text: $text, composition: $composition,
                             focusRequest: focusRequest, clearRequest: clearRequest)
-                            .frame(height: 154)
+                            .frame(height: 144)
                     }
-                    Text(composition.isEmpty ? "长按地球键选择 Vime 日本語" : "待确认：\(composition)")
-                        .font(.caption).foregroundStyle(.secondary)
-                    Button { focusRequest += 1 } label: {
-                        Text("开始试打").frame(maxWidth: .infinity).padding(.vertical, 7)
+                    HStack {
+                        Button("开始试打") { focusRequest += 1 }
+                            .buttonStyle(.borderedProminent)
+                            .accessibilityIdentifier("vime.home.focus")
+                        Spacer()
+                        Button("清空") { text = ""; composition = ""; clearRequest += 1 }
+                            .buttonStyle(.borderless)
+                            .disabled(text.isEmpty && composition.isEmpty)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .accessibilityIdentifier("vime.home.focus")
-                }
-                .padding(18)
-                .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18))
+                }.padding(.vertical, 4)
+            } header: { Text("试打一段文字") } footer: {
+                Text(composition.isEmpty ? "长按地球键，选择 Vime 日本語。" : "待确认：\(composition)")
+            }
+            Section {
                 NavigationLink { KeyboardSetupGuide() } label: {
-                    Label("启用键盘", systemImage: "plus.circle")
+                    AppSettingsLabel(title: "启用键盘", subtitle: "首次使用？按步骤添加 Vime", symbol: "keyboard.badge.ellipsis")
                 }
+            }
+            Section {
                 VStack(alignment: .leading, spacing: 14) {
-                    Text("输入操作").font(.headline)
                     hint("空格", "开始转换，再按一次切换候选")
                     hint("回车", "确认输入，确认后再按可换行")
                     hint("あ / ア", "切换平假名与片假名")
                     hint("日 / 英", "切换日语与英文")
-                }
-            }
-            .padding(20).frame(maxWidth: 680, alignment: .leading).frame(maxWidth: .infinity)
+                }.padding(.vertical, 4)
+            } header: { Text("输入操作") }
+                .listRowBackground(Color.clear)
         }
-        .background(Color(uiColor: .systemGroupedBackground))
+        .listStyle(.insetGrouped)
         .navigationTitle("键盘试打")
         .scrollDismissesKeyboard(.interactively)
     }
     private func hint(_ key: String, _ detail: String) -> some View {
         HStack(alignment: .top, spacing: 12) {
-            Text(key).font(.caption.weight(.medium)).frame(minWidth: 58, minHeight: 28)
-                .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 6))
+            Text(key).font(.subheadline.weight(.medium)).frame(width: 58, alignment: .leading)
             Text(detail).font(.subheadline).foregroundStyle(.secondary)
         }
     }
@@ -88,4 +86,8 @@ struct KeyboardSetupGuide: View {
         }
         .navigationTitle("启用键盘").navigationBarTitleDisplayMode(.inline)
     }
+}
+
+#Preview {
+    KeyboardHomeView()
 }

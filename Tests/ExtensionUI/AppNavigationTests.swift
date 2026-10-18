@@ -3,6 +3,34 @@ import XCTest
 /// Exercises the installed SwiftUI App, not the HTML design prototype.
 @MainActor
 final class AppNavigationTests: XCTestCase {
+    func testNumberSymbolAdditionPersistsAndCanBeDeletedInApp() throws {
+        let app = XCUIApplication(); app.launch()
+        func openSymbols() {
+            app.tabBars.buttons["设置"].tap()
+            app.buttons["vime.settings.input"].tap()
+            let entry = app.buttons["vime.settings.numberSymbols"]
+            if !entry.isHittable { app.swipeUp() }
+            entry.tap()
+            XCTAssertTrue(app.navigationBars["常用符号"].waitForExistence(timeout: 3))
+        }
+        openSymbols()
+        let symbol = "§" + String(Int.random(in: 100...999))
+        let add = app.buttons["vime.numberSymbols.add"]
+        for _ in 0..<6 { if add.isHittable { break }; app.swipeUp() }
+        add.tap()
+        let alert = app.alerts["添加符号"]
+        alert.textFields.firstMatch.tap(); alert.textFields.firstMatch.typeText(symbol)
+        alert.buttons["添加"].tap()
+        app.terminate(); app.launch()
+        openSymbols()
+        let item = app.staticTexts["vime.numberSymbols.item." + symbol]
+        for _ in 0..<6 { if item.isHittable { break }; app.swipeUp() }
+        XCTAssertTrue(item.exists)
+        capture(app, "App 常用符号编辑")
+        item.swipeLeft()
+        app.buttons["删除"].tap()
+        XCTAssertFalse(item.exists)
+    }
     func testTabsFeedbackPrivacyAndOfflineLicenseNavigation() throws {
         let app = XCUIApplication(); app.launch()
         defer {
@@ -23,6 +51,7 @@ final class AppNavigationTests: XCTestCase {
         XCTAssertTrue(app.navigationBars["编辑皮肤"].waitForExistence(timeout: 3))
         app.buttons["取消"].tap()
         app.tabBars.buttons["设置"].tap()
+        capture(app, "Settings")
         app.buttons["vime.settings.setup"].tap()
         XCTAssertTrue(app.navigationBars["启用键盘"].waitForExistence(timeout: 3))
         capture(app, "Setup guide")
@@ -30,7 +59,10 @@ final class AppNavigationTests: XCTestCase {
         app.buttons["vime.settings.feedback"].tap()
         let slider = app.sliders["vime.setting.haptics"]
         XCTAssertTrue(slider.waitForExistence(timeout: 3))
-        slider.adjust(toNormalizedSliderPosition: 0.62)
+        // Use an actual drag, as in KeyboardFeedbackUITests. The accessibility
+        // adjustment helper does not preserve this slider's owned-touch policy.
+        slider.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .press(forDuration: 0.05, thenDragTo: slider.coordinate(withNormalizedOffset: CGVector(dx: 0.58, dy: 0.5)))
         let value = try XCTUnwrap(slider.value as? String)
         XCTAssertEqual(value, "中 · 60%")
         capture(app, "Feedback")
@@ -39,6 +71,9 @@ final class AppNavigationTests: XCTestCase {
         capture(app, "Data and privacy overview")
         app.buttons["vime.privacy.clipboard"].tap()
         XCTAssertTrue(app.navigationBars["剪贴板"].waitForExistence(timeout: 3))
+        capture(app, "Clipboard")
+        app.buttons["vime.clipboard.instructions"].tap()
+        XCTAssertTrue(app.staticTexts["使用方式"].waitForExistence(timeout: 3))
         app.navigationBars.buttons.firstMatch.tap()
         app.buttons["vime.privacy.dictionary"].tap()
         XCTAssertTrue(app.navigationBars["用户词典"].waitForExistence(timeout: 3))
@@ -51,7 +86,7 @@ final class AppNavigationTests: XCTestCase {
         app.buttons["vime.privacy.policy"].tap()
         XCTAssertTrue(app.navigationBars["隐私政策"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.scrollViews["vime.privacy.document"].exists)
-        XCTAssertTrue(app.staticTexts["一、信息处理的基本原则"].exists)
+        XCTAssertTrue(app.staticTexts["一、我们如何处理您的信息"].exists)
         capture(app, "Privacy")
         app.navigationBars.buttons.firstMatch.tap()
         app.navigationBars.buttons.firstMatch.tap()

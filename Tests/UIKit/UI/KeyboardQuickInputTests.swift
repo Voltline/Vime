@@ -3,6 +3,52 @@ import UIKit
 
 @MainActor
 final class KeyboardQuickInputTests: XCTestCase {
+    func testNumberRailOwnsVerticalScrollingAndReloadsAppSymbolsWithoutChangingHeight() async throws {
+        let fixture = try await Fixture(english: true)
+        defer { fixture.close() }
+        let height = fixture.keyboard.preferredHeight(for: 440)
+        try fixture.tapKey(title: "123")
+        let rail = try XCTUnwrap(fixture.descendants.compactMap { $0 as? KeyboardNumberSymbolRail }.first)
+        let surface = try XCTUnwrap(fixture.descendants.compactMap { $0 as? KeyboardTouchSurface }.first)
+        XCTAssertFalse(rail.isHidden)
+        XCTAssertEqual(rail.symbols, fixture.preferences.numberSymbols)
+        XCTAssertGreaterThan(rail.contentSize.height, rail.bounds.height)
+        let symbol = try fixture.button("vime.number.+")
+        let point = symbol.convert(CGPoint(x: symbol.bounds.midX, y: symbol.bounds.midY), to: fixture.keyboard)
+        XCTAssertNil(surface.resolvedKey(at: point), "The rail must never activate key-plane cursor gestures")
+        XCTAssertTrue(try XCTUnwrap(fixture.keyboard.hitTest(point, with: nil)).isDescendant(of: rail))
+        try fixture.tapKey(id: "vime.number.+")
+        XCTAssertEqual(fixture.text.text, "+")
+        fixture.preferences.numberSymbols = ["¥", "(", "00", "%", "=", "§"]
+        fixture.keyboard.reloadPreferences(); fixture.keyboard.layoutIfNeeded(); rail.layoutIfNeeded()
+        XCTAssertEqual(rail.symbols, ["¥", "(", "00", "%", "=", "§"])
+        XCTAssertEqual(rail.contentOffset.y, 0)
+        XCTAssertFalse(fixture.descendants.contains { $0.accessibilityIdentifier == "vime.number.+" })
+        try fixture.tapKey(id: "vime.number.00")
+        XCTAssertEqual(fixture.text.text, "+00")
+        XCTAssertEqual(fixture.keyboard.preferredHeight(for: 440), height)
+        let one = try fixture.button("vime.number.1"), nine = try fixture.button("vime.number.9")
+        XCTAssertEqual(rail.frame.minY, one.frame.minY)
+        XCTAssertEqual(rail.frame.maxY, nine.frame.maxY)
+        let image = UIGraphicsImageRenderer(bounds: fixture.keyboard.bounds).image { fixture.keyboard.layer.render(in: $0.cgContext) }
+        let attachment = XCTAttachment(image: image)
+        attachment.name = "数字键盘-连续符号栏"; attachment.lifetime = .keepAlways; add(attachment)
+    }
+
+    func testSelectedCandidateUsesTextUnderlineAndKeepsBottomEmojiEntry() async throws {
+        let fixture = try await Fixture()
+        defer { fixture.close() }
+        for letter in "nihongo" { try fixture.tapKey(id: "vime.key." + String(letter)) }
+        let candidate = try XCTUnwrap(fixture.descendants.compactMap { $0 as? KeyboardCandidateButton }.first { $0.tag == 0 })
+        let underline = try XCTUnwrap(candidate.subviews.first { $0.accessibilityIdentifier == "vime.candidate.underline" })
+        candidate.layoutIfNeeded()
+        XCTAssertFalse(underline.isHidden)
+        XCTAssertEqual(underline.bounds.height, 2)
+        XCTAssertEqual(underline.frame.maxY, candidate.bounds.maxY)
+        let emoji = try XCTUnwrap(fixture.descendants.first { $0.accessibilityLabel == "表情" })
+        XCTAssertFalse(emoji.isHidden)
+        XCTAssertGreaterThan(emoji.frame.minY, candidate.frame.maxY)
+    }
     func testDecimalArithmeticPrecedenceNegativeParenthesesPercentAndFullWidth() throws {
         let examples = ["1+1": "2", "1+2*3": "7", "(1+2)*3": "9", "0.1+0.2": "0.3",
             "-2*-3": "6", "10/4": "2.5", "200*10%": "20", "50%": "0.5",
@@ -636,11 +682,13 @@ final class KeyboardQuickInputTests: XCTestCase {
             try XCTUnwrap(descendants.compactMap { $0 as? UIButton }.first { $0.accessibilityIdentifier == id }, id)
         }
         func tapKey(title: String? = nil, id: String? = nil) throws {
-            let key = try XCTUnwrap(descendants.compactMap { $0 as? KeyboardKey }.first { key in
+            let key = try XCTUnwrap(descendants.compactMap { $0 as? UIButton }.first { key in
                 if let id { return key.accessibilityIdentifier == id }
                 return key.title(for: .normal) == title
             })
-            key.action?(); keyboard.layoutIfNeeded()
+            if let key = key as? KeyboardKey { key.action?() }
+            else { key.sendActions(for: .touchUpInside) }
+            keyboard.layoutIfNeeded()
         }
         func close() {
             keyboard.stopInteractions(); keyboard.setClipboardActive(false); window.isHidden = true

@@ -24,7 +24,7 @@ struct KeyboardPreferences {
         }
     }
     private static let sharedKeys = ["vime.sound", "vime.hapticLevel", "vime.hapticIntensity", "vime.nineKeyNumbers",
-        "vime.prolongedKey", "vime.previews", "vime.theme", "vime.candidateRanking", "vime.phraseSuggestions", "vime.clipboardSuggestions", "vime.autoPairBrackets", "vime.customSkinID", "vime.skinRevision"]
+        "vime.prolongedKey", "vime.previews", "vime.theme", "vime.candidateRanking", "vime.phraseSuggestions", "vime.clipboardSuggestions", "vime.autoPairBrackets", "vime.customSkinID", "vime.skinRevision", "vime.numberSymbols"]
     var store: UserDefaults { defaults }
     struct Snapshot: Equatable {
         let heightFactor: Double
@@ -40,12 +40,13 @@ struct KeyboardPreferences {
         let phraseSuggestions: Bool
         let clipboardSuggestions: Bool
         let autoPairBrackets: Bool
+        let numberSymbols: [String]
     }
     var snapshot: Snapshot {
         Snapshot(heightFactor: heightFactor, sound: sound, hapticIntensity: hapticIntensity,
             nineKeyNumbers: nineKeyNumbers, prolongedKey: prolongedKey, previews: previews,
             theme: theme, customSkinID: customSkinID, skinRevision: skinRevision, candidateRanking: candidateRanking, phraseSuggestions: phraseSuggestions,
-            clipboardSuggestions: clipboardSuggestions, autoPairBrackets: autoPairBrackets)
+            clipboardSuggestions: clipboardSuggestions, autoPairBrackets: autoPairBrackets, numberSymbols: numberSymbols)
     }
     var heightFactor: Double {
         get {
@@ -74,6 +75,10 @@ struct KeyboardPreferences {
     var nineKeyNumbers: Bool {
         get { defaults.object(forKey: "vime.nineKeyNumbers") as? Bool ?? true }
         nonmutating set { defaults.set(newValue, forKey: "vime.nineKeyNumbers") }
+    }
+    var numberSymbols: [String] {
+        get { KeyboardNumberSymbols.normalized(defaults.stringArray(forKey: "vime.numberSymbols") ?? KeyboardNumberSymbols.defaults) }
+        nonmutating set { defaults.set(KeyboardNumberSymbols.normalized(newValue), forKey: "vime.numberSymbols") }
     }
     var prolongedKey: Bool {
         get { defaults.object(forKey: "vime.prolongedKey") as? Bool ?? true }

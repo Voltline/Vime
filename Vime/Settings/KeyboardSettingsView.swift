@@ -3,44 +3,37 @@ import SwiftUI
 struct KeyboardSettingsView: View {
     var body: some View {
         List {
-            Section {
+            Section("输入") {
                 NavigationLink { KeyboardInputSettingsView() } label: {
-                    SettingsRow(title: "输入与联想", subtitle: "排序、下一词联想、用户词典", symbol: "text.cursor")
+                    AppSettingsLabel(title: "输入与联想", subtitle: "候选排序、下一词联想", symbol: "text.cursor")
                 }.accessibilityIdentifier("vime.settings.input")
                 NavigationLink { KeyboardFeedbackSettingsView() } label: {
-                    SettingsRow(title: "手感与布局", subtitle: "声音、振动、按键预览", symbol: "hand.tap")
+                    AppSettingsLabel(title: "手感与布局", subtitle: "声音、振动、按键预览", symbol: "hand.tap")
                 }.accessibilityIdentifier("vime.settings.feedback")
+                NavigationLink { KeyboardNumberSymbolsView() } label: {
+                    AppSettingsLabel(title: "常用符号", subtitle: "数字键盘左侧的符号栏", symbol: "number")
+                }.accessibilityIdentifier("vime.settings.symbols")
+                NavigationLink { KeyboardUserDictionaryView() } label: {
+                    AppSettingsLabel(title: "用户词典", subtitle: "姓名、词语与常用短语", symbol: "character.book.closed")
+                }.accessibilityIdentifier("vime.settings.dictionary")
+            }
+            Section("数据") {
                 NavigationLink { KeyboardClipboardSettingsView() } label: {
-                    SettingsRow(title: "剪贴板", subtitle: "自动读取、一天历史与权限说明", symbol: "doc.on.clipboard")
+                    AppSettingsLabel(title: "剪贴板", symbol: "doc.on.clipboard")
                 }.accessibilityIdentifier("vime.settings.clipboard")
                 NavigationLink { KeyboardDataPrivacyView() } label: {
-                    SettingsRow(title: "数据与隐私", subtitle: "本地数据、隐私政策", symbol: "lock.shield")
+                    AppSettingsLabel(title: "数据与隐私", symbol: "lock.shield")
                 }.accessibilityIdentifier("vime.settings.privacy")
             }
-            Section("帮助") {
-                NavigationLink { KeyboardSetupGuide() } label: { Label("启用键盘", systemImage: "plus.circle") }
+            Section("帮助与关于") {
+                NavigationLink { KeyboardSetupGuide() } label: { AppSettingsLabel(title: "启用键盘", symbol: "plus.circle") }
                     .accessibilityIdentifier("vime.settings.setup")
-                NavigationLink { KeyboardExtensionTestView() } label: { Label("问题诊断", systemImage: "stethoscope") }
-            }
-            Section {
-                NavigationLink { AboutVimeView() } label: { Label("关于 Vime", systemImage: "info.circle") }.accessibilityIdentifier("vime.settings.about")
+                NavigationLink { AboutVimeView() } label: { AppSettingsLabel(title: "关于 Vime", symbol: "info.circle") }.accessibilityIdentifier("vime.settings.about")
+                NavigationLink { KeyboardExtensionTestView() } label: { AppSettingsLabel(title: "问题诊断", symbol: "stethoscope") }
             }
         }
+        .listStyle(.insetGrouped)
         .navigationTitle("键盘设置")
-    }
-}
-
-private struct SettingsRow: View {
-    let title: String
-    let subtitle: String
-    let symbol: String
-    var body: some View {
-        Label {
-            VStack(alignment: .leading, spacing: 5) {
-                Text(title)
-                Text(subtitle).font(.caption).foregroundStyle(.secondary)
-            }.padding(.vertical, 4)
-        } icon: { Image(systemName: symbol).foregroundStyle(.tint) }
     }
 }
 
@@ -75,6 +68,10 @@ struct KeyboardInputSettingsView: View {
             } footer: {
                 Text("添加姓名、专业词或常用短语\n词典和学习数据保存在本机")
             }
+            Section {
+                NavigationLink("数字键盘常用符号") { KeyboardNumberSymbolsView() }
+                    .accessibilityIdentifier("vime.settings.numberSymbols")
+            } footer: { Text("自定义数字九宫格左侧的符号，支持添加、删除和排序") }
         }
         .navigationTitle("输入与联想").navigationBarTitleDisplayMode(.inline)
     }
@@ -147,60 +144,51 @@ private struct AppHapticScale: UIViewRepresentable {
 
 struct KeyboardDataPrivacyView: View {
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 28) {
-                HStack(alignment: .top, spacing: 14) {
-                    Image(systemName: "lock.shield")
-                        .font(.title2).foregroundStyle(.tint)
-                        .frame(width: 48, height: 48)
-                        .background(Color.accentColor.opacity(0.1), in: RoundedRectangle(cornerRadius: 14))
-                        .accessibilityHidden(true)
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("输入数据留在本机").font(.headline)
-                        Text("转换、纠错、排序和联想在设备上完成，不上传输入或剪贴板内容。")
-                            .font(.subheadline).foregroundStyle(.secondary).lineSpacing(4)
-                    }
+        AppSettingsPage {
+            HStack(alignment: .top, spacing: 14) {
+                Image(systemName: "lock.shield")
+                    .font(.title2).foregroundStyle(.tint).frame(width: 28)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("输入数据留在本机").font(.headline)
+                    Text("转换、纠错、排序和联想在设备上完成，不上传输入或剪贴板内容。")
+                        .font(.subheadline).foregroundStyle(.secondary).lineSpacing(4)
                 }
-
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("管理与政策").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
-                        .accessibilityAddTraits(.isHeader)
-                    AppSettingsActionGroup {
-                        NavigationLink { KeyboardClipboardSettingsView() } label: {
-                            AppSettingsActionRow(title: "剪贴板自动读取", subtitle: "管理一天历史、读取开关与系统授权", symbol: "doc.on.clipboard")
-                        }.accessibilityIdentifier("vime.privacy.clipboard")
-                        Divider().padding(.leading, 52)
-                        NavigationLink { KeyboardUserDictionaryView() } label: {
-                            AppSettingsActionRow(title: "用户词典", subtitle: "编辑、删除或导出已添加的词条", symbol: "character.book.closed")
-                        }.accessibilityIdentifier("vime.privacy.dictionary")
-                        Divider().padding(.leading, 52)
-                        NavigationLink { PrivacyPolicyView() } label: {
-                            AppSettingsActionRow(title: "隐私政策", subtitle: "阅读完整的信息处理与权限说明", symbol: "doc.text")
-                        }.accessibilityIdentifier("vime.privacy.policy")
-                    }
-                }
-
-                VStack(alignment: .leading, spacing: 20) {
-                    Text("本地数据说明").font(.headline).accessibilityAddTraits(.isHeader)
-                    information("输入与学习", text: "确认的词语、读音和使用情况用于本地学习，帮助调整候选。关闭智能排序或下一词联想会保留已有学习数据。")
-                    information("存储与备份", text: "App 与键盘在本机共享设置、皮肤、用户词典和学习文件。系统备份可能包含这些数据，恢复备份时也可能恢复。剪贴板历史仅保留最近 24 小时，并排除在备份之外。")
-                    information("管理与删除", text: "自定义皮肤可在“定制”页编辑、导出和删除。目前没有统一清空学习数据的入口；删除词典条目不会同时删除相关学习记录。")
-                }
-                .padding(.horizontal, 4)
             }
-            .frame(maxWidth: 640, alignment: .leading)
-            .padding(20)
-            .frame(maxWidth: .infinity)
-        }
-        .background(Color(uiColor: .systemGroupedBackground))
-        .navigationTitle("数据与隐私").navigationBarTitleDisplayMode(.inline)
-    }
 
-    private func information(_ title: String, text: String) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title).font(.subheadline.weight(.semibold)).accessibilityAddTraits(.isHeader)
-            Text(text).font(.subheadline).foregroundStyle(.secondary).lineSpacing(4)
-                .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: 10) {
+                Text("管理与政策").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+                    .accessibilityAddTraits(.isHeader)
+                AppSettingsActionGroup {
+                    NavigationLink { KeyboardClipboardSettingsView() } label: {
+                        AppSettingsActionRow(title: "剪贴板自动读取", subtitle: "管理一天历史、读取开关与系统授权", symbol: "doc.on.clipboard")
+                    }.accessibilityIdentifier("vime.privacy.clipboard")
+                    Divider().padding(.leading, 52)
+                    NavigationLink { KeyboardUserDictionaryView() } label: {
+                        AppSettingsActionRow(title: "用户词典", subtitle: "编辑、删除或导出已添加的词条", symbol: "character.book.closed")
+                    }.accessibilityIdentifier("vime.privacy.dictionary")
+                    Divider().padding(.leading, 52)
+                    NavigationLink { PrivacyPolicyView() } label: {
+                        AppSettingsActionRow(title: "隐私政策", subtitle: "阅读完整的信息处理与权限说明", symbol: "doc.text")
+                    }.accessibilityIdentifier("vime.privacy.policy")
+                }
+            }
+
+            DisclosureGroup("本地数据说明") {
+                VStack(alignment: .leading, spacing: 24) {
+                    AppInformationSection("输入与学习") {
+                        Text("确认的词语、读音和使用情况用于本地学习，帮助调整候选。关闭智能排序或下一词联想会保留已有学习数据。")
+                    }
+                    AppInformationSection("存储与备份") {
+                        Text("App 与键盘在本机共享设置、皮肤、用户词典和学习文件。系统备份可能包含这些数据，恢复备份时也可能恢复。剪贴板历史仅保留最近 24 小时，并排除在备份之外。")
+                    }
+                    AppInformationSection("管理与删除") {
+                        Text("自定义皮肤可在“定制”页编辑、导出和删除。目前没有统一清空学习数据的入口；删除词典条目不会同时删除相关学习记录。")
+                    }
+                }.padding(.top, 16)
+            }
+            .font(.subheadline)
         }
+        .navigationTitle("数据与隐私").navigationBarTitleDisplayMode(.inline)
     }
 }

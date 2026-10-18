@@ -388,11 +388,18 @@ final class KeyboardTouchTests: XCTestCase {
                     let numbers = try XCTUnwrap(descendants(keyboard).compactMap { $0 as? KeyboardKey }.first { $0.title(for: .normal) == "123" })
                     numbers.sendActions(for: .touchUpInside)
                 } else if page == 2 {
+                    let abc = try XCTUnwrap(surface.regions.first { $0.key.title(for: .normal) == "ABC" }?.key)
+                    abc.sendActions(for: .touchUpInside)
+                    keyboard.preferences.nineKeyNumbers = false
+                    let numbers = try XCTUnwrap(descendants(keyboard).compactMap { $0 as? KeyboardKey }.first { $0.title(for: .normal) == "123" })
+                    numbers.sendActions(for: .touchUpInside)
+                    keyboard.layoutIfNeeded()
                     let symbols = try XCTUnwrap(surface.regions.first { $0.key.title(for: .normal) == "#+=" }?.key)
                     symbols.sendActions(for: .touchUpInside)
                 }
                 keyboard.layoutIfNeeded()
                 let keyTop = KeyboardMetrics(width: width, compact: compact, showsFooter: footer).headerHeight
+                let rail = descendants(keyboard).compactMap { $0 as? KeyboardNumberSymbolRail }.first
                 for region in surface.regions {
                     for boundaryX in [region.cell.minX, region.cell.maxX] {
                         for boundaryY in [region.cell.minY, region.cell.maxY, region.body.midY] {
@@ -400,9 +407,12 @@ final class KeyboardTouchTests: XCTestCase {
                                 for y in [boundaryY.nextDown, boundaryY, boundaryY.nextUp] {
                                     let point = CGPoint(x: x, y: y)
                                     guard keyboard.bounds.contains(point), y >= keyTop else { continue }
-                                    XCTAssertNotNil(surface.resolvedKey(at: point), "Unowned point \(point), width \(width), page \(page)")
                                     let hit = keyboard.hitTest(point, with: nil)
-                                    XCTAssertTrue(hit === surface || hit is UIControl, "Dead hit at \(point), width \(width), page \(page)")
+                                    let railHit = rail.map { hit === $0 || hit?.isDescendant(of: $0) == true } ?? false
+                                    XCTAssertTrue(surface.resolvedKey(at: point) != nil || railHit,
+                                        "Unowned point \(point), width \(width), page \(page)")
+                                    XCTAssertTrue(hit === surface || hit is UIControl || railHit,
+                                        "Dead hit at \(point), width \(width), page \(page)")
                                 }
                             }
                         }

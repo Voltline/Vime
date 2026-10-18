@@ -2,6 +2,19 @@ import XCTest
 
 @MainActor
 final class KeyboardCoreTests: XCTestCase {
+    func testNumberSymbolsShareOrderValidateBoundsAndPreserveAnEmptyList() throws {
+        let name = "vime.number-symbols.\(UUID())"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let preferences = KeyboardPreferences(defaults: defaults)
+        XCTAssertEqual(preferences.numberSymbols, KeyboardNumberSymbols.defaults)
+        preferences.numberSymbols = [" % ", "%", "", "\n", "ab\ncd", "12345", "¥", "()"]
+        XCTAssertEqual(KeyboardPreferences(defaults: defaults).snapshot.numberSymbols, ["%", "¥", "()"])
+        preferences.numberSymbols = (0..<100).map(String.init)
+        XCTAssertEqual(preferences.numberSymbols.count, 32)
+        preferences.numberSymbols = []
+        XCTAssertTrue(KeyboardPreferences(defaults: defaults).numberSymbols.isEmpty)
+    }
     func testSharedPreferencesMigrateWithoutOverwritingExistingChoices() throws {
         let legacyName = "vime.preferences.legacy.\(UUID().uuidString)"
         let sharedName = "vime.preferences.shared.\(UUID().uuidString)"

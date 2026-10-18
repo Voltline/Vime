@@ -17,9 +17,10 @@ struct SystemKeyboardEditor: UIViewRepresentable {
     func makeUIView(context: Context) -> SystemKeyboardTextView {
         let view = SystemKeyboardTextView()
         view.backgroundColor = .clear
-        view.font = .systemFont(ofSize: 23)
+        view.font = .preferredFont(forTextStyle: .body)
+        view.adjustsFontForContentSizeCategory = true
         view.textColor = .label
-        view.textContainerInset = UIEdgeInsets(top: 16, left: 12, bottom: 16, right: 12)
+        view.textContainerInset = UIEdgeInsets(top: 4, left: 1, bottom: 12, right: 1)
         view.keyboardType = .default
         view.autocorrectionType = .no
         view.spellCheckingType = .no

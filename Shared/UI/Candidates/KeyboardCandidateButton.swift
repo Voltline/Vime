@@ -3,7 +3,7 @@ import UIKit
 /// The visual selection follows the text width, independently of the button's
 /// hit area or a wider cell in the expanded candidate panel.
 final class KeyboardCandidateButton: UIButton {
-    private let fill = UIView()
+    private let underline = UIView()
     private let annotation = UILabel()
     private var presentedPresentation: CandidatePresentation?
     private var presentedIndex: Int?
@@ -38,9 +38,11 @@ final class KeyboardCandidateButton: UIButton {
         addTarget(self, action: #selector(cancelSelection), for: [.touchCancel, .touchUpOutside])
         contentHorizontalAlignment = .left
         titleLabel?.textAlignment = .left
-        fill.isUserInteractionEnabled = false
-        fill.backgroundColor = KeyboardPalette.key
-        insertSubview(fill, at: 0)
+        underline.isUserInteractionEnabled = false
+        underline.backgroundColor = KeyboardPalette.accent
+        underline.accessibilityIdentifier = "vime.candidate.underline"
+        underline.layer.cornerRadius = 1
+        insertSubview(underline, at: 0)
         annotation.font = .systemFont(ofSize: 10)
         annotation.isUserInteractionEnabled = false
         annotation.lineBreakMode = .byTruncatingTail
@@ -50,7 +52,7 @@ final class KeyboardCandidateButton: UIButton {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    func present(_ presentation: CandidatePresentation, index: Int, highlighted: Bool, cornerRadius: CGFloat) {
+    func present(_ presentation: CandidatePresentation, index: Int, highlighted: Bool) {
         tag = index
         let needsMeasurement = presentation.text != presentedPresentation?.text
             || presentation.annotation != presentedPresentation?.annotation || presentedIndex != index
@@ -64,14 +66,14 @@ final class KeyboardCandidateButton: UIButton {
             invalidateIntrinsicContentSize()
         }
         if presentedIndex != index {
-            titleLabel?.font = .systemFont(ofSize: 18, weight: index == 0 ? .medium : .regular)
+            titleLabel?.font = .systemFont(ofSize: 20, weight: index == 0 ? .medium : .regular)
             presentedIndex = index
             invalidateIntrinsicContentSize()
         }
         if presentedHighlight != highlighted {
             presentedHighlight = highlighted
             setTitleColor(highlighted ? KeyboardPalette.accent : KeyboardPalette.text, for: .normal)
-            fill.isHidden = !highlighted
+            underline.isHidden = !highlighted
         }
         annotation.textColor = highlighted ? KeyboardPalette.accent : .secondaryLabel
         if needsMeasurement {
@@ -81,7 +83,6 @@ final class KeyboardCandidateButton: UIButton {
             measuredTextWidth = max(mainWidth, noteWidth)
             KeyboardPerformance.record(.candidateTitleMeasurement, since: startedAt)
         }
-        fill.layer.cornerRadius = cornerRadius
         setNeedsLayout()
     }
 
@@ -93,15 +94,16 @@ final class KeyboardCandidateButton: UIButton {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        fill.frame = CGRect(x: 6, y: 0, width: min(max(0, bounds.width - 12), ceil(measuredTextWidth) + 12), height: bounds.height)
+        underline.frame = CGRect(x: 12, y: max(0, bounds.height - 2),
+            width: min(max(0, bounds.width - 24), ceil(measuredTextWidth)), height: 2)
         if !annotation.isHidden {
             let small = bounds.height < 30
-            titleLabel?.frame = CGRect(x: 12, y: 0, width: max(0, bounds.width - 24), height: small ? 17 : 22)
-            annotation.frame = CGRect(x: 12, y: small ? 17 : 22, width: max(0, bounds.width - 24), height: small ? 9 : 12)
+            titleLabel?.frame = CGRect(x: 12, y: 0, width: max(0, bounds.width - 24), height: small ? 16 : 20)
+            annotation.frame = CGRect(x: 12, y: small ? 16 : 20, width: max(0, bounds.width - 24), height: small ? 8 : 11)
         }
     }
     func applyTheme() {
-        fill.backgroundColor = KeyboardPalette.key
+        underline.backgroundColor = KeyboardPalette.accent
         setTitleColor(presentedHighlight == true ? KeyboardPalette.accent : KeyboardPalette.text, for: .normal)
         annotation.textColor = presentedHighlight == true ? KeyboardPalette.accent : .secondaryLabel
     }

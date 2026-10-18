@@ -39,14 +39,16 @@ final class KeyboardQuickCandidateStrip: UIScrollView {
         for (index, button) in buttons.enumerated() {
             button.item = items[index]
             button.setTitle(items[index].title, for: .normal)
-            button.titleLabel?.font = .systemFont(ofSize: 18, weight: index == 0 ? .medium : .regular)
+            button.titleLabel?.font = .systemFont(ofSize: 20, weight: index == 0 ? .medium : .regular)
             button.titleLabel?.lineBreakMode = .byTruncatingTail
             button.accessibilityLabel = items[index].title
             switch items[index].action {
             case .replacement:
+                button.primaryResult = index == 0
                 button.accessibilityIdentifier = "vime.calculation.\(index)"
                 button.accessibilityHint = "替换光标前的完整算式"
             case .symbol:
+                button.primaryResult = false
                 button.accessibilityIdentifier = "vime.quickSymbol.\(items[index].title)"
                 button.accessibilityHint = "输入符号"
             }
@@ -73,18 +75,35 @@ final class KeyboardQuickCandidateStrip: UIScrollView {
         contentSize = CGSize(width: max(0, x - 2), height: bounds.height)
     }
 
-    func applyTheme() { for button in buttons { button.setTitleColor(KeyboardPalette.text, for: .normal) } }
+    func applyTheme() {
+        for button in buttons {
+            button.setTitleColor(button.primaryResult ? KeyboardPalette.accent : KeyboardPalette.text, for: .normal)
+            button.underline.backgroundColor = KeyboardPalette.accent
+        }
+    }
 
     private final class QuickButton: UIButton {
+        let underline = UIView()
+        var primaryResult = false { didSet { underline.isHidden = !primaryResult } }
         var item: KeyboardQuickCandidate?
         private var armed = false
         private var touchedItem: KeyboardQuickCandidate?
         override init(frame: CGRect) {
             super.init(frame: frame)
+            underline.isUserInteractionEnabled = false
+            underline.isHidden = true
+            underline.layer.cornerRadius = 1
+            underline.accessibilityIdentifier = "vime.calculation.underline"
+            addSubview(underline)
             addTarget(self, action: #selector(arm), for: .touchDown)
             addTarget(self, action: #selector(cancel), for: [.touchCancel, .touchUpOutside])
         }
         required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            let width = min(titleLabel?.intrinsicContentSize.width ?? 0, max(0, bounds.width - 24))
+            underline.frame = CGRect(x: (bounds.width - width) / 2, y: max(0, bounds.height - 2), width: width, height: 2)
+        }
         @objc private func arm() { armed = true; touchedItem = item }
         @objc private func cancel() { armed = false; touchedItem = nil }
         func takeItem() -> KeyboardQuickCandidate? {

@@ -2,6 +2,62 @@ import XCTest
 
 @MainActor
 final class KeyboardQuickInputUITests: XCTestCase {
+    func testScrollableSymbolRailLinksToContainingAppSettings() throws {
+        let settings = XCUIApplication(bundleIdentifier: "com.apple.Preferences")
+        settings.launch()
+        for _ in 0..<6 {
+            let back = settings.navigationBars.buttons["BackButton"]
+            guard back.exists else { break }; back.tap()
+        }
+        settings.staticTexts["通用"].firstMatch.tap()
+        settings.staticTexts["键盘"].firstMatch.tap()
+        settings.buttons["KEYBOARDS"].tap()
+        let vime = settings.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Vime'")).firstMatch
+        if !vime.exists {
+            settings.buttons.matching(NSPredicate(format: "label CONTAINS '添加新键盘'")).firstMatch.tap()
+            XCTAssertTrue(vime.waitForExistence(timeout: 5)); vime.tap()
+        }
+        vime.tap()
+        let access = settings.switches.firstMatch
+        XCTAssertTrue(access.waitForExistence(timeout: 3))
+        let originalAccess = access.value as? String == "1"
+        if !originalAccess {
+            access.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
+            if settings.alerts.firstMatch.waitForExistence(timeout: 2) { settings.alerts.firstMatch.buttons["允许"].tap() }
+        }
+        defer {
+            if !originalAccess { settings.activate(); access.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap() }
+        }
+        let app = XCUIApplication(); app.launch()
+        app.buttons["vime.home.focus"].tap()
+        let brand = app.buttons["vime.brand.settings"]
+        if !brand.waitForExistence(timeout: 3) {
+            let globe = app.buttons.matching(NSPredicate(format: "label IN %@",
+                ["Next keyboard", "下一键盘", "下一个键盘", "切换系统键盘", "次のキーボード"] as NSArray)).firstMatch
+            for _ in 0..<12 {
+                if brand.exists { break }; guard globe.exists else { break }
+                globe.tap(); _ = brand.waitForExistence(timeout: 1)
+            }
+        }
+        XCTAssertTrue(brand.exists)
+        brand.tap()
+        app.segmentedControls["vime.setting.numbers"].buttons["九宫格"].tap()
+        brand.tap()
+        app.buttons["123"].tap()
+        let rail = app.scrollViews["vime.numberSymbols"]
+        XCTAssertTrue(rail.waitForExistence(timeout: 3))
+        let before = app.textViews["vime.extension.editor"].value as? String
+        let link = app.descendants(matching: .any)["vime.numberSymbols.edit"].firstMatch
+        for _ in 0..<8 { if link.isHittable { break }; rail.swipeUp() }
+        XCTAssertTrue(link.isHittable)
+        XCTAssertEqual(app.textViews["vime.extension.editor"].value as? String, before,
+            "Scrolling symbols must not insert text")
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "实际扩展-符号栏与 App 入口"; screenshot.lifetime = .keepAlways; add(screenshot)
+        link.tap()
+        XCTAssertTrue(app.navigationBars["常用符号"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["vime.numberSymbols.add"].exists)
+    }
     func testClipboardHistorySurvivesDismissalAndPastesInInstalledExtension() throws {
         let settings = XCUIApplication(bundleIdentifier: "com.apple.Preferences")
         settings.launch()

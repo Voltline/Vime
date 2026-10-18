@@ -5,6 +5,17 @@ import SwiftUI
 
 @MainActor
 final class AppPresentationTests: XCTestCase {
+    func testNumberSymbolLinkRoutesDirectlyToAppEditorAndRejectsOtherURLs() throws {
+        let router = Vime.AppRouter()
+        router.openURL(Vime.KeyboardNumberSymbols.settingsURL)
+        XCTAssertEqual(router.tab, .settings)
+        XCTAssertEqual(router.settingsPath, [.numberSymbols])
+        router.settingsPath = []
+        router.openURL(try XCTUnwrap(URL(string: "vime://settings/unknown")))
+        XCTAssertTrue(router.settingsPath.isEmpty)
+        XCTAssertNil(router.sheet)
+        XCTAssertFalse(router.importing)
+    }
     func testExternalSkinWaitsForDraftAndImportsWithoutOverwritingIt() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -99,7 +110,15 @@ final class AppPresentationTests: XCTestCase {
         XCTAssertTrue(clipboardPolicy.contains("不会上传"))
         XCTAssertTrue(paragraphs.contains { $0.contains("不会同时删除已有学习记录") })
         let licenseComponent = try XCTUnwrap(catalog.components.first { $0.id == "azookey" })
-        for (name, page) in [("数据与隐私", AnyView(Vime.KeyboardDataPrivacyView())),
+        for (name, page) in [("试打", AnyView(Vime.KeyboardHomeView())),
+                             ("试打-大字", AnyView(Vime.KeyboardHomeView().environment(\.dynamicTypeSize, .accessibility1))),
+                             ("试打-深色", AnyView(Vime.KeyboardHomeView().environment(\.colorScheme, .dark))),
+                             ("设置", AnyView(Vime.KeyboardSettingsView())),
+                             ("设置-大字", AnyView(Vime.KeyboardSettingsView().environment(\.dynamicTypeSize, .accessibility1))),
+                             ("定制", AnyView(Vime.KeyboardSkinsView().environmentObject(Vime.AppRouter()))),
+                             ("定制-大字", AnyView(Vime.KeyboardSkinsView().environmentObject(Vime.AppRouter()).environment(\.dynamicTypeSize, .accessibility1))),
+                             ("定制-深色", AnyView(Vime.KeyboardSkinsView().environmentObject(Vime.AppRouter()).environment(\.colorScheme, .dark))),
+                             ("数据与隐私", AnyView(Vime.KeyboardDataPrivacyView())),
                              ("数据与隐私-大字", AnyView(Vime.KeyboardDataPrivacyView().environment(\.dynamicTypeSize, .accessibility1))),
                              ("剪贴板设置", AnyView(Vime.KeyboardClipboardSettingsView())),
                              ("剪贴板设置-大字", AnyView(Vime.KeyboardClipboardSettingsView().environment(\.dynamicTypeSize, .accessibility1))),
@@ -110,6 +129,8 @@ final class AppPresentationTests: XCTestCase {
                              ("许可详情", AnyView(Vime.LicenseDetailView(component: licenseComponent))),
                              ("用户词典", AnyView(Vime.KeyboardUserDictionaryView())),
                              ("手感与布局", AnyView(Vime.KeyboardFeedbackSettingsView())),
+                             ("常用符号", AnyView(Vime.KeyboardNumberSymbolsView())),
+                             ("常用符号-大字", AnyView(Vime.KeyboardNumberSymbolsView().environment(\.dynamicTypeSize, .accessibility1))),
                              ("隐私政策", AnyView(Vime.PrivacyPolicyView()))] {
             let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
             let controller = UIHostingController(rootView: NavigationStack { page })

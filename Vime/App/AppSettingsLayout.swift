@@ -6,7 +6,7 @@ struct AppSettingsPage<Content: View>: View {
     init(@ViewBuilder content: () -> Content) { self.content = content() }
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 28) { content }
+            VStack(alignment: .leading, spacing: 24) { content }
                 .frame(maxWidth: 680, alignment: .leading)
                 .padding(20).frame(maxWidth: .infinity)
         }
@@ -20,7 +20,7 @@ struct AppSettingsActionGroup<Content: View>: View {
     var body: some View {
         VStack(spacing: 0) { content }
             .buttonStyle(.plain)
-            .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18))
+            .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20))
     }
 }
 
@@ -31,21 +31,34 @@ struct AppSettingsActionRow: View {
     var accessory = "chevron.right"
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: symbol).font(.body).foregroundStyle(.tint)
-                .frame(width: 24).accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title).font(.body).foregroundStyle(.primary)
-                Text(subtitle).font(.caption).foregroundStyle(.secondary)
-            }
+            AppSettingsLabel(title: title, subtitle: subtitle, symbol: symbol)
             Spacer(minLength: 8)
             if !accessory.isEmpty {
                 Image(systemName: accessory).font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
                     .accessibilityHidden(true)
             }
         }
-        .padding(16)
+        .padding(14)
         .frame(maxWidth: .infinity, minHeight: 60, alignment: .leading)
         .contentShape(Rectangle())
+    }
+}
+
+/// The same label fits native list rows and the action groups on reading pages.
+struct AppSettingsLabel: View {
+    let title: String
+    var subtitle = ""
+    let symbol: String
+    var body: some View {
+        Label {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title).font(.body).foregroundStyle(.primary)
+                if !subtitle.isEmpty { Text(subtitle).font(.caption).foregroundStyle(.secondary) }
+            }.padding(.vertical, subtitle.isEmpty ? 2 : 4)
+        } icon: {
+            Image(systemName: symbol).font(.body).foregroundStyle(.tint)
+                .frame(width: 24).accessibilityHidden(true)
+        }
     }
 }
 

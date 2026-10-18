@@ -9,12 +9,17 @@ struct ContentView: View {
                 .tabItem { Label("试打", systemImage: "keyboard") }.tag(AppRouter.Tab.typing)
             NavigationStack { KeyboardSkinsView() }
                 .tabItem { Label("定制", systemImage: "paintpalette") }.tag(AppRouter.Tab.customize)
-            NavigationStack { KeyboardSettingsView() }
+            NavigationStack(path: $router.settingsPath) {
+                KeyboardSettingsView()
+                    .navigationDestination(for: AppRouter.SettingsDestination.self) { destination in
+                        switch destination { case .numberSymbols: KeyboardNumberSymbolsView() }
+                    }
+            }
                 .tabItem { Label("设置", systemImage: "slider.horizontal.3") }.tag(AppRouter.Tab.settings)
         }
         .environmentObject(router)
         .tint(blue)
-        .onOpenURL { router.openSkin($0) }
+        .onOpenURL { router.openURL($0) }
         .sheet(item: $router.sheet, onDismiss: router.sheetDismissed) { sheet in
             switch sheet {
             case .skin(let document): KeyboardSkinEditor(document: document, store: KeyboardSkinStore())

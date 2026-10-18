@@ -73,11 +73,23 @@ class KeyboardViewController: UIInputViewController {
         keyboard.onReplaceText = { [weak self] in self?.replaceText($0) ?? false }
         keyboard.onSwitchKeyboard = { [weak self] in self?.advanceToNextInputMode() }
         keyboard.onDismiss = { [weak self] in self?.dismissKeyboard() }
+        keyboard.onOpenNumberSymbolSettings = { [weak self] in self?.openNumberSymbolSettings() }
         NotificationCenter.default.addObserver(self, selector: #selector(pauseClipboard),
             name: .NSExtensionHostWillResignActive, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(resumeClipboard),
             name: .NSExtensionHostDidBecomeActive, object: nil)
         host.onUndoAvailabilityChange = { [weak self] in self?.keyboard.canUndoLineDeletion = $0 }
+    }
+
+    private func openNumberSymbolSettings() {
+        guard let scene = view.window?.windowScene else { return }
+        scene.open(KeyboardNumberSymbols.settingsURL, options: nil) { [weak self] opened in
+            guard let self, !opened, self.view.window != nil, self.presentedViewController == nil else { return }
+            let alert = UIAlertController(title: "在 Vime App 中编辑",
+                message: "请打开 Vime → 设置 → 输入与联想 → 数字键盘常用符号。", preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: "好", style: .cancel))
+            self.present(alert, animated: true)
+        }
     }
 
     override func viewWillAppear(_ animated: Bool) {

@@ -5,6 +5,7 @@ import Combine
 @MainActor
 final class AppRouter: ObservableObject {
     enum Tab: Hashable { case typing, customize, settings }
+    enum SettingsDestination: Hashable { case numberSymbols }
     enum Sheet: Identifiable {
         case skin(KeyboardSkinDocument), height
         var id: String {
@@ -12,6 +13,7 @@ final class AppRouter: ObservableObject {
         }
     }
     @Published var tab: Tab = .typing
+    @Published var settingsPath: [SettingsDestination] = []
     @Published var sheet: Sheet?
     @Published private(set) var importing = false
     @Published private(set) var skinRevision = 0
@@ -46,6 +48,12 @@ final class AppRouter: ObservableObject {
         guard url.isFileURL else { return }
         pendingFiles.append(url)
         processPendingFiles()
+    }
+    func openURL(_ url: URL) {
+        if url == KeyboardNumberSymbols.settingsURL {
+            tab = .settings
+            settingsPath = [.numberSymbols]
+        } else { openSkin(url) }
     }
     private func processPendingFiles() {
         guard error == nil, !sheetPresented, !filePickerPresented, !importing, !pendingFiles.isEmpty else { return }
