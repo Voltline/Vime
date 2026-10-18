@@ -120,6 +120,9 @@ final class KeyboardQuickInputTests: XCTestCase {
                 XCTAssertEqual(fixture.text.text, "前文👩🏽‍💻 " + (choice == 0 ? "2" : "1+1=2"))
                 XCTAssertNil(fixture.text.markedTextRange)
                 XCTAssertFalse(fixture.session.isComposing)
+                XCTAssertTrue(try fixture.button("vime.brand.settings").isHidden)
+                try fixture.tapKey(title: "ABC")
+                XCTAssertFalse(try fixture.button("vime.brand.settings").isHidden)
             }
         }
     }
@@ -361,6 +364,10 @@ final class KeyboardQuickInputTests: XCTestCase {
             XCTAssertLessThanOrEqual(strip.frame.maxX, expand.frame.minX)
             XCTAssertGreaterThan(strip.bounds.height, 20)
             XCTAssertFalse(strip.isHidden)
+            XCTAssertTrue(try fixture.button("vime.brand.settings").isHidden)
+            let metrics = KeyboardMetrics(width: width, compact: fixture.keyboard.compact, showsFooter: false)
+            XCTAssertEqual(strip.frame.minX, fixture.keyboard.compact ? metrics.contentLeft : 4 * width / 440,
+                accuracy: 0.001)
             try fixture.tapKey(title: "1"); try fixture.tapKey(title: "1")
             let image = UIGraphicsImageRenderer(bounds: fixture.keyboard.bounds).image { fixture.keyboard.layer.render(in: $0.cgContext) }
             let attachment = XCTAttachment(image: image)

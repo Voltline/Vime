@@ -422,7 +422,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
             candidateScroll.frame = CGRect(x: left, y: candidateScroll.frame.minY,
                 width: max(0, right - left), height: candidateScroll.frame.height)
         }
-        let previewLeft = brandButton.frame.maxX + 8
+        let previewLeft = (brandButton.isHidden ? brandButton.frame.minX : brandButton.frame.maxX) + 8
         let previewRight = compact ? metrics.contentRight : width - 12 * xScale
         clipboardSuggestion.frame = CGRect(x: previewLeft, y: brandButton.frame.minY,
             width: max(0, previewRight - previewLeft), height: diameter)
@@ -858,8 +858,9 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         header.isHidden = panel == .symbols || panel == .clipboardHistory
         undoButton.isHidden = !canUndoLineDeletion || strip || panel != .keyboard
         let showsQuickToolbar = (showsQuick || showsClipboard) && !composing
-        brandButton.isHidden = (panel == .keyboard && strip && !showsQuickToolbar) || (panel == .candidates || panel == .symbols || panel == .clipboardHistory)
-        modeButton.isHidden = strip || panel != .keyboard || !session.inputTraits.supportsPrimaryVariant
+        brandButton.isHidden = (panel == .keyboard && (page != .letters || (strip && !showsQuickToolbar)))
+            || (panel == .candidates || panel == .symbols || panel == .clipboardHistory)
+        modeButton.isHidden = strip || page != .letters || panel != .keyboard || !session.inputTraits.supportsPrimaryVariant
         modeButton.accessibilityLabel = session.inputTraits.primaryVariantAccessibilityLabel
         candidateScroll.isHidden = !strip || showsQuick || showsClipboard || panel != .keyboard
         expandButton.isHidden = showsClipboard

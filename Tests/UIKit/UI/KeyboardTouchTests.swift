@@ -531,10 +531,10 @@ final class KeyboardTouchTests: XCTestCase {
         try await Task.sleep(for: .milliseconds(510))
         XCTAssertEqual(deletions, 1, "Release stops delayed repeat")
         surface.beginPress(id: 2, at: deletePoint)
-        let settings = try XCTUnwrap(descendants(keyboard).first { $0.accessibilityLabel == "键盘设置" && !$0.isHidden } as? UIButton)
-        settings.sendActions(for: .touchUpInside)
+        let symbols = try XCTUnwrap(descendants(keyboard).first { $0.accessibilityIdentifier == "vime.number.符号" } as? UIButton)
+        symbols.sendActions(for: .touchUpInside)
         XCTAssertFalse(delete.key.isHighlighted)
-        XCTAssertFalse(keyboard.hitTest(center, with: nil) === surface, "A settings panel owns its own touches")
+        XCTAssertFalse(keyboard.hitTest(center, with: nil) === surface, "A symbol panel owns its own touches")
         try await Task.sleep(for: .milliseconds(510))
         XCTAssertEqual(deletions, 1, "Opening a panel cancels a held delete before it commits")
     }

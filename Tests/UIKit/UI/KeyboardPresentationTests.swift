@@ -152,6 +152,8 @@ final class KeyboardPresentationTests: XCTestCase {
             XCTAssertTrue(keyboard.bounds.contains(center))
             XCTAssertNotNil(keyboard.hitTest(center, with: nil))
             XCTAssertTrue(surface.resolvedKey(at: surface.convert(center, from: keyboard)) === emoji)
+            let space = try button("vime.key.space", in: keyboard)
+            XCTAssertEqual(surface.regions.filter { $0.body.minY == space.frame.minY }.count, 6)
             XCTAssertEqual(keyboard.preferredHeight(for: 440), preferred,
                 "An imposed short frame must never become the next preferred size")
             if height == 224 { capture(keyboard, name: "portrait-short-reconnect-complete-bottom-row") }
