@@ -52,6 +52,14 @@ nonisolated final class CandidatePreferenceMemory {
     private var entries: [String: Entry] = [:]
     private var populations: [String: [String: String]] = [:]
     private var recent: [Recent] = []
+    private struct ContextKeys {
+        let full: String
+        let buckets: [String]
+    }
+    // Cache derived keys, never scores: new feedback must affect the very next
+    // query. A short FIFO also covers word-prefix contexts during sentence ranking.
+    private var contextKeysByTail: [Data: ContextKeys] = [:]
+    private var contextKeyOrder: [Data] = []
     private var dirty = false
     private var epoch: UUID?
     var clearEpoch: UUID? { epoch }
@@ -151,13 +159,31 @@ nonisolated final class CandidatePreferenceMemory {
         [scope, reading, context].joined(separator: "\0")
     }
     private func key(_ e: Entry) -> String { population(e.scope, e.reading, e.context) + "\0" + e.surface }
-    private func contextKey(_ context: String, length: Int = 12) -> String {
-        let tail = String(context.trimmingCharacters(in: .whitespacesAndNewlines).suffix(length))
-        return SHA256.hash(data: Data(tail.utf8)).map { String(format: "%02x", $0) }.joined()
+    private static func digest(_ data: Data) -> String {
+        let hex = Array("0123456789abcdef".utf8)
+        var bytes: [UInt8] = []
+        bytes.reserveCapacity(64)
+        for byte in SHA256.hash(data: data) { bytes.append(hex[Int(byte >> 4)]); bytes.append(hex[Int(byte & 15)]) }
+        return String(decoding: bytes, as: UTF8.self)
     }
+    private func contextKeys(_ context: String) -> ContextKeys {
+        let tail = String(context.trimmingCharacters(in: .whitespacesAndNewlines).suffix(12))
+        // Archives hash UTF-8 bytes. Swift String equality also merges canonically
+        // equivalent spellings, which must not alias two existing archive keys.
+        let bytes = Data(tail.utf8)
+        if let keys = contextKeysByTail[bytes] { return keys }
+        let full = Self.digest(bytes)
+        let keys = ContextKeys(full: full, buckets: tail.isEmpty ? [] : [full, "short:" + Self.digest(Data(tail.suffix(4).utf8))])
+        if bytes.count <= 1024 {
+            if contextKeyOrder.count == 32 { contextKeysByTail.removeValue(forKey: contextKeyOrder.removeFirst()) }
+            contextKeyOrder.append(bytes)
+            contextKeysByTail[bytes] = keys
+        }
+        return keys
+    }
+    private func contextKey(_ context: String) -> String { contextKeys(context).full }
     private func buckets(_ context: String) -> [String] {
-        guard !context.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return [] }
-        return [contextKey(context), "short:" + contextKey(context, length: 4)]
+        contextKeys(context).buckets
     }
     private func effective(_ e: Entry, now: Date) -> Double {
         e.evidence * pow(0.5, max(0, now.timeIntervalSince1970 - e.selectedAt) / Policy.halfLife)
@@ -188,6 +214,7 @@ nonisolated final class CandidatePreferenceMemory {
         (populations[population(scope, reading, context)] ?? [:]).compactMapValues { entries[$0] }
     }
     private func persistentScore(scope: String, reading: String, surface: String, context: String, now: Date) -> Double {
+        guard !entries.isEmpty else { return 0 }
         let global = rows(scope: scope, reading: reading, context: "")
         let base = global[surface].map {
             $0.confirmations >= Policy.minimumSelections ? log1p(max(0, effective($0, now: now) - 1)) : 0
@@ -209,6 +236,7 @@ nonisolated final class CandidatePreferenceMemory {
         return min(Policy.maximumBonus, base + min(Policy.contextLimit, adjustment))
     }
     private func recentScore(scope: String, reading: String, surface: String, context: String, now: Date) -> Double {
+        guard !recent.isEmpty else { return 0 }
         let bucket = context.isEmpty ? "" : contextKey(context)
         let score = recent.filter { $0.scope == scope && $0.reading == reading && $0.surface == surface && $0.context == bucket }
             .reduce(0.0) { $0 + $1.weight * pow(0.5, max(0, now.timeIntervalSince($1.selectedAt)) / Policy.recentHalfLife) }

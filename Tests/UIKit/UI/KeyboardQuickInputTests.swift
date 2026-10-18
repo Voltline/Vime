@@ -3,6 +3,16 @@ import UIKit
 
 @MainActor
 final class KeyboardQuickInputTests: XCTestCase {
+    func testCandidateMetricsPreserveJapaneseLatinEmojiAndAnnotationWidths() {
+        for font in [UIFont.systemFont(ofSize: 18), .systemFont(ofSize: 18, weight: .medium), .systemFont(ofSize: 10)] {
+            for text in ["日本語", "ひらがな", "半角片假名 · 前段", "GitHub 123", "ｶﾞｯｺｳ", "ㇱㇿ", "2️⃣", "👨‍👩‍👧‍👦", "1+1=2", "長い候補\n短い", " "] {
+                let reference = (text as NSString).size(withAttributes: [.font: font]).width
+                let measured = KeyboardCandidateTextMetrics.width(of: text, font: font)
+                XCTAssertEqual(ceil(measured), ceil(reference), accuracy: 1, text)
+                XCTAssertEqual(KeyboardCandidateTextMetrics.width(of: text, font: font), measured, "Cached widths must preserve the font weight and size")
+            }
+        }
+    }
     func testNumberRailOwnsVerticalScrollingAndReloadsAppSymbolsWithoutChangingHeight() async throws {
         let fixture = try await Fixture(english: true)
         defer { fixture.close() }
@@ -520,6 +530,10 @@ final class KeyboardQuickInputTests: XCTestCase {
         let fixture = try await Fixture()
         defer { fixture.close() }
         try fixture.button("vime.brand.settings").sendActions(for: .touchUpInside)
+        var appSettingsOpens = 0
+        fixture.keyboard.onOpenAppSettings = { appSettingsOpens += 1 }
+        try fixture.button("vime.setting.openAppSettings").sendActions(for: .touchUpInside)
+        XCTAssertEqual(appSettingsOpens, 1)
         for theme in [KeyboardTheme.system, .midnight] {
             fixture.preferences.theme = theme; fixture.keyboard.reloadPreferences()
             for width in [CGFloat(320), 440, 680] {
@@ -532,20 +546,22 @@ final class KeyboardQuickInputTests: XCTestCase {
                 let sound = try XCTUnwrap(fixture.descendants.first { $0.accessibilityIdentifier == "vime.setting.sound" })
                 let slider = try XCTUnwrap(fixture.descendants.first { $0.accessibilityIdentifier == "vime.setting.haptics" })
                 let numbers = try XCTUnwrap(fixture.descendants.first { $0.accessibilityIdentifier == "vime.setting.numbers" })
+                let appSettings = try fixture.button("vime.setting.openAppSettings")
                 let historyFrame = history.convert(history.bounds, to: settings)
                 XCTAssertGreaterThanOrEqual(historyFrame.minY, 0)
                 XCTAssertLessThanOrEqual(historyFrame.maxY, settings.bounds.height)
                 XCTAssertLessThan(historyFrame.maxY, sound.convert(sound.bounds, to: settings).midY)
-                for control in [sound, slider, numbers] {
+                for control in [sound, slider, numbers, appSettings] {
                     let rect = control.convert(control.bounds, to: settings)
                     XCTAssertGreaterThanOrEqual(rect.minX, 0)
                     XCTAssertLessThanOrEqual(rect.maxX, settings.bounds.width)
                     XCTAssertGreaterThan(rect.width, 30)
                 }
-                if width == 440, let numberRow = numbers.superview {
-                    XCTAssertLessThanOrEqual(numberRow.convert(numberRow.bounds, to: settings).maxY, settings.bounds.height,
-                        "All three setting groups must fit the default portrait height")
-                }
+                XCTAssertLessThan(historyFrame.maxY, appSettings.convert(appSettings.bounds, to: settings).midY)
+                XCTAssertLessThan(appSettings.convert(appSettings.bounds, to: settings).maxY,
+                    sound.convert(sound.bounds, to: settings).midY)
+                XCTAssertLessThanOrEqual(appSettings.convert(appSettings.bounds, to: settings).maxY, settings.bounds.height,
+                    "The App settings shortcut must be visible without scrolling")
                 let image = UIGraphicsImageRenderer(bounds: fixture.keyboard.bounds).image { fixture.keyboard.layer.render(in: $0.cgContext) }
                 let attachment = XCTAttachment(image: image)
                 attachment.name = "快捷设置-\(theme.rawValue)-\(Int(width))"; attachment.lifetime = .keepAlways; add(attachment)

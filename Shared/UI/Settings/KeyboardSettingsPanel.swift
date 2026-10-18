@@ -16,6 +16,7 @@ final class KeyboardSettingsPanel: UIScrollView {
     private var labels: [UILabel] = []
     private var horizontal: [NSLayoutConstraint] = []
     var onHistory: (() -> Void)?
+    var onOpenAppSettings: (() -> Void)?
     var onFeedback: (() -> Void)?
     var onNumberLayoutChange: (() -> Void)?
 
@@ -54,6 +55,25 @@ final class KeyboardSettingsPanel: UIScrollView {
         history.addAction(UIAction { [weak self] _ in self?.onHistory?() }, for: .touchUpInside)
         stack.addArrangedSubview(group(history))
 
+        let appSettings = UIButton(type: .custom)
+        let appSettingsRow = row(symbol: "slider.horizontal.3",
+            content: [label("打开 App 设置"), icon("arrow.up.forward", size: 13)], height: 44)
+        appSettingsRow.isUserInteractionEnabled = false
+        appSettingsRow.translatesAutoresizingMaskIntoConstraints = false
+        appSettings.addSubview(appSettingsRow)
+        NSLayoutConstraint.activate([
+            appSettingsRow.leadingAnchor.constraint(equalTo: appSettings.leadingAnchor),
+            appSettingsRow.trailingAnchor.constraint(equalTo: appSettings.trailingAnchor),
+            appSettingsRow.topAnchor.constraint(equalTo: appSettings.topAnchor),
+            appSettingsRow.bottomAnchor.constraint(equalTo: appSettings.bottomAnchor)
+        ])
+        appSettings.accessibilityIdentifier = "vime.setting.openAppSettings"
+        appSettings.accessibilityLabel = "打开 App 设置"
+        appSettings.accessibilityHint = "前往 Vime App 调整更多设置"
+        appSettings.addAction(UIAction { [weak self] _ in self?.onOpenAppSettings?() }, for: .touchUpInside)
+        stack.addArrangedSubview(group(appSettings))
+
+
         sound.accessibilityLabel = "按键声音"; sound.accessibilityIdentifier = "vime.setting.sound"
         sound.addAction(UIAction { [weak self] _ in
             guard let self else { return }; self.preferences.sound = self.sound.isOn
@@ -90,7 +110,7 @@ final class KeyboardSettingsPanel: UIScrollView {
         stack.addArrangedSubview(group(row(symbol: "square.grid.2x2", content: [label("数字布局"), numbers], height: 48)))
 
         notice.font = .systemFont(ofSize: 12); notice.numberOfLines = 0
-        notice.text = "更多设置，请打开 Vime App"
+        notice.text = "声音与振动需允许完全访问"
         stack.addArrangedSubview(notice)
         neuralStatus.font = .systemFont(ofSize: 12); neuralStatus.numberOfLines = 0
         neuralStatus.text = "神经候选暂时停用，词典输入仍可用。可在 Vime App 中重新开启神经候选。"
@@ -113,7 +133,7 @@ final class KeyboardSettingsPanel: UIScrollView {
             haptics.setIntensity(preferences.hapticIntensity)
             hapticValue.text = HapticIntensity.description(preferences.hapticIntensity)
         }
-        notice.text = hasFullAccess ? "更多设置，请打开 Vime App" : "声音与振动需允许完全访问 · 更多设置请打开 Vime App"
+        notice.isHidden = hasFullAccess
         neuralStatus.isHidden = !neuralPaused
     }
 

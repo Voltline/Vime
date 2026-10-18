@@ -3,7 +3,7 @@ import CoreML
 import CSentencePiece
 import Accelerate
 
-/// Confined to the candidate worker's serial queue. No mutable state crosses actors.
+/// Confined to the worker's model queue, independently of dictionary conversion.
 nonisolated final class VimeSentenceTokenizer {
     private let processor: UnsafeMutableRawPointer
     init(url: URL) throws {

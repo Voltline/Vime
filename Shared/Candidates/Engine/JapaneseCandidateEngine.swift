@@ -79,6 +79,15 @@ nonisolated final class JapaneseCandidateEngine {
             typoCorrectionMode: .disabled, metadata: .init(versionString: "Vime"))
     }
     static let maximumLearningEntries = 8192
+
+    /// Parse small bundled packs and the user's dictionary before the first
+    /// key. Native dictionary shards remain demand-loaded; no synthetic input
+    /// or learning event is needed to prepare a newly created engine.
+    func prepareForInput() {
+        _ = JapaneseLanguageResources.shared
+        _ = userDictionary.nativeEntries()
+    }
+
     private var alternativeSession: KanaKanjiConverter.ConversionSessionID?
     private var classicTypoSession: KanaKanjiConverter.ConversionSessionID?
     private var prefixSession: KanaKanjiConverter.ConversionSessionID?
@@ -92,9 +101,11 @@ nonisolated final class JapaneseCandidateEngine {
     static let correctionBudgetSeconds: TimeInterval = 0.060
     private(set) var lastCorrectionMetrics = CorrectionSearchMetrics()
     func candidates(for composing: ComposingText, katakana: Bool = false, revision: Int,
-                    includeCorrections: Bool = true, conversionLength: Int? = nil) -> [CandidateSnapshot] {
+                    includeCorrections: Bool = true, conversionLength: Int? = nil,
+                    cancelled: () -> Bool = { false }) -> [CandidateSnapshot] {
+        guard !cancelled() else { return [] }
         preferenceMemory?.refreshIfChanged()
-        guard !composing.isEmpty else { return [] }
+        guard !composing.isEmpty, !cancelled() else { return [] }
         var query = composing
         if let length = conversionLength {
             _ = query.moveCursorFromCursorPosition(count: length - query.convertTargetCursorPosition)
@@ -112,6 +123,7 @@ nonisolated final class JapaneseCandidateEngine {
             installedShortcuts = registered.shortcuts
         }
         KeyboardPerformance.record(.lexiconLookup, since: lexiconStarted)
+        guard !cancelled() else { return [] }
         currentContinuity = previousTop
         let conversionStarted = KeyboardPerformance.start()
         var requestOptions = options
@@ -135,6 +147,9 @@ nonisolated final class JapaneseCandidateEngine {
             primaryQuery = query
         }
         KeyboardPerformance.record(.baseConversion, since: conversionStarted)
+        // Finish each native call atomically, then abandon obsolete work before
+        // building snapshots or starting unrelated conversion sessions.
+        guard !cancelled() else { return [] }
         let kana = query.convertTarget
         func snapshot(_ candidate: Candidate, source: CandidateSource, engineRank: Int = 0) -> CandidateSnapshot {
             var engineRemainder = query
@@ -179,10 +194,12 @@ nonisolated final class JapaneseCandidateEngine {
         let conversions = result.mainResults.enumerated().filter { $0.element.inputable }.map {
             snapshot($0.element, source: result.predictionResults.contains($0.element) ? .prediction : .conversion, engineRank: $0.offset)
         }
+        guard !cancelled() else { return [] }
         let predictions = result.predictionResults.enumerated().filter { $0.element.inputable }.map {
             snapshot($0.element, source: .prediction,
                 engineRank: result.mainResults.firstIndex(of: $0.element) ?? $0.offset)
         }
+        guard !cancelled() else { return [] }
         var provided = specialProviders.flatMap {
             $0.provideCandidates(converter: converter, inputData: query, options: requestOptions).enumerated().map { ($0.element, $0.offset) }
         }
@@ -210,6 +227,7 @@ nonisolated final class JapaneseCandidateEngine {
         alternativeOptions.N_best = 3
         alternativeOptions.requireJapanesePrediction = .disabled
         for alternative in RomajiConverter.nReadingAlternatives(for: query) {
+            guard !cancelled() else { return [] }
             let session = alternativeSession ?? converter.createSession()
             alternativeSession = session
             // Separate conversion state, shared dictionary/cache; no second
@@ -221,6 +239,7 @@ nonisolated final class JapaneseCandidateEngine {
                 converter.stopComposition()
                 return converter.requestCandidates(alternative, options: alternativeOptions)
             }) else { continue }
+            guard !cancelled() else { return [] }
             let reading = RomajiConverter.katakana(alternative.convertTarget)
             let matches = result.mainResults.filter { candidate in
                 guard candidate.inputable, candidate.data.count == 1,
@@ -259,6 +278,7 @@ nonisolated final class JapaneseCandidateEngine {
         let clauses = result.firstClauseResults.enumerated().filter { $0.element.inputable }.map {
             snapshot($0.element, source: .conversion, engineRank: $0.offset)
         }
+        guard !cancelled() else { return [] }
         currentPool = conversions + predictions + scriptCandidates + alternatives + clauses + specialCandidates + emojiCandidates
         // Query the most likely first lexical boundary once, rather than converting
         // every possible prefix on every key. Explicit controls cover shorter units.
@@ -276,6 +296,7 @@ nonisolated final class JapaneseCandidateEngine {
             }
             KeyboardPerformance.record(.prefixConversion, since: prefixStarted)
             for (index, candidate) in (results ?? []).enumerated() where candidate.inputable {
+                guard !cancelled() else { return [] }
                 var rest = prefix; rest.prefixComplete(composingCount: candidate.composingCount)
                 let count = prefix.convertTarget.count - rest.convertTarget.count
                 guard count > 0 else { continue }
@@ -291,6 +312,7 @@ nonisolated final class JapaneseCandidateEngine {
         }
         var spellingVariants: [CandidateSnapshot] = []
         for original in currentPool where original.lexical && original.source == .conversion {
+            guard !cancelled() else { return [] }
             let preferred = resources.preferredSurface(original.candidate)
             guard !preferred.isEmpty, preferred != original.text else { continue }
             var variant = CandidateSnapshot(candidate: original.candidate, revision: revision, source: .orthographicVariant,
@@ -306,9 +328,11 @@ nonisolated final class JapaneseCandidateEngine {
         if diagnosticsEnabled {
             rawDiagnostics = currentPool.enumerated().map { CandidateDiagnostic($0.element, rank: $0.offset + 1) }
         }
+        guard !cancelled() else { return [] }
         let base = rank(currentPool, query: query, katakana: katakana)
+        guard !cancelled() else { return [] }
         previousTop = base.first.map { .init(surface: $0.text, reading: $0.reading, input: Self.rawInput(query)) }
-        return includeCorrections && conversionLength == nil ? addingCorrections(to: base, for: query, katakana: katakana, revision: revision) : base
+        return includeCorrections && conversionLength == nil ? addingCorrections(to: base, for: query, katakana: katakana, revision: revision, cancelled: cancelled) : base
     }
 
     /// Expanded-panel formatting uses native options on isolated queries. Raw
@@ -484,12 +508,21 @@ nonisolated final class JapaneseCandidateEngine {
     }
 
     func addingCorrections(to base: [CandidateSnapshot], for query: ComposingText, katakana: Bool,
-                           revision: Int, cancelled: () -> Bool = { false }) -> [CandidateSnapshot] {
-        let started = ProcessInfo.processInfo.systemUptime
+                           revision: Int, cancelled: () -> Bool = { false },
+                           now: () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }) -> [CandidateSnapshot] {
+        let started = now()
+        let deadline = started + Self.correctionBudgetSeconds
         lastCorrectionMetrics = .init()
         correctionQueryDiagnostics = []
-        defer { lastCorrectionMetrics.elapsedMs = (ProcessInfo.processInfo.systemUptime - started) * 1000 }
-        let generated = KeyboardCorrectionVariants.generate(for: query, cancelled: cancelled)
+        defer { lastCorrectionMetrics.elapsedMs = (now() - started) * 1000 }
+        func stopSearch() -> Bool {
+            if cancelled() { lastCorrectionMetrics.cancelled = true; return true }
+            if now() >= deadline { lastCorrectionMetrics.budgetExhausted = true; return true }
+            return false
+        }
+        guard !stopSearch() else { return base }
+        let generated = KeyboardCorrectionVariants.generate(for: query, cancelled: stopSearch)
+        guard !stopSearch() else { return base }
         let literalReading = RomajiConverter.katakana(query.convertTarget)
         let evidence = base.first { $0.remainingComposition.isEmpty && $0.candidate.data.map(\.ruby).joined() == literalReading }
         var fallbackRanges: [Range<Int>] = []
@@ -518,6 +551,7 @@ nonisolated final class JapaneseCandidateEngine {
             return new - old
         }
         func priority(_ variant: KeyboardCorrectionVariants.Variant) -> Double {
+            guard !stopSearch() else { return .infinity }
             let characters = Array(variant.reading)
             let changed = Self.changedRange(originalCharacters, characters)
             let repairsFallback = fallbackRanges.contains { $0.overlaps(changed) }
@@ -528,6 +562,7 @@ nonisolated final class JapaneseCandidateEngine {
             }
             let delta = characters.count - originalCharacters.count
             for index in segments.indices where segments[index].overlaps(changed) {
+                guard !stopSearch() else { return .infinity }
                 let minimumWordLength = segments[index].count == 1 ? 3 : 2
                 for startIndex in max(0, index - 1)...index {
                     for endIndex in index...min(segments.count - 1, index + 1) {
@@ -547,21 +582,25 @@ nonisolated final class JapaneseCandidateEngine {
                 - (wholeWord == nil ? 0 : CandidateCorrectionPolicy.wholeWordPriorityBonus)
         }
         var weighted: [(variant: KeyboardCorrectionVariants.Variant, priority: Double, index: Int)] = []
-        for (index, variant) in generated.enumerated() { weighted.append((variant, priority(variant), index)) }
+        for (index, variant) in generated.enumerated() {
+            guard !stopSearch() else { return base }
+            weighted.append((variant, priority(variant), index))
+        }
         // Rank complete two-sound hypotheses using the same lexical hints as
         // single edits. Do not require either intermediate reading to be valid.
         // This supplementary work shares the existing deadline and query limit.
-        let paired = KeyboardCorrectionVariants.phoneticPairs(for: query, priority: priority,
-            cancelled: { cancelled() || ProcessInfo.processInfo.systemUptime - started >= Self.correctionBudgetSeconds })
+        let paired = KeyboardCorrectionVariants.phoneticPairs(for: query, priority: priority, cancelled: stopSearch)
         for (index, variant) in paired.enumerated() {
+            guard !stopSearch() else { return base }
             weighted.append((variant, priority(variant), generated.count + index))
         }
+        guard !stopSearch() else { return base }
         weighted.sort {
             $0.priority == $1.priority ? $0.index < $1.index : $0.priority < $1.priority
         }
         let variants = weighted.map(\.variant)
         lastCorrectionMetrics.variants = variants.count
-        guard !variants.isEmpty, !cancelled() else { return base }
+        guard !variants.isEmpty, !stopSearch() else { return base }
         let originalQuality = base.filter {
             $0.remainingComposition.isEmpty && ($0.source == .conversion || $0.source == .readingAlternative || $0.source == .userDictionary)
                 && ($0.source == .readingAlternative || $0.candidate.data.map(\.ruby).joined() == literalReading)
@@ -573,14 +612,13 @@ nonisolated final class JapaneseCandidateEngine {
         var matches: [(Candidate, KeyboardCorrectionVariants.Variant, Double)] = []
         var admittedReadings = Set<String>()
         for variant in variants {
+            if stopSearch() { break }
             if admittedReadings.count >= CandidateCorrectionPolicy.maximumAdmittedReadings { break }
             // Preserve the existing first useful single-edit reading, while
             // allowing a paired sound reading to compete rather than being cut
             // off by an unrelated single-edit word found earlier.
             if !matches.isEmpty && variant.suggestion.editCount == 1 { continue }
-            if cancelled() { lastCorrectionMetrics.cancelled = true; break }
-            if lastCorrectionMetrics.queries >= Self.maximumCorrectionQueries
-                || ProcessInfo.processInfo.systemUptime - started >= Self.correctionBudgetSeconds {
+            if lastCorrectionMetrics.queries >= Self.maximumCorrectionQueries {
                 lastCorrectionMetrics.budgetExhausted = true; break
             }
             let reading = RomajiConverter.katakana(variant.reading)
@@ -638,7 +676,7 @@ nonisolated final class JapaneseCandidateEngine {
             // paired hypotheses are considered, never more unrelated single edits.
         }
         let classicStarted = KeyboardPerformance.start()
-        if matches.isEmpty, !cancelled(), Self.supportsClassicTypo(query) {
+        if matches.isEmpty, !stopSearch(), Self.supportsClassicTypo(query) {
             var classicOptions = correctionOptions; classicOptions.typoCorrectionMode = .enabled
             let classicSession = classicTypoSession ?? converter.createSession(); classicTypoSession = classicSession
             let classic: [Candidate] = (try? converter.withSession(classicSession) {
@@ -663,13 +701,13 @@ nonisolated final class JapaneseCandidateEngine {
                 matches.append((candidate, .init(reading: reading, suggestion: suggestion), score))
             }
         }
-        if matches.isEmpty, let config = experimentalTypoConfig, !cancelled() {
+        if matches.isEmpty, let config = experimentalTypoConfig, !stopSearch() {
             let lmStarted = KeyboardPerformance.start()
             let proposals = converter.experimentalRequestTypoCorrection(leftSideContext: committedContext,
                 composingText: query, options: correctionOptions, inputStyle: .roman2kana, config: config)
             KeyboardPerformance.record(.experimentalTypo, since: lmStarted)
             for proposal in proposals where proposal.channelCost > 0 && proposal.prominence >= CandidateCorrectionPolicy.minimumProminence {
-                guard !cancelled() else { break }
+                guard !stopSearch() else { break }
                 var corrected = ComposingText(); RomajiConverter.insert(proposal.correctedInput, into: &corrected)
                 let reading = corrected.convertTarget
                 guard RomajiConverter.katakana(reading) != literalReading else { continue }

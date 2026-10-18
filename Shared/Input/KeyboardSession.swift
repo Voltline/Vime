@@ -27,6 +27,8 @@ final class KeyboardSession: KeyboardInputSession {
     private(set) var candidateRequestCount = 0
     private(set) var inputStartedAt: TimeInterval?
     private(set) var candidateResultReadyAt: TimeInterval?
+    private var candidateRequestStartedAt: TimeInterval?
+    private(set) var candidateInitialRequestStartedAt: TimeInterval?
     private var candidatesPending = false
     private var pendingSpaces = 0
     // This query already resolves the trailing n. Further spaces advance the
@@ -181,7 +183,7 @@ final class KeyboardSession: KeyboardInputSession {
         if selectedIndex != nil || pendingSpaces > 0 || raw.count + text.count > 96 { edits += confirm() }
         conversionLength = nil
         RomajiConverter.insert(text.lowercased().replacingOccurrences(of: "-", with: "ー"), into: &composing)
-        refresh()
+        refresh(startedAt: inputStartedAt)
         return edits
     }
 
@@ -383,6 +385,8 @@ final class KeyboardSession: KeyboardInputSession {
     }
 
     func reset(preservingContext: Bool = false) {
+        candidateRequestStartedAt = nil
+        candidateInitialRequestStartedAt = nil
         if !preservingContext { hostEpoch += 1; finishLearningFeedback() }
         candidateListGeneration += 1
         clearSuggestions()
@@ -400,6 +404,8 @@ final class KeyboardSession: KeyboardInputSession {
         lastPublishedInput = ""
         selectedIndex = nil
     }
+
+    func prepareForInput() { worker?.prepareForInput() }
 
     func releaseInactiveResources() {
         reset()
@@ -539,7 +545,8 @@ final class KeyboardSession: KeyboardInputSession {
         onCandidatesChange?()
     }
 
-    private func refresh(boundary: Bool = false, leftContextOverride: String? = nil) {
+    private func refresh(boundary: Bool = false, leftContextOverride: String? = nil, startedAt: TimeInterval? = nil) {
+        candidateRequestStartedAt = startedAt ?? KeyboardPerformance.start()
         revision += 1
         pendingSpaces = 0
         boundaryRequested = boundary
@@ -598,9 +605,10 @@ final class KeyboardSession: KeyboardInputSession {
         if supplementary && (candidatesPending || selectedIndex != nil || pendingSpaces > 0) { return }
         candidatesPending = false
         candidateResultReadyAt = readyAt
+        candidateInitialRequestStartedAt = supplementary ? nil : candidateRequestStartedAt
         // This timestamp belongs only to the synchronous publication below.
         // Menu/context notifications must not measure time since an old result.
-        defer { candidateResultReadyAt = nil }
+        defer { candidateResultReadyAt = nil; candidateInitialRequestStartedAt = nil }
         if supplementary {
             // Every existing choice keeps its position for this input revision.
             // Refresh its payload/annotation in place, then append new choices.

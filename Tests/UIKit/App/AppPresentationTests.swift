@@ -10,7 +10,10 @@ final class AppPresentationTests: XCTestCase {
         router.openURL(Vime.KeyboardNumberSymbols.settingsURL)
         XCTAssertEqual(router.tab, .settings)
         XCTAssertEqual(router.settingsPath, [.numberSymbols])
-        router.settingsPath = []
+        router.tab = .customize
+        router.openURL(Vime.KeyboardAppLinks.settings)
+        XCTAssertEqual(router.tab, .settings)
+        XCTAssertTrue(router.settingsPath.isEmpty)
         router.openURL(try XCTUnwrap(URL(string: "vime://settings/unknown")))
         XCTAssertTrue(router.settingsPath.isEmpty)
         XCTAssertNil(router.sheet)

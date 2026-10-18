@@ -73,6 +73,7 @@ protocol KeyboardInputSession: AnyObject {
     var candidatesAreCurrent: Bool { get }
     var selectedIndex: Int? { get }
     var candidateResultReadyAt: TimeInterval? { get }
+    var candidateInitialRequestStartedAt: TimeInterval? { get }
     var neuralModeSuspendedForMemoryPressure: Bool { get }
     var onCandidatesChange: (() -> Void)? { get set }
     var onCommittedEdits: ((KeyboardCommitBatch) -> Void)? { get set }
@@ -91,6 +92,7 @@ protocol KeyboardInputSession: AnyObject {
     func toggleEnglish() -> [KeyboardEdit]
     func togglePrimaryVariant() -> [KeyboardEdit]
     func updateIntelligence(ranking: CandidateRankingMode, suggestionsEnabled: Bool)
+    func prepareForInput()
     func reset(preservingContext: Bool)
     func handleMemoryPressure()
     func releaseInactiveResources()
@@ -101,6 +103,8 @@ protocol KeyboardInputSession: AnyObject {
 }
 
 extension KeyboardInputSession {
+    func prepareForInput() {}
+    var candidateInitialRequestStartedAt: TimeInterval? { nil }
     func finishLearningFeedback() {}
     var neuralModeSuspendedForMemoryPressure: Bool { false }
     func handleMemoryPressure() {}

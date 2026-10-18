@@ -8,6 +8,56 @@ final class KeyboardCorrectionTests: XCTestCase {
     private func query(_ raw: String) -> ComposingText {
         var value = ComposingText(); RomajiConverter.insert(raw, into: &value); return value
     }
+
+    func testCancelledConversionSkipsSupplementaryWorkAndRecovers() {
+        let engine = JapaneseCandidateEngine()
+        KeyboardPerformance.configure(enabled: true, reset: true)
+        defer { KeyboardPerformance.configure(enabled: false) }
+        let abandoned = engine.candidates(for: query("watashihanihongowobenkyoushiteimasu"), revision: 1,
+            includeCorrections: false, cancelled: {
+                KeyboardPerformance.report()["baseConversion"] != nil
+            })
+        XCTAssertTrue(abandoned.isEmpty)
+        let stages = KeyboardPerformance.report()
+        XCTAssertNotNil(stages["baseConversion"])
+        XCTAssertNil(stages["prefixConversion"])
+        XCTAssertNil(stages["candidateReranking"])
+        let recovered = engine.candidates(for: query("nihongo"), revision: 2, includeCorrections: false)
+        let fresh = JapaneseCandidateEngine().candidates(for: query("nihongo"), revision: 2, includeCorrections: false)
+        XCTAssertEqual(recovered.map(\.presentation), fresh.map(\.presentation))
+    }
+
+    func testCorrectionDeadlineStopsGenerationWithoutStartingQueries() {
+        let engine = JapaneseCandidateEngine()
+        let composition = query("shitsuka")
+        let base = engine.candidates(for: composition, revision: 1, includeCorrections: false)
+        var reads = 0
+        let result = engine.addingCorrections(to: base, for: composition, katakana: false, revision: 1, now: {
+            reads += 1
+            // Expire while generation is in progress, without a wall-clock sleep.
+            return reads < 10 ? 0 : 1
+        })
+        XCTAssertEqual(result.map(\.presentation), base.map(\.presentation))
+        XCTAssertTrue(engine.lastCorrectionMetrics.budgetExhausted)
+        XCTAssertFalse(engine.lastCorrectionMetrics.cancelled)
+        XCTAssertEqual(engine.lastCorrectionMetrics.queries, 0)
+    }
+
+    func testExpiredQueryBudgetDoesNotStartClassicFallback() {
+        let engine = JapaneseCandidateEngine()
+        let composition = query("nihongo")
+        let base = engine.candidates(for: composition, revision: 1, includeCorrections: false)
+        KeyboardPerformance.configure(enabled: true, reset: true)
+        defer { KeyboardPerformance.configure(enabled: false) }
+        _ = engine.addingCorrections(to: base, for: composition, katakana: false, revision: 1, now: {
+            engine.lastCorrectionMetrics.queries == 0 ? 0 : 1
+        })
+        XCTAssertEqual(engine.lastCorrectionMetrics.queries, 1)
+        XCTAssertTrue(engine.lastCorrectionMetrics.budgetExhausted)
+        XCTAssertNil(KeyboardPerformance.report()["classicTypo"])
+        let recovered = engine.addingCorrections(to: base, for: composition, katakana: false, revision: 1)
+        XCTAssertTrue(recovered.contains { $0.text == "日本語" && $0.correction == nil })
+    }
     private func descendants(_ view: UIView) -> [UIView] { [view] + view.subviews.flatMap(descendants) }
     private func footprintMB() -> Double {
         var info = task_vm_info_data_t()

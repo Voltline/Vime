@@ -74,6 +74,10 @@ class KeyboardViewController: UIInputViewController {
         keyboard.onSwitchKeyboard = { [weak self] in self?.advanceToNextInputMode() }
         keyboard.onDismiss = { [weak self] in self?.dismissKeyboard() }
         keyboard.onOpenNumberSymbolSettings = { [weak self] in self?.openNumberSymbolSettings() }
+        keyboard.onOpenAppSettings = { [weak self] in
+            self?.openApp(KeyboardAppLinks.settings, title: "打开 App 设置",
+                message: "请打开 Vime App，点击底部的“设置”。")
+        }
         NotificationCenter.default.addObserver(self, selector: #selector(pauseClipboard),
             name: .NSExtensionHostWillResignActive, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(resumeClipboard),
@@ -82,11 +86,15 @@ class KeyboardViewController: UIInputViewController {
     }
 
     private func openNumberSymbolSettings() {
+        openApp(KeyboardNumberSymbols.settingsURL, title: "在 Vime App 中编辑",
+            message: "请打开 Vime → 设置 → 输入与联想 → 数字键盘常用符号。")
+    }
+
+    private func openApp(_ url: URL, title: String, message: String) {
         guard let scene = view.window?.windowScene else { return }
-        scene.open(KeyboardNumberSymbols.settingsURL, options: nil) { [weak self] opened in
+        scene.open(url, options: nil) { [weak self] opened in
             guard let self, !opened, self.view.window != nil, self.presentedViewController == nil else { return }
-            let alert = UIAlertController(title: "在 Vime App 中编辑",
-                message: "请打开 Vime → 设置 → 输入与联想 → 数字键盘常用符号。", preferredStyle: .alert)
+            let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
             alert.addAction(UIAlertAction(title: "好", style: .cancel))
             self.present(alert, animated: true)
         }
@@ -101,6 +109,7 @@ class KeyboardViewController: UIInputViewController {
         host.abandon()
         consumedLineContext = nil
         keyboard.resetComposition()
+        keyboard.prepareForInput()
         keyboard.hasFullAccess = hasFullAccess
         updateKeyboardGeometry()
         updateTraits()

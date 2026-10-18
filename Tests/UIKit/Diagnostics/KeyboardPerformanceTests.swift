@@ -1,9 +1,43 @@
 import XCTest
 import UIKit
+import KanaKanjiConverterModuleWithDefaultDictionary
 
 @MainActor
 final class KeyboardPerformanceTests: XCTestCase {
     private func descendants(_ view: UIView) -> [UIView] { [view] + view.subviews.flatMap(descendants) }
+
+    func testInteractiveTimingRejectsAListSupersededBeforeLayout() {
+        let session = KeyboardSession(asynchronousCandidates: true, memoryDirectoryURL: isolatedLearningDirectory())
+        let keyboard = KeyboardView(frame: CGRect(x: 0, y: 0, width: 440, height: 350), session: session)
+        keyboard.hasFullAccess = false
+        let window = UIWindow(frame: UIScreen.main.bounds)
+        window.rootViewController = UIViewController()
+        window.rootViewController?.view.addSubview(keyboard)
+        window.isHidden = false
+        keyboard.layoutIfNeeded()
+        let engine = JapaneseCandidateEngine()
+        func deliver(_ raw: String, supplementary: Bool = false) {
+            var query = ComposingText(); RomajiConverter.insert(raw, into: &query)
+            let values = engine.candidates(for: query, revision: session.revision, includeCorrections: false)
+            session.acceptCandidateUpdate(values, revision: session.revision, supplementary: supplementary)
+        }
+        KeyboardPerformance.configure(enabled: true, reset: true)
+        defer {
+            session.reset(); keyboard.stopInteractions(); window.isHidden = true
+            KeyboardPerformance.configure(enabled: false)
+        }
+        _ = session.type("ka"); deliver("ka")
+        XCTAssertNil(KeyboardPerformance.report()["inputToCandidateInteractive"])
+        _ = session.type("mi")
+        keyboard.layoutIfNeeded()
+        XCTAssertNil(KeyboardPerformance.report()["inputToCandidateInteractive"], "The old list is no longer selectable")
+        deliver("kami"); keyboard.layoutIfNeeded()
+        XCTAssertEqual(KeyboardPerformance.report()["inputToCandidateInteractive"]?["count"], 1)
+        deliver("kami", supplementary: true); keyboard.layoutIfNeeded()
+        XCTAssertEqual(KeyboardPerformance.report()["inputToCandidateInteractive"]?["count"], 1,
+            "Supplementary updates cannot count as another initial display")
+        XCTAssertNotNil(KeyboardPerformance.report()["candidateRequestCancelled"])
+    }
 
     func testProfileNativeTouchPipelineAndLatestPrediction() async throws {
         let session = KeyboardSession(asynchronousCandidates: true, memoryDirectoryURL: isolatedLearningDirectory())
@@ -79,6 +113,7 @@ final class KeyboardPerformanceTests: XCTestCase {
             if id == 11 { await fulfillment(of: [intermediate], timeout: 10) }
         }
         await fulfillment(of: [paced], timeout: 10)
+        keyboard.layoutIfNeeded()
         XCTAssertEqual(session.raw, raw)
         XCTAssertEqual(hostView.text, "前わたしはにほんごをべんきょうしています後")
         XCTAssertEqual(session.candidates.first, "私は日本語を勉強しています")
@@ -87,7 +122,8 @@ final class KeyboardPerformanceTests: XCTestCase {
         // next-word and typo stages are measured by their own scenarios.
         let inputStages: [KeyboardPerformance.Stage] = [.touchDownToVisual, .touchUpToType, .typeToMarked,
             .candidateRequestToResult, .candidateCompute, .resultToCandidateUI, .candidateUIUpdate,
-            .candidatePublication, .baseConversion, .candidateReranking, .lexiconLookup]
+            .candidatePublication, .baseConversion, .candidateReranking, .lexiconLookup,
+            .inputToCandidateInteractive, .candidateRequestCancelled]
         for stage in inputStages {
             XCTAssertNotNil(report[stage.rawValue], stage.rawValue)
         }
@@ -133,12 +169,14 @@ final class KeyboardPerformanceTests: XCTestCase {
                 key.sendActions(for: .touchUpInside)
                 XCTAssertEqual(host.markedText, session.preedit)
                 await fulfillment(of: [ready], timeout: 10)
+                keyboard.layoutIfNeeded()
             }
           }
         }
         let report = KeyboardPerformance.report()
         // Each key must publish; neural reranking may publish a second update.
         XCTAssertGreaterThanOrEqual(report["candidatePublication"]?["count"] ?? 0, 84)
+        XCTAssertEqual(report["inputToCandidateInteractive"]?["count"], 84)
         let data = try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys])
         print("WARM_CANDIDATE_PROFILE " + String(decoding: data, as: UTF8.self))
         let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")

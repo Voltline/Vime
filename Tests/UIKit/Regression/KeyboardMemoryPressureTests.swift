@@ -201,6 +201,7 @@ final class KeyboardMemoryPressureTests: XCTestCase {
         for cycle in 1...30 {
             let worker = JapaneseCandidateWorker(memoryDirectoryURL: directory)
             retained.append(worker)
+            worker.prepareForInput()
             let candidates = await request(worker, revision: cycle)
             XCTAssertTrue(candidates.contains { $0.text == "橋" })
             let active = await worker.resourceState()
@@ -214,6 +215,7 @@ final class KeyboardMemoryPressureTests: XCTestCase {
         }
         // The same controller must still work after its resources were dropped.
         let reused = retained[0]
+        reused.prepareForInput()
         let candidates = await request(reused, revision: 31)
         XCTAssertFalse(candidates.isEmpty)
         let reopened = await reused.resourceState()

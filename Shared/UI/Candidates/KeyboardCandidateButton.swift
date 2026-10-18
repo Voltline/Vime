@@ -66,7 +66,7 @@ final class KeyboardCandidateButton: UIButton {
             invalidateIntrinsicContentSize()
         }
         if presentedIndex != index {
-            titleLabel?.font = .systemFont(ofSize: 20, weight: index == 0 ? .medium : .regular)
+            titleLabel?.font = .systemFont(ofSize: 18, weight: index == 0 ? .medium : .regular)
             presentedIndex = index
             invalidateIntrinsicContentSize()
         }
@@ -78,8 +78,8 @@ final class KeyboardCandidateButton: UIButton {
         annotation.textColor = highlighted ? KeyboardPalette.accent : .secondaryLabel
         if needsMeasurement {
             let startedAt = KeyboardPerformance.start()
-            let mainWidth = (presentation.text as NSString).size(withAttributes: [.font: titleLabel!.font!]).width
-            let noteWidth = ((presentation.annotation ?? "") as NSString).size(withAttributes: [.font: annotation.font!]).width
+            let mainWidth = KeyboardCandidateTextMetrics.width(of: presentation.text, font: titleLabel!.font!)
+            let noteWidth = KeyboardCandidateTextMetrics.width(of: presentation.annotation ?? "", font: annotation.font!)
             measuredTextWidth = max(mainWidth, noteWidth)
             KeyboardPerformance.record(.candidateTitleMeasurement, since: startedAt)
         }

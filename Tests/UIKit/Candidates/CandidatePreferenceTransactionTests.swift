@@ -1,4 +1,5 @@
 import XCTest
+import CryptoKit
 
 private actor LearningWriterBarrier {
     private var arrivals = 0
@@ -25,6 +26,47 @@ final class CandidatePreferenceTransactionTests: XCTestCase {
         let data = try Data(contentsOf: directory.appendingPathComponent("VimeSelectionFrequency.json"))
         let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
         return Array(try XCTUnwrap(object["entries"] as? [String: [String: Any]]).values)
+    }
+
+    func testContextKeyCachePreservesArchiveKeysAndDoesNotCacheLearningScores() throws {
+        let url = try directory()
+        let memory = CandidatePreferenceMemory(directory: url)
+        let context = "  昨日は川を渡るための\n"
+        XCTAssertEqual(memory.score(reading: "ハシ", surface: "橋", context: context, now: date), 0)
+        for _ in 0..<3 { memory.record(reading: "ハシ", surface: "橋", context: context, now: date) }
+        let learned = memory.score(reading: "ハシ", surface: "橋", context: context, now: date)
+        XCTAssertGreaterThan(learned, memory.score(reading: "ハシ", surface: "橋", now: date))
+        memory.flush()
+        // This is the archive's original hex encoding, retained across updates.
+        func oldKey(_ length: Int) -> String {
+            let tail = String(context.trimmingCharacters(in: .whitespacesAndNewlines).suffix(length))
+            return SHA256.hash(data: Data(tail.utf8)).map { String(format: "%02x", $0) }.joined()
+        }
+        XCTAssertEqual(Set(try rows(url).compactMap { $0["context"] as? String }), ["", oldKey(12), "short:" + oldKey(4)])
+        let reloaded = CandidatePreferenceMemory(directory: url)
+        for index in 0..<40 { _ = reloaded.score(reading: "ハシ", surface: "橋", context: "別の文脈\(index)", now: date) }
+        XCTAssertEqual(reloaded.score(reading: "ハシ", surface: "橋", context: context, now: date), learned, accuracy: 1e-9)
+        let id = UUID()
+        reloaded.stage(id: id, reading: "ハシ", surface: "橋", context: context, weight: 1, now: date)
+        XCTAssertGreaterThan(reloaded.score(reading: "ハシ", surface: "橋", context: context, now: date), learned)
+        reloaded.cancel(id)
+        XCTAssertEqual(reloaded.score(reading: "ハシ", surface: "橋", context: context, now: date), learned, accuracy: 1e-9)
+    }
+
+    func testContextKeyCachePreservesDistinctUTF8SpellingsInExistingArchives() throws {
+        let url = try directory()
+        let memory = CandidatePreferenceMemory(directory: url)
+        let contexts = ["ガラスの", "カ\u{3099}ラスの"]
+        XCTAssertEqual(contexts[0], contexts[1], "Swift compares canonical equivalents as equal")
+        var expected: Set<String> = [""]
+        for context in contexts {
+            let oldKey = SHA256.hash(data: Data(context.utf8)).map { String(format: "%02x", $0) }.joined()
+            expected.formUnion([oldKey, "short:" + oldKey])
+            memory.record(reading: "ガラス", surface: "硝子", context: context, now: date)
+        }
+        memory.flush()
+        XCTAssertEqual(expected.count, 5)
+        XCTAssertEqual(Set(try rows(url).compactMap { $0["context"] as? String }), expected)
     }
 
     func testReadOnlyInstanceRefreshesExternalLearningWithoutOwnWrite() throws {

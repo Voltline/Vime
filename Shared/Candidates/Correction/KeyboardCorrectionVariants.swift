@@ -38,6 +38,7 @@ nonisolated enum KeyboardCorrectionVariants {
         }
         var kana = Array(original)
         for i in kana.indices where original.count > 2 {
+            guard !cancelled() else { return variants }
             let old = kana[i]
             for group in soundGroups where group.contains(old) {
                 for next in group where next != old {
@@ -69,6 +70,7 @@ nonisolated enum KeyboardCorrectionVariants {
         }
         // Repeated-letter deletion and adjacent transposition first.
         for i in raw.indices where original.count > 2 {
+            guard !cancelled() else { return variants }
             var value = raw; value.remove(at: i)
             let repeated = (i > 0 && raw[i - 1] == raw[i]) || (i + 1 < raw.count && raw[i + 1] == raw[i])
             roman(value, kind: .extraLetter, index: i, length: 1, cost: repeated ? 0.7 : 1.5)
@@ -78,7 +80,9 @@ nonisolated enum KeyboardCorrectionVariants {
             }
         }
         for i in raw.indices {
+            guard !cancelled() else { return variants }
             for (letter, distance) in neighbors(of: raw[i]) {
+                guard !cancelled() else { return variants }
                 var value = raw; value[i] = letter
                 let vowelPair = "aiueo".contains(raw[i]) && "aiueo".contains(letter)
                 roman(value, kind: .neighboringKey, index: i, length: 1, cost: distance + (vowelPair ? -0.1 : 0.1))
@@ -88,6 +92,7 @@ nonisolated enum KeyboardCorrectionVariants {
         // vowels before consonants, rejecting variants that still cannot parse.
         for letter in "aiueokstnhmyrwgzdbpfvcjqlx" where original.count > 2 {
             for i in 0...raw.count {
+                guard !cancelled() else { return variants }
                 var value = raw; value.insert(letter, at: i)
                 roman(value, kind: .missingLetter, index: i, length: 0, cost: "aiueo".contains(letter) ? 1.15 : 1.6)
             }

@@ -8,12 +8,16 @@ nonisolated enum KeyboardPerformance {
         case nativeNextWords
         case touchDownToVisual, touchUpToType, typeToMarked
         case candidateRequestToResult, candidateCompute, resultToCandidateUI, candidateUIUpdate
+        // Accepted initial lists are measured through layout; cancelled requests
+        // have a separate series and never inflate that interaction percentile.
+        case inputToCandidateInteractive, candidateRequestCancelled
         case candidateButtonConfiguration, candidateTitleMeasurement, candidatePublication
+        case candidateWidthCacheLookup, candidateTextLayout, candidateWidthCacheInsert
         case correctionCompute, correctionRequestToResult
         case baseConversion, candidateReranking, classicTypo, experimentalTypo, contextEvaluation
         case lexiconLookup, prefixConversion
         case lmCandidateScoring, lmNextWords, lmNextWordScoring, personalization, learningAcceptance
-        case candidateQueueWait, supplementaryQueueWait, learningPersistence, learningLockWait
+        case candidateQueueWait, modelQueueWait, supplementaryQueueWait, learningPersistence, learningLockWait
     }
 
     private final class Storage: @unchecked Sendable {

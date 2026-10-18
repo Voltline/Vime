@@ -19,6 +19,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     var onSwitchKeyboard: (() -> Void)?
     var onDismiss: (() -> Void)?
     var onOpenNumberSymbolSettings: (() -> Void)?
+    var onOpenAppSettings: (() -> Void)?
     var onPreeditChange: ((KeyboardPreedit?) -> Void)?
     var onHeightChange: (() -> Void)?
     var onReplaceText: ((KeyboardTextReplacement) -> Bool)?
@@ -81,6 +82,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     private let session: any KeyboardInputSession
     private var displayedCandidates: [CandidatePresentation] = []
     private var displayedSelection: Int?
+    private var pendingCandidateTiming: (startedAt: TimeInterval, token: CandidateSelectionToken)?
     private var page: Page = .letters
     private var shifted = false
     private var capsLocked = false
@@ -151,6 +153,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         self.preferences = preferences
         self.clipboard = clipboard ?? KeyboardClipboard()
         super.init(frame: frame)
+        KeyboardCandidateTextMetrics.prepareFonts()
         heightFactor = CGFloat(preferences.heightFactor)
         KeyboardPalette.theme = preferences.theme
         session.updateIntelligence(ranking: preferences.candidateRanking, suggestionsEnabled: preferences.phraseSuggestions)
@@ -164,6 +167,10 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
             self.publishPreedit()
             let publicationStartedAt = KeyboardPerformance.start()
             self.refresh()
+            if let startedAt = self.session.candidateInitialRequestStartedAt,
+               let token = self.stripButtons.first?.selectionToken {
+                self.pendingCandidateTiming = (startedAt, token)
+            }
             KeyboardPerformance.record(.candidatePublication, since: publicationStartedAt)
             KeyboardPerformance.record(.resultToCandidateUI, since: self.session.candidateResultReadyAt)
         }
@@ -522,6 +529,13 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
                 width: cellWidth - (compact ? 8 : 5), height: 41)
         }
         panelScroll.contentSize = CGSize(width: width, height: CGFloat((panelCandidates.count + columns - 1) / columns) * 46)
+        if let timing = pendingCandidateTiming {
+            pendingCandidateTiming = nil
+            if window != nil, panel == .keyboard || panel == .candidates,
+               session.candidatesAreCurrent, stripButtons.first?.selectionToken == timing.token {
+                KeyboardPerformance.record(.inputToCandidateInteractive, since: timing.startedAt)
+            }
+        }
     }
 
     private func updateTouchBounds(metrics: KeyboardMetrics) {
@@ -837,6 +851,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
 
     func hostContextDidChange() { session.didApplyEdits([]); refresh() }
     func finishLearningFeedback() { session.finishLearningFeedback() }
+    func prepareForInput() { session.prepareForInput() }
 
     func resetComposition() {
         session.reset()
@@ -1318,6 +1333,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         let view = KeyboardSettingsPanel(preferences: preferences)
         configureScroll(view)
         view.onHistory = { [weak self] in self?.openClipboardHistory() }
+        view.onOpenAppSettings = { [weak self] in self?.onOpenAppSettings?() }
         view.onFeedback = { [weak self] in self?.playFeedback() }
         view.onNumberLayoutChange = { [weak self] in self?.rebuildKeys() }
         addSubview(view)

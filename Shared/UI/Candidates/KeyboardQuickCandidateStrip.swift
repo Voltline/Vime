@@ -39,7 +39,7 @@ final class KeyboardQuickCandidateStrip: UIScrollView {
         for (index, button) in buttons.enumerated() {
             button.item = items[index]
             button.setTitle(items[index].title, for: .normal)
-            button.titleLabel?.font = .systemFont(ofSize: 20, weight: index == 0 ? .medium : .regular)
+            button.titleLabel?.font = .systemFont(ofSize: 18, weight: index == 0 ? .medium : .regular)
             button.titleLabel?.lineBreakMode = .byTruncatingTail
             button.accessibilityLabel = items[index].title
             switch items[index].action {
@@ -67,7 +67,7 @@ final class KeyboardQuickCandidateStrip: UIScrollView {
         super.layoutSubviews()
         var x: CGFloat = 0
         for button in buttons {
-            let measured = (button.title(for: .normal)! as NSString).size(withAttributes: [.font: button.titleLabel!.font!]).width + 24
+            let measured = KeyboardCandidateTextMetrics.width(of: button.title(for: .normal)!, font: button.titleLabel!.font!) + 24
             let width = min(max(44, measured), max(44, bounds.width))
             button.frame = CGRect(x: x, y: 0, width: width, height: bounds.height)
             x += width + 2

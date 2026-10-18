@@ -50,7 +50,10 @@ final class AppRouter: ObservableObject {
         processPendingFiles()
     }
     func openURL(_ url: URL) {
-        if url == KeyboardNumberSymbols.settingsURL {
+        if url == KeyboardAppLinks.settings {
+            tab = .settings
+            settingsPath = []
+        } else if url == KeyboardNumberSymbols.settingsURL {
             tab = .settings
             settingsPath = [.numberSymbols]
         } else { openSkin(url) }
