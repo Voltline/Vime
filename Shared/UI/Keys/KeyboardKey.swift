@@ -59,7 +59,7 @@ final class KeyboardKey: UIButton {
         layer.shadowOpacity = 0.30
         layer.shadowOffset = CGSize(width: 0, height: 0.8)
         layer.shadowRadius = 0
-        titleLabel?.font = .systemFont(ofSize: 23, weight: .regular)
+        titleLabel?.font = .systemFont(ofSize: 21, weight: .regular)
         hintLabel.font = .systemFont(ofSize: 9)
         hintLabel.textColor = UIColor(white: 0.63, alpha: 1)
         hintLabel.textAlignment = .center

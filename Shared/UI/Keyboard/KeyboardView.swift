@@ -478,12 +478,12 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
                 // Compact phone keys are shorter despite the wider viewport.
                 // Typography follows their height rather than landscape width.
                 let textScale = compact ? scale : min(scale, metrics.keyHeight / 46.5)
-                var fontSize: CGFloat = compact ? (rowIndex == 3 ? 14 : 19)
-                    : (rowIndex == 3 ? 16.5 : 23) * textScale
+                var fontSize: CGFloat = compact ? (rowIndex == 3 ? 13 : 18)
+                    : (rowIndex == 3 ? 15 : 21) * textScale
                 if usesNumberPad {
                     let isDigit = Int(pair.0.title(for: .normal) ?? "") != nil
-                    fontSize = compact ? (isDigit ? 20 : rowIndex == 3 ? 13 : 16)
-                        : (isDigit ? 22 : rowIndex == 3 ? 15 : 17) * textScale
+                    fontSize = compact ? (isDigit ? 18 : rowIndex == 3 ? 13 : 15)
+                        : (isDigit ? 20 : rowIndex == 3 ? 14 : 16) * textScale
                     pair.0.setPreferredSymbolConfiguration(UIImage.SymbolConfiguration(pointSize: compact ? 16 : 18 * textScale),
                         forImageIn: .normal)
                 }

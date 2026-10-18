@@ -65,7 +65,7 @@ final class KeyboardNumberSymbolRail: UIScrollView {
         layer.cornerRadius = 6.2 * scale
         for (index, button) in buttons.enumerated() {
             button.frame = CGRect(x: 0, y: CGFloat(index) * itemHeight, width: bounds.width, height: itemHeight)
-            button.titleLabel?.font = .systemFont(ofSize: min(20, 18 * scale))
+            button.titleLabel?.font = .systemFont(ofSize: min(19, 17 * scale))
             button.titleLabel?.adjustsFontSizeToFitWidth = true
             button.titleLabel?.minimumScaleFactor = 0.5
             separators[index].frame = CGRect(x: 8, y: button.frame.maxY - 0.5,
