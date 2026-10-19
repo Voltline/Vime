@@ -23,12 +23,16 @@ final class KeyboardCandidateReplayTests: XCTestCase {
         return result
     }
 
-    func testNativeOnlyAndSentenceInitialGatesRemainDistinctFromMissingRecall() async {
+    func testEngineModeSkipsScoringButSentenceInitialModelIsEligible() async {
         let directory = isolatedLearningDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
         let worker = JapaneseCandidateWorker(memoryDirectoryURL: directory)
-        for (revision, mode, gate) in [(1, CandidateRankingMode.engine, CandidatePipelineTrace.ModelGate.engineMode),
-                                      (2, .languageModel, .noContext)] {
+        worker.allowLanguageModel()
+        _ = await initial(worker, query: query("hashi"), context: "川を渡るための",
+            trace: CandidatePipelineTrace(revision: 0, consumedInputCount: 5))
+        let warm = await worker.resourceState()
+        XCTAssertTrue(warm.modelLoaded)
+        for (revision, mode) in [(1, CandidateRankingMode.engine), (2, .languageModel)] {
             let query = query("nihongo")
             let trace = CandidatePipelineTrace(revision: revision, references: ["日本語"], consumedInputCount: query.input.count)
             let values = await initial(worker, query: query, context: "", trace: trace, ranking: mode)
@@ -36,9 +40,14 @@ final class KeyboardCandidateReplayTests: XCTestCase {
             XCTAssertNotNil(result[.native]?.referenceRank)
             XCTAssertNotNil(result[.pooled]?.referenceRank)
             XCTAssertEqual(result[.initial]?.referenceRank, values.firstIndex { $0.text == "日本語" }.map { $0 + 1 })
-            XCTAssertEqual(result.modelGate, gate)
-            XCTAssertNil(result[.scored])
-            XCTAssertFalse(result.modelUsed)
+            if mode == .engine {
+                XCTAssertEqual(result.modelGate, .engineMode)
+                XCTAssertNil(result[.scored])
+                XCTAssertFalse(result.modelUsed)
+            } else {
+                XCTAssertGreaterThan(result[.planned]?.count ?? 0, 1)
+                XCTAssertTrue(result.modelGate == .ready || result.modelGate == .deadlineExpired)
+            }
         }
         worker.releaseInactiveResources(); _ = await worker.resourceState()
     }

@@ -196,7 +196,7 @@ final class KeyboardCandidateStabilityTests: XCTestCase {
         worker.reset()
     }
 
-    func testEmptyContextKeepsDictionaryPriorWithoutLoadingModel() async throws {
+    func testColdSentenceInitialPublishesDictionaryOnceAndWarmsFollowingInput() async throws {
         let worker = JapaneseCandidateWorker(memoryDirectoryURL: isolatedLearningDirectory())
         worker.disableLanguageModel()
         _ = await worker.resourceState()
@@ -217,7 +217,7 @@ final class KeyboardCandidateStabilityTests: XCTestCase {
         }
         await fulfillment(of: [ready], timeout: 5)
         let resources = await worker.resourceState()
-        XCTAssertFalse(resources.modelLoaded, "Sentence-initial scoring must earn its latency before being enabled")
+        XCTAssertTrue(resources.modelLoaded, "Cold sentence-initial work warms later input without delaying this first list")
         XCTAssertEqual(publications, 1, "Cold scoring must not publish a second initial order")
         worker.reset()
     }

@@ -44,7 +44,8 @@ nonisolated final class JapaneseCandidateEngine {
     // An optional trained n-gram model; absent models never trigger LM work.
     var experimentalTypoConfig: ExperimentalTypoCorrectionConfig?
 
-    init(memoryDirectoryURL: URL? = nil, learningEnabled: Bool = false, userDictionary: JapaneseUserDictionaryStore? = nil) {
+    init(memoryDirectoryURL: URL? = nil, learningEnabled: Bool = false, userDictionary: JapaneseUserDictionaryStore? = nil,
+         conversionCandidateLimit: Int = 10) {
         self.userDictionary = userDictionary ?? JapaneseUserDictionaryStore()
         converter = KanaKanjiConverter(dicdataStore: dictionary)
         let localRoot = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -71,7 +72,7 @@ nonisolated final class JapaneseCandidateEngine {
         }
         self.memoryDirectoryURL = directory
         preferenceMemory = learningEnabled && writable ? CandidatePreferenceMemory(directory: directory) : nil
-        options = ConvertRequestOptions(N_best: 10, requireJapanesePrediction: .autoMix,
+        options = ConvertRequestOptions(N_best: max(1, conversionCandidateLimit), requireJapanesePrediction: .autoMix,
             requireEnglishPrediction: .disabled, keyboardLanguage: .ja_JP,
             learningType: learningEnabled && writable ? .inputAndOutput : .nothing,
             maxMemoryCount: Self.maximumLearningEntries, memoryDirectoryURL: directory,

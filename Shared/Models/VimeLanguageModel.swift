@@ -212,27 +212,44 @@ nonisolated final class VimeLanguageModel {
     func scores(context: String, candidates: [String], cache: SuggestionScoreCache? = nil,
                 conversionCache: ConversionScoreCache? = nil,
                 cancelled: () -> Bool = { false }) throws -> [Double] {
-        try scores(context: context, candidates: candidates, progress: nil, cache: cache,
-            conversionCache: conversionCache, cancelled: cancelled)
-    }
-
-    private func scores(context: String, candidates: [String], progress: (([Double]) -> Void)?,
-                        cache: SuggestionScoreCache? = nil, conversionCache: ConversionScoreCache? = nil,
-                        cancelled: () -> Bool) throws -> [Double] {
         let started = KeyboardPerformance.start()
-        defer { KeyboardPerformance.record(.lmCandidateScoring, since: started) }
+        guard !cancelled() else { throw Failure.cancelled }
         guard !candidates.isEmpty, Set(candidates.map { Data($0.utf8) }).count == candidates.count,
               candidates.allSatisfy({ !$0.isEmpty }) else { throw Failure.ineligible }
-        let contextTokens = try tokenizer.encode(context)
-        guard Self.exactText(try tokenizer.decode(contextTokens), context),
-              contextTokens.count + 1 <= Self.contextLength else { throw Failure.ineligible }
-        let contextIDs: [Int32] = [2] + contextTokens
+        let contextIDs = try scoringContext(context)
         let sequences: [[Int32]] = try candidates.map { text in
-            let content = try tokenizer.encode(context + text)
-            guard Self.exactText(try tokenizer.decode(content), context + text), !content.isEmpty,
-                  content.count <= Self.contextLength else { throw Failure.ineligible }
-            return [2] + content
+            guard !cancelled() else { throw Failure.cancelled }
+            return try scoringSequence(context + text)
         }
+        return try scorePreparedSequences(sequences, contextIDs: contextIDs, context: context,
+            cache: cache, conversionCache: conversionCache, startedAt: started, cancelled: cancelled)
+    }
+
+    private func scoringTokens(_ text: String) throws -> [Int32] {
+        let started = KeyboardPerformance.start()
+        defer { KeyboardPerformance.record(.lmScoringTokenization, since: started) }
+        let ids = try tokenizer.encode(text)
+        guard Self.exactText(try tokenizer.decode(ids), text) else { throw Failure.ineligible }
+        return ids
+    }
+    private func scoringContext(_ text: String) throws -> [Int32] {
+        let ids = try scoringTokens(text)
+        guard ids.count + 1 <= Self.contextLength else { throw Failure.ineligible }
+        return [2] + ids
+    }
+    private func scoringSequence(_ text: String) throws -> [Int32] {
+        let ids = try scoringTokens(text)
+        guard !ids.isEmpty, ids.count <= Self.contextLength else { throw Failure.ineligible }
+        return [2] + ids
+    }
+    /// Validation already produced these exact joint sequences. Reuse them for
+    /// the pool's common boundary and inference instead of tokenizing twice.
+    private func scorePreparedSequences(_ sequences: [[Int32]], contextIDs: [Int32], context: String,
+                                        progress: (([Double]) -> Void)? = nil,
+                                        cache: SuggestionScoreCache? = nil, conversionCache: ConversionScoreCache? = nil,
+                                        startedAt: TimeInterval? = KeyboardPerformance.start(),
+                                        cancelled: () -> Bool) throws -> [Double] {
+        defer { KeyboardPerformance.record(.lmCandidateScoring, since: startedAt) }
         var common = 0
         for i in 0..<([contextIDs] + sequences).map(\.count).min()! {
             if sequences.allSatisfy({ $0[i] == contextIDs[i] }) { common += 1 } else { break }
@@ -372,28 +389,29 @@ nonisolated final class VimeLanguageModel {
                 trace: CandidatePipelineTrace? = nil,
                 onRefinement: (([CandidateSnapshot]) -> Void)? = nil,
                 cancelled: @escaping () -> Bool) -> [CandidateSnapshot] {
-        guard !katakana, !context.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-              !cancelled() else { return values }
+        guard !katakana, !cancelled() else { return values }
         let plan = CandidateCompetitionPolicy.plan(values, katakana: katakana, maximumCandidates: maximumCandidates ?? 8)
+        guard plan.slots.count > 1 else { return values }
         let started = ProcessInfo.processInfo.systemUptime
         let stop = { cancelled() || ProcessInfo.processInfo.systemUptime - started > 0.250 }
+        guard !stop(), let contextIDs = try? scoringContext(context) else { return values }
         // One unsupported symbol or overlong alternative must not disable
         // scoring of every other candidate. Rejected entries keep their slots.
         var validated = [Int]()
+        var sequences = [[Int32]]()
         let slots = plan.slots.filter { index in
             guard !stop() else { return false }
             if trace != nil { validated.append(index) }
-            guard let ids = try? tokenizer.encode(context + values[index].text),
-                  !ids.isEmpty, ids.count <= Self.contextLength,
-                  let decoded = try? tokenizer.decode(ids) else { return false }
-            return Self.exactText(decoded, context + values[index].text)
+            guard let sequence = try? scoringSequence(context + values[index].text) else { return false }
+            sequences.append(sequence)
+            return true
         }
         trace?.record(.validated, values: validated.map { values[$0] })
         trace?.record(.supported, values: slots.map { values[$0] })
         guard slots.count > 1 else { return values }
         var result = values
         do {
-            _ = try scores(context: context, candidates: slots.map { values[$0].text }, progress: { sums in
+            _ = try scorePreparedSequences(sequences, contextIDs: contextIDs, context: context, progress: { sums in
                 trace?.record(.scored, values: slots.prefix(sums.count).map { values[$0] })
                 guard sums.count >= 2, !stop() else { return }
                 result = CandidateCompetitionPolicy.applying(sums, slots: slots, to: values)

@@ -23,7 +23,7 @@ nonisolated enum KeyboardPerformance {
         case baseConversion, candidateReranking, classicTypo, experimentalTypo, contextEvaluation
         case lexiconLookup, prefixConversion
         case lmCandidateScoring, lmNextWords, lmNextWordScoring, personalization, learningAcceptance
-        case lmScoringPrediction, lmScoringPrefixReuse
+        case lmScoringPrediction, lmScoringPrefixReuse, lmScoringTokenization
         case candidateQueueWait, modelQueueWait, supplementaryQueueWait, learningPersistence, learningLockWait
     }
 

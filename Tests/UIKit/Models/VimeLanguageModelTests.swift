@@ -302,6 +302,64 @@ final class VimeLanguageModelTests: XCTestCase {
         personalized[2].userPreferenceScore = CandidatePreferenceMemory.Policy.maximumBonus
         XCTAssertEqual(lm.rerank(personalized, context: reference.context, katakana: false, cancelled: { false })[0].text, "飲みたい")
     }
+
+    func testRerankingUsesValidatedTokensOnceAndKeepsUnsupportedSlots() throws {
+        let model = try VimeLanguageModel()
+        let context = "明日は、"
+        let texts = ["東京", "▁", String(repeating: "東京", count: 200), "大阪", "京都"]
+        let pool = texts.map { text in
+            CandidateSnapshot(candidate: Candidate(text: text, value: .zero, composingCount: .inputCount(1),
+                lastMid: MIDData.EOS.mid, data: [], isLearningTarget: false), revision: 85,
+                source: .rememberedConversion, remainingComposition: ComposingText(),
+                originalInputCount: 1, consumedInputCount: 1, queryReading: "ア")
+        }
+        let supported = [0, 3, 4]
+        let sums = try independentScores(model, context: context, candidates: supported.map { texts[$0] })
+        let expected = CandidateCompetitionPolicy.applying(sums, slots: supported, to: pool)
+        let trace = CandidatePipelineTrace(revision: 85, consumedInputCount: 1)
+        KeyboardPerformance.configure(enabled: true, reset: true)
+        defer { KeyboardPerformance.configure(enabled: false) }
+        let actual = model.rerank(pool, context: context, katakana: false, trace: trace, cancelled: { false })
+        XCTAssertEqual(actual.map(\.presentation), expected.map(\.presentation))
+        for (value, reference) in zip(actual, expected) {
+            XCTAssertEqual(value.features.languageModel, reference.features.languageModel, accuracy: 0.002)
+        }
+        XCTAssertEqual(trace.snapshot()[.supported]?.count, supported.count)
+        XCTAssertEqual(trace.snapshot()[.scored]?.count, supported.count)
+        XCTAssertEqual(KeyboardPerformance.report()["lmScoringTokenization"]?["totalCount"], Double(texts.count + 1),
+            "One round trip per candidate and one for the context, including rejected entries")
+        XCTAssertEqual(actual[1].presentation, pool[1].presentation)
+        XCTAssertEqual(actual[2].presentation, pool[2].presentation)
+        KeyboardPerformance.configure(enabled: true, reset: true)
+        XCTAssertEqual(model.rerank(pool, context: context, katakana: false, cancelled: { true }).map(\.presentation), pool.map(\.presentation))
+        XCTAssertNil(KeyboardPerformance.report()["lmScoringTokenization"], "Cancelled input must not start tokenization")
+        XCTAssertNil(KeyboardPerformance.report()["lmScoringPrediction"])
+    }
+
+    func testSentenceInitialRerankingMatchesFrozenBOSScoresAndProtectsLearnedLeader() throws {
+        let model = try VimeLanguageModel()
+        let fixture = try XCTUnwrap(try fixtures().scoring.first { $0.context.isEmpty })
+        let texts = Array(fixture.candidates.reversed()), sums = Array(fixture.sums.reversed())
+        var pool = texts.map { text in
+            CandidateSnapshot(candidate: Candidate(text: text, value: .zero, composingCount: .inputCount(1),
+                lastMid: MIDData.EOS.mid, data: [], isLearningTarget: false), revision: 86,
+                source: .rememberedConversion, remainingComposition: ComposingText(),
+                originalInputCount: 1, consumedInputCount: 1, queryReading: "トウキョウ")
+        }
+        let expected = CandidateCompetitionPolicy.applying(sums, slots: Array(pool.indices), to: pool)
+        let actual = model.rerank(pool, context: "", katakana: false, cancelled: { false })
+        XCTAssertEqual(actual.map(\.presentation), expected.map(\.presentation))
+        for (value, reference) in zip(actual, expected) {
+            XCTAssertEqual(value.features.languageModel, reference.features.languageModel, accuracy: 0.002)
+        }
+        pool[0].userPreferenceConfidence = 1
+        pool[0].userPreferenceScore = CandidatePreferenceMemory.Policy.maximumChoiceBonus
+        KeyboardPerformance.configure(enabled: true, reset: true)
+        defer { KeyboardPerformance.configure(enabled: false) }
+        XCTAssertEqual(model.rerank(pool, context: "", katakana: false, cancelled: { false }).map(\.presentation), pool.map(\.presentation))
+        XCTAssertNil(KeyboardPerformance.report()["lmScoringPrediction"], "A confirmed sentence-initial personal leader keeps its order")
+        XCTAssertNil(KeyboardPerformance.report()["lmScoringTokenization"])
+    }
     func testNextWordsAreShortAndStopBeforePunctuation() throws {
         let lm = try VimeLanguageModel()
         var report: [String: [String]] = [:]

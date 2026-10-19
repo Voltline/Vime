@@ -234,9 +234,9 @@ final class JapaneseCandidateWorker {
             let readyAt = KeyboardPerformance.start()
             guard !request.isCancelled else { return }
             let sentence = VimeLanguageModel.sentenceContext(leftContext ?? "")
-            // Sentence-initial ranking currently adds a publication window
-            // for little measured gain. Keep native/personal evidence there.
-            let neuralRanking = ranking == .languageModel && !sentence.isEmpty && !LanguageModelStorage.shared.isSuspended
+            // BOS is also a valid model context. Personal leaders and explicit
+            // script choices retain the same protection at sentence start.
+            let neuralRanking = ranking == .languageModel && !LanguageModelStorage.shared.isSuspended
                 && CandidateCompetitionPolicy.plan(values, katakana: katakana, maximumCandidates: Self.initialRankingCandidateLimit).slots.count > 1
             let waitForRanking = neuralRanking && LanguageModelStorage.shared.isReady
                 && ProcessInfo.processInfo.systemUptime < initialDeadline
@@ -249,7 +249,6 @@ final class JapaneseCandidateWorker {
                 let gate: CandidatePipelineTrace.ModelGate
                 if ranking != .languageModel { gate = .engineMode }
                 else if katakana { gate = .katakana }
-                else if sentence.isEmpty { gate = .noContext }
                 else if LanguageModelStorage.shared.isSuspended { gate = .memoryPressure }
                 else if eligible.count < 2 { gate = .insufficientCandidates }
                 else if plan.slots.isEmpty { gate = .personalLeader }
