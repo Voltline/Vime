@@ -51,8 +51,8 @@ final class KeyboardTouchTests: XCTestCase {
                 }
                 y += 3
             }
-            XCTAssertTrue(keyboard.hitTest(CGPoint(x: width / 2, y: 3), with: nil) === surface)
-            XCTAssertTrue(keyboard.hitTest(CGPoint(x: width / 2, y: metrics.headerHeight - 3), with: nil) === surface)
+            XCTAssertFalse(keyboard.hitTest(CGPoint(x: width / 2, y: 3), with: nil) === surface)
+            XCTAssertFalse(keyboard.hitTest(CGPoint(x: width / 2, y: metrics.headerHeight - 3), with: nil) === surface)
             XCTAssertTrue(keyboard.hitTest(CGPoint(x: width / 2, y: keyboard.bounds.height - 3), with: nil) === surface)
         }
     }
@@ -422,7 +422,7 @@ final class KeyboardTouchTests: XCTestCase {
         }
     }
 
-    func testCandidateDividerDoesNotSwallowAnOtherwiseOwnedTouch() throws {
+    func testCandidateDividerNeverForwardsToolbarTouchToLetterKeys() throws {
         let (keyboard, surface) = makeKeyboard()
         let q = try XCTUnwrap(surface.regions.first { $0.key.accessibilityIdentifier == "vime.key.q" })
         let center = CGPoint(x: q.body.midX, y: q.body.midY)
@@ -431,9 +431,9 @@ final class KeyboardTouchTests: XCTestCase {
         keyboard.layoutIfNeeded()
         let divider = try XCTUnwrap(keyboard.subviews.first { !$0.isHidden && $0.frame.width == 0.5 })
         let point = CGPoint(x: divider.frame.midX, y: divider.frame.midY)
-        XCTAssertNotNil(surface.resolvedKey(at: point))
-        XCTAssertTrue(keyboard.hitTest(point, with: nil) === surface,
-                      "A decorative divider has no action and must not consume a key-owned point")
+        XCTAssertNil(surface.resolvedKey(at: point))
+        XCTAssertFalse(keyboard.hitTest(point, with: nil) === surface,
+                      "A candidate divider is in the toolbar and must never insert a letter")
     }
 
     func testRenderedKeyGapsHaveBackingForSystemExtensionTouchDelivery() throws {

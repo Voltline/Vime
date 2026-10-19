@@ -38,12 +38,9 @@ struct KeyboardSkinsView: View {
             currentSkinSection
             builtInSection
             customSkinSection
-            Section("布局") {
-                Button { router.present(.height) } label: {
-                    AppSettingsLabel(title: "键盘高度", symbol: "arrow.up.and.down")
-                }
+            Section("键盘设置") {
                 NavigationLink { KeyboardFeedbackSettingsView() } label: {
-                    AppSettingsLabel(title: "输入布局", symbol: "keyboard")
+                    AppSettingsLabel(title: "手感与布局", subtitle: "键盘高度、声音、振动、数字布局", symbol: "hand.tap")
                 }
             }
         }

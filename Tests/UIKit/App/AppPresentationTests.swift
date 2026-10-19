@@ -5,6 +5,28 @@ import SwiftUI
 
 @MainActor
 final class AppPresentationTests: XCTestCase {
+    private struct AlignmentProbe: UIViewRepresentable {
+        let view: UIView
+        func makeUIView(context: Context) -> UIView { view }
+        func updateUIView(_ uiView: UIView, context: Context) {}
+    }
+    func testSettingsPageStartsAtLeadingMarginOnWideAndNarrowScreens() async {
+        for width in [CGFloat(390), 1024] {
+            let marker = UIView()
+            let controller = UIHostingController(rootView: Vime.AppSettingsPage {
+                AlignmentProbe(view: marker).frame(width: 80, height: 44)
+            })
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: width, height: 768))
+            window.rootViewController = controller; window.isHidden = false
+            controller.view.layoutIfNeeded()
+            await Task.yield()
+            controller.view.layoutIfNeeded()
+            let origin = marker.convert(CGPoint.zero, to: controller.view)
+            XCTAssertEqual(origin.x, 20, accuracy: 1)
+            XCTAssertLessThan(origin.y, controller.view.safeAreaInsets.top + 24)
+            window.isHidden = true
+        }
+    }
     func testNumberSymbolLinkRoutesDirectlyToAppEditorAndRejectsOtherURLs() throws {
         let router = Vime.AppRouter()
         router.openURL(Vime.KeyboardNumberSymbols.settingsURL)
@@ -131,7 +153,8 @@ final class AppPresentationTests: XCTestCase {
                              ("关于-大字", AnyView(Vime.AboutVimeView().environment(\.dynamicTypeSize, .accessibility1))),
                              ("许可详情", AnyView(Vime.LicenseDetailView(component: licenseComponent))),
                              ("用户词典", AnyView(Vime.KeyboardUserDictionaryView())),
-                             ("手感与布局", AnyView(Vime.KeyboardFeedbackSettingsView())),
+                             ("手感与布局", AnyView(Vime.KeyboardFeedbackSettingsView().environmentObject(Vime.AppRouter()))),
+                             ("手感与布局-大字", AnyView(Vime.KeyboardFeedbackSettingsView().environmentObject(Vime.AppRouter()).environment(\.dynamicTypeSize, .accessibility1))),
                              ("常用符号", AnyView(Vime.KeyboardNumberSymbolsView())),
                              ("常用符号-大字", AnyView(Vime.KeyboardNumberSymbolsView().environment(\.dynamicTypeSize, .accessibility1))),
                              ("隐私政策", AnyView(Vime.PrivacyPolicyView()))] {

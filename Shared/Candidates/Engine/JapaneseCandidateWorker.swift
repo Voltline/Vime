@@ -32,10 +32,18 @@ final class JapaneseCandidateWorker {
         // confined to modelQueue. Never wait for cold initialization to publish.
         private let lock = NSLock()
         private var suspended = false
+        private var handledRetryID: String?
         private var ready = false
         var isSuspended: Bool { lock.lock(); defer { lock.unlock() }; return suspended }
         var isReady: Bool { lock.lock(); defer { lock.unlock() }; return ready && !suspended }
         func setSuspended(_ value: Bool) { lock.lock(); suspended = value; lock.unlock() }
+        func retry(requestID: String) -> Bool {
+            lock.lock(); defer { lock.unlock() }
+            guard requestID != handledRetryID else { return false }
+            handledRetryID = requestID
+            suspended = false
+            return true
+        }
         private func setReady(_ value: Bool) { lock.lock(); ready = value; lock.unlock() }
         private var cachedModel: VimeLanguageModel?
         private var attempted = false
@@ -77,6 +85,16 @@ final class JapaneseCandidateWorker {
     }
     private nonisolated final class Storage: @unchecked Sendable {
         private var cachedEngine: JapaneseCandidateEngine?
+        private let resetRequests: KeyboardLearningResetRequests?
+        private var observedResetID: String?
+        private func discardStaleLearning() {
+            let requested = resetRequests?.requestID
+            if requested != observedResetID {
+                // Do not flush a converter holding pre-reset native memory.
+                cachedEngine = nil
+                observedResetID = requested
+            }
+        }
         var engineLoaded: Bool { cachedEngine != nil }
         func handleMemoryPressure() {
             cachedEngine?.discardTransientCaches()
@@ -88,8 +106,20 @@ final class JapaneseCandidateWorker {
             cachedEngine = nil
         }
         let memoryDirectoryURL: URL?
-        init(memoryDirectoryURL: URL?) { self.memoryDirectoryURL = memoryDirectoryURL }
+        init(memoryDirectoryURL: URL?, resetRequests: KeyboardLearningResetRequests?) {
+            self.memoryDirectoryURL = memoryDirectoryURL
+            self.resetRequests = resetRequests
+            observedResetID = resetRequests?.requestID
+        }
         var engine: JapaneseCandidateEngine {
+            discardStaleLearning()
+            if let resetRequests, let id = resetRequests.requestID, id != resetRequests.completedID {
+                let fresh = JapaneseCandidateEngine(memoryDirectoryURL: memoryDirectoryURL, learningEnabled: true)
+                // Clear both native conversion memory and Vime's preferences.
+                // Failed persistence leaves the request pending for a later retry.
+                if fresh.clearLearning() { resetRequests.complete(id) }
+                cachedEngine = fresh
+            }
             if let cachedEngine { return cachedEngine }
             let engine = JapaneseCandidateEngine(memoryDirectoryURL: memoryDirectoryURL, learningEnabled: true)
             cachedEngine = engine
@@ -98,10 +128,14 @@ final class JapaneseCandidateWorker {
         // Reset/teardown of an unused keyboard must not initialize dictionaries
         // or learning storage merely to clear/flush an empty session.
         func resetCachedEngine(preservingContext: Bool) {
+            discardStaleLearning()
             cachedEngine?.reset(preservingContext: preservingContext)
             flushCachedLearning()
         }
-        func flushCachedLearning() { cachedEngine?.flushLearning() }
+        func flushCachedLearning() {
+            discardStaleLearning()
+            cachedEngine?.flushLearning()
+        }
     }
     /// Captured across pipeline hops, but only read or mutated on modelQueue.
     /// The converter queue personalizes scored values, never the mutable cache.
@@ -160,7 +194,10 @@ final class JapaneseCandidateWorker {
     // work, instead of relying on the long-lived queue's inherited pool policy
     private let queue = JapaneseCandidateWorker.candidateQueue
     private let storage: Storage
-    init(memoryDirectoryURL: URL? = nil) { storage = Storage(memoryDirectoryURL: memoryDirectoryURL) }
+    init(memoryDirectoryURL: URL? = nil, resetRequests: KeyboardLearningResetRequests? = nil) {
+        storage = Storage(memoryDirectoryURL: memoryDirectoryURL,
+            resetRequests: resetRequests ?? (memoryDirectoryURL == nil ? KeyboardLearningResetRequests() : nil))
+    }
     private var pending: Request?
     private var preparation: Request?
     /// The view supplies immutable presentation work, keeping UIKit/font policy
@@ -181,12 +218,12 @@ final class JapaneseCandidateWorker {
     /// Called only when a keyboard becomes visible. Hidden/unused controllers
     /// keep no converter, and queued preparation is cancelled during teardown.
     func prepareForInput() {
-        guard preparation == nil else { return }
+        cancelPreparation()
         let request = Request()
         preparation = request
         let storage = self.storage
         queue.async {
-            guard !request.isCancelled, !storage.engineLoaded else { return }
+            guard !request.isCancelled else { return }
             let engine = storage.engine
             guard !request.isCancelled else { return }
             engine.prepareForInput()
@@ -469,10 +506,15 @@ final class JapaneseCandidateWorker {
         queue.async { storage.handleMemoryPressure() }
     }
 
-    /// Only an explicit off-to-on settings change retries neural work after a
-    /// memory warning; ordinary keystrokes and host changes must not reload it
+    /// An explicit retry or off-to-on settings change can reopen the pressure
+    /// gate. Ordinary keystrokes and host changes must not reload the model.
     func allowLanguageModel() {
         LanguageModelStorage.shared.setSuspended(false)
+    }
+    /// A shared preference describes an action, but its receipt belongs to this
+    /// process's model. An App preview cannot consume the extension's retry.
+    func allowLanguageModel(requestID: String) -> Bool {
+        LanguageModelStorage.shared.retry(requestID: requestID)
     }
 
     func resourceState() async -> ResourceState {

@@ -8,8 +8,10 @@ struct AppSettingsPage<Content: View>: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) { content }
                 .frame(maxWidth: 680, alignment: .leading)
-                .padding(20).frame(maxWidth: .infinity)
+                .padding(20).frame(maxWidth: .infinity, alignment: .topLeading)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .multilineTextAlignment(.leading)
         .background(Color(uiColor: .systemGroupedBackground))
     }
 }
@@ -18,7 +20,7 @@ struct AppSettingsActionGroup<Content: View>: View {
     private let content: Content
     init(@ViewBuilder content: () -> Content) { self.content = content() }
     var body: some View {
-        VStack(spacing: 0) { content }
+        VStack(alignment: .leading, spacing: 0) { content }
             .buttonStyle(.plain)
             .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20))
     }

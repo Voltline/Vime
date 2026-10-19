@@ -98,6 +98,13 @@ final class KeyboardSession: KeyboardInputSession {
             && JapaneseCandidateWorker.isLanguageModelSuspendedForMemoryPressure
     }
     var phraseSuggestions = false
+    func retryLanguageModel(requestID: String) {
+        guard candidateRanking == .languageModel,
+              worker?.allowLanguageModel(requestID: requestID) == true else { return }
+        // Keep the displayed list and its selection stable. The next request
+        // can use the model; retrying is not a new composition revision.
+        onCandidatesChange?()
+    }
     func updateIntelligence(ranking: CandidateRankingMode, suggestionsEnabled: Bool) {
         guard ranking != candidateRanking || suggestionsEnabled != phraseSuggestions else { return }
         // Next-word neural work uses this same ranking gate; engine mode keeps

@@ -38,6 +38,13 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         appliedPreferences = next
         heightFactor = CGFloat(next.heightFactor)
         session.updateIntelligence(ranking: next.candidateRanking, suggestionsEnabled: next.phraseSuggestions)
+        applyNeuralRetry()
+        if next.learningResetID != previous?.learningResetID {
+            session.reset()
+            session.prepareForInput()
+            publishPreedit()
+            refresh()
+        }
         if next.clipboardSuggestions != previous?.clipboardSuggestions { updateClipboardMonitoring() }
         if next.nineKeyNumbers != previous?.nineKeyNumbers || next.prolongedKey != previous?.prolongedKey {
             rebuildKeys()
@@ -48,6 +55,10 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         }
         if next.theme != previous?.theme || next.customSkinID != previous?.customSkinID || next.skinRevision != previous?.skinRevision { applyTheme() }
         settingsPanel?.update(hasFullAccess: hasFullAccess, neuralPaused: session.neuralModeSuspendedForMemoryPressure)
+    }
+    private func applyNeuralRetry() {
+        guard preferences.candidateRanking == .languageModel, let id = preferences.neuralRetryID else { return }
+        session.retryLanguageModel(requestID: id)
     }
     weak var inputModeListTarget: AnyObject? { didSet { configureGlobe() } }
     var inputModeListAction: Selector? { didSet { configureGlobe() } }
@@ -111,17 +122,17 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     private var spareCandidateButtons: [KeyboardCandidateButton] = []
     private var displayedLanguage: KeyboardInputLanguage?
     private var displayedAlternateLanguage: KeyboardInputLanguage?
-    private let brandButton = UIButton(type: .custom)
+    private let brandButton = KeyboardToolbarButton(type: .custom)
     private let globeButton = UIButton(type: .custom)
-    private let modeButton = UIButton(type: .system)
+    private let modeButton = KeyboardToolbarButton(type: .system)
     private let neuralStatusLabel = UILabel()
-    private let undoButton = UIButton(type: .system)
-    private let expandButton = UIButton(type: .system)
+    private let undoButton = KeyboardToolbarButton(type: .system)
+    private let expandButton = KeyboardToolbarButton(type: .system)
     private let divider = UIView()
     private let panelTitle = UILabel()
-    private let shortenRange = UIButton(type: .system)
-    private let lengthenRange = UIButton(type: .system)
-    private let wholeRange = UIButton(type: .system)
+    private let shortenRange = KeyboardToolbarButton(type: .system)
+    private let lengthenRange = KeyboardToolbarButton(type: .system)
+    private let wholeRange = KeyboardToolbarButton(type: .system)
     private var panelLimit = 40
     private let gestureHint = UILabel()
     private let deletePrompt = KeyboardDeletePrompt()
@@ -158,6 +169,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         heightFactor = CGFloat(preferences.heightFactor)
         KeyboardPalette.theme = preferences.theme
         session.updateIntelligence(ranking: preferences.candidateRanking, suggestionsEnabled: preferences.phraseSuggestions)
+        applyNeuralRetry()
         appliedPreferences = preferences.snapshot
         session.onCommittedEdits = { [weak self] batch in
             guard let self, batch.hostEpoch == self.session.hostEpoch else { return }
@@ -385,10 +397,24 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         // A layout switch can be followed by another touch before the next
         // display frame. Resolve against the new keys, never removed objects.
         layoutIfNeeded()
+        if !header.isHidden, header.frame.contains(point) {
+            // Visual circles stay small. Resolve their larger targets here so
+            // neighboring controls never compete, and a miss cannot type a key.
+            let controls = [brandButton, undoButton, modeButton, expandButton, shortenRange, lengthenRange, wholeRange]
+            let target = controls.filter { !$0.isHidden && $0.isEnabled && $0.alpha >= 0.01 }
+                .filter { button in
+                    let frame = button.convert(button.bounds, to: self)
+                    return frame.insetBy(dx: -max(0, (44 - frame.width) / 2),
+                        dy: -max(0, (44 - frame.height) / 2)).contains(point)
+                }.min { lhs, rhs in
+                    abs(lhs.center.x - point.x) < abs(rhs.center.x - point.x)
+                }
+            if let target { return target }
+        }
         let hit = super.hitTest(point, with: event)
         // Real toolbar/candidate/globe controls keep their own interactions.
-        // Any otherwise empty keyboard surface routes to a key, including the
-        // blank space above the first row and below the last row.
+        // Empty space in the key plane routes to a key. The toolbar is reserved
+        // for controls and must never insert a letter when a tap misses them.
         if !keysContainer.isHidden, (hit === self || hit === header || hit === keysContainer),
            keysContainer.resolvedKey(at: keysContainer.convert(point, from: self)) != nil {
             KeyboardTouchDiagnostics.record("KeyboardView.hitTest", point: point, view: self, result: keysContainer)
@@ -413,7 +439,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         let headerHeight = metrics.headerHeight
         header.frame = CGRect(x: 0, y: 0, width: width, height: headerHeight)
         let diameter = metrics.toolbarButtonDiameter
-        let centerY = KeyboardMetrics.toolbarTopInset + diameter / 2
+        let centerY = max(22, KeyboardMetrics.toolbarTopInset + diameter / 2)
         brandButton.frame = CGRect(x: compact ? metrics.contentLeft : 12 * xScale,
             y: centerY - diameter / 2, width: diameter, height: diameter)
         brandArtwork.frame = brandButton.bounds.insetBy(dx: 2, dy: 2)
@@ -425,12 +451,11 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         expandButton.frame = metrics.trailingToolbarFrame(index: 0)
         for button in [brandButton, undoButton, modeButton, expandButton] { button.layer.cornerRadius = diameter / 2 }
         candidateScroll.frame = CGRect(x: compact ? metrics.contentLeft : 4 * xScale,
-            y: centerY - (compact ? 13 : 17 * scale),
-            width: compact ? expandButton.frame.minX - KeyboardMetrics.toolbarGap - metrics.contentLeft : width - 55 * xScale,
-            height: compact ? 26 : 34 * scale)
+            y: 3, width: expandButton.frame.midX - 22 - (compact ? metrics.contentLeft : 4 * xScale),
+            height: headerHeight - 6)
         if !candidateScroll.isHidden || !quickCandidates.isHidden {
             var left = candidateScroll.frame.minX
-            if !brandButton.isHidden { left = brandButton.frame.maxX + 4 }
+            if !brandButton.isHidden { left = brandButton.frame.midX + 22 + 2 }
             let right = candidateScroll.frame.maxX
             candidateScroll.frame = CGRect(x: left, y: candidateScroll.frame.minY,
                 width: max(0, right - left), height: candidateScroll.frame.height)
@@ -441,21 +466,16 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
             width: max(0, previewRight - previewLeft), height: diameter)
         quickCandidates.frame = candidateScroll.frame
         layoutCandidateStrip()
-        panelTitle.frame = CGRect(x: 12 * xScale, y: 0, width: width - 185 * xScale, height: headerHeight)
-        shortenRange.frame = CGRect(x: width - 172 * xScale, y: 0, width: 40 * xScale, height: headerHeight)
-        lengthenRange.frame = CGRect(x: width - 132 * xScale, y: 0, width: 40 * xScale, height: headerHeight)
-        wholeRange.frame = CGRect(x: width - 92 * xScale, y: 0, width: 42 * xScale, height: headerHeight)
-        divider.frame = CGRect(x: width - 51 * xScale, y: centerY - 12 * scale, width: 0.5, height: 24 * scale)
-        if compact {
-            let gap = KeyboardMetrics.toolbarGap
-            wholeRange.frame = CGRect(x: expandButton.frame.minX - gap - 44, y: KeyboardMetrics.toolbarTopInset, width: 44, height: diameter)
-            lengthenRange.frame = CGRect(x: wholeRange.frame.minX - gap - diameter, y: KeyboardMetrics.toolbarTopInset, width: diameter, height: diameter)
-            shortenRange.frame = CGRect(x: lengthenRange.frame.minX - gap - diameter, y: KeyboardMetrics.toolbarTopInset, width: diameter, height: diameter)
-            let titleRight = shortenRange.isHidden ? expandButton.frame.minX : shortenRange.frame.minX
-            panelTitle.frame = CGRect(x: metrics.contentLeft, y: KeyboardMetrics.toolbarTopInset,
-                width: max(0, titleRight - gap - metrics.contentLeft), height: diameter)
-            divider.frame = CGRect(x: expandButton.frame.minX - gap / 2, y: centerY - 12, width: 0.5, height: 24)
-        }
+        // Range controls use full targets too; their clear backgrounds keep
+        // the existing compact appearance while avoiding overlapping actions.
+        wholeRange.frame = CGRect(x: expandButton.frame.midX - 22 - 8 - 44, y: centerY - 22, width: 44, height: 44)
+        lengthenRange.frame = wholeRange.frame.offsetBy(dx: -52, dy: 0)
+        shortenRange.frame = lengthenRange.frame.offsetBy(dx: -52, dy: 0)
+        let titleLeft = compact ? metrics.contentLeft : 12 * xScale
+        let titleRight = shortenRange.isHidden ? expandButton.frame.midX - 22 : shortenRange.frame.minX
+        panelTitle.frame = CGRect(x: titleLeft, y: centerY - diameter / 2,
+            width: max(0, titleRight - 8 - titleLeft), height: diameter)
+        divider.frame = CGRect(x: expandButton.frame.midX - 22, y: centerY - 12, width: 0.5, height: 24)
         if panel == .settings {
             panelTitle.frame = CGRect(x: brandButton.frame.maxX + 12, y: brandButton.frame.minY,
                 width: max(0, expandButton.frame.minX - brandButton.frame.maxX - 24), height: diameter)
@@ -544,7 +564,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         for (rowIndex, row) in rows.enumerated() {
             guard let first = row.first?.0 else { continue }
             let top = rowIndex == 0
-                ? 0
+                ? metrics.headerHeight
                 : (rows[rowIndex - 1][0].0.frame.maxY + first.frame.minY) / 2
             let bottom = rowIndex == rows.count - 1
                 ? bounds.height
@@ -1337,6 +1357,11 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         view.onOpenAppSettings = { [weak self] in self?.onOpenAppSettings?() }
         view.onFeedback = { [weak self] in self?.playFeedback() }
         view.onNumberLayoutChange = { [weak self] in self?.rebuildKeys() }
+        view.onRetryNeural = { [weak self] in
+            guard let self else { return }
+            self.preferences.requestNeuralRetry()
+            self.reloadPreferences()
+        }
         addSubview(view)
         settingsPanel = view
     }

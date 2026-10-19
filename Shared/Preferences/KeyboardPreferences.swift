@@ -41,12 +41,15 @@ struct KeyboardPreferences {
         let clipboardSuggestions: Bool
         let autoPairBrackets: Bool
         let numberSymbols: [String]
+        let neuralRetryID: String?
+        let learningResetID: String?
     }
     var snapshot: Snapshot {
         Snapshot(heightFactor: heightFactor, sound: sound, hapticIntensity: hapticIntensity,
             nineKeyNumbers: nineKeyNumbers, prolongedKey: prolongedKey, previews: previews,
             theme: theme, customSkinID: customSkinID, skinRevision: skinRevision, candidateRanking: candidateRanking, phraseSuggestions: phraseSuggestions,
-            clipboardSuggestions: clipboardSuggestions, autoPairBrackets: autoPairBrackets, numberSymbols: numberSymbols)
+            clipboardSuggestions: clipboardSuggestions, autoPairBrackets: autoPairBrackets, numberSymbols: numberSymbols,
+            neuralRetryID: neuralRetryID, learningResetID: learningResetRequests.requestID)
     }
     var heightFactor: Double {
         get {
@@ -102,8 +105,14 @@ struct KeyboardPreferences {
     }
     var candidateRanking: CandidateRankingMode {
         get { CandidateRankingMode(rawValue: defaults.string(forKey: "vime.candidateRanking") ?? "") ?? .languageModel }
-        nonmutating set { defaults.set(newValue.rawValue, forKey: "vime.candidateRanking") }
+        nonmutating set {
+            if newValue == .languageModel && candidateRanking != .languageModel { requestNeuralRetry() }
+            defaults.set(newValue.rawValue, forKey: "vime.candidateRanking")
+        }
     }
+    var neuralRetryID: String? { defaults.string(forKey: "vime.neuralRetryID") }
+    func requestNeuralRetry() { defaults.set(UUID().uuidString, forKey: "vime.neuralRetryID") }
+    var learningResetRequests: KeyboardLearningResetRequests { KeyboardLearningResetRequests(defaults: defaults) }
     var phraseSuggestions: Bool {
         get { defaults.object(forKey: "vime.phraseSuggestions") as? Bool ?? true }
         nonmutating set { defaults.set(newValue, forKey: "vime.phraseSuggestions") }

@@ -44,6 +44,7 @@ final class KeyboardCandidateButton: UIButton {
         underline.layer.cornerRadius = 1
         insertSubview(underline, at: 0)
         annotation.font = .systemFont(ofSize: 10)
+        annotation.accessibilityIdentifier = "vime.candidate.annotation"
         annotation.isUserInteractionEnabled = false
         annotation.lineBreakMode = .byTruncatingTail
         addSubview(annotation)
@@ -87,7 +88,8 @@ final class KeyboardCandidateButton: UIButton {
     }
 
     override var intrinsicContentSize: CGSize {
-        CGSize(width: presentationWidth, height: (titleLabel?.font.lineHeight ?? 22) + 4)
+        CGSize(width: presentationWidth, height: ceil(titleLabel?.font.lineHeight ?? 22)
+            + (annotation.isHidden ? 0 : ceil(annotation.font.lineHeight) + 1) + 4)
     }
 
     override func contentRect(forBounds bounds: CGRect) -> CGRect { bounds.insetBy(dx: 12, dy: 2) }
@@ -97,9 +99,12 @@ final class KeyboardCandidateButton: UIButton {
         underline.frame = CGRect(x: 12, y: max(0, bounds.height - 2),
             width: min(max(0, bounds.width - 24), ceil(measuredTextWidth)), height: 2)
         if !annotation.isHidden {
-            let small = bounds.height < 30
-            titleLabel?.frame = CGRect(x: 12, y: 0, width: max(0, bounds.width - 24), height: small ? 16 : 20)
-            annotation.frame = CGRect(x: 12, y: small ? 16 : 20, width: max(0, bounds.width - 24), height: small ? 8 : 11)
+            let titleHeight = ceil(titleLabel?.font.lineHeight ?? 22)
+            let noteHeight = ceil(annotation.font.lineHeight)
+            let top = max(0, (bounds.height - titleHeight - noteHeight - 3) / 2)
+            titleLabel?.frame = CGRect(x: 12, y: top, width: max(0, bounds.width - 24), height: titleHeight)
+            annotation.frame = CGRect(x: 12, y: top + titleHeight + 1,
+                width: max(0, bounds.width - 24), height: noteHeight)
         }
     }
     func applyTheme() {

@@ -172,7 +172,13 @@ final class KeyboardIntegrationTests: XCTestCase {
         let emoji = try XCTUnwrap(descendants(keyboard).first { $0.accessibilityLabel == "表情" })
         XCTAssertFalse(emoji.isHidden)
         XCTAssertEqual(scroll.frame.minX, 4, accuracy: 0.001)
-        XCTAssertEqual(scroll.frame.height, 34)
+        for candidate in descendants(scroll).compactMap({ $0 as? KeyboardCandidateButton }) {
+            XCTAssertGreaterThanOrEqual(candidate.bounds.height, candidate.intrinsicContentSize.height,
+                "The strip must fit the candidate title and any reading annotation")
+        }
+        let firstKey = try button("vime.key.q", in: keyboard)
+        XCTAssertLessThanOrEqual(scroll.convert(scroll.bounds, to: keyboard).maxY,
+            firstKey.convert(firstKey.bounds, to: keyboard).minY)
         XCTAssertFalse(descendants(keyboard).contains { $0 is UILabel && $0.accessibilityLabel?.hasPrefix("当前输入：") == true })
         try button("vime.key.space", in: keyboard).sendActions(for: .touchUpInside)
         XCTAssertEqual(view.text, "どうして日本語。")

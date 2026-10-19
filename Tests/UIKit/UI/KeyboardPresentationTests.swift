@@ -187,8 +187,8 @@ final class KeyboardPresentationTests: XCTestCase {
                     let brand = controls[0].convert(controls[0].bounds, to: keyboard)
                     let arrow = controls[1].convert(controls[1].bounds, to: keyboard)
                     let mode = controls[2].convert(controls[2].bounds, to: keyboard)
-                    XCTAssertEqual(arrow.minX - mode.maxX, 8, accuracy: 0.001,
-                        "The trailing toolbar is a group, not proportionally spaced individual buttons")
+                    XCTAssertEqual(arrow.minX - mode.maxX, max(8, 44 - mode.width), accuracy: 0.001,
+                        "Trailing targets must have at least 44 points between their centers")
                     if type == .default {
                         let q = try button("vime.key.q", in: keyboard)
                         let p = try button("vime.key.p", in: keyboard)
@@ -226,7 +226,7 @@ final class KeyboardPresentationTests: XCTestCase {
             let stripFrame = strip.convert(strip.bounds, to: keyboard)
             let arrow = try button("vime.candidates.expand", in: keyboard)
             XCTAssertEqual(stripFrame.minX, left, accuracy: 0.001)
-            XCTAssertEqual(arrow.frame.minX - stripFrame.maxX, 8, accuracy: 0.001)
+            XCTAssertGreaterThanOrEqual(arrow.frame.midX - stripFrame.maxX, 22)
             capture(keyboard, name: "landscape-\(Int(width))-candidate-strip")
             arrow.sendActions(for: .touchUpInside); keyboard.layoutIfNeeded()
             let title = try XCTUnwrap(descendants(keyboard).first { $0.accessibilityIdentifier == "vime.candidates.title" })

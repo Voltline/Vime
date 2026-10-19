@@ -92,6 +92,7 @@ protocol KeyboardInputSession: AnyObject {
     func toggleEnglish() -> [KeyboardEdit]
     func togglePrimaryVariant() -> [KeyboardEdit]
     func updateIntelligence(ranking: CandidateRankingMode, suggestionsEnabled: Bool)
+    func retryLanguageModel(requestID: String)
     func prepareForInput()
     func setCandidatePresentationPreparation(_ prepare: @escaping @Sendable (CandidatePresentation, Bool) -> Void)
     func reset(preservingContext: Bool)
@@ -104,6 +105,7 @@ protocol KeyboardInputSession: AnyObject {
 }
 
 extension KeyboardInputSession {
+    func retryLanguageModel(requestID: String) {}
     func prepareForInput() {}
     func setCandidatePresentationPreparation(_ prepare: @escaping @Sendable (CandidatePresentation, Bool) -> Void) {}
     var candidateInitialRequestStartedAt: TimeInterval? { nil }

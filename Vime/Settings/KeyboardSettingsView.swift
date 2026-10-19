@@ -8,7 +8,7 @@ struct KeyboardSettingsView: View {
                     AppSettingsLabel(title: "输入与联想", subtitle: "候选排序、下一词联想", symbol: "text.cursor")
                 }.accessibilityIdentifier("vime.settings.input")
                 NavigationLink { KeyboardFeedbackSettingsView() } label: {
-                    AppSettingsLabel(title: "手感与布局", subtitle: "声音、振动、按键预览", symbol: "hand.tap")
+                    AppSettingsLabel(title: "手感与布局", subtitle: "键盘高度、声音、振动、数字布局", symbol: "hand.tap")
                 }.accessibilityIdentifier("vime.settings.feedback")
                 NavigationLink { KeyboardNumberSymbolsView() } label: {
                     AppSettingsLabel(title: "常用符号", subtitle: "数字键盘左侧的符号栏", symbol: "number")
@@ -38,6 +38,7 @@ struct KeyboardSettingsView: View {
 }
 
 struct KeyboardInputSettingsView: View {
+    @State private var retryRequested = false
     @AppStorage private var ranking: CandidateRankingMode
     @AppStorage private var suggestions: Bool
     @AppStorage private var autoPairBrackets: Bool
@@ -50,12 +51,25 @@ struct KeyboardInputSettingsView: View {
     var body: some View {
         Form {
             Section {
-                Picker("候选排序", selection: $ranking) {
+                Picker("候选排序", selection: Binding(get: { ranking }, set: { value in
+                    ranking = value
+                    if value == .languageModel { KeyboardPreferences().requestNeuralRetry() }
+                })) {
                     ForEach(CandidateRankingMode.allCases, id: \.self) { Text($0.title).tag($0) }
                 }
                 Toggle("下一词联想", isOn: $suggestions)
             } footer: {
                 Text("智能排序使用本地模型调整候选顺序\n下一词联想在确认文字后提供建议\n关闭智能排序或联想不会清除已有学习数据")
+            }
+            if ranking == .languageModel {
+                Section {
+                    Button("重试智能排序") {
+                        KeyboardPreferences().requestNeuralRetry()
+                        retryRequested = true
+                    }.accessibilityIdentifier("vime.settings.neural.retry")
+                } footer: {
+                    Text(retryRequested ? "已发送重试请求，下次打开键盘时生效。" : "内存紧张后智能排序可能暂停。重试后，后续输入将重新尝试使用本地模型。")
+                }
             }
             Section {
                 Toggle("自动补全括号", isOn: $autoPairBrackets)
@@ -78,6 +92,7 @@ struct KeyboardInputSettingsView: View {
 }
 
 struct KeyboardFeedbackSettingsView: View {
+    @EnvironmentObject private var router: AppRouter
     @ScaledMetric(relativeTo: .caption) private var scaleHeight = 24.0
     @AppStorage private var sound: Bool
     @AppStorage private var intensity: Double
@@ -110,6 +125,13 @@ struct KeyboardFeedbackSettingsView: View {
                 Text("靠近关闭、中、强时松手会吸附，档位之间可连续调节\n声音与振动需要允许完全访问\n静音时不播放按键声，振动效果以实际设备为准")
             }
             Section {
+                Button { router.present(.height) } label: {
+                    HStack {
+                        Text("键盘高度").foregroundStyle(.primary)
+                        Spacer()
+                        Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
+                    }
+                }.accessibilityIdentifier("vime.settings.height")
                 Picker("数字布局", selection: $nineKeyNumbers) {
                     Text("九宫格").tag(true); Text("全键盘").tag(false)
                 }
@@ -123,17 +145,25 @@ struct KeyboardFeedbackSettingsView: View {
     }
 }
 
-private struct AppHapticSlider: UIViewRepresentable {
+private struct AppHapticSlider: View {
     @Binding var value: Double
-    func makeUIView(context: Context) -> HapticIntensitySlider {
-        let slider = HapticIntensitySlider()
-        slider.tintColor = UIColor(cgColor: VimeLogo.blue)
-        return slider
-    }
-    func updateUIView(_ view: HapticIntensitySlider, context: Context) {
-        view.onValue = { value, _ in self.value = value }
-        // SwiftUI updates must not reposition the thumb during a native drag.
-        if !view.isAdjusting { view.setIntensity(value) }
+    var body: some View {
+        // Native tracking arbitrates with NavigationStack's content-back swipe.
+        // The extension's raw-touch slider is specific to the keyboard host.
+        Slider(value: $value, in: 0...1, onEditingChanged: { editing in
+            if !editing { value = HapticIntensity.snapped(value) }
+        })
+        .tint(Color(cgColor: VimeLogo.blue))
+        .accessibilityLabel("振动强度")
+        .accessibilityIdentifier("vime.setting.haptics")
+        .accessibilityValue(HapticIntensity.description(value))
+        .accessibilityAdjustableAction { direction in
+            switch direction {
+            case .increment: value = HapticIntensity.levels.first { $0.value > value + 1e-6 }?.value ?? 1
+            case .decrement: value = HapticIntensity.levels.last { $0.value < value - 1e-6 }?.value ?? 0
+            @unknown default: break
+            }
+        }
     }
 }
 
@@ -143,6 +173,19 @@ private struct AppHapticScale: UIViewRepresentable {
 }
 
 struct KeyboardDataPrivacyView: View {
+    @State private var confirmLearningReset = false
+    @AppStorage private var resetRequest: String
+    @AppStorage private var resetCompleted: String
+    init() {
+        let store = KeyboardPreferences().store
+        _resetRequest = AppStorage(wrappedValue: "", "vime.learningReset.request", store: store)
+        _resetCompleted = AppStorage(wrappedValue: "", "vime.learningReset.completed", store: store)
+    }
+    private var learningResetMessage: String {
+        if resetRequest.isEmpty { return "清空后将重新学习输入习惯。用户词典、剪贴板历史和皮肤会保留。" }
+        if resetRequest != resetCompleted { return "清空请求已保存，下次打开键盘时执行；完成前可再次打开键盘重试。" }
+        return "上次清空已完成。键盘会重新学习输入习惯；用户词典、剪贴板历史和皮肤保留。"
+    }
     var body: some View {
         AppSettingsPage {
             HStack(alignment: .top, spacing: 14) {
@@ -154,6 +197,18 @@ struct KeyboardDataPrivacyView: View {
                     Text("转换、纠错、排序和联想在设备上完成，不上传输入或剪贴板内容。")
                         .font(.subheadline).foregroundStyle(.secondary).lineSpacing(4)
                 }
+            }
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text("学习记录").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+                    .accessibilityAddTraits(.isHeader)
+                AppSettingsActionGroup {
+                    Button { confirmLearningReset = true } label: {
+                        AppSettingsActionRow(title: "清空学习记录", subtitle: "重置词语偏好与转换学习", symbol: "arrow.counterclockwise")
+                    }.accessibilityIdentifier("vime.privacy.resetLearning")
+                }
+                Text(learningResetMessage)
+                    .font(.footnote).foregroundStyle(.secondary)
             }
 
             VStack(alignment: .leading, spacing: 10) {
@@ -183,12 +238,18 @@ struct KeyboardDataPrivacyView: View {
                         Text("App 与键盘在本机共享设置、皮肤、用户词典和学习文件。系统备份可能包含这些数据，恢复备份时也可能恢复。剪贴板历史仅保留最近 24 小时，并排除在备份之外。")
                     }
                     AppInformationSection("管理与删除") {
-                        Text("自定义皮肤可在“定制”页编辑、导出和删除。目前没有统一清空学习数据的入口；删除词典条目不会同时删除相关学习记录。")
+                        Text("自定义皮肤可在“定制”页编辑、导出和删除。学习记录可单独清空；删除词典条目不会同时删除已有学习记录。")
                     }
                 }.padding(.top, 16)
             }
             .font(.subheadline)
         }
         .navigationTitle("数据与隐私").navigationBarTitleDisplayMode(.inline)
+        .confirmationDialog("清空所有学习记录？", isPresented: $confirmLearningReset, titleVisibility: .visible) {
+            Button("清空学习记录", role: .destructive) { KeyboardPreferences().learningResetRequests.request() }
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text("下次打开键盘时清空词语偏好和转换学习，此操作无法撤销。用户词典、剪贴板历史和皮肤不会删除。")
+        }
     }
 }

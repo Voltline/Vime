@@ -30,13 +30,13 @@ struct PrivacyPolicyView: View {
                             .font(.subheadline).foregroundStyle(.secondary).lineSpacing(4)
                         Text(policy.scope).font(.subheadline)
                         Divider().padding(.vertical, 4)
-                        Text(policy.introduction).lineSpacing(7).fixedSize(horizontal: false, vertical: true)
+                        policyText(policy.introduction).lineSpacing(7).fixedSize(horizontal: false, vertical: true)
                     }
                     ForEach(policy.sections.indices, id: \.self) { index in
                         VStack(alignment: .leading, spacing: 12) {
-                            Text(policy.sections[index].title).font(.headline).accessibilityAddTraits(.isHeader)
+                            Text(policy.sections[index].title).font(.title3.weight(.semibold)).accessibilityAddTraits(.isHeader)
                             ForEach(policy.sections[index].paragraphs, id: \.self) {
-                                Text($0).lineSpacing(7).fixedSize(horizontal: false, vertical: true)
+                                policyText($0).lineSpacing(7).fixedSize(horizontal: false, vertical: true)
                             }
                         }
                     }
@@ -46,11 +46,19 @@ struct PrivacyPolicyView: View {
             }
             .textSelection(.enabled)
             .frame(maxWidth: 720, alignment: .leading)
-            .padding(24).frame(maxWidth: .infinity, alignment: .center)
+            .padding(24).frame(maxWidth: .infinity, alignment: .topLeading)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .multilineTextAlignment(.leading)
         .accessibilityIdentifier("vime.privacy.document")
         .background(Color(uiColor: .systemBackground))
         .navigationTitle("隐私政策").navigationBarTitleDisplayMode(.inline)
         .task { do { policy = try PrivacyPolicy.load() } catch { self.error = error.localizedDescription } }
+    }
+
+    private func policyText(_ text: String) -> Text {
+        let formatted = try? AttributedString(markdown: text,
+            options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace))
+        return Text(formatted ?? AttributedString(text))
     }
 }

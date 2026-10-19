@@ -1079,7 +1079,7 @@ nonisolated final class JapaneseCandidateEngine {
         converter.commitUpdateLearningData(); learningDirty = false
     }
 
-    func clearLearning() {
+    @discardableResult func clearLearning() -> Bool {
         // This pinned version exposes LearningConfig without a public initializer.
         // A nonempty request applies our existing public request configuration.
         var bootstrap = ComposingText(); bootstrap.insertAtCursorPosition("　", inputStyle: .direct)
@@ -1088,6 +1088,14 @@ nonisolated final class JapaneseCandidateEngine {
         preferenceMemory?.clear()
         correctionCache = [:]; correctionCacheOrder = []
         reset()
+        // The upstream reset API logs filesystem errors instead of returning
+        // them. Verify deletion before acknowledging an app reset request.
+        guard preferenceMemory != nil, preferenceMemory?.persistenceError == nil,
+              let files = try? FileManager.default.contentsOfDirectory(at: memoryDirectoryURL,
+                includingPropertiesForKeys: nil) else { return false }
+        let nativeSuffixes = [".loudstxt3", ".loudschars2", ".memorymetadata", ".louds",
+            ".loudstxt3.2", ".loudschars2.2", ".memorymetadata.2", ".louds.2", ".pause", "learningMemory.txt"]
+        return !files.contains { file in nativeSuffixes.contains { file.lastPathComponent.hasSuffix($0) } }
     }
 
     func rememberedNextWords(context: String) -> [String] {

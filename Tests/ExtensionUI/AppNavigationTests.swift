@@ -3,6 +3,36 @@ import XCTest
 /// Exercises the installed SwiftUI App, not the HTML design prototype.
 @MainActor
 final class AppNavigationTests: XCTestCase {
+    func testFeedbackSliderRightwardDragsDoNotNavigateBack() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication(); app.launch()
+        app.tabBars.buttons["设置"].tap()
+        app.buttons["vime.settings.feedback"].tap()
+        let page = app.navigationBars["手感与布局"]
+        let slider = app.sliders["vime.setting.haptics"]
+        XCTAssertTrue(slider.waitForExistence(timeout: 3))
+        // Exercise immediate pans from the thumb.
+        // A long press before dragging can mask the content-back gesture race.
+        for velocity in [XCUIGestureVelocity.slow, .fast] {
+            slider.adjust(toNormalizedSliderPosition: 0)
+            // Start on the thumb and cross the end, ensuring a clamped maximum
+            // independently of UIKit's thumb padding and drag pickup offset.
+            slider.coordinate(withNormalizedOffset: CGVector(dx: 0.04, dy: 0.5))
+                .press(forDuration: 0.01, thenDragTo: slider.coordinate(withNormalizedOffset: CGVector(dx: 1.1, dy: 0.5)),
+                       withVelocity: velocity, thenHoldForDuration: 0)
+            XCTAssertTrue(page.exists, "Dragging the slider right must keep the settings page open")
+            XCTAssertEqual(slider.value as? String, "强 · 100%")
+        }
+        capture(app, "Feedback slider after rightward pans")
+        // Navigation outside the slider must retain its normal edge-back action.
+        let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.005, dy: 0.5))
+        start.press(forDuration: 0.01, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.5)),
+                    withVelocity: .slow, thenHoldForDuration: 0)
+        XCTAssertTrue(app.navigationBars["键盘设置"].waitForExistence(timeout: 3))
+        app.buttons["vime.settings.feedback"].tap()
+        XCTAssertEqual(slider.value as? String, "强 · 100%", "The drag must persist after returning to the page")
+    }
+
     func testNumberSymbolAdditionPersistsAndCanBeDeletedInApp() throws {
         let app = XCUIApplication(); app.launch()
         func openSymbols() {
@@ -59,9 +89,9 @@ final class AppNavigationTests: XCTestCase {
         app.buttons["vime.settings.feedback"].tap()
         let slider = app.sliders["vime.setting.haptics"]
         XCTAssertTrue(slider.waitForExistence(timeout: 3))
-        // Use an actual drag, as in KeyboardFeedbackUITests. The accessibility
-        // adjustment helper does not preserve this slider's owned-touch policy.
-        slider.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        // Initialise the thumb, then use an actual drag to verify release snapping.
+        slider.adjust(toNormalizedSliderPosition: 0)
+        slider.coordinate(withNormalizedOffset: CGVector(dx: 0.04, dy: 0.5))
             .press(forDuration: 0.05, thenDragTo: slider.coordinate(withNormalizedOffset: CGVector(dx: 0.58, dy: 0.5)))
         let value = try XCTUnwrap(slider.value as? String)
         XCTAssertEqual(value, "中 · 60%")

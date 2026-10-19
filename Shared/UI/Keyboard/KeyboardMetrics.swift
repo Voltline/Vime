@@ -21,14 +21,15 @@ struct KeyboardMetrics {
     var contentWidth: CGFloat { contentRight - contentLeft }
     static let toolbarGap: CGFloat = 8
     func trailingToolbarFrame(index: Int) -> CGRect {
+        let spacing = max(44, compact ? toolbarButtonDiameter + Self.toolbarGap : 46 * width / 440)
         let x = compact
-            ? contentRight - toolbarButtonDiameter - CGFloat(index) * (toolbarButtonDiameter + Self.toolbarGap)
-            : width - CGFloat(index + 1) * 46 * width / 440
+            ? contentRight - toolbarButtonDiameter - CGFloat(index) * spacing
+            : width - 46 * width / 440 - CGFloat(index) * spacing
         return CGRect(x: x, y: Self.toolbarTopInset, width: toolbarButtonDiameter, height: toolbarButtonDiameter)
     }
     // Include space below the toolbar, as well as its top inset and controls.
     // Otherwise a 30 pt control at y=8 touches the first key at y=38.
-    var headerHeight: CGFloat { compact ? Self.toolbarTopInset + toolbarButtonDiameter + 8 : 56 * scale }
+    var headerHeight: CGFloat { compact ? Self.toolbarTopInset + toolbarButtonDiameter + 8 : max(44, 56 * scale) }
     // A shorter portrait preference must not squeeze the landscape key plane.
     private var effectiveHeightFactor: CGFloat {
         guard compact else {
