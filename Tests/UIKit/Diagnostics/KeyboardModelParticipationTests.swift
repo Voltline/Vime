@@ -2,7 +2,7 @@ import XCTest
 import UIKit
 
 /// Opt-in scheduling comparison, not a conversion accuracy benchmark. Both
-/// arms use the same native/model pipeline and 40 ms first-publication budget.
+/// arms use the same native/model pipeline and production publication budget.
 @MainActor
 final class KeyboardModelParticipationTests: XCTestCase {
     func testModelParticipationWithAndWithoutBackgroundMeasurement() async throws {

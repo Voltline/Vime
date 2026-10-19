@@ -102,6 +102,7 @@ nonisolated final class JapaneseCandidateEngine {
     private(set) var lastCorrectionMetrics = CorrectionSearchMetrics()
     func candidates(for composing: ComposingText, katakana: Bool = false, revision: Int,
                     includeCorrections: Bool = true, conversionLength: Int? = nil,
+                    trace: CandidatePipelineTrace? = nil,
                     cancelled: () -> Bool = { false }) -> [CandidateSnapshot] {
         guard !cancelled() else { return [] }
         preferenceMemory?.refreshIfChanged()
@@ -151,6 +152,7 @@ nonisolated final class JapaneseCandidateEngine {
         // building snapshots or starting unrelated conversion sessions.
         guard !cancelled() else { return [] }
         let kana = query.convertTarget
+        let queryReading = RomajiConverter.katakana(kana)
         func snapshot(_ candidate: Candidate, source: CandidateSource, engineRank: Int = 0) -> CandidateSnapshot {
             var engineRemainder = query
             engineRemainder.prefixComplete(composingCount: candidate.composingCount)
@@ -173,20 +175,20 @@ nonisolated final class JapaneseCandidateEngine {
             }
             var value = CandidateSnapshot(candidate: candidate, revision: revision, source: isRegistered ? .userDictionary : source, remainingComposition: remaining,
                 originalInputCount: composing.input.count, consumedInputCount: max(0, composing.input.count - remaining.input.count),
-                queryReading: RomajiConverter.katakana(kana), engineRank: engineRank,
+                queryReading: queryReading, engineRank: engineRank,
                 engineFullConsumption: engineRemainder.isEmpty,
                 readingOverride: source == .readingAlternative && candidate.data.isEmpty ? candidate.text : nil,
                 predictionStatus: source == .prediction)
             value.consumedReadingCount = consumedReading
             if conversionLength != nil {
-                value.scopeReading = RomajiConverter.katakana(kana)
+                value.scopeReading = queryReading
                 value.explicitScope = true
             } else if !remaining.isEmpty {
                 value.scopeReading = RomajiConverter.katakana(String(kana.prefix(consumedReading)))
             }
             return value
         }
-        let scripts = katakana ? [RomajiConverter.katakana(kana), kana] : [kana, RomajiConverter.katakana(kana)]
+        let scripts = katakana ? [queryReading, kana] : [kana, queryReading]
         let scriptCandidates = scripts.map {
             snapshot(Candidate(text: $0, value: .zero, composingCount: .inputCount(query.input.count),
                                lastMid: MIDData.EOS.mid, data: [], isLearningTarget: false), source: .scriptVariant)
@@ -278,6 +280,7 @@ nonisolated final class JapaneseCandidateEngine {
         let clauses = result.firstClauseResults.enumerated().filter { $0.element.inputable }.map {
             snapshot($0.element, source: .conversion, engineRank: $0.offset)
         }
+        trace?.record(.native, values: conversions + predictions + clauses)
         guard !cancelled() else { return [] }
         currentPool = conversions + predictions + scriptCandidates + alternatives + clauses + specialCandidates + emojiCandidates
         // Query the most likely first lexical boundary once, rather than converting
@@ -325,11 +328,22 @@ nonisolated final class JapaneseCandidateEngine {
             spellingVariants.append(variant)
         }
         currentPool += spellingVariants
+        let remembered = preferenceMemory?.rememberedConversions(reading: queryReading, context: committedContext) ?? []
+        for (index, surface) in remembered.enumerated() {
+            // Exact scoped recall only. The normal snapshot builder maps input
+            // counts/remainders, including explicit prefix selection. No fake
+            // word IDs enter native completion or its learning archive.
+            let candidate = Candidate(text: surface, value: .zero, composingCount: .inputCount(query.input.count),
+                lastMid: MIDData.EOS.mid, data: [], isLearningTarget: false)
+            currentPool.append(snapshot(candidate, source: .rememberedConversion, engineRank: 10 + index))
+        }
+        trace?.record(.pooled, values: currentPool)
         if diagnosticsEnabled {
             rawDiagnostics = currentPool.enumerated().map { CandidateDiagnostic($0.element, rank: $0.offset + 1) }
         }
         guard !cancelled() else { return [] }
         let base = rank(currentPool, query: query, katakana: katakana)
+        trace?.record(.ranked, values: base)
         guard !cancelled() else { return [] }
         previousTop = base.first.map { .init(surface: $0.text, reading: $0.reading, input: Self.rawInput(query)) }
         return includeCorrections && conversionLength == nil ? addingCorrections(to: base, for: query, katakana: katakana, revision: revision, cancelled: cancelled) : base
@@ -469,14 +483,16 @@ nonisolated final class JapaneseCandidateEngine {
     func seedContinuity(_ previous: CandidateContinuity?) { previousTop = previous }
 
     private func rank(_ pool: [CandidateSnapshot], query: ComposingText, katakana: Bool) -> [CandidateSnapshot] {
+        let hasSentenceContext = !VimeLanguageModel.sentenceContext(committedContext).isEmpty
         let personalized = pool.map { original in
             var value = original
-            if value.learningEligible || value.source == .scriptVariant || value.source == .orthographicVariant {
+            if let scope = value.preferenceScope {
                 value.userPreferenceScore = preferenceMemory?.score(reading: value.reading, surface: value.text,
-                    context: committedContext, scope: (value.source == .scriptVariant || value.source == .orthographicVariant) ? "style" : "conversion") ?? 0
+                    context: committedContext, scope: scope) ?? 0
                 if let memory = preferenceMemory {
                     let choice = memory.choicePreference(reading: value.reading, surface: value.text, context: committedContext)
-                    var wordBonus = 0.0
+                    var wordBonus = value.source == .rememberedConversion
+                        ? memory.choicePreference(reading: value.reading, surface: value.text, context: committedContext, word: true).bonus : 0
                     if value.displaySurface == nil {
                         var left = committedContext
                         for element in value.candidate.data {
@@ -490,6 +506,8 @@ nonisolated final class JapaneseCandidateEngine {
                     value.userPreferenceScore = min(CandidatePreferenceMemory.Policy.maximumChoiceBonus,
                         value.userPreferenceScore + choice.bonus + wordBonus)
                     value.userPreferenceConfidence = choice.confidence
+                    value.modelPreferenceScoreLimit = hasSentenceContext && !choice.matchesExactContext
+                        ? CandidatePreferenceMemory.Policy.maximumBackoffModelScore : CandidatePreferenceMemory.Policy.maximumChoiceBonus
                 }
             }
             value.orthographyScore = JapaneseLanguageResources.shared.preference(value)
@@ -884,7 +902,7 @@ nonisolated final class JapaneseCandidateEngine {
         // Prefix queries are isolated from the original full-query lattice.
         // Map only its completion count into that original lattice; learning
         // always receives the untouched native Candidate below.
-        if snapshot.displaySurface == nil, let query = primaryQuery,
+        if snapshot.source != .rememberedConversion, snapshot.displaySurface == nil, let query = primaryQuery,
            Array(query.input.suffix(snapshot.remainingComposition.input.count)) == snapshot.remainingComposition.input {
             var completion = snapshot.candidate
             completion.composingCount = .inputCount(snapshot.consumedInputCount)
@@ -899,16 +917,15 @@ nonisolated final class JapaneseCandidateEngine {
         completeConversionContext(snapshot)
         if snapshot.learningEligible {
             converter.updateLearningData(snapshot.candidate)
-            preferenceMemory?.record(reading: snapshot.reading, surface: snapshot.text)
             learningDirty = true
             correctionCache = [:]; correctionCacheOrder = []
         }
-        if !snapshot.learningEligible && (snapshot.source == .orthographicVariant || snapshot.source == .scriptVariant) {
-            preferenceMemory?.record(reading: snapshot.reading, surface: snapshot.text, scope: "style")
+        if let scope = snapshot.preferenceScope {
+            preferenceMemory?.record(reading: snapshot.reading, surface: snapshot.text, scope: scope)
         }
         if explicit { recordChoice(snapshot, context: committedContext, weight: 1, now: Date()) }
         committedContext = String((committedContext + snapshot.text).suffix(96))
-        contextCandidate = snapshot.lexical && snapshot.displaySurface == nil ? snapshot.candidate : nil
+        contextCandidate = snapshot.lexical && snapshot.displaySurface == nil && !snapshot.candidate.data.isEmpty ? snapshot.candidate : nil
     }
 
     /// Context completion is immediate; learning waits for a verified host receipt.
@@ -917,12 +934,12 @@ nonisolated final class JapaneseCandidateEngine {
         preferenceMemory?.refreshIfChanged()
         completeConversionContext(snapshot)
         committedContext = String((committedContext + snapshot.text).suffix(96))
-        contextCandidate = snapshot.lexical && snapshot.displaySurface == nil ? snapshot.candidate : nil
+        contextCandidate = snapshot.lexical && snapshot.displaySurface == nil && !snapshot.candidate.data.isEmpty ? snapshot.candidate : nil
         pendingFeedback = PendingFeedback(snapshot: snapshot, text: snapshot.text, event: event,
             learningEpoch: preferenceMemory?.clearEpoch)
-        if snapshot.learningEligible || snapshot.source == .scriptVariant || snapshot.source == .orthographicVariant {
+        if let scope = snapshot.preferenceScope {
             preferenceMemory?.stage(id: event.id, reading: snapshot.reading, surface: snapshot.text,
-                context: event.context, scope: (snapshot.source == .scriptVariant || snapshot.source == .orthographicVariant) ? "style" : "conversion",
+                context: event.context, scope: scope,
                 weight: event.weight, now: event.selectedAt)
         }
     }
@@ -1004,9 +1021,9 @@ nonisolated final class JapaneseCandidateEngine {
             } else if let learningSession {
                 try? converter.withSession(learningSession) { converter.stopComposition() }
             }
-            if snapshot.learningEligible || snapshot.source == .scriptVariant || snapshot.source == .orthographicVariant {
+            if let scope = snapshot.preferenceScope {
                 preferenceMemory?.record(reading: snapshot.reading, surface: snapshot.text, context: pending.event.context,
-                    scope: (snapshot.source == .scriptVariant || snapshot.source == .orthographicVariant) ? "style" : "conversion", weight: pending.event.weight,
+                    scope: scope, weight: pending.event.weight,
                     now: pending.event.selectedAt)
                 if pending.event.isDeliberateChoice {
                     recordChoice(snapshot, context: pending.event.context, weight: pending.event.weight, now: pending.event.selectedAt)
@@ -1030,7 +1047,7 @@ nonisolated final class JapaneseCandidateEngine {
     }
 
     private func recordChoice(_ snapshot: CandidateSnapshot, context: String, weight: Double, now: Date) {
-        guard snapshot.learningEligible || snapshot.source == .scriptVariant || snapshot.source == .orthographicVariant else { return }
+        guard snapshot.preferenceScope != nil else { return }
         preferenceMemory?.record(reading: snapshot.reading, surface: snapshot.text, context: context,
                                  scope: "choice", weight: weight, now: now)
         // Share modest word preferences across phrases. Never teach transformed

@@ -8,8 +8,10 @@ import KanaKanjiConverterModuleWithDefaultDictionary
 final class JapaneseCandidateWorker {
     static var isLanguageModelSuspendedForMemoryPressure: Bool { LanguageModelStorage.shared.isSuspended }
     // Neural ranking can participate before the first display, but never hold
-    // dictionary candidates behind a cold model or a long scoring request.
-    nonisolated static let initialRankingWindow: TimeInterval = 0.040
+    // dictionary candidates behind a cold model or an unbounded scoring request.
+    // Give contextual disambiguation enough time for multiple complete scores;
+    // first publication still freezes order for the current composition revision.
+    nonisolated static let initialRankingWindow: TimeInterval = 0.060
     nonisolated static let initialRankingCandidateLimit = 8
 
     nonisolated struct ResourceState: Equatable, Sendable {
@@ -116,21 +118,28 @@ final class JapaneseCandidateWorker {
         private var initiallyPublished = false
         private var refinement: [CandidateSnapshot]?
         private let startedAt: TimeInterval?
-        init(startedAt: TimeInterval? = nil) { self.startedAt = startedAt }
+        private let trace: CandidatePipelineTrace?
+        init(startedAt: TimeInterval? = nil, trace: CandidatePipelineTrace? = nil) {
+            self.startedAt = startedAt; self.trace = trace
+        }
         func cancel() {
             lock.lock()
             let unpublished = !cancelled && !initiallyPublished
             cancelled = true; refinement = nil
             lock.unlock()
-            if unpublished { KeyboardPerformance.record(.candidateRequestCancelled, since: startedAt) }
+            if unpublished {
+                trace?.cancelBeforePublication()
+                KeyboardPerformance.record(.candidateRequestCancelled, since: startedAt)
+            }
         }
         var isCancelled: Bool { lock.lock(); defer { lock.unlock() }; return cancelled }
         func refine(_ values: [CandidateSnapshot], before deadline: TimeInterval) {
             lock.lock(); defer { lock.unlock() }
             guard !cancelled, !initiallyPublished, ProcessInfo.processInfo.systemUptime < deadline else { return }
             refinement = values
+            trace?.record(.publicationReady, values: values)
         }
-        func claimInitialPublication(fallback: [CandidateSnapshot]) -> [CandidateSnapshot]? {
+        func claimInitialPublication(fallback: [CandidateSnapshot], deadline: TimeInterval) -> [CandidateSnapshot]? {
             lock.lock(); defer { lock.unlock() }
             guard !cancelled, !initiallyPublished else { return nil }
             initiallyPublished = true
@@ -141,7 +150,10 @@ final class JapaneseCandidateWorker {
                     KeyboardPerformance.record(.candidateModelOrderChanged, since: startedAt)
                 }
             }
-            return refinement ?? fallback
+            let result = refinement ?? fallback
+            if refinement == nil, ProcessInfo.processInfo.systemUptime >= deadline { trace?.expireModelWindow() }
+            trace?.published(result, modelUsed: refinement != nil)
+            return result
         }
     }
     // Drain Foundation/Core ML temporaries at every request, including cancelled
@@ -188,13 +200,14 @@ final class JapaneseCandidateWorker {
 
     func candidates(for composing: ComposingText, katakana: Bool, revision: Int, leftContext: String?, continuity: CandidateContinuity?,
                     ranking: CandidateRankingMode = .languageModel, conversionLength: Int? = nil, expanded: Bool = false,
+                    trace: CandidatePipelineTrace? = nil,
                     completion: @escaping @MainActor @Sendable ([CandidateSnapshot], TimeInterval?, Bool) -> Void) {
         pending?.cancel()
         // The budget includes queueing, context reconciliation and dictionary
         // work, even when performance instrumentation is disabled.
         let initialDeadline = ProcessInfo.processInfo.systemUptime + Self.initialRankingWindow
         let requestStartedAt = KeyboardPerformance.start()
-        let request = Request(startedAt: requestStartedAt)
+        let request = Request(startedAt: requestStartedAt, trace: trace)
         pending = request
         let storage = self.storage
         let queue = self.queue
@@ -212,7 +225,7 @@ final class JapaneseCandidateWorker {
             storage.engine.seedContinuity(continuity)
             let computeStartedAt = KeyboardPerformance.start()
             let values = storage.engine.candidates(for: composing, katakana: katakana, revision: revision,
-                includeCorrections: false, conversionLength: conversionLength, cancelled: { request.isCancelled })
+                includeCorrections: false, conversionLength: conversionLength, trace: trace, cancelled: { request.isCancelled })
             KeyboardPerformance.record(.candidateCompute, since: computeStartedAt)
             let presentationStartedAt = KeyboardPerformance.start()
             guard prepare(values) else { return }
@@ -227,6 +240,24 @@ final class JapaneseCandidateWorker {
                 && CandidateCompetitionPolicy.plan(values, katakana: katakana, maximumCandidates: Self.initialRankingCandidateLimit).slots.count > 1
             let waitForRanking = neuralRanking && LanguageModelStorage.shared.isReady
                 && ProcessInfo.processInfo.systemUptime < initialDeadline
+            if let trace {
+                let eligible = VimeLanguageModel.rerankingSlots(values, katakana: katakana)
+                let plan = CandidateCompetitionPolicy.plan(values, katakana: katakana,
+                    maximumCandidates: Self.initialRankingCandidateLimit)
+                trace.record(.eligible, values: eligible.map { values[$0] })
+                trace.record(.planned, values: plan.slots.map { values[$0] })
+                let gate: CandidatePipelineTrace.ModelGate
+                if ranking != .languageModel { gate = .engineMode }
+                else if katakana { gate = .katakana }
+                else if sentence.isEmpty { gate = .noContext }
+                else if LanguageModelStorage.shared.isSuspended { gate = .memoryPressure }
+                else if eligible.count < 2 { gate = .insufficientCandidates }
+                else if plan.slots.isEmpty { gate = .personalLeader }
+                else if !LanguageModelStorage.shared.isReady { gate = .coldModel }
+                else if !waitForRanking { gate = .deadlineExpired }
+                else { gate = .ready }
+                trace.setModelGate(gate)
+            }
             if neuralRanking {
                 KeyboardPerformance.record(.candidateModelEligible, since: requestStartedAt)
                 if waitForRanking {
@@ -241,7 +272,7 @@ final class JapaneseCandidateWorker {
             // Supplementary work starts only after the initial publication, so
             // fast corrections cannot arrive too early and be discarded.
             let publishInitial: @MainActor @Sendable (TimeInterval?) -> Void = { resultReadyAt in
-                guard let result = request.claimInitialPublication(fallback: values) else { return }
+                guard let result = request.claimInitialPublication(fallback: values, deadline: initialDeadline) else { return }
                 completion(result, resultReadyAt, false)
                 let supplementaryQueuedAt = KeyboardPerformance.start()
                 queue.async {
@@ -259,7 +290,12 @@ final class JapaneseCandidateWorker {
                     if enriched.map(\.presentation) != values.map(\.presentation) {
                         guard prepare(enriched) else { return }
                         let readyAt = KeyboardPerformance.start()
-                        DispatchQueue.main.async { if !request.isCancelled { completion(enriched, readyAt, true) } }
+                        DispatchQueue.main.async {
+                            if !request.isCancelled {
+                                trace?.record(.supplementary, values: enriched)
+                                completion(enriched, readyAt, true)
+                            }
+                        }
                     }
                     guard conversionLength == nil else { return }
                     let correctionStartedAt = KeyboardPerformance.start()
@@ -270,7 +306,12 @@ final class JapaneseCandidateWorker {
                     guard prepare(corrected) else { return }
                     KeyboardPerformance.record(.correctionRequestToResult, since: requestStartedAt)
                     let readyAt = KeyboardPerformance.start()
-                    DispatchQueue.main.async { if !request.isCancelled { completion(corrected, readyAt, true) } }
+                    DispatchQueue.main.async {
+                        if !request.isCancelled {
+                            trace?.record(.supplementary, values: corrected)
+                            completion(corrected, readyAt, true)
+                        }
+                    }
                 }
             }
             if waitForRanking {
@@ -287,13 +328,17 @@ final class JapaneseCandidateWorker {
                     // Cold work warms later requests while this one's dictionary
                     // list is already visible. Expired warm work never predicts.
                     if LanguageModelStorage.shared.isReady,
-                       !waitForRanking || ProcessInfo.processInfo.systemUptime >= initialDeadline { return }
+                       !waitForRanking || ProcessInfo.processInfo.systemUptime >= initialDeadline {
+                        if waitForRanking { trace?.setModelGate(.deadlineExpired) }
+                        return
+                    }
                     let model = LanguageModelStorage.shared.model
+                    if model == nil { trace?.setModelGate(.modelUnavailable) }
                     guard waitForRanking, !request.isCancelled,
                           ProcessInfo.processInfo.systemUptime < initialDeadline else { return }
                     KeyboardPerformance.record(.candidateModelScoringStarted, since: requestStartedAt)
                     _ = model?.rerank(values, context: sentence,
-                        katakana: katakana, maximumCandidates: Self.initialRankingCandidateLimit, onRefinement: {
+                        katakana: katakana, maximumCandidates: Self.initialRankingCandidateLimit, trace: trace, onRefinement: {
                             guard !request.isCancelled, ProcessInfo.processInfo.systemUptime < initialDeadline else { return }
                             KeyboardPerformance.record(.candidateModelRefinementReady, since: requestStartedAt)
                             guard prepare($0) else { return }

@@ -45,6 +45,65 @@ final class VimeLanguageModelTests: XCTestCase {
         }
     }
 
+    func testConversionCacheReusesAcrossChangingPoolsAndBoundariesWithoutChangingScores() throws {
+        let model = try VimeLanguageModel(), cache = VimeLanguageModel.ConversionScoreCache()
+        let context = "週末の旅行について友人と相談しているので、"
+        let pools = [["東京", "大阪"], ["東京へ", "京都"],
+                     ["東京へ旅行する予定です", "大阪", "日本の会社で働く"]]
+        for candidates in pools {
+            let expected = try independentScores(model, context: context, candidates: candidates)
+            let actual = try model.scores(context: context, candidates: candidates, conversionCache: cache)
+            for (a, b) in zip(actual, expected) { XCTAssertEqual(a, b, accuracy: 0.002) }
+        }
+        KeyboardPerformance.configure(enabled: true, reset: true)
+        defer { KeyboardPerformance.configure(enabled: false) }
+        _ = try model.scores(context: context, candidates: pools.last!, conversionCache: cache)
+        XCTAssertNil(KeyboardPerformance.report()["lmScoringPrediction"], "Already scored prefixes need no transformer pass")
+        XCTAssertThrowsError(try model.scores(context: context, candidates: pools[0], conversionCache: cache, cancelled: { true }))
+        // The changed pool can move the joint-tokenization boundary. Cached
+        // rows carry exact causal prefixes rather than old suffix score sums.
+        for fixture in try fixtures().scoring {
+            for text in fixture.candidates {
+                _ = try model.scores(context: fixture.context, candidates: [text], conversionCache: cache)
+            }
+            let actual = try model.scores(context: fixture.context, candidates: fixture.candidates, conversionCache: cache)
+            for (a, b) in zip(actual, fixture.sums) { XCTAssertEqual(a, b, accuracy: 0.002) }
+            XCTAssertLessThanOrEqual(cache.rowCount, VimeLanguageModel.ConversionScoreCache.maximumRows)
+        }
+        cache.prepare(context: "全く別の文脈")
+        XCTAssertEqual(cache.rowCount, 0)
+    }
+
+    func testConversionCacheEvictionKeepsNumericalParityAndBoundedMemory() throws {
+        let model = try VimeLanguageModel(), cache = VimeLanguageModel.ConversionScoreCache()
+        let context = "明日は、"
+        for index in 0..<80 {
+            _ = try model.scores(context: context, candidates: ["東京の予定\(index)について相談する"], conversionCache: cache)
+            XCTAssertLessThanOrEqual(cache.rowCount, VimeLanguageModel.ConversionScoreCache.maximumRows)
+        }
+        XCTAssertEqual(cache.scoreCount, VimeLanguageModel.ConversionScoreCache.maximumScores)
+        let candidates = ["東京の予定0について相談する", "大阪へ旅行する"]
+        let expected = try independentScores(model, context: context, candidates: candidates)
+        let actual = try model.scores(context: context, candidates: candidates, conversionCache: cache)
+        for (a, b) in zip(actual, expected) { XCTAssertEqual(a, b, accuracy: 0.002) }
+    }
+
+    func testConversionCacheReusesLongCandidateWhenOnlyLastTokenChanges() throws {
+        let model = try VimeLanguageModel(), cache = VimeLanguageModel.ConversionScoreCache()
+        let context = "旅行について相談していて、"
+        let texts = (0..<10).map { "東京へ行く予定の便番号は\($0)" }
+        let groups = try Dictionary(grouping: texts) { Array(try model.tokenizer.encode(context + $0).dropLast()) }
+        let pair = try XCTUnwrap(groups.values.first { $0.count >= 2 }).sorted().prefix(2)
+        let expected = try independentScores(model, context: context, candidates: Array(pair))
+        let first = try model.scores(context: context, candidates: [pair.first!], conversionCache: cache)
+        KeyboardPerformance.configure(enabled: true, reset: true)
+        defer { KeyboardPerformance.configure(enabled: false) }
+        let second = try model.scores(context: context, candidates: [pair.last!], conversionCache: cache)
+        XCTAssertNil(KeyboardPerformance.report()["lmScoringPrediction"], "Same complete input prefix requires no new prediction")
+        XCTAssertEqual(first[0], expected[0], accuracy: 0.002)
+        XCTAssertEqual(second[0], expected[1], accuracy: 0.002)
+    }
+
     func testSharedPrefixScoresUseOnePredictionAndMatchIndependentShortAndLongContexts() throws {
         let model = try VimeLanguageModel()
         let long = String("来週の旅行に備えて必要な物を整理しながら現地で何をするか友人と相談していて、まだ決まっていない予定について詳しく話すために、".suffix(64))

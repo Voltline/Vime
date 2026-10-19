@@ -15,13 +15,24 @@ nonisolated final class CandidatePreferenceMemory {
         static let priorMass = 4.0 // Sparse contexts shrink toward the reading's global distribution.
         static let classicWeight = 1.5
         static let maximumEntries = 2048
+        // Each tier can borrow unused capacity from the other. Context hashes
+        // must not consume the entire store and evict every global preference.
+        static let reservedGlobalEntries = 1024
         static let maximumFileBytes = 4 * 1024 * 1024
         static let maximumRememberedSuggestions = 3
         static let historyAdmissionMargin = 3.0 // LogP gap from best generated word; history must be LM-compatible.
         static let maximumChoiceBonus = 6.0
+        // Backoff is a soft prior in a new sentence: one score unit becomes
+        // 1.5 log-probability units (about 4.5:1 odds), never a model veto.
+        static let maximumBackoffModelScore = 1.0
+        static let familiarCandidateVisibility = 3
         static func rankingBonus(score: Double, confidence: Double) -> Double {
             score * classicWeight + (confidence >= 0.65 ? 3 * confidence : 0)
         }
+    }
+    private struct Confirmation: Codable {
+        let weight: Double
+        let selectedAt: TimeInterval
     }
     private struct Entry: Codable {
         var scope: String
@@ -31,6 +42,9 @@ nonisolated final class CandidatePreferenceMemory {
         var evidence: Double
         var confirmations: Int
         var selectedAt: TimeInterval
+        // Only the last three deliberate confirmations qualify order protection.
+        // Frequency evidence above remains independent and is never reset.
+        var protection: [Confirmation]? = nil
     }
     // nil is the original generation, including v1/v2 files written before
     // clear epochs existed. Ordinary writes preserve it; only clear changes it.
@@ -154,6 +168,10 @@ nonisolated final class CandidatePreferenceMemory {
             && e.selectedAt.isFinite && !e.surface.isEmpty && e.surface.count <= 64
             && e.context.count <= 96 && e.reading.count <= 96
             && ![e.reading, e.surface, e.context].contains(where: { $0.contains("\0") })
+            && (e.protection.map { $0.count <= 3 && $0.allSatisfy {
+                $0.weight.isFinite && $0.weight > 0 && $0.weight <= 1000
+                    && $0.selectedAt.isFinite && $0.selectedAt <= e.selectedAt
+            } } ?? true)
     }
     private func population(_ scope: String, _ reading: String, _ context: String) -> String {
         [scope, reading, context].joined(separator: "\0")
@@ -190,7 +208,8 @@ nonisolated final class CandidatePreferenceMemory {
     }
     private func bump(scope: String, reading: String, context: String, surface: String, weight: Double, now: Date) {
         let e = Entry(scope: scope, reading: reading, context: context, surface: surface,
-            evidence: weight, confirmations: 1, selectedAt: now.timeIntervalSince1970)
+            evidence: weight, confirmations: 1, selectedAt: now.timeIntervalSince1970,
+            protection: scope == "choice" ? [Confirmation(weight: weight, selectedAt: now.timeIntervalSince1970)] : nil)
         guard weight.isFinite, weight > 0, valid(e) else { return }
         apply(e, to: &pendingEvents)
         apply(e, to: &entries)
@@ -208,33 +227,156 @@ nonisolated final class CandidatePreferenceMemory {
             e.evidence = min(1000, effective(old, now: instant) + effective(e, now: instant))
             e.confirmations = min(1000, old.confirmations + event.confirmations)
             e.selectedAt = instant.timeIntervalSince1970
+            if e.scope == "choice" {
+                e.protection = Array((protectionEvents(old) + protectionEvents(event)).sorted {
+                    $0.selectedAt == $1.selectedAt ? $0.weight < $1.weight : $0.selectedAt < $1.selectedAt
+                }.suffix(3))
+            }
         }
         target[key(e)] = e
+    }
+    private func protectionEvents(_ entry: Entry) -> [Confirmation] {
+        // Older archives do not contain consecutive-confirmation timestamps.
+        // Retain their frequency, but credit only one known latest selection.
+        entry.protection ?? [Confirmation(weight: min(1, entry.evidence), selectedAt: entry.selectedAt)]
     }
     private func rows(scope: String, reading: String, context: String) -> [String: Entry] {
         (populations[population(scope, reading, context)] ?? [:]).compactMapValues { entries[$0] }
     }
+
+    // Request-local aggregates. Recall scores every remembered surface, so
+    // recomputing totals/latest choices per surface would be quadratic.
+    private struct EvidencePopulation {
+        let entries: [String: Entry]
+        let weights: [String: Double]
+        let total: Double
+        let latest: TimeInterval
+        let latestCount: Int
+        let protectionSupport: [String: Double]
+    }
+    private func evidencePopulation(_ values: [String: Entry], now: Date) -> EvidencePopulation {
+        let weights = values.mapValues { effective($0, now: now) }
+        let latest = values.values.map(\.selectedAt).max() ?? -.infinity
+        let latestCount = values.values.filter { $0.selectedAt == latest }.count
+        let competitor = values.values.filter { $0.selectedAt < latest }.map(\.selectedAt).max() ?? -.infinity
+        var protection: [String: Double] = [:]
+        if latestCount == 1, let selected = values.values.first(where: { $0.selectedAt == latest }), selected.scope == "choice" {
+            protection[selected.surface] = protectionEvents(selected).filter { $0.selectedAt > competitor }.reduce(0) {
+                $0 + $1.weight * pow(0.5, max(0, now.timeIntervalSince1970 - $1.selectedAt) / Policy.halfLife)
+            }
+        }
+        return EvidencePopulation(entries: values, weights: weights, total: weights.values.reduce(0, +),
+            latest: latest, latestCount: latestCount, protectionSupport: protection)
+    }
+    private struct ConversionDistribution {
+        struct Context {
+            let population: EvidencePopulation
+            let vocabulary: Double
+            let weight: Double
+        }
+        let global: EvidencePopulation
+        let contexts: [Context]
+        func score(_ surface: String) -> Double {
+            let base = global.entries[surface].map {
+                $0.confirmations >= Policy.minimumSelections ? log1p(max(0, global.weights[surface, default: 0] - 1)) : 0
+            } ?? 0
+            var adjustment = 0.0
+            for context in contexts {
+                let local = context.population
+                guard let target = local.entries[surface], target.confirmations >= Policy.minimumSelections else { continue }
+                let prior = (global.weights[surface, default: 0] + Policy.priorMass / context.vocabulary)
+                    / (global.total + Policy.priorMass)
+                let posterior = (local.weights[surface, default: 0] + Policy.priorMass * prior) / (local.total + Policy.priorMass)
+                adjustment += context.weight * max(0, log(posterior / prior))
+            }
+            return min(Policy.maximumBonus, base + min(Policy.contextLimit, adjustment))
+        }
+    }
+    private func conversionDistribution(scope: String, reading: String, context: String, now: Date) -> ConversionDistribution {
+        let global = evidencePopulation(rows(scope: scope, reading: reading, context: ""), now: now)
+        let contexts = buckets(context).enumerated().map { level, bucket in
+            let local = evidencePopulation(rows(scope: scope, reading: reading, context: bucket), now: now)
+            return ConversionDistribution.Context(population: local,
+                vocabulary: Double(max(2, Set(global.entries.keys).union(local.entries.keys).count)),
+                weight: level == 0 ? 1 : 0.25)
+        }
+        return ConversionDistribution(global: global, contexts: contexts)
+    }
+    private struct ChoiceDistribution {
+        let global: EvidencePopulation
+        let local: EvidencePopulation
+        let contextual: Bool
+        let exactContext: Bool
+        let confidenceLimit: Double
+        let requiredSupport: Double
+        func preference(_ surface: String, word: Bool = false) -> ChoicePreference {
+            let evidence = global.weights[surface, default: 0]
+            guard evidence > 0 else { return ChoicePreference() }
+            var bonus = min(4, 2.4 * log1p(evidence))
+            var confidence = 0.0
+            let support = local.weights[surface, default: 0]
+            if contextual { bonus += min(2, 1.5 * log1p(support)) }
+            if support > 0, let selected = local.entries[surface] {
+                let strength = min(confidenceLimit, local.protectionSupport[surface, default: 0] / requiredSupport)
+                if selected.selectedAt == local.latest {
+                    confidence = local.latestCount == 1 ? strength : strength * support / max(support, local.total)
+                } else { bonus *= 0.25 }
+            } else if contextual { bonus *= 0.25 }
+            return ChoicePreference(bonus: word ? min(1.5, bonus * 0.35) : min(Policy.maximumChoiceBonus, bonus),
+                confidence: word ? 0 : confidence, matchesExactContext: exactContext)
+        }
+    }
+    private func choiceDistribution(scope: String, reading: String, context: String, now: Date) -> ChoiceDistribution {
+        let global = evidencePopulation(rows(scope: scope, reading: reading, context: ""), now: now)
+        guard !global.entries.isEmpty else {
+            return ChoiceDistribution(global: global, local: global, contextual: false, exactContext: false, confidenceLimit: 0, requiredSupport: 2)
+        }
+        // The closest context containing any choices overrides global recency.
+        for (level, bucket) in buckets(context).enumerated() {
+            let values = rows(scope: scope, reading: reading, context: bucket)
+            if !values.isEmpty {
+                return ChoiceDistribution(global: global, local: evidencePopulation(values, now: now), contextual: true, exactContext: level == 0,
+                    confidenceLimit: level == 0 ? 1 : 0.85, requiredSupport: 2)
+            }
+        }
+        return ChoiceDistribution(global: global, local: global, contextual: false, exactContext: false,
+            confidenceLimit: context.isEmpty ? 1 : 0.8, requiredSupport: context.isEmpty ? 2 : 3)
+    }
+
+    /// Recall accepted surface/reading pairs independently of native N-best.
+    /// Provisional feedback is deliberately excluded. One deliberate choice is
+    /// sufficient; passive confirmations and shared word evidence need repeats.
+    func rememberedConversions(reading: String, context: String, now: Date = Date()) -> [String] {
+        guard !entries.isEmpty else { return [] }
+        let reading = reading.precomposedStringWithCanonicalMapping
+        guard (1...96).contains(reading.count), reading.unicodeScalars.allSatisfy({
+            (0x30A1...0x30FA).contains($0.value) || $0.value == 0x30FC
+        }) else { return [] }
+        let choices = choiceDistribution(scope: "choice", reading: reading, context: context, now: now)
+        let conversions = conversionDistribution(scope: "conversion", reading: reading, context: context, now: now)
+        let words = choiceDistribution(scope: "wordChoice", reading: reading, context: context, now: now)
+        let surfaces = Set(choices.global.entries.keys).union(conversions.global.entries.keys).union(words.global.entries.keys)
+        let recalled = surfaces.compactMap { surface -> (surface: String, score: Double, date: TimeInterval)? in
+            guard !surface.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }) else { return nil }
+            let choice = choices.global.entries[surface]
+            let repeated = [conversions.global.entries[surface], words.global.entries[surface]].compactMap { $0 }.filter {
+                $0.confirmations >= Policy.minimumSelections && effective($0, now: now) > 1
+            }
+            guard choice.map({ effective($0, now: now) >= 0.5 }) == true || !repeated.isEmpty else { return nil }
+            let score = choices.preference(surface).bonus + conversions.score(surface) + words.preference(surface, word: true).bonus
+            return (surface, score, ([choice].compactMap { $0 } + repeated).map(\.selectedAt).max() ?? 0)
+        }
+        return recalled.sorted {
+            if $0.score != $1.score { return $0.score > $1.score }
+            if $0.date != $1.date { return $0.date > $1.date }
+            return $0.surface < $1.surface
+        }.prefix(Policy.maximumRememberedSuggestions).map(\.surface)
+    }
     private func persistentScore(scope: String, reading: String, surface: String, context: String, now: Date) -> Double {
         guard !entries.isEmpty else { return 0 }
-        let global = rows(scope: scope, reading: reading, context: "")
-        let base = global[surface].map {
-            $0.confirmations >= Policy.minimumSelections ? log1p(max(0, effective($0, now: now) - 1)) : 0
-        } ?? 0
-        var adjustment = 0.0
-        for (level, bucket) in buckets(context).enumerated() {
-            let local = rows(scope: scope, reading: reading, context: bucket)
-            guard let target = local[surface], target.confirmations >= Policy.minimumSelections else { continue }
-            let surfaces = Set(global.keys).union(local.keys).union([surface])
-            let vocabulary = Double(max(2, surfaces.count))
-            let globalTotal = global.values.reduce(0) { $0 + effective($1, now: now) }
-            let prior = ((global[surface].map { effective($0, now: now) } ?? 0) + Policy.priorMass / vocabulary)
-                / (globalTotal + Policy.priorMass)
-            let localTotal = local.values.reduce(0) { $0 + effective($1, now: now) }
-            let posterior = (effective(target, now: now) + Policy.priorMass * prior) / (localTotal + Policy.priorMass)
-            // Positive evidence only: an unselected/unseen item is not a rejection.
-            adjustment += (level == 0 ? 1.0 : 0.25) * max(0, log(posterior / prior))
-        }
-        return min(Policy.maximumBonus, base + min(Policy.contextLimit, adjustment))
+        guard populations[population(scope, reading, "")]?[surface] != nil
+            || buckets(context).contains(where: { populations[population(scope, reading, $0)]?[surface] != nil }) else { return 0 }
+        return conversionDistribution(scope: scope, reading: reading, context: context, now: now).score(surface)
     }
     private func recentScore(scope: String, reading: String, surface: String, context: String, now: Date) -> Double {
         guard !recent.isEmpty else { return 0 }
@@ -270,6 +412,7 @@ nonisolated final class CandidatePreferenceMemory {
     struct ChoicePreference {
         var bonus = 0.0
         var confidence = 0.0
+        var matchesExactContext = false
     }
 
     /// Deliberate selections have their own evidence, separate from accepting
@@ -278,40 +421,10 @@ nonisolated final class CandidatePreferenceMemory {
     func choicePreference(reading: String, surface: String, context: String, word: Bool = false,
                           now: Date = Date()) -> ChoicePreference {
         let scope = word ? "wordChoice" : "choice"
-        let global = rows(scope: scope, reading: reading, context: "")
-        let evidence = global[surface].map { effective($0, now: now) } ?? 0
-        guard evidence > 0 else { return ChoicePreference() }
-        var bonus = min(4, 2.4 * log1p(evidence))
-        var confidence = 0.0
-        // Prefer the closest context with actual choices. New sentences still
-        // inherit a repeated reading preference, at lower confidence, instead
-        // of silently losing every bit of protection from neural reranking.
-        let contextual = buckets(context).enumerated().compactMap { level, bucket -> (rows: [String: Entry], limit: Double)? in
-            let values = rows(scope: scope, reading: reading, context: bucket)
-            return values.isEmpty ? nil : (values, level == 0 ? 1 : 0.85)
-        }.first
-        let local = contextual?.rows ?? global
-        let confidenceLimit = contextual?.limit ?? (context.isEmpty ? 1 : 0.8)
-        let support = local[surface].map { effective($0, now: now) } ?? 0
-        if contextual != nil { bonus += min(2, 1.5 * log1p(support)) }
-        if support > 0 {
-            let total = local.values.reduce(0) { $0 + effective($1, now: now) }
-            let otherLatest = local.filter { $0.key != surface }.values.map(\.selectedAt).max() ?? -.infinity
-            let selectedAt = local[surface]!.selectedAt
-            // A new correction must be able to replace an old habit. Counts
-            // still supply strength, while the latest deliberate choice decides
-            // which surface may claim protection in this context.
-            let requiredSupport = contextual == nil && !context.isEmpty ? 3.0 : 2.0
-            let strength = min(confidenceLimit, support / requiredSupport)
-            if selectedAt > otherLatest { confidence = strength }
-            else if selectedAt == otherLatest { confidence = strength * support / max(support, total) }
-            else { bonus *= 0.25 }
-        } else if contextual != nil {
-            // A local correction can override a globally common homophone.
-            bonus *= 0.25
-        }
-        return ChoicePreference(bonus: word ? min(1.5, bonus * 0.35) : min(Policy.maximumChoiceBonus, bonus),
-                                confidence: word ? 0 : confidence)
+        guard let key = populations[population(scope, reading, "")]?[surface], let entry = entries[key],
+              effective(entry, now: now) > 0 else { return ChoicePreference() }
+        return choiceDistribution(scope: scope, reading: reading, context: context, now: now)
+            .preference(surface, word: word)
     }
     func recordNextWord(_ text: String, context: String, weight: Double = 1, now: Date = Date()) {
         guard !context.isEmpty else { return }
@@ -385,9 +498,26 @@ nonisolated final class CandidatePreferenceMemory {
         // Stored keys are already canonical archive keys. Reconstructing them
         // during every tie comparison is costly when one confirmation records
         // several words at the same timestamp.
-        let removed = store.sorted {
+        let recent = store.sorted {
             $0.value.selectedAt == $1.value.selectedAt ? $0.key < $1.key : $0.value.selectedAt > $1.value.selectedAt
-        }.dropFirst(Policy.maximumEntries)
+        }
+        let globals = recent.filter { $0.value.context.isEmpty }
+        let contexts = recent.filter { !$0.value.context.isEmpty }
+        let globalLimit = min(globals.count, max(Policy.reservedGlobalEntries, Policy.maximumEntries - contexts.count))
+        // Protect frequent global habits, while leaving at least half of this
+        // tier open to recent changes. Log evidence plus timestamp is the same
+        // ordering as decayed evidence, without underflow for old archives.
+        let decayRate = log(2.0) / Policy.halfLife
+        let priorities: [(key: String, priority: Double)] = globals.map { item in
+            (key: item.key, priority: log(item.value.evidence) + item.value.selectedAt * decayRate)
+        }
+        let frequent = priorities.sorted {
+            $0.priority == $1.priority ? $0.key < $1.key : $0.priority > $1.priority
+        }.prefix(globalLimit / 2)
+        var retained = Set(frequent.map(\.key))
+        for item in globals where retained.count < globalLimit { retained.insert(item.key) }
+        retained.formUnion(contexts.prefix(Policy.maximumEntries - globalLimit).map(\.key))
+        let removed = recent.filter { !retained.contains($0.key) }
         for (key, _) in removed { store.removeValue(forKey: key) }
         return removed.map(\.value)
     }

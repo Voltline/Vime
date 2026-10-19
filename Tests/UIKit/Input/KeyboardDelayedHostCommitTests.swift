@@ -5,8 +5,10 @@ import UIKit
 final class KeyboardDelayedHostCommitTests: XCTestCase {
     func testCalculationReplacementReceiptsPreserveNewInputAcrossQueuedHostStages() throws {
         let preferences = KeyboardPreferences(), previousLayout = preferences.nineKeyNumbers
+        let previousSymbols = preferences.numberSymbols
         preferences.nineKeyNumbers = true
-        defer { preferences.nineKeyNumbers = previousLayout }
+        preferences.numberSymbols = ["+"]
+        defer { preferences.nineKeyNumbers = previousLayout; preferences.numberSymbols = previousSymbols }
         let controller = DelayedHostController()
         controller.loadViewIfNeeded(); controller.viewWillAppear(false)
         let window = UIWindow(frame: UIScreen.main.bounds)
@@ -21,7 +23,12 @@ final class KeyboardDelayedHostCommitTests: XCTestCase {
         }
         try key(title: "123").action?()
         for value in ["1", "+", "1"] {
-            try key(title: value).action?()
+            if value == "+" {
+                let symbol = try XCTUnwrap(descendants(keyboard).compactMap { $0 as? UIButton }.first {
+                    $0.accessibilityIdentifier == "vime.number.+"
+                })
+                symbol.sendActions(for: .touchUpInside)
+            } else { try key(title: value).action?() }
             controller.proxy.acknowledge()
         }
         keyboard.hostContextDidChange()

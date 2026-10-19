@@ -98,6 +98,9 @@ nonisolated struct CandidateReranker {
                 f.source = value.source == .specialConversion ? weights.specialCandidate : weights.emojiCandidate
             }
             if value.source == .userDictionary { f.source = weights.registeredWord }
+            // Recalled pairs have no lattice score or native rank. Start them
+            // conservatively; accepted user evidence supplies their promotion.
+            if value.source == .rememberedConversion { f.engine = -weights.engineOrder * log1p(10) }
             let interpretedExact = value.source == .readingAlternative && value.lexical && value.fullConsumption
             if value.scopeFullConsumption && value.lexical && (value.exactReading || interpretedExact) {
                 f.exactReading = weights.exactLexical
@@ -155,8 +158,10 @@ nonisolated struct CandidateReranker {
             let key = CandidateIdentity(value)
             guard let old = unique[key] else { unique[key] = value; continue }
             let quality: (CandidateSnapshot) -> Int = { candidate in
-                (candidate.lexical ? 8 : 0) + (candidate.displaySurface == nil ? 4 : 0) + (candidate.exactReading ? 2 : 0)
-                    + (candidate.source == .scriptVariant ? 2 : 1)
+                (candidate.lexical ? 8 : 0)
+                    + (candidate.displaySurface == nil && candidate.source != .rememberedConversion ? 4 : 0)
+                    + (candidate.exactReading ? 2 : 0)
+                    + (candidate.source == .scriptVariant ? 2 : candidate.source == .rememberedConversion ? 0 : 1)
             }
             if quality(value) > quality(old) || (quality(value) == quality(old) && value.features.total > old.features.total) {
                 unique[key] = value

@@ -52,6 +52,63 @@ nonisolated final class VimeLanguageModel {
     private let model: MLModel
     static let vocabulary = 16384
     static let contextLength = 128
+    /// Model-queue confined. Cache causal output rows, never full prediction
+    /// tensors. Exact token prefixes remain valid when the reading/candidate
+    /// pool changes; the scoring boundary is still recomputed for every pool.
+    final class ConversionScoreCache {
+        static let maximumRows = 16 // 1 MiB of FP32 vocabulary rows.
+        static let maximumScores = 64
+        private struct ScoreKey: Hashable {
+            let sequence: [Int32]
+            let common: Int
+        }
+        private var scores: [ScoreKey: Double] = [:]
+        private var scoreOrder: [ScoreKey] = []
+        private struct Row {
+            let logits: [Float]
+            let normalizer: Double
+            let sumBeforeLast: Double
+        }
+        private var context = Data()
+        private var rows: [ScoreKey: Row] = [:]
+        private var order: [ScoreKey] = []
+        var rowCount: Int { rows.count }
+        var scoreCount: Int { scores.count }
+        func prepare(context: String) {
+            let bytes = Data(context.utf8)
+            guard self.context != bytes else { return }
+            self.context = bytes; rows.removeAll(); order.removeAll()
+            scores.removeAll(); scoreOrder.removeAll()
+        }
+        func value(sequence: [Int32], common: Int) -> Double? {
+            scores[ScoreKey(sequence: sequence, common: common)]
+        }
+        func store(_ score: Double, sequence: [Int32], common: Int) {
+            let key = ScoreKey(sequence: sequence, common: common)
+            guard scores[key] == nil else { return }
+            if scoreOrder.count == Self.maximumScores { scores.removeValue(forKey: scoreOrder.removeFirst()) }
+            scoreOrder.append(key); scores[key] = score
+        }
+        func probability(prefix: [Int32], common: Int, token: Int32) -> Double? {
+            let key = ScoreKey(sequence: prefix, common: common)
+            guard let row = rows[key] else { return nil }
+            order.removeAll { $0 == key }; order.append(key)
+            return row.sumBeforeLast + Double(row.logits[Int(token)]) - row.normalizer
+        }
+        func store(prefix: [Int32], common: Int, logits: MLMultiArray, row: Int,
+                   normalizer: Double, sumBeforeLast: Double = 0) {
+            let key = ScoreKey(sequence: prefix, common: common)
+            guard rows[key] == nil else { return }
+            if order.count == Self.maximumRows { rows.removeValue(forKey: order.removeFirst()) }
+            let pointer = logits.dataPointer.assumingMemoryBound(to: Float.self)
+                .advanced(by: row * logits.strides[1].intValue)
+            let stride = logits.strides[2].intValue
+            rows[key] = Row(logits: (0..<VimeLanguageModel.vocabulary).map { pointer[$0 * stride] },
+                normalizer: normalizer, sumBeforeLast: sumBeforeLast)
+            order.append(key)
+        }
+    }
+    private let conversionScoreCache = ConversionScoreCache()
     /// Lives for one next-word request, never on the shared model. A score is
     /// reusable only for the same prompt, joint tokens and suffix boundary.
     final class SuggestionScoreCache {
@@ -153,12 +210,15 @@ nonisolated final class VimeLanguageModel {
     /// BOS=2, summed suffix scores, no candidate-final EOS or truncation. Causal
     /// logits are unchanged when unused right padding is omitted.
     func scores(context: String, candidates: [String], cache: SuggestionScoreCache? = nil,
+                conversionCache: ConversionScoreCache? = nil,
                 cancelled: () -> Bool = { false }) throws -> [Double] {
-        try scores(context: context, candidates: candidates, progress: nil, cache: cache, cancelled: cancelled)
+        try scores(context: context, candidates: candidates, progress: nil, cache: cache,
+            conversionCache: conversionCache, cancelled: cancelled)
     }
 
     private func scores(context: String, candidates: [String], progress: (([Double]) -> Void)?,
-                        cache: SuggestionScoreCache? = nil, cancelled: () -> Bool) throws -> [Double] {
+                        cache: SuggestionScoreCache? = nil, conversionCache: ConversionScoreCache? = nil,
+                        cancelled: () -> Bool) throws -> [Double] {
         let started = KeyboardPerformance.start()
         defer { KeyboardPerformance.record(.lmCandidateScoring, since: started) }
         guard !candidates.isEmpty, Set(candidates.map { Data($0.utf8) }).count == candidates.count,
@@ -178,13 +238,15 @@ nonisolated final class VimeLanguageModel {
             if sequences.allSatisfy({ $0[i] == contextIDs[i] }) { common += 1 } else { break }
         }
         guard common >= 1, sequences.allSatisfy({ $0.count > common }) else { throw Failure.ineligible }
+        conversionCache?.prepare(context: context)
         return try sequenceScores(sequences, common: common, progress: progress,
-            prompt: context, cache: cache, cancelled: cancelled)
+            prompt: context, cache: cache, conversionCache: conversionCache, cancelled: cancelled)
     }
 
     private func sequenceScores(_ sequences: [[Int32]], common: Int,
                                 progress: (([Double]) -> Void)? = nil,
                                 prompt: String = "", cache: SuggestionScoreCache? = nil,
+                                conversionCache: ConversionScoreCache? = nil,
                                 cancelled: () -> Bool) throws -> [Double] {
         var sums = [Double]()
         var scratch = [Double]()
@@ -195,12 +257,20 @@ nonisolated final class VimeLanguageModel {
             if let cached = cache?.value(prompt: prompt, sequence: sequence, common: common) {
                 sums.append(cached); progress?(sums); continue
             }
+            if let sum = conversionCache?.value(sequence: sequence, common: common) {
+                sums.append(sum); progress?(sums); continue
+            }
+            if let sum = conversionCache?.probability(prefix: Array(sequence.dropLast()), common: common, token: sequence.last!) {
+                conversionCache?.store(sum, sequence: sequence, common: common)
+                sums.append(sum); progress?(sums); continue
+            }
             let reuseStarted = KeyboardPerformance.start()
             if sequence.count == common + 1, let sum = prefixScores[sequence[common]] {
                 // Causal attention gives every candidate the same logits at
                 // common-1. A one-token suffix needs no second forward pass.
                 KeyboardPerformance.record(.lmScoringPrefixReuse, since: reuseStarted)
                 cache?.store(sum, prompt: prompt, sequence: sequence, common: common)
+                conversionCache?.store(sum, sequence: sequence, common: common)
                 sums.append(sum); progress?(sums); continue
             }
             // A long all-kana alternative must not force every short native
@@ -222,16 +292,30 @@ nonisolated final class VimeLanguageModel {
                         .advanced(by: (common - 1) * logits.strides[1].intValue)
                     let stride = logits.strides[2].intValue
                     for token in prefixTokens { prefixScores[token] = Double(pointer[Int(token) * stride]) - normalizer }
+                    conversionCache?.store(prefix: Array(sequence.prefix(common)), common: common,
+                        logits: logits, row: common - 1, normalizer: normalizer)
                 }
                 var sum = prefixScores[sequence[common]]!
                 for row in common..<(sequence.count - 1) {
                     if cancelled() { throw Failure.cancelled }
-                    sum += try Self.tokenLogProbability(logits, row: row, token: Int(sequence[row + 1]), scratch: &scratch)
+                    let probability = try Self.tokenLogProbability(logits, row: row, token: Int(sequence[row + 1]), scratch: &scratch)
+                    if row == sequence.count - 2, conversionCache != nil {
+                        let pointer = logits.dataPointer.assumingMemoryBound(to: Float.self)
+                        let observed = Double(pointer[row * logits.strides[1].intValue
+                            + Int(sequence[row + 1]) * logits.strides[2].intValue])
+                        // Only retain the final distribution and its preceding
+                        // sum. A changed last token can then reuse this entire
+                        // forward pass without copying every intermediate row.
+                        conversionCache?.store(prefix: input, common: common, logits: logits, row: row,
+                            normalizer: observed - probability, sumBeforeLast: sum)
+                    }
+                    sum += probability
                 }
                 return sum
             }
             guard sum.isFinite else { throw Failure.tensor }
             cache?.store(sum, prompt: prompt, sequence: sequence, common: common)
+            conversionCache?.store(sum, sequence: sequence, common: common)
             sums.append(sum) // Release each candidate's full logits before the next prediction.
             progress?(sums)
         }
@@ -268,7 +352,7 @@ nonisolated final class VimeLanguageModel {
             return maximum + log(total)
         }
     }
-    /// Compare native complete conversions and literal kana alternatives in
+    /// Compare complete conversions, accepted history and literal kana alternatives in
     /// their existing slots. Partial, width, correction and prediction entries
     /// keep their consumption and presentation semantics.
     static func rerankingSlots(_ values: [CandidateSnapshot], katakana: Bool) -> [Int] {
@@ -277,6 +361,7 @@ nonisolated final class VimeLanguageModel {
         return values.indices.filter { index in
             let value = values[index]
             let native = value.source == .conversion || value.source == .orthographicVariant || value.source == .userDictionary
+                || value.source == .rememberedConversion
             let kana = value.source == .scriptVariant && RomajiConverter.katakana(value.text) == value.reading
             return (native || kana) && value.widthVariant == nil && value.scopeFullConsumption
                 && (value.fullConsumption || value.explicitScope) && value.exactReading
@@ -284,6 +369,7 @@ nonisolated final class VimeLanguageModel {
         }
     }
     func rerank(_ values: [CandidateSnapshot], context: String, katakana: Bool, maximumCandidates: Int? = nil,
+                trace: CandidatePipelineTrace? = nil,
                 onRefinement: (([CandidateSnapshot]) -> Void)? = nil,
                 cancelled: @escaping () -> Bool) -> [CandidateSnapshot] {
         guard !katakana, !context.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
@@ -293,19 +379,28 @@ nonisolated final class VimeLanguageModel {
         let stop = { cancelled() || ProcessInfo.processInfo.systemUptime - started > 0.250 }
         // One unsupported symbol or overlong alternative must not disable
         // scoring of every other candidate. Rejected entries keep their slots.
+        var validated = [Int]()
         let slots = plan.slots.filter { index in
-            guard !stop(), let ids = try? tokenizer.encode(context + values[index].text),
+            guard !stop() else { return false }
+            if trace != nil { validated.append(index) }
+            guard let ids = try? tokenizer.encode(context + values[index].text),
                   !ids.isEmpty, ids.count <= Self.contextLength,
                   let decoded = try? tokenizer.decode(ids) else { return false }
             return Self.exactText(decoded, context + values[index].text)
         }
+        trace?.record(.validated, values: validated.map { values[$0] })
+        trace?.record(.supported, values: slots.map { values[$0] })
         guard slots.count > 1 else { return values }
         var result = values
-        _ = try? scores(context: context, candidates: slots.map { values[$0].text }, progress: { sums in
-            guard sums.count >= 2, !stop() else { return }
-            result = CandidateCompetitionPolicy.applying(sums, slots: slots, to: values)
-            onRefinement?(result)
-        }, cancelled: stop)
+        do {
+            _ = try scores(context: context, candidates: slots.map { values[$0].text }, progress: { sums in
+                trace?.record(.scored, values: slots.prefix(sums.count).map { values[$0] })
+                guard sums.count >= 2, !stop() else { return }
+                result = CandidateCompetitionPolicy.applying(sums, slots: slots, to: values)
+                trace?.record(.modelRanked, values: result)
+                onRefinement?(result)
+            }, conversionCache: conversionScoreCache, cancelled: stop)
+        } catch { if !stop() { trace?.setModelGate(.scoringFailed) } }
         return result
     }
     struct Suggestion: Sendable {

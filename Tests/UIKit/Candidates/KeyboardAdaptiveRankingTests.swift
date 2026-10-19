@@ -136,6 +136,63 @@ final class KeyboardAdaptiveRankingTests: XCTestCase {
         XCTAssertEqual(ranked.first?.features.userLearning, 3)
     }
 
+    func testGlobalHabitKeepsFallbackButDoesNotVetoContextualModelEvidence() {
+        var values = pool([10, 9.8])
+        values[0].userPreferenceScore = 6
+        values[0].userPreferenceConfidence = 0.8
+        values[0].modelPreferenceScoreLimit = CandidatePreferenceMemory.Policy.maximumBackoffModelScore
+        XCTAssertEqual(CandidateCompetitionPolicy.plan(values, katakana: false).slots, [0, 1])
+        let contextual = CandidateCompetitionPolicy.applying([-2, 0], slots: [0, 1], to: values)
+        XCTAssertEqual(contextual.first?.text, "箸")
+        XCTAssertEqual(contextual.first { $0.text == "橋" }?.features.userLearning, 1.5)
+        let ambiguous = CandidateCompetitionPolicy.applying([-0.5, 0], slots: [0, 1], to: values)
+        XCTAssertEqual(ambiguous.first?.text, "橋", "A weak semantic difference should still inherit the habit")
+        XCTAssertEqual(values[0].userPreferenceScore, 6, "Scoring must not weaken the fallback snapshot")
+        values[0].modelPreferenceScoreLimit = CandidatePreferenceMemory.Policy.maximumChoiceBonus
+        XCTAssertTrue(CandidateCompetitionPolicy.plan(values, katakana: false).slots.isEmpty)
+    }
+
+    func testFamiliarGlobalLeaderStaysVisibleWithoutDisplacingModelWinnerOrUnscoredSlots() {
+        var values = pool([10, 9.8, 9.6, 9.4, 9.2, 9])
+        values[0].userPreferenceScore = 6
+        values[0].userPreferenceConfidence = 0.8
+        values[0].modelPreferenceScoreLimit = CandidatePreferenceMemory.Policy.maximumBackoffModelScore
+        let ranked = CandidateCompetitionPolicy.applying([-100, -1, 0, -2, -3, -4], slots: Array(0..<6), to: values)
+        XCTAssertEqual(Array(ranked.prefix(3).map(\.text)), ["端", "箸", "橋"])
+        XCTAssertEqual(Set(ranked.map { CandidateIdentity($0) }), Set(values.map { CandidateIdentity($0) }))
+        let sparse = CandidateCompetitionPolicy.applying([-100, 0], slots: [0, 3], to: values)
+        XCTAssertEqual(sparse[0].text, "梯")
+        XCTAssertEqual(sparse[1].presentation, values[1].presentation)
+        XCTAssertEqual(sparse[2].presentation, values[2].presentation)
+        XCTAssertEqual(sparse[3].text, "橋")
+        values[0].userPreferenceConfidence = 0.3
+        let weak = CandidateCompetitionPolicy.applying([-100, -1, 0, -2, -3, -4], slots: Array(0..<6), to: values)
+        XCTAssertEqual(weak.last?.text, "橋", "A weak/shared preference does not reserve a position")
+    }
+
+    func testSharedShortSuffixCannotLockDifferentFullContext() throws {
+        let directory = isolatedLearningDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let memory = CandidatePreferenceMemory(directory: directory)
+        let trained = "食事をするときに使う", different = "川を渡るときに使う"
+        XCTAssertEqual(trained.suffix(4), different.suffix(4))
+        XCTAssertNotEqual(trained.suffix(12), different.suffix(12))
+        for _ in 0..<3 { memory.record(reading: "ハシ", surface: "箸", context: trained, scope: "choice") }
+        memory.flush()
+        let backoff = memory.choicePreference(reading: "ハシ", surface: "箸", context: different)
+        XCTAssertGreaterThanOrEqual(backoff.confidence, 0.65)
+        XCTAssertFalse(backoff.matchesExactContext)
+        XCTAssertTrue(memory.choicePreference(reading: "ハシ", surface: "箸", context: trained).matchesExactContext)
+        let engine = JapaneseCandidateEngine(memoryDirectoryURL: directory, learningEnabled: true)
+        engine.reconcileContext(different)
+        var query = ComposingText(); RomajiConverter.insert("hashi", into: &query)
+        let values = engine.candidates(for: query, revision: 1, includeCorrections: false)
+        let remembered = try XCTUnwrap(values.first { $0.text == "箸" })
+        XCTAssertFalse(remembered.personalPreferenceProtectsOrder)
+        XCTAssertEqual(remembered.modelPreferenceScoreLimit, CandidatePreferenceMemory.Policy.maximumBackoffModelScore)
+        XCTAssertFalse(CandidateCompetitionPolicy.plan(values, katakana: false).slots.isEmpty)
+    }
+
     func testOverlongAlternativeDoesNotDisableValidComparison() throws {
         let model = try VimeLanguageModel()
         let values = pool([0, 0, 0], surfaces: ["買う", String(repeating: "東京", count: 200), "飲む"])

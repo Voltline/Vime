@@ -177,6 +177,46 @@ final class CandidatePreferenceTransactionTests: XCTestCase {
         XCTAssertEqual(CandidatePreferenceMemory(directory: url).score(reading: "ハシ", surface: "橋", now: later), log(4), accuracy: 1e-9)
     }
 
+    func testProtectionUsesConsecutiveChoicesAcrossOutOfOrderWritersAndRestart() throws {
+        let url = try directory(), seed = CandidatePreferenceMemory(directory: url)
+        for index in 0..<60 {
+            seed.record(reading: "ハシ", surface: "橋", context: "川を渡る", scope: "choice",
+                now: date.addingTimeInterval(Double(index)))
+        }
+        seed.flush()
+        let older = CandidatePreferenceMemory(directory: url), newer = CandidatePreferenceMemory(directory: url)
+        for offset in [61.0, 62.0] {
+            older.record(reading: "ハシ", surface: "箸", context: "川を渡る", scope: "choice", now: date.addingTimeInterval(offset))
+        }
+        newer.record(reading: "ハシ", surface: "橋", context: "川を渡る", scope: "choice", now: date.addingTimeInterval(63))
+        newer.flush(); older.flush() // Reverse chronological persistence.
+        let restored = CandidatePreferenceMemory(directory: url)
+        let now = date.addingTimeInterval(64)
+        XCTAssertLessThan(restored.choicePreference(reading: "ハシ", surface: "橋", context: "川を渡る", now: now).confidence, 0.65)
+        XCTAssertGreaterThan(restored.choicePreference(reading: "ハシ", surface: "橋", context: "川を渡る", now: now).bonus, 0)
+        restored.record(reading: "ハシ", surface: "橋", context: "川を渡る", scope: "choice", now: now)
+        restored.flush()
+        XCTAssertGreaterThanOrEqual(CandidatePreferenceMemory(directory: url)
+            .choicePreference(reading: "ハシ", surface: "橋", context: "川を渡る", now: now).confidence, 0.65)
+        XCTAssertTrue(try rows(url).allSatisfy { ($0["protection"] as? [Any])?.count ?? 0 <= 3 })
+    }
+
+    func testOldArchiveKeepsFrequencyButRequiresReconfirmationForProtection() throws {
+        let url = try directory()
+        let row: [String: Any] = ["scope": "choice", "reading": "ハシ", "context": "", "surface": "橋",
+            "evidence": 60.0, "confirmations": 60, "selectedAt": date.timeIntervalSince1970]
+        try JSONSerialization.data(withJSONObject: ["version": 2, "entries": ["old": row]])
+            .write(to: url.appendingPathComponent("VimeSelectionFrequency.json"))
+        let memory = CandidatePreferenceMemory(directory: url)
+        let old = memory.choicePreference(reading: "ハシ", surface: "橋", context: "", now: date)
+        XCTAssertEqual(old.bonus, 4)
+        XCTAssertEqual(old.confidence, 0.5)
+        memory.record(reading: "ハシ", surface: "橋", scope: "choice", now: date.addingTimeInterval(1))
+        memory.flush()
+        XCTAssertGreaterThanOrEqual(CandidatePreferenceMemory(directory: url)
+            .choicePreference(reading: "ハシ", surface: "橋", context: "", now: date.addingTimeInterval(1)).confidence, 0.65)
+    }
+
     func testClearEpochPreventsStaleWriterFromResurrectingPendingOrPersistedHistory() throws {
         let url = try directory()
         let first = CandidatePreferenceMemory(directory: url)
