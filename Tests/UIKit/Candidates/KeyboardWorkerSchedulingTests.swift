@@ -217,6 +217,34 @@ final class KeyboardWorkerSchedulingTests: XCTestCase {
         XCTAssertEqual(suggestionPublications, 1, "Cancelled neural suggestions must not overwrite new composition")
     }
 
+    func testNativeOnlyPoolSkipsFinalModelQueueAndDuplicatePublication() async {
+        let directory = isolatedLearningDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let worker = JapaneseCandidateWorker(memoryDirectoryURL: directory)
+        worker.allowLanguageModel()
+        KeyboardPerformance.configure(enabled: true, reset: true)
+        defer { worker.reset(); KeyboardPerformance.configure(enabled: false) }
+        let ready = expectation(description: "native suggestions remain available when generation is ineligible")
+        var publications = 0
+        // Longer than the model context; generation cannot add suggestions.
+        worker.suggestions(prompt: String(repeating: "東京", count: 200), leftContext: "駅に", useLanguageModel: true) { values in
+            publications += 1
+            XCTAssertFalse(values.isEmpty)
+            XCTAssertTrue(values.allSatisfy { $0.nativePrediction != nil })
+            ready.fulfill()
+        }
+        await fulfillment(of: [ready], timeout: 5)
+        // Drain both hops: converter -> model -> converter -> optional model.
+        _ = await worker.resourceState()
+        _ = await worker.resourceState()
+        let report = KeyboardPerformance.report()
+        XCTAssertEqual(report["suggestionFinalRankingSkipped"]?["totalCount"], 1)
+        XCTAssertEqual(report["modelQueueWait"]?["totalCount"], 1,
+            "Only generation enters the model executor; there is no final ranking hop")
+        XCTAssertNil(report["lmCandidateScoring"])
+        XCTAssertEqual(publications, 1)
+    }
+
     func testPressureAllowsDictionaryFallbackBeforeBusyModelCanBeReleased() async {
         let worker = JapaneseCandidateWorker(memoryDirectoryURL: isolatedLearningDirectory())
         let wasSuspended = JapaneseCandidateWorker.isLanguageModelSuspendedForMemoryPressure

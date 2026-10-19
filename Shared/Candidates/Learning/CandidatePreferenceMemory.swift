@@ -584,6 +584,10 @@ nonisolated struct NextWordSuggestion: Sendable {
     var modelScore: Double? = nil
     var tokenCount: Int? = nil
     var nativePrediction: NativePostCompositionPrediction? = nil
+    func hasSameOperation(as other: Self) -> Bool {
+        text.utf8.elementsEqual(other.text.utf8)
+            && (nativePrediction?.replacedText ?? "").utf8.elementsEqual((other.nativePrediction?.replacedText ?? "").utf8)
+    }
     var presentation: CandidatePresentation {
         let replacementAnnotation = nativePrediction.flatMap { $0.isReplacement ? "替换「\($0.replacedText)」" : nil }
         return .init(text: text, source: source, consumedInputCount: 0, correction: nil,

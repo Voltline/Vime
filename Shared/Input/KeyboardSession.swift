@@ -535,8 +535,7 @@ final class KeyboardSession: KeyboardInputSession {
         let count = suggestionSnapshots.count
         for value in values where suggestionSnapshots.count < 20 {
             guard !suggestionSnapshots.contains(where: {
-                $0.text.utf8.elementsEqual(value.text.utf8)
-                    && ($0.nativePrediction?.replacedText ?? "").utf8.elementsEqual((value.nativePrediction?.replacedText ?? "").utf8)
+                $0.hasSameOperation(as: value)
             }) else { continue }
             suggestionSnapshots.append(value)
         }

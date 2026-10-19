@@ -393,6 +393,10 @@ final class JapaneseCandidateWorker {
                     let neural = storage.engine.personalizedNextWords(words?.generated ?? [], history: words?.history ?? [], context: prompt)
                     let pool = PostCompositionSuggestionReranker.merge(native: native, neural: neural)
                     let rankingQueuedAt = KeyboardPerformance.start()
+                    guard PostCompositionSuggestionReranker.hasNewSuggestions(pool, comparedTo: base) else {
+                        KeyboardPerformance.record(.suggestionFinalRankingSkipped, since: rankingQueuedAt)
+                        return
+                    }
                     Self.modelQueue.async {
                         KeyboardPerformance.record(.modelQueueWait, since: rankingQueuedAt)
                         guard !request.isCancelled, !LanguageModelStorage.shared.isSuspended else { return }

@@ -31,6 +31,11 @@ nonisolated enum PostCompositionSuggestionReranker {
         static let orderCost = 1.0
         static let maximumPresented = 10
     }
+    /// The session freezes published operations and only appends new ones.
+    /// Rescoring an already published pool cannot change its visible contents.
+    static func hasNewSuggestions(_ values: [NextWordSuggestion], comparedTo published: [NextWordSuggestion]) -> Bool {
+        values.contains { value in !published.contains { $0.hasSameOperation(as: value) } }
+    }
     static func merge(native: [NextWordSuggestion], neural: [NextWordSuggestion]) -> [NextWordSuggestion] {
         var pool: [String: NextWordSuggestion] = [:]
         for list in [native, neural] {

@@ -210,7 +210,12 @@ final class KeyboardNativeFeaturesTests: XCTestCase {
         let model = try VimeLanguageModel()
         let cache = VimeLanguageModel.SuggestionScoreCache()
         let expected = try XCTUnwrap(model.scores(context: "東京", candidates: [continuation], cache: cache).first)
+        KeyboardPerformance.configure(enabled: true, reset: true)
+        defer { KeyboardPerformance.configure(enabled: false) }
         let ranked = model.rerankPostComposition([replacement, addition], prompt: "東京", cache: cache)
+        XCTAssertNil(KeyboardPerformance.report()["lmScoringTokenization"],
+            "Reuse the context and shared continuation already validated during initial scoring")
+        XCTAssertEqual(KeyboardPerformance.report()["lmScoringTokenReuse"]?["totalCount"], 2)
         XCTAssertEqual(cache.reuses, 1, "Shared continuation reuses one score for both host operations")
         XCTAssertEqual(cache.scoringPasses, 1, "Only the initial scoring requires inference")
         XCTAssertEqual(ranked.count, 2)
@@ -219,5 +224,25 @@ final class KeyboardNativeFeaturesTests: XCTestCase {
         for value in ranked {
             XCTAssertEqual(try XCTUnwrap(value.modelScore), expected, accuracy: 0.0001)
         }
+        let sameTextAddition = NextWordSuggestion(text: replacement.text, source: .contextPrediction, score: 0, userScore: 0)
+        XCTAssertFalse(replacement.hasSameOperation(as: sameTextAddition))
+        XCTAssertTrue(PostCompositionSuggestionReranker.hasNewSuggestions([sameTextAddition], comparedTo: [replacement]),
+            "An addition must still be ranked even when a replacement displays the same text")
+    }
+
+    func testFinalSuggestionRankingRequiresANewPublishedOperation() {
+        let one = NextWordSuggestion(text: "です", source: .contextPrediction, score: 3, userScore: 0)
+        let two = NextWordSuggestion(text: "ます", source: .contextPrediction, score: 2, userScore: 0)
+        var rescored = one
+        rescored.modelScore = -1; rescored.score = 10
+        XCTAssertFalse(PostCompositionSuggestionReranker.hasNewSuggestions([two, rescored], comparedTo: [one, two]))
+        XCTAssertFalse(PostCompositionSuggestionReranker.hasNewSuggestions([one], comparedTo: [one, two]))
+        XCTAssertFalse(PostCompositionSuggestionReranker.hasNewSuggestions([], comparedTo: []))
+        XCTAssertTrue(PostCompositionSuggestionReranker.hasNewSuggestions([one], comparedTo: []))
+        XCTAssertTrue(PostCompositionSuggestionReranker.hasNewSuggestions([one, two], comparedTo: [one]))
+        let composed = NextWordSuggestion(text: "が", source: .contextPrediction, score: 0, userScore: 0)
+        let decomposed = NextWordSuggestion(text: "か\u{3099}", source: .contextPrediction, score: 0, userScore: 0)
+        XCTAssertTrue(PostCompositionSuggestionReranker.hasNewSuggestions([decomposed], comparedTo: [composed]),
+            "Match the session's exact UTF-8 operation identity")
     }
 }

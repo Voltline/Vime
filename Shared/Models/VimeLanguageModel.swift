@@ -112,12 +112,18 @@ nonisolated final class VimeLanguageModel {
     /// Lives for one next-word request, never on the shared model. A score is
     /// reusable only for the same prompt, joint tokens and suffix boundary.
     final class SuggestionScoreCache {
+        // At most 16 KiB of token IDs and 32 KiB of UTF-8 keys, plus collection
+        // overhead. Keep only exact round trips; never retain inference tensors.
+        static let maximumTokenizations = 32
+        static let maximumTokenizationBytes = 1024
         private struct Key: Hashable {
             let prompt: Data
             let sequence: [Int32]
             let common: Int
         }
         private var values: [Key: Double] = [:]
+        private var tokenizations: [Data: [Int32]] = [:]
+        var tokenizationCount: Int { tokenizations.count }
         private(set) var reuses = 0
         private(set) var scoringPasses = 0
         func value(prompt: String, sequence: [Int32], common: Int) -> Double? {
@@ -128,6 +134,16 @@ nonisolated final class VimeLanguageModel {
         func store(_ value: Double, prompt: String, sequence: [Int32], common: Int) {
             guard values.count < 32 else { return }
             values[Key(prompt: Data(prompt.utf8), sequence: sequence, common: common)] = value
+        }
+        fileprivate func validatedTokens(for text: String) -> [Int32]? {
+            guard text.utf8.count <= Self.maximumTokenizationBytes else { return nil }
+            return tokenizations[Data(text.utf8)]
+        }
+        fileprivate func storeValidatedTokens(_ ids: [Int32], for text: String) {
+            guard tokenizations.count < Self.maximumTokenizations,
+                  ids.count <= VimeLanguageModel.contextLength,
+                  text.utf8.count <= Self.maximumTokenizationBytes else { return }
+            tokenizations[Data(text.utf8)] = ids
         }
     }
     /// A failed model identity check uses the worker's dictionary fallback.
@@ -216,29 +232,34 @@ nonisolated final class VimeLanguageModel {
         guard !cancelled() else { throw Failure.cancelled }
         guard !candidates.isEmpty, Set(candidates.map { Data($0.utf8) }).count == candidates.count,
               candidates.allSatisfy({ !$0.isEmpty }) else { throw Failure.ineligible }
-        let contextIDs = try scoringContext(context)
+        let contextIDs = try scoringContext(context, cache: cache)
         let sequences: [[Int32]] = try candidates.map { text in
             guard !cancelled() else { throw Failure.cancelled }
-            return try scoringSequence(context + text)
+            return try scoringSequence(context + text, cache: cache)
         }
         return try scorePreparedSequences(sequences, contextIDs: contextIDs, context: context,
             cache: cache, conversionCache: conversionCache, startedAt: started, cancelled: cancelled)
     }
 
-    private func scoringTokens(_ text: String) throws -> [Int32] {
+    private func scoringTokens(_ text: String, cache: SuggestionScoreCache? = nil) throws -> [Int32] {
         let started = KeyboardPerformance.start()
+        if let ids = cache?.validatedTokens(for: text) {
+            KeyboardPerformance.record(.lmScoringTokenReuse, since: started)
+            return ids
+        }
         defer { KeyboardPerformance.record(.lmScoringTokenization, since: started) }
         let ids = try tokenizer.encode(text)
         guard Self.exactText(try tokenizer.decode(ids), text) else { throw Failure.ineligible }
+        cache?.storeValidatedTokens(ids, for: text)
         return ids
     }
-    private func scoringContext(_ text: String) throws -> [Int32] {
-        let ids = try scoringTokens(text)
+    private func scoringContext(_ text: String, cache: SuggestionScoreCache? = nil) throws -> [Int32] {
+        let ids = try scoringTokens(text, cache: cache)
         guard ids.count + 1 <= Self.contextLength else { throw Failure.ineligible }
         return [2] + ids
     }
-    private func scoringSequence(_ text: String) throws -> [Int32] {
-        let ids = try scoringTokens(text)
+    private func scoringSequence(_ text: String, cache: SuggestionScoreCache? = nil) throws -> [Int32] {
+        let ids = try scoringTokens(text, cache: cache)
         guard !ids.isEmpty, ids.count <= Self.contextLength else { throw Failure.ineligible }
         return [2] + ids
     }
@@ -445,27 +466,32 @@ nonisolated final class VimeLanguageModel {
                                cancelled: @escaping () -> Bool = { false }) -> [NextWordSuggestion] {
         let started = ProcessInfo.processInfo.systemUptime
         let stop = { cancelled() || ProcessInfo.processInfo.systemUptime - started > 0.250 }
-        let eligible = values.indices.filter { index in
+        guard !stop(), values.count > 1, let contextIDs = try? scoringContext(prompt, cache: cache) else { return values }
+        var eligible: [Int] = []
+        var sequences: [[Int32]] = []
+        var slots: [Data: Int] = [:]
+        var checked: Set<Data> = []
+        var scoreIndices: [Int] = []
+        for index in values.indices {
+            guard !stop() else { return values }
             let value = values[index]
             let continuation = value.nativePrediction?.text ?? value.text
-            guard !continuation.isEmpty, let ids = try? tokenizer.encode(prompt + continuation),
-                  ids.count <= Self.contextLength, let decoded = try? tokenizer.decode(ids) else { return false }
-            return Self.exactText(decoded, prompt + continuation)
+            guard !continuation.isEmpty else { continue }
+            let key = Data(continuation.utf8)
+            if checked.insert(key).inserted,
+               let sequence = try? scoringSequence(prompt + continuation, cache: cache) {
+                slots[key] = sequences.count
+                sequences.append(sequence)
+            }
+            // Different host edits may share a continuation. Validate and score
+            // it once while keeping each original edit and its learning payload.
+            guard let slot = slots[key] else { continue }
+            eligible.append(index)
+            scoreIndices.append(slot)
         }
-        guard !stop(), eligible.count > 1 else { return values }
-        // Distinct host operations can share a scored continuation. Score it
-        // once: scores() intentionally rejects duplicate input strings.
-        let continuations = eligible.map { values[$0].nativePrediction?.text ?? values[$0].text }
-        var unique: [String] = []
-        var slots: [Data: Int] = [:]
-        let scoreIndices = continuations.map { text -> Int in
-            let key = Data(text.utf8)
-            if let slot = slots[key] { return slot }
-            let slot = unique.count
-            unique.append(text); slots[key] = slot
-            return slot
-        }
-        guard let uniqueSums = try? scores(context: prompt, candidates: unique, cache: cache, cancelled: stop),
+        guard !stop(), eligible.count > 1,
+              let uniqueSums = try? scorePreparedSequences(sequences, contextIDs: contextIDs,
+                  context: prompt, cache: cache, cancelled: stop),
               !stop() else { return values }
         let sums = scoreIndices.map { uniqueSums[$0] }
         let order = sums.indices.sorted { sums[$0] == sums[$1] ? $0 < $1 : sums[$0] > sums[$1] }
@@ -490,14 +516,15 @@ nonisolated final class VimeLanguageModel {
     }
 
     private func generateNextWords(prompt: String, count: Int = 5, maxTokens: Int = 3, extendProbability: Double = 0.4,
+                                   cache: SuggestionScoreCache? = nil,
                                    cancelled: () -> Bool) throws -> [GeneratedWord] {
         let started = KeyboardPerformance.start()
         defer { KeyboardPerformance.record(.lmNextWords, since: started) }
         guard !prompt.isEmpty, (1...8).contains(count), (1...4).contains(maxTokens) else { throw Failure.ineligible }
-        let content = try tokenizer.encode(prompt)
-        guard Self.exactText(try tokenizer.decode(content), prompt),
-              content.count + maxTokens + 1 <= Self.contextLength else { throw Failure.ineligible }
-        let prefix: [Int32] = [2] + content
+        guard !cancelled() else { throw Failure.cancelled }
+        let prefix = try scoringContext(prompt, cache: cache)
+        guard prefix.count + maxTokens <= Self.contextLength else { throw Failure.ineligible }
+        let content = Array(prefix.dropFirst())
         let boundaries = Set("。！？!?、，,「」『』（）()…・\n")
         // A lone character is usually an honorific prefix or a kanji stem (お, ご, 飲), not a word.
         let particles: Set<String> = ["は", "が", "を", "に", "で", "と", "も", "の", "へ", "や", "か", "ね", "よ", "な"]
@@ -560,24 +587,26 @@ nonisolated final class VimeLanguageModel {
                          cancelled: () -> Bool = { false }) throws
         -> (generated: [ScoredNextWord], history: [ScoredNextWord]) {
         nextWordScoreReuses = 0; nextWordScoringPasses = 0
-        let generated = try generateNextWords(prompt: prompt, cancelled: cancelled)
+        let cache = cache ?? SuggestionScoreCache()
+        let generated = try generateNextWords(prompt: prompt, cache: cache, cancelled: cancelled)
         let words = generated.map(\.text)
-        let remembered = history.filter {
-            guard !words.contains($0), !$0.isEmpty, $0.count <= 64,
-                  let tokens = try? tokenizer.encode(prompt + $0), tokens.count <= Self.contextLength,
-                  let decoded = try? tokenizer.decode(tokens) else { return false }
-            return Self.exactText(decoded, prompt + $0)
+        var remembered: [String] = []
+        for text in history {
+            guard !cancelled() else { throw Failure.cancelled }
+            guard remembered.count < CandidatePreferenceMemory.Policy.maximumRememberedSuggestions else { break }
+            guard !words.contains(text), !text.isEmpty, text.count <= 64,
+                  (try? scoringSequence(prompt + text, cache: cache)) != nil else { continue }
+            remembered.append(text)
         }
-            .prefix(CandidatePreferenceMemory.Policy.maximumRememberedSuggestions)
         let texts = words + Array(Set(remembered)).sorted()
         guard !texts.isEmpty else { return ([], []) }
         let started = KeyboardPerformance.start()
         defer { KeyboardPerformance.record(.lmNextWordScoring, since: started) }
-        let contextIDs: [Int32] = [2] + (try tokenizer.encode(prompt))
+        guard !cancelled() else { throw Failure.cancelled }
+        let contextIDs = try scoringContext(prompt, cache: cache)
         let sequences = try texts.map { text in
-            let tokens = try tokenizer.encode(prompt + text)
-            guard Self.exactText(try tokenizer.decode(tokens), prompt + text) else { throw Failure.ineligible }
-            return [Int32(2)] + tokens
+            guard !cancelled() else { throw Failure.cancelled }
+            return try scoringSequence(prompt + text, cache: cache)
         }
         var common = 0
         for i in 0..<([contextIDs] + sequences).map(\.count).min()! {
@@ -596,7 +625,7 @@ nonisolated final class VimeLanguageModel {
         nextWordScoreReuses = texts.count - uncached.count
         for (index, value) in zip(uncached, fresh) { values[index] = value }
         if cancelled() { throw Failure.cancelled }
-        for i in texts.indices { cache?.store(values[i], prompt: prompt, sequence: sequences[i], common: common) }
+        for i in texts.indices { cache.store(values[i], prompt: prompt, sequence: sequences[i], common: common) }
         let scored = texts.indices.map { ScoredNextWord(text: texts[$0], logProbabilitySum: values[$0],
             tokenCount: sequences[$0].count - common) }
         return (Array(scored.prefix(words.count)), Array(scored.dropFirst(words.count)))

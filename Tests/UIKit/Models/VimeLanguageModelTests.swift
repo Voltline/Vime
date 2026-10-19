@@ -200,6 +200,86 @@ final class VimeLanguageModelTests: XCTestCase {
         }
     }
 
+    func testNextWordStagesShareValidatedTokensAndPreserveHistorySelection() throws {
+        let model = try VimeLanguageModel()
+        defer { KeyboardPerformance.configure(enabled: false) }
+        let history = ["京都に行く", "▁", "大阪に行く", "京都に行く", "最後の未使用"]
+        for prompt in ["明日は", "私は", "東京"] {
+            let expectedWords = try model.nextWords(prompt: prompt)
+            let expectedHistory = Array(Set(history.filter { text in
+                guard !expectedWords.contains(text), !text.isEmpty, text.count <= 64,
+                      let ids = try? model.tokenizer.encode(prompt + text), ids.count <= VimeLanguageModel.contextLength,
+                      let decoded = try? model.tokenizer.decode(ids) else { return false }
+                return decoded.utf8.elementsEqual((prompt + text).utf8)
+            }.prefix(CandidatePreferenceMemory.Policy.maximumRememberedSuggestions))).sorted()
+            let texts = expectedWords + expectedHistory
+            let reference = try independentScores(model, context: prompt, candidates: texts)
+            let cache = VimeLanguageModel.SuggestionScoreCache()
+            KeyboardPerformance.configure(enabled: true, reset: true)
+            let scored = try model.scoredNextWords(prompt: prompt, history: history, cache: cache)
+            XCTAssertEqual(scored.generated.map(\.text), expectedWords)
+            XCTAssertEqual(scored.history.map(\.text), expectedHistory)
+            let actual = scored.generated + scored.history
+            for (value, sum) in zip(actual, reference) { XCTAssertEqual(value.logProbabilitySum, sum, accuracy: 0.002) }
+            let beforeFinal = KeyboardPerformance.report()["lmScoringTokenization"]?["totalCount"]
+            XCTAssertEqual(beforeFinal, Double(1 + texts.count + 1),
+                "Validate the context, each unique selected continuation and one rejected history entry")
+            XCTAssertEqual(cache.tokenizationCount, 1 + texts.count)
+            let pool = actual.map { NextWordSuggestion(text: $0.text, source: .contextPrediction, score: 0, userScore: 0) }
+            let ranked = model.rerankPostComposition(pool, prompt: prompt, cache: cache)
+            XCTAssertEqual(KeyboardPerformance.report()["lmScoringTokenization"]?["totalCount"], beforeFinal,
+                "Final ranking must not tokenize any already validated context or continuation")
+            XCTAssertEqual(cache.reuses, texts.count)
+            XCTAssertEqual(cache.scoringPasses, 0)
+            for value in ranked {
+                let index = try XCTUnwrap(texts.firstIndex(of: value.text))
+                XCTAssertEqual(try XCTUnwrap(value.modelScore), reference[index], accuracy: 0.002)
+            }
+            print("NEXT_WORD_TOKEN_REUSE", prompt, "validated", beforeFinal ?? 0,
+                "finalExtra", (KeyboardPerformance.report()["lmScoringTokenization"]?["totalCount"] ?? 0) - (beforeFinal ?? 0))
+            KeyboardPerformance.configure(enabled: false)
+        }
+    }
+
+    func testSuggestionTokenCacheIsBoundedAndRequiresExactUTF8() throws {
+        let model = try VimeLanguageModel()
+        defer { KeyboardPerformance.configure(enabled: false) }
+        let cache = VimeLanguageModel.SuggestionScoreCache()
+        let expected = try model.scores(context: "", candidates: ["が"]).first
+        let actual = try model.scores(context: "", candidates: ["が"], cache: cache).first
+        XCTAssertEqual(actual, expected)
+        let decomposed = "か\u{3099}"
+        let reference = try model.scores(context: "", candidates: [decomposed])
+        KeyboardPerformance.configure(enabled: true, reset: true)
+        let separate = try model.scores(context: "", candidates: [decomposed], cache: cache)
+        XCTAssertEqual(try XCTUnwrap(separate.first), try XCTUnwrap(reference.first), accuracy: 0.0001)
+        XCTAssertEqual(cache.tokenizationCount, 3, "Empty context and two distinct UTF-8 spellings")
+        XCTAssertEqual(KeyboardPerformance.report()["lmScoringTokenization"]?["totalCount"], 1,
+            "A canonically equivalent string must still pass its own exact round trip")
+        KeyboardPerformance.configure(enabled: false)
+        for index in 0..<(VimeLanguageModel.SuggestionScoreCache.maximumTokenizations + 5) {
+            _ = try model.scores(context: "", candidates: ["東京\(index)"], cache: cache)
+        }
+        XCTAssertEqual(cache.tokenizationCount, VimeLanguageModel.SuggestionScoreCache.maximumTokenizations)
+        let saturated = try model.scores(context: "", candidates: ["京都に行く"], cache: cache)
+        let uncached = try model.scores(context: "", candidates: ["京都に行く"])
+        XCTAssertEqual(try XCTUnwrap(saturated.first), try XCTUnwrap(uncached.first), accuracy: 0.0001,
+            "A full token cache still scores new strings correctly")
+        weak var released: VimeLanguageModel.SuggestionScoreCache?
+        do {
+            let request = VimeLanguageModel.SuggestionScoreCache()
+            released = request
+            _ = try model.scoredNextWords(prompt: "明日は", cache: request)
+            XCTAssertGreaterThan(request.tokenizationCount, 0)
+        }
+        XCTAssertNil(released, "The shared model must not retain a completed request's tokens")
+        let fresh = VimeLanguageModel.SuggestionScoreCache()
+        KeyboardPerformance.configure(enabled: true, reset: true)
+        XCTAssertThrowsError(try model.scoredNextWords(prompt: "明日は", cache: fresh, cancelled: { true }))
+        XCTAssertEqual(fresh.tokenizationCount, 0)
+        XCTAssertNil(KeyboardPerformance.report()["lmScoringTokenization"])
+    }
+
     func testScoreCacheRevalidatesBoundaryAndPromptAgainstFrozenReferences() throws {
         let model = try VimeLanguageModel()
         let cache = VimeLanguageModel.SuggestionScoreCache()
@@ -333,6 +413,47 @@ final class VimeLanguageModelTests: XCTestCase {
         KeyboardPerformance.configure(enabled: true, reset: true)
         XCTAssertEqual(model.rerank(pool, context: context, katakana: false, cancelled: { true }).map(\.presentation), pool.map(\.presentation))
         XCTAssertNil(KeyboardPerformance.report()["lmScoringTokenization"], "Cancelled input must not start tokenization")
+        XCTAssertNil(KeyboardPerformance.report()["lmScoringPrediction"])
+    }
+
+    func testPostCompositionReusesValidatedTokensAndMatchesIndependentScores() throws {
+        let model = try VimeLanguageModel()
+        let prompt = "コーヒーを"
+        let unique = ["買う", "飲む", "飲みたい"]
+        let reference = try independentScores(model, context: prompt, candidates: unique)
+        let texts = [unique[0], "▁", String(repeating: "東京", count: 200), unique[1], unique[2], unique[1], "▁"]
+        let pool = texts.map { NextWordSuggestion(text: $0, source: .contextPrediction, score: -100, userScore: 0) }
+        let supported = [0, 3, 4, 5]
+        let sums = [reference[0], reference[1], reference[2], reference[1]]
+        let order = sums.indices.sorted { sums[$0] == sums[$1] ? $0 < $1 : sums[$0] > sums[$1] }
+        var expected = pool
+        for (rank, index) in order.enumerated() {
+            expected[supported[index]].modelScore = sums[index]
+            expected[supported[index]].score = PostCompositionSuggestionReranker.Policy.sourceEvidence
+                - PostCompositionSuggestionReranker.Policy.orderCost * log1p(Double(rank))
+        }
+        expected = expected.indices.sorted {
+            expected[$0].score == expected[$1].score ? $0 < $1 : expected[$0].score > expected[$1].score
+        }.map { expected[$0] }
+        KeyboardPerformance.configure(enabled: true, reset: true)
+        defer { KeyboardPerformance.configure(enabled: false) }
+        let actual = model.rerankPostComposition(pool, prompt: prompt)
+        XCTAssertEqual(actual.map(\.text), expected.map(\.text))
+        for (value, target) in zip(actual, expected) {
+            XCTAssertEqual(value.score, target.score)
+            if let sum = target.modelScore { XCTAssertEqual(try XCTUnwrap(value.modelScore), sum, accuracy: 0.002) }
+            else { XCTAssertNil(value.modelScore) }
+        }
+        XCTAssertEqual(KeyboardPerformance.report()["lmScoringTokenization"]?["totalCount"], 6,
+            "Context plus five unique continuations; invalid and valid duplicates are checked once")
+        KeyboardPerformance.configure(enabled: true, reset: true)
+        XCTAssertEqual(model.rerankPostComposition(pool, prompt: prompt, cancelled: { true }).map(\.text), texts)
+        XCTAssertNil(KeyboardPerformance.report()["lmScoringTokenization"])
+        XCTAssertNil(KeyboardPerformance.report()["lmScoringPrediction"])
+        var checks = 0
+        _ = model.rerankPostComposition(pool, prompt: prompt, cancelled: { checks += 1; return checks >= 3 })
+        XCTAssertEqual(KeyboardPerformance.report()["lmScoringTokenization"]?["totalCount"], 2,
+            "Cancellation during validation stops before the second continuation")
         XCTAssertNil(KeyboardPerformance.report()["lmScoringPrediction"])
     }
 
