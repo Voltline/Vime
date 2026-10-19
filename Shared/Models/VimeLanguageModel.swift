@@ -187,23 +187,44 @@ nonisolated final class VimeLanguageModel {
                                 prompt: String = "", cache: SuggestionScoreCache? = nil,
                                 cancelled: () -> Bool) throws -> [Double] {
         var sums = [Double]()
+        var scratch = [Double]()
+        let prefixTokens = Set(sequences.map { $0[common] })
+        var prefixScores: [Int32: Double] = [:]
         for sequence in sequences {
             if cancelled() { throw Failure.cancelled }
             if let cached = cache?.value(prompt: prompt, sequence: sequence, common: common) {
                 sums.append(cached); progress?(sums); continue
+            }
+            let reuseStarted = KeyboardPerformance.start()
+            if sequence.count == common + 1, let sum = prefixScores[sequence[common]] {
+                // Causal attention gives every candidate the same logits at
+                // common-1. A one-token suffix needs no second forward pass.
+                KeyboardPerformance.record(.lmScoringPrefixReuse, since: reuseStarted)
+                cache?.store(sum, prompt: prompt, sequence: sequence, common: common)
+                sums.append(sum); progress?(sums); continue
             }
             // A long all-kana alternative must not force every short native
             // conversion through a larger transformer/output tensor. The
             // causal model cannot attend to the unused right padding anyway.
             let input = Array(sequence.dropLast())
             let sum: Double = try autoreleasepool {
+                let predictionStarted = KeyboardPerformance.start()
                 let logits = try predict(input)
+                KeyboardPerformance.record(.lmScoringPrediction, since: predictionStarted)
                 // Only the observed token's probability is needed. Reuse one
                 // vocabulary buffer and vectorize the full normalizer instead
                 // of allocating and normalizing a Swift array for every token.
-                var scratch = [Double](repeating: 0, count: Self.vocabulary)
-                var sum = 0.0
-                for row in (common - 1)..<(sequence.count - 1) {
+                guard !cancelled() else { throw Failure.cancelled }
+                if scratch.isEmpty { scratch = Array(repeating: 0, count: Self.vocabulary) }
+                if prefixScores.isEmpty {
+                    let normalizer = try Self.logNormalizer(logits, row: common - 1, scratch: &scratch)
+                    let pointer = logits.dataPointer.assumingMemoryBound(to: Float.self)
+                        .advanced(by: (common - 1) * logits.strides[1].intValue)
+                    let stride = logits.strides[2].intValue
+                    for token in prefixTokens { prefixScores[token] = Double(pointer[Int(token) * stride]) - normalizer }
+                }
+                var sum = prefixScores[sequence[common]]!
+                for row in common..<(sequence.count - 1) {
                     if cancelled() { throw Failure.cancelled }
                     sum += try Self.tokenLogProbability(logits, row: row, token: Int(sequence[row + 1]), scratch: &scratch)
                 }
@@ -222,6 +243,12 @@ nonisolated final class VimeLanguageModel {
             .advanced(by: row * logits.strides[1].intValue)
         let stride = logits.strides[2].intValue
         let observed = Double(pointer[token * stride])
+        return observed - (try logNormalizer(logits, row: row, scratch: &scratch))
+    }
+    private static func logNormalizer(_ logits: MLMultiArray, row: Int, scratch: inout [Double]) throws -> Double {
+        let pointer = logits.dataPointer.assumingMemoryBound(to: Float.self)
+            .advanced(by: row * logits.strides[1].intValue)
+        let stride = logits.strides[2].intValue
         return try scratch.withUnsafeMutableBufferPointer { buffer in
             let p = buffer.baseAddress!
             let count = vDSP_Length(vocabulary)
@@ -238,7 +265,7 @@ nonisolated final class VimeLanguageModel {
             var total = 0.0
             vDSP_sveD(p, 1, &total, count)
             guard total.isFinite, total > 0 else { throw Failure.tensor }
-            return observed - maximum - log(total)
+            return maximum + log(total)
         }
     }
     /// Compare native complete conversions and literal kana alternatives in

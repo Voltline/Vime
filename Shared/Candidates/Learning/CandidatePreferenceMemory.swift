@@ -194,6 +194,7 @@ nonisolated final class CandidatePreferenceMemory {
         guard weight.isFinite, weight > 0, valid(e) else { return }
         apply(e, to: &pendingEvents)
         apply(e, to: &entries)
+        populations[population(scope, reading, context), default: [:]][surface] = key(e)
         dirty = true
     }
     private func apply(_ event: Entry, to target: inout [String: Entry]) {
@@ -259,7 +260,7 @@ nonisolated final class CandidatePreferenceMemory {
         guard !reading.isEmpty else { return }
         bump(scope: scope, reading: reading, context: "", surface: surface, weight: weight, now: now)
         for bucket in buckets(context) { bump(scope: scope, reading: reading, context: bucket, surface: surface, weight: weight, now: now) }
-        prune(); rebuildIndex()
+        pruneRecordedEntries()
     }
     func score(reading: String, surface: String, context: String = "", scope: String = "conversion", now: Date = Date()) -> Double {
         min(Policy.maximumBonus, persistentScore(scope: scope, reading: reading, surface: surface, context: context, now: now)
@@ -317,7 +318,7 @@ nonisolated final class CandidatePreferenceMemory {
         // No context-free next-word recall: frequent phrases must not leak into
         // an unrelated sentence. The shorter bucket is an explicit weak backoff.
         for bucket in buckets(context) { bump(scope: "nextWord", reading: "", context: bucket, surface: text, weight: weight, now: now) }
-        prune(); rebuildIndex()
+        pruneRecordedEntries()
     }
     func nextWordScore(_ text: String, context: String, now: Date = Date()) -> Double {
         var score = recentScore(scope: "nextWord", reading: "", surface: text, context: context, now: now)
@@ -365,17 +366,30 @@ nonisolated final class CandidatePreferenceMemory {
             return a == b ? $0.text < $1.text : a < b
         }.prefix(5))
     }
-    private func prune() {
-        trim(&entries)
-        trim(&pendingEvents)
-    }
-    private func trim(_ store: inout [String: Entry]) {
-        if store.count > Policy.maximumEntries {
-            let keep = store.values.sorted {
-                $0.selectedAt == $1.selectedAt ? key($0) < key($1) : $0.selectedAt > $1.selectedAt
-            }.prefix(Policy.maximumEntries)
-            store = Dictionary(uniqueKeysWithValues: keep.map { (key($0), $0) })
+    private func pruneRecordedEntries() {
+        for entry in prune() {
+            let group = population(entry.scope, entry.reading, entry.context)
+            populations[group]?.removeValue(forKey: entry.surface)
+            if populations[group]?.isEmpty == true { populations.removeValue(forKey: group) }
         }
+    }
+    // Archive replacement rebuilds its index only after a successful read/write.
+    // Recording can instead remove just the entries evicted from the live index.
+    @discardableResult private func prune() -> [Entry] {
+        let removed = trim(&entries)
+        _ = trim(&pendingEvents)
+        return removed
+    }
+    private func trim(_ store: inout [String: Entry]) -> [Entry] {
+        guard store.count > Policy.maximumEntries else { return [] }
+        // Stored keys are already canonical archive keys. Reconstructing them
+        // during every tie comparison is costly when one confirmation records
+        // several words at the same timestamp.
+        let removed = store.sorted {
+            $0.value.selectedAt == $1.value.selectedAt ? $0.key < $1.key : $0.value.selectedAt > $1.value.selectedAt
+        }.dropFirst(Policy.maximumEntries)
+        for (key, _) in removed { store.removeValue(forKey: key) }
+        return removed.map(\.value)
     }
     private func rebuildIndex() {
         populations = [:]

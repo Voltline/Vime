@@ -16,6 +16,78 @@ final class VimeLanguageModelTests: XCTestCase {
         let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "VimeLMFixturesV21", withExtension: "json"))
         return try JSONDecoder().decode(Fixtures.self, from: Data(contentsOf: url))
     }
+
+    /// Independent forward pass and full-vocabulary scalar softmax for every
+    /// candidate. This reference deliberately shares no prefix/logit cache.
+    private func independentScores(_ model: VimeLanguageModel, context: String, candidates: [String]) throws -> [Double] {
+        let prefix: [Int32] = [2] + (try model.tokenizer.encode(context))
+        let sequences = try candidates.map { [Int32(2)] + (try model.tokenizer.encode(context + $0)) }
+        var common = 0
+        for index in 0..<([prefix] + sequences).map(\.count).min()! {
+            guard sequences.allSatisfy({ $0[index] == prefix[index] }) else { break }
+            common += 1
+        }
+        return try sequences.map { sequence in
+            try autoreleasepool {
+                let logits = try model.predict(Array(sequence.dropLast()))
+                return try ((common - 1)..<(sequence.count - 1)).reduce(0.0) { sum, row in
+                    sum + (try VimeLanguageModel.logProbabilities(logits, row: row))[Int(sequence[row + 1])]
+                }
+            }
+        }
+    }
+
+    private func singleTokenCandidates(_ model: VimeLanguageModel, context: String) throws -> [String] {
+        let prefix = try model.tokenizer.encode(context)
+        return try ["東京", "大阪", "京都", "日本", "学校", "会社", "仕事", "会議", "旅行", "雨", "晴れ"].filter {
+            let ids = try model.tokenizer.encode(context + $0)
+            return ids.count == prefix.count + 1 && ids.starts(with: prefix)
+        }
+    }
+
+    func testSharedPrefixScoresUseOnePredictionAndMatchIndependentShortAndLongContexts() throws {
+        let model = try VimeLanguageModel()
+        let long = String("来週の旅行に備えて必要な物を整理しながら現地で何をするか友人と相談していて、まだ決まっていない予定について詳しく話すために、".suffix(64))
+        for context in ["", "明日は、", long] {
+            let candidates = try singleTokenCandidates(model, context: context)
+            XCTAssertGreaterThanOrEqual(candidates.count, 3, "The fixture must exercise actual shared-prefix reuse")
+            let reference = try independentScores(model, context: context, candidates: candidates)
+            KeyboardPerformance.configure(enabled: true, reset: true)
+            defer { KeyboardPerformance.configure(enabled: false) }
+            let actual = try model.scores(context: context, candidates: candidates)
+            for (value, expected) in zip(actual, reference) { XCTAssertEqual(value, expected, accuracy: 0.002) }
+            let report = KeyboardPerformance.report()
+            XCTAssertEqual(report["lmScoringPrediction"]?["totalCount"], 1)
+            XCTAssertEqual(report["lmScoringPrefixReuse"]?["totalCount"], Double(candidates.count - 1))
+            print("VIME_SHARED_PREFIX_REUSE context_chars=\(context.count) candidates=\(candidates.count) predictions=1")
+        }
+    }
+
+    func testSharedPrefixScoresPreserveMultiTokenAndReversedCandidateNumericalParity() throws {
+        let model = try VimeLanguageModel()
+        let context = "週末の旅行について友人と相談しているので、"
+        let candidates = ["東京へ旅行する予定です", "大阪", "京都", "日本の会社で働く"]
+        let reference = try independentScores(model, context: context, candidates: candidates)
+        let forward = try model.scores(context: context, candidates: candidates)
+        let reverse = try model.scores(context: context, candidates: Array(candidates.reversed()))
+        for ((value, reversed), expected) in zip(zip(forward, reverse.reversed()), reference) {
+            XCTAssertEqual(value, expected, accuracy: 0.002)
+            XCTAssertEqual(reversed, expected, accuracy: 0.002)
+        }
+    }
+
+    func testSharedPrefixReuseStillHonorsCancellationBetweenCandidates() throws {
+        let model = try VimeLanguageModel()
+        let candidates = try singleTokenCandidates(model, context: "明日は、")
+        XCTAssertGreaterThanOrEqual(candidates.count, 3)
+        KeyboardPerformance.configure(enabled: true, reset: true)
+        defer { KeyboardPerformance.configure(enabled: false) }
+        XCTAssertThrowsError(try model.scores(context: "明日は、", candidates: candidates, cancelled: {
+            (KeyboardPerformance.report()["lmScoringPrefixReuse"]?["totalCount"] ?? 0) >= 1
+        }))
+        XCTAssertEqual(KeyboardPerformance.report()["lmScoringPrediction"]?["totalCount"], 1)
+        XCTAssertEqual(KeyboardPerformance.report()["lmScoringPrefixReuse"]?["totalCount"], 1)
+    }
     func testNativeSentencePieceMatchesFrozenCorpusAndUnicode() throws {
         let lm = try VimeLanguageModel()
         let data = try fixtures()

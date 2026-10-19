@@ -297,6 +297,55 @@ final class CandidatePreferenceTransactionTests: XCTestCase {
         XCTAssertTrue(retained.allSatisfy { $0["confirmations"] as? Int == 1 })
     }
 
+    func testFullHistoryUpdatesAndEvictionKeepLiveIndexEquivalentToReload() throws {
+        let url = try directory()
+        let surfaces = (0..<CandidatePreferenceMemory.Policy.maximumEntries).map { "語\($0)" }.sorted()
+        let initial = Dictionary(uniqueKeysWithValues: surfaces.map { surface in
+            ("conversion\0テスト\0\0" + surface, ["scope": "conversion", "reading": "テスト", "context": "",
+                "surface": surface, "evidence": 3.0, "confirmations": 3,
+                "selectedAt": date.timeIntervalSince1970] as [String: Any])
+        })
+        try JSONSerialization.data(withJSONObject: ["version": 2, "entries": initial])
+            .write(to: url.appendingPathComponent("VimeSelectionFrequency.json"))
+        let memory = CandidatePreferenceMemory(directory: url)
+        let instant = date.addingTimeInterval(1)
+        let existing = try XCTUnwrap(surfaces.first)
+        for _ in 0..<2 {
+            memory.record(reading: "テスト", surface: existing, now: instant)
+            for scope in ["conversion", "choice", "wordChoice"] {
+                memory.record(reading: "ハシ", surface: "橋", context: "川を渡る", scope: scope, now: instant)
+            }
+            memory.recordNextWord("読む", context: "本を", now: instant)
+        }
+        let liveScore = memory.score(reading: "ハシ", surface: "橋", context: "川を渡る", now: instant)
+        let liveChoice = memory.choicePreference(reading: "ハシ", surface: "橋", context: "川を渡る", now: instant)
+        let liveWord = memory.choicePreference(reading: "ハシ", surface: "橋", context: "川を渡る", word: true, now: instant)
+        let liveNext = memory.nextWordScore("読む", context: "本を", now: instant)
+        XCTAssertGreaterThan(liveScore, 0)
+        XCTAssertEqual(liveChoice.confidence, 1)
+        XCTAssertGreaterThan(liveWord.bonus, 0)
+        XCTAssertEqual(memory.rememberedNextWords(context: "本を", now: instant), ["読む"])
+        XCTAssertGreaterThan(memory.score(reading: "テスト", surface: existing, now: instant), log(3))
+        XCTAssertEqual(memory.score(reading: "テスト", surface: try XCTUnwrap(surfaces.last), now: instant), 0)
+
+        memory.flush()
+        XCTAssertNil(memory.persistenceError)
+        let stored = try rows(url)
+        XCTAssertEqual(stored.count, CandidatePreferenceMemory.Policy.maximumEntries)
+        // Eleven new global/context entries replace the lexically last old keys
+        // at a tied timestamp; refreshing an existing key must protect it.
+        XCTAssertEqual(Set(stored.filter { $0["reading"] as? String == "テスト" }.compactMap { $0["surface"] as? String }),
+                       Set(surfaces.dropLast(11)))
+        let restored = CandidatePreferenceMemory(directory: url)
+        XCTAssertEqual(restored.score(reading: "ハシ", surface: "橋", context: "川を渡る", now: instant), liveScore, accuracy: 1e-9)
+        let restoredChoice = restored.choicePreference(reading: "ハシ", surface: "橋", context: "川を渡る", now: instant)
+        XCTAssertEqual(restoredChoice.bonus, liveChoice.bonus, accuracy: 1e-9)
+        XCTAssertEqual(restoredChoice.confidence, liveChoice.confidence, accuracy: 1e-9)
+        XCTAssertEqual(restored.choicePreference(reading: "ハシ", surface: "橋", context: "川を渡る", word: true, now: instant).bonus,
+                       liveWord.bonus, accuracy: 1e-9)
+        XCTAssertEqual(restored.nextWordScore("読む", context: "本を", now: instant), liveNext, accuracy: 1e-9)
+    }
+
     func testFailedClearRetriesWithNewEventsAndKeepsOldWriterInvalidated() throws {
         let url = try directory()
         let memory = CandidatePreferenceMemory(directory: url)

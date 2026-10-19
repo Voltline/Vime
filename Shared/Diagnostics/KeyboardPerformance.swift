@@ -14,10 +14,16 @@ nonisolated enum KeyboardPerformance {
         case candidateButtonConfiguration, candidateTitleMeasurement, candidatePublication
         case candidateWidthCacheLookup, candidateTextLayout, candidateWidthCacheInsert
         case candidatePresentationPreparation
+        // Counts describe model opportunities, not whether its preferred order
+        // differs from the dictionary. Recorded only during opt-in profiling.
+        case candidateModelEligible, candidateModelWindowAvailable, candidateModelScoringStarted
+        case candidateModelRefinementReady, candidateModelUsed, candidateModelOrderChanged
+        case candidateModelInitialPreparationExpired, candidateModelRefinementPreparationExpired
         case correctionCompute, correctionRequestToResult
         case baseConversion, candidateReranking, classicTypo, experimentalTypo, contextEvaluation
         case lexiconLookup, prefixConversion
         case lmCandidateScoring, lmNextWords, lmNextWordScoring, personalization, learningAcceptance
+        case lmScoringPrediction, lmScoringPrefixReuse
         case candidateQueueWait, modelQueueWait, supplementaryQueueWait, learningPersistence, learningLockWait
     }
 

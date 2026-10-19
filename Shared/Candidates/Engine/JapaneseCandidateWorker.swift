@@ -135,6 +135,12 @@ final class JapaneseCandidateWorker {
             guard !cancelled, !initiallyPublished else { return nil }
             initiallyPublished = true
             defer { refinement = nil }
+            if let refinement, let startedAt {
+                KeyboardPerformance.record(.candidateModelUsed, since: startedAt)
+                if refinement.map(\.presentation) != fallback.map(\.presentation) {
+                    KeyboardPerformance.record(.candidateModelOrderChanged, since: startedAt)
+                }
+            }
             return refinement ?? fallback
         }
     }
@@ -208,7 +214,9 @@ final class JapaneseCandidateWorker {
             let values = storage.engine.candidates(for: composing, katakana: katakana, revision: revision,
                 includeCorrections: false, conversionLength: conversionLength, cancelled: { request.isCancelled })
             KeyboardPerformance.record(.candidateCompute, since: computeStartedAt)
+            let presentationStartedAt = KeyboardPerformance.start()
             guard prepare(values) else { return }
+            let presentationFinishedAt = KeyboardPerformance.start()
             KeyboardPerformance.record(.candidateRequestToResult, since: requestStartedAt)
             let readyAt = KeyboardPerformance.start()
             guard !request.isCancelled else { return }
@@ -219,6 +227,16 @@ final class JapaneseCandidateWorker {
                 && CandidateCompetitionPolicy.plan(values, katakana: katakana, maximumCandidates: Self.initialRankingCandidateLimit).slots.count > 1
             let waitForRanking = neuralRanking && LanguageModelStorage.shared.isReady
                 && ProcessInfo.processInfo.systemUptime < initialDeadline
+            if neuralRanking {
+                KeyboardPerformance.record(.candidateModelEligible, since: requestStartedAt)
+                if waitForRanking {
+                    KeyboardPerformance.record(.candidateModelWindowAvailable, since: requestStartedAt)
+                } else if LanguageModelStorage.shared.isReady, let presentationStartedAt, let presentationFinishedAt,
+                          presentationStartedAt < initialDeadline,
+                          presentationFinishedAt >= initialDeadline {
+                    KeyboardPerformance.record(.candidateModelInitialPreparationExpired, since: requestStartedAt)
+                }
+            }
             // Both the timer and model completion enter this gate on MainActor.
             // Supplementary work starts only after the initial publication, so
             // fast corrections cannot arrive too early and be discarded.
@@ -273,10 +291,15 @@ final class JapaneseCandidateWorker {
                     let model = LanguageModelStorage.shared.model
                     guard waitForRanking, !request.isCancelled,
                           ProcessInfo.processInfo.systemUptime < initialDeadline else { return }
+                    KeyboardPerformance.record(.candidateModelScoringStarted, since: requestStartedAt)
                     _ = model?.rerank(values, context: sentence,
                         katakana: katakana, maximumCandidates: Self.initialRankingCandidateLimit, onRefinement: {
-                            guard !request.isCancelled, ProcessInfo.processInfo.systemUptime < initialDeadline,
-                                  prepare($0) else { return }
+                            guard !request.isCancelled, ProcessInfo.processInfo.systemUptime < initialDeadline else { return }
+                            KeyboardPerformance.record(.candidateModelRefinementReady, since: requestStartedAt)
+                            guard prepare($0) else { return }
+                            if ProcessInfo.processInfo.systemUptime >= initialDeadline {
+                                KeyboardPerformance.record(.candidateModelRefinementPreparationExpired, since: requestStartedAt)
+                            }
                             request.refine($0, before: initialDeadline)
                         }, cancelled: {
                             request.isCancelled || LanguageModelStorage.shared.isSuspended
