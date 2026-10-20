@@ -98,6 +98,36 @@ nonisolated final class JapaneseCandidateEngine {
     private var correctionCache: [String: [Candidate]] = [:]
     private var correctionCacheOrder: [String] = []
     private lazy var correctionIndex = CorrectionReadingIndex()
+    /// Native results for one exact input under the current dictionary and
+    /// learning state. Typing at the end usually keeps the first clause intact,
+    /// so its prefix query repeats across keystrokes.
+    struct NativeResultCache {
+        struct Key: Hashable {
+            let pieces: [InputPiece]
+            let styles: [InputStyle]
+            init(_ text: ComposingText) { pieces = text.input.map(\.piece); styles = text.input.map(\.inputStyle) }
+        }
+        private var values: [Key: [Candidate]] = [:]
+        private var order: [Key] = []
+        let capacity: Int
+        init(capacity: Int) { self.capacity = capacity }
+        func results(for text: ComposingText) -> [Candidate]? { values[Key(text)] }
+        mutating func insert(_ results: [Candidate], for text: ComposingText) {
+            let key = Key(text)
+            if values.updateValue(results, forKey: key) == nil {
+                order.append(key)
+                if order.count > capacity { values.removeValue(forKey: order.removeFirst()) }
+            }
+        }
+        mutating func removeAll() { values.removeAll(keepingCapacity: false); order.removeAll(keepingCapacity: false) }
+    }
+    private var firstClausePrefixCache = NativeResultCache(capacity: 8)
+    /// Every change to the dynamic dictionary or native learning invalidates
+    /// results reused across requests.
+    private func invalidateNativeResults() {
+        correctionCache = [:]; correctionCacheOrder = []
+        firstClausePrefixCache.removeAll()
+    }
     static let maximumCorrectionQueries = 24
     static let correctionBudgetSeconds: TimeInterval = 0.060
     private(set) var lastCorrectionMetrics = CorrectionSearchMetrics()
@@ -121,6 +151,7 @@ nonisolated final class JapaneseCandidateEngine {
             converter.importDynamicUserDictionary(matching, shortcuts: registered.shortcuts)
             converter.stopComposition()
             primaryQuery = nil
+            invalidateNativeResults()
             installedWords = matching
             installedShortcuts = registered.shortcuts
         }
@@ -253,7 +284,12 @@ nonisolated final class JapaneseCandidateEngine {
         var alternativeOptions = options
         alternativeOptions.N_best = 3
         alternativeOptions.requireJapanesePrediction = .disabled
-        for alternative in RomajiConverter.nReadingAlternatives(for: query) {
+        // Only a single dictionary word may consume an alternate reading, and
+        // the lattice never spans a word past `maxlength` input elements or
+        // surface characters; longer alternates cannot produce a match.
+        let maxWordLength = dictionary.maxlength
+        for alternative in RomajiConverter.nReadingAlternatives(for: query)
+        where alternative.input.count <= maxWordLength || alternative.convertTarget.count <= maxWordLength {
             guard !cancelled() else { return [] }
             let session = alternativeSession ?? converter.createSession()
             alternativeSession = session
@@ -323,9 +359,13 @@ nonisolated final class JapaneseCandidateEngine {
             var prefixOptions = options; prefixOptions.N_best = 10; prefixOptions.requireJapanesePrediction = .disabled
             let session = prefixSession ?? converter.createSession(); prefixSession = session
             let prefixStarted = KeyboardPerformance.start()
-            let results = try? converter.withSession(session) {
-                converter.stopComposition()
-                return converter.requestCandidates(prefix, options: prefixOptions).mainResults
+            var results = firstClausePrefixCache.results(for: prefix)
+            if results == nil {
+                results = try? converter.withSession(session) {
+                    converter.stopComposition()
+                    return converter.requestCandidates(prefix, options: prefixOptions).mainResults
+                }
+                if let results { firstClausePrefixCache.insert(results, for: prefix) }
             }
             KeyboardPerformance.record(.prefixConversion, since: prefixStarted)
             for (index, candidate) in (results ?? []).enumerated() where candidate.inputable {
@@ -932,7 +972,7 @@ nonisolated final class JapaneseCandidateEngine {
         committedContext = text; contextCandidate = nil; previousTop = nil
         converter.stopComposition()
         primaryQuery = nil
-        correctionCache = [:]; correctionCacheOrder = []
+        invalidateNativeResults()
         contextCandidate = parseCommittedContext()
     }
 
@@ -968,7 +1008,7 @@ nonisolated final class JapaneseCandidateEngine {
         if snapshot.learningEligible {
             converter.updateLearningData(snapshot.candidate)
             learningDirty = true
-            correctionCache = [:]; correctionCacheOrder = []
+            invalidateNativeResults()
         }
         if let scope = snapshot.preferenceScope {
             preferenceMemory?.record(reading: snapshot.reading, surface: snapshot.text, scope: scope)
@@ -1041,7 +1081,7 @@ nonisolated final class JapaneseCandidateEngine {
         guard committedContext == prediction.expectedLeftContext else { return }
         converter.updateLearningData(prediction.base, with: prediction.native)
         learningDirty = true
-        correctionCache = [:]; correctionCacheOrder = []
+        invalidateNativeResults()
         committedContext = String((String(committedContext.dropLast(prediction.replacedText.count)) + prediction.insertionText).suffix(96))
         contextCandidate = prediction.joined
         flushLearning()
@@ -1067,7 +1107,7 @@ nonisolated final class JapaneseCandidateEngine {
                     converter.updateLearningData(snapshot.candidate)
                 }
                 learningDirty = true
-                correctionCache = [:]; correctionCacheOrder = []
+                invalidateNativeResults()
             } else if let learningSession {
                 try? converter.withSession(learningSession) { converter.stopComposition() }
             }
@@ -1086,7 +1126,7 @@ nonisolated final class JapaneseCandidateEngine {
                 converter.setCompletedData(nativePrediction.joined)
             }
             learningDirty = true
-            correctionCache = [:]; correctionCacheOrder = []
+            invalidateNativeResults()
             preferenceMemory?.recordNextWord(pending.text, context: pending.event.context,
                 weight: pending.event.weight, now: pending.event.selectedAt)
         } else {
@@ -1135,7 +1175,7 @@ nonisolated final class JapaneseCandidateEngine {
         _ = converter.requestCandidates(bootstrap, options: options)
         converter.resetMemory(); learningDirty = false
         preferenceMemory?.clear()
-        correctionCache = [:]; correctionCacheOrder = []
+        invalidateNativeResults()
         reset()
         // The upstream reset API logs filesystem errors instead of returning
         // them. Verify deletion before acknowledging an app reset request.
@@ -1180,6 +1220,7 @@ nonisolated final class JapaneseCandidateEngine {
     func discardTransientCaches() {
         correctionCache.removeAll(keepingCapacity: false)
         correctionCacheOrder.removeAll(keepingCapacity: false)
+        firstClausePrefixCache.removeAll()
         rawDiagnostics.removeAll(keepingCapacity: false)
         finalDiagnostics.removeAll(keepingCapacity: false)
         correctionQueryDiagnostics.removeAll(keepingCapacity: false)
