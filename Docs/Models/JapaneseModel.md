@@ -2,19 +2,19 @@
 
 ## 资源契约
 
-当前默认资源为 v2.1，模型版本以 [VimeLMManifestV21.json](../../Shared/Resources/VimeLMManifestV21.json) 为准。
+运行时默认资源为 v4.2，v2.1 随包保留为回退。模型版本以各自 manifest 为准。
 
-| 资源 / 属性 | 当前值 |
-| --- | --- |
-| 编译模型 | `TinyJapaneseV21INT8.mlmodelc` |
-| 分词器 | `VimeJapaneseTokenizerV2.model` |
-| Manifest | `VimeLMManifestV21.json` / `vime_ios_lm_v2` |
-| 计算设备 | `CPU_ONLY` |
-| 量化 | INT8，block size 32 |
-| 词表 / 上下文 | 16,384 / 128 tokens |
-| 特殊 token | pad 0、unk 1、bos 2、eos 3 |
+| 资源 / 属性 | v4.2（默认） | v2.1（回退） |
+| --- | --- | --- |
+| 编译模型 | `TinyJapaneseV42INT8.mlmodelc` | `TinyJapaneseV21INT8.mlmodelc` |
+| 分词器 | `VimeJapaneseTokenizerV4.model` | `VimeJapaneseTokenizerV2.model` |
+| Manifest | `VimeLMManifestV42.json` / `vime_ios_lm_v4` | `VimeLMManifestV21.json` / `vime_ios_lm_v2` |
+| 词表 / 上下文 | 8,192 / 128 tokens | 16,384 / 128 tokens |
+| 保留 token | 4–6 为转换标记，不作为输入或输出 | 无 |
+| 计算设备 / 量化 | `CPU_ONLY` / INT8 block 32 | 同左 |
+| 特殊 token | pad 0、unk 1、bos 2、eos 3 | 同左 |
 
-这些资源已纳入版本控制。运行时只加载匹配的 v2.1 模型、分词器和 manifest；资源不合法或模型不可用时，输入继续使用词典候选。旧 v1 模型及其参考数据已移除，当前模型测试使用 `Tests/UIKit/Resources/VimeLMFixturesV21.json`。
+这些资源已纳入版本控制，App 与键盘扩展都携带两套。worker 按 `VimeLanguageModel.Variant.runtimePreference`（v4.2 → v2.1）依次加载：v4.2 缺失或未通过 manifest / Core ML 检查时记录日志并尝试 v2.1；两套都不可用时，输入继续使用词典候选。进程内同时只持有一个模型。`VimeLanguageModel()` 的默认变体与运行时首选一致；v2.1 参考数据测试（`VimeLanguageModelTests`、`VimeLMFixturesV21.json`）显式指定 `.v21`，v4.2 参考数据测试为 `VimeLanguageModelV42Tests` / `VimeLMFixturesV42.json`。
 
 [VimeLanguageModel](../../Shared/Models/VimeLanguageModel.swift) 校验 manifest 与校验和后按需加载，计算设备配置也受契约约束。改变 compute units 需要验证模型兼容性与整条输入路径，不能直接宣称 Neural Engine 更快或更省电。
 
@@ -44,8 +44,8 @@ python3 Scripts/validate_model_resources.py
 python3 Scripts/validate_model_resources.py --resources '<BUNDLE_RESOURCE_DIRECTORY>'
 ```
 
-### 可选 V4.2 测量变体
+### 资源安装与基准
 
-`VimeLanguageModel(variant: .v42)` 加载 `TinyJapaneseV42INT8.mlmodelc`、`VimeJapaneseTokenizerV4.model` 与 `VimeLMManifestV42.json`（`vime_ios_lm_v4`，词表 8,192）。V4 的 4–6 号 token 是转换标记，评分与 beam 输入中出现即判为不合格，联想与 beam 输出也不会生成。所有产品调用点仍使用默认的 v2.1；V4.2 只由 `VimeLanguageModelV42Tests` 和基准测试显式选择，不是默认模型的替换。资源用 [install_v42_resources.py](../../Scripts/install_v42_resources.py) 从 VimeML 的 `tiny-ja-v4.2-epoch20-client-resources-v1` 安装；清单存在时 `validate_model_resources.py` 同时校验其哈希。`Scripts/benchmark_lm_variants.py` 在独立测试进程中交替运行两种变体的基准测试（`TEST_RUNNER_VIME_LM_VARIANT=v21|v42`）。
+v4.2 资源用 [install_v42_resources.py](../../Scripts/install_v42_resources.py) 从 VimeML 的 `tiny-ja-v4.2-epoch20-client-resources-v1` 安装；`validate_model_resources.py` 要求 v4.2 与 v2.1 两套完整且哈希一致，任一缺失都会使 Release preflight 失败。`Scripts/benchmark_lm_variants.py` 在独立测试进程中交替运行两种变体的基准测试（`TEST_RUNNER_VIME_LM_VARIANT=v21|v42`，未设置时测量运行时默认模型）。模拟器结果不能代表真机的 60 ms 首发窗口是否足够，切换默认模型后仍需按真机设备测量延迟与内存。
 
 [install_v21_resources.py](../../Scripts/install_v21_resources.py) 用于补齐缺失的匹配资源，不是覆盖已有模型的一般升级器。实际替换应遵守脚本校验和资源契约，并使用固定参考数据核对候选评分、联想、输入边界和内存。Release 资源输入见 [ModelResources.Release.xcfilelist](../../Configuration/ModelResources.Release.xcfilelist)。

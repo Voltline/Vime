@@ -44,11 +44,11 @@ final class VimeLanguageModelBenchmarkTests: XCTestCase {
         return ["n": Double(values.count), "p50": at(0.5), "p95": at(0.95), "max": sorted.last ?? 0]
     }
 
-    /// One resource set per process (VIME_LM_VARIANT=v21|v42; default v21) so
+    /// One resource set per process (VIME_LM_VARIANT=v21|v42; default: runtime model) so
     /// load and footprint numbers are not mixed between models.
     private var variant: VimeLanguageModel.Variant {
         get throws {
-            let name = ProcessInfo.processInfo.environment["VIME_LM_VARIANT"] ?? "v21"
+            let name = ProcessInfo.processInfo.environment["VIME_LM_VARIANT"] ?? VimeLanguageModel.Variant.runtimeDefault.rawValue
             return try XCTUnwrap(VimeLanguageModel.Variant(rawValue: name), "Unknown VIME_LM_VARIANT \(name)")
         }
     }
