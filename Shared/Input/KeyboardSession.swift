@@ -128,7 +128,7 @@ final class KeyboardSession: KeyboardInputSession {
             presentation($0.element.presentation, index: $0.offset, kind: .suggestion)
         }
     }
-    var showsStrip: Bool { isComposing || !suggestions.isEmpty }
+    var showsStrip: Bool { isComposing || !suggestionSnapshots.isEmpty }
 
     // Synchronous mode is used by deterministic conversion tests only.
     init(asynchronousCandidates: Bool = false, memoryDirectoryURL: URL? = nil) {
@@ -145,7 +145,7 @@ final class KeyboardSession: KeyboardInputSession {
         }
         return PreeditPresentation.text(for: composing, mode: mode, selected: selection)
     }
-    var selectedText: String? { selectedIndex.map { candidates[$0] } }
+    var selectedText: String? { selectedIndex.map { candidateSnapshots[$0].text } }
     var markedText: KeyboardPreedit? { preedit.map { KeyboardPreedit(text: $0) } }
     var inputTraits: KeyboardInputTraits {
         var symbols: Set<String> = ["'", "-", "ー", "@"]
@@ -230,8 +230,8 @@ final class KeyboardSession: KeyboardInputSession {
             pendingSpaces += 1
             return []
         }
-        guard !candidates.isEmpty else { return confirm() }
-        selectedIndex = selectedIndex.map { ($0 + 1) % candidates.count } ?? 0
+        guard !candidateSnapshots.isEmpty else { return confirm() }
+        selectedIndex = selectedIndex.map { ($0 + 1) % candidateSnapshots.count } ?? 0
         worker?.cancelPending()
         return []
     }
@@ -242,7 +242,7 @@ final class KeyboardSession: KeyboardInputSession {
     }
 
     func choose(_ index: Int, feedbackKind: CandidateLearningFeedback.Kind = .explicitCandidate) -> [KeyboardEdit] {
-        guard candidatesAreCurrent, candidates.indices.contains(index) else { return [] }
+        guard candidatesAreCurrent, candidateSnapshots.indices.contains(index) else { return [] }
         let snapshot = candidateSnapshots[index]
         guard snapshot.revision == revision else { return [] }
         selectionLog.debug("Selection revision=\(self.revision) rank=\(index + 1) consumedKana=\(snapshot.consumedReadingCount) remainingKana=\(snapshot.remainingComposition.convertTarget.count) full=\(snapshot.fullConsumption) source=\(snapshot.source.rawValue, privacy: .public)")
@@ -276,7 +276,7 @@ final class KeyboardSession: KeyboardInputSession {
     }
 
     func chooseSuggestion(_ index: Int) -> [KeyboardEdit] {
-        guard !isComposing, suggestions.indices.contains(index) else { return [] }
+        guard !isComposing, suggestionSnapshots.indices.contains(index) else { return [] }
         let suggestion = suggestionSnapshots[index]
         let text = suggestion.text
         let native = suggestion.nativePrediction

@@ -265,11 +265,13 @@ final class JapaneseCandidateWorker {
         queue.async {
             KeyboardPerformance.record(.candidateQueueWait, since: requestStartedAt)
             guard !request.isCancelled else { return }
-            storage.engine.reconcileContext(leftContext)
+            // Resolve the engine once: each access checks the shared reset request.
+            let engine = storage.engine
+            engine.reconcileContext(leftContext)
             guard !request.isCancelled else { return }
-            storage.engine.seedContinuity(continuity)
+            engine.seedContinuity(continuity)
             let computeStartedAt = KeyboardPerformance.start()
-            let values = storage.engine.candidates(for: composing, katakana: katakana, revision: revision,
+            let values = engine.candidates(for: composing, katakana: katakana, revision: revision,
                 includeCorrections: false, conversionLength: conversionLength, trace: trace, cancelled: { request.isCancelled })
             KeyboardPerformance.record(.candidateCompute, since: computeStartedAt)
             let presentationStartedAt = KeyboardPerformance.start()
@@ -322,11 +324,12 @@ final class JapaneseCandidateWorker {
                 queue.async {
                     KeyboardPerformance.record(.supplementaryQueueWait, since: supplementaryQueuedAt)
                     guard !request.isCancelled else { return }
+                    let engine = storage.engine
                     let formatted = expanded
-                        ? storage.engine.addingWidthCandidates(to: values, for: composing, katakana: katakana,
+                        ? engine.addingWidthCandidates(to: values, for: composing, katakana: katakana,
                             revision: revision, conversionLength: conversionLength, cancelled: { request.isCancelled }) : values
                     let enriched = expanded && conversionLength == nil
-                        ? storage.engine.addingPrefixCandidates(to: formatted, for: composing, katakana: katakana,
+                        ? engine.addingPrefixCandidates(to: formatted, for: composing, katakana: katakana,
                             revision: revision, cancelled: { request.isCancelled }) : formatted
                     guard !request.isCancelled else { return }
                     // Publish prefix/format choices separately from the slower
@@ -343,7 +346,7 @@ final class JapaneseCandidateWorker {
                     }
                     guard conversionLength == nil else { return }
                     let correctionStartedAt = KeyboardPerformance.start()
-                    let corrected = storage.engine.addingCorrections(to: enriched, for: composing, katakana: katakana,
+                    let corrected = engine.addingCorrections(to: enriched, for: composing, katakana: katakana,
                         revision: revision, cancelled: { request.isCancelled })
                     KeyboardPerformance.record(.correctionCompute, since: correctionStartedAt)
                     guard !request.isCancelled, corrected.map(\.presentation) != enriched.map(\.presentation) else { return }

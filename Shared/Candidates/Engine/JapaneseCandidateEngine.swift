@@ -154,25 +154,41 @@ nonisolated final class JapaneseCandidateEngine {
         guard !cancelled() else { return [] }
         let kana = query.convertTarget
         let queryReading = RomajiConverter.katakana(kana)
+        // Each prefixComplete re-runs Roman conversion over the remaining input,
+        // and a segment remainder also rebuilds the input/surface boundary map.
+        // Native lists share a handful of consuming counts; resolve each once.
+        var completions: [(count: ComposingCount, text: ComposingText)] = []
+        func completed(_ count: ComposingCount) -> ComposingText {
+            if let cached = completions.first(where: { $0.count == count }) { return cached.text }
+            var text = query; text.prefixComplete(composingCount: count)
+            completions.append((count, text))
+            return text
+        }
+        var segmentRemainders: [Int: ComposingText] = [:]
+        var registeredKeys: Set<String>?
         func snapshot(_ candidate: Candidate, source: CandidateSource, engineRank: Int = 0) -> CandidateSnapshot {
-            var engineRemainder = query
-            engineRemainder.prefixComplete(composingCount: candidate.composingCount)
-            var remaining = query
+            let engineRemainder = completed(candidate.composingCount)
             // Prediction selection commits the suggested completion of the
             // entire query, including an unresolved suffix. The upstream count
             // can describe only the resolved base; keep it intact as metadata.
             // acceptPredictionCandidate is a different API: it expands an
             // UNCOMMITTED composition and constrains subsequent neural queries.
-            remaining.prefixComplete(composingCount: source == .prediction || source == .readingAlternative
-                ? .inputCount(query.input.count) : candidate.composingCount)
+            var remaining = source == .prediction || source == .readingAlternative
+                ? completed(.inputCount(query.input.count)) : engineRemainder
             let consumedReading = query.convertTarget.count - remaining.convertTarget.count
             if conversionLength != nil || !remaining.isEmpty {
-                remaining = CompositionSegmentBoundary.remainder(of: composing, consuming: consumedReading)
+                if let cached = segmentRemainders[consumedReading] { remaining = cached }
+                else {
+                    remaining = CompositionSegmentBoundary.remainder(of: composing, consuming: consumedReading)
+                    segmentRemainders[consumedReading] = remaining
+                }
             }
             let isRegistered = (source == .conversion || source == .prediction) && candidate.data.contains { element in
-                element.metadata.contains(.isFromUserDictionary) && (installedShortcuts + registered.words).contains {
-                    $0.word == element.word && $0.ruby == element.ruby
+                guard element.metadata.contains(.isFromUserDictionary) else { return false }
+                if registeredKeys == nil {
+                    registeredKeys = Set((installedShortcuts + registered.words).map { $0.word + "\u{0}" + $0.ruby })
                 }
+                return registeredKeys!.contains(element.word + "\u{0}" + element.ruby)
             }
             var value = CandidateSnapshot(candidate: candidate, revision: revision, source: isRegistered ? .userDictionary : source, remainingComposition: remaining,
                 originalInputCount: composing.input.count, consumedInputCount: max(0, composing.input.count - remaining.input.count),
@@ -197,16 +213,18 @@ nonisolated final class JapaneseCandidateEngine {
         // Conversion order excludes interleaved autoMix predictions, which have
         // their own list and score scale. mainResults otherwise keeps azooKey's
         // order (sentences, clauses, words) including its learning placement.
-        let mainConversions = result.mainResults.filter { !result.predictionResults.contains($0) }
+        let predictionIndex = Self.FirstIndex(result.predictionResults)
+        let interleavedPrediction = result.mainResults.map { predictionIndex[$0] != nil }
+        let mainConversions = Self.FirstIndex(zip(result.mainResults, interleavedPrediction).filter { !$0.1 }.map(\.0))
+        let mainIndex = Self.FirstIndex(result.mainResults)
         let conversions = result.mainResults.enumerated().filter { $0.element.inputable }.map {
-            let prediction = result.predictionResults.contains($0.element)
+            let prediction = interleavedPrediction[$0.offset]
             return snapshot($0.element, source: prediction ? .prediction : .conversion,
-                engineRank: prediction ? $0.offset : mainConversions.firstIndex(of: $0.element) ?? $0.offset)
+                engineRank: prediction ? $0.offset : mainConversions[$0.element] ?? $0.offset)
         }
         guard !cancelled() else { return [] }
         let predictions = result.predictionResults.enumerated().filter { $0.element.inputable }.map {
-            snapshot($0.element, source: .prediction,
-                engineRank: result.mainResults.firstIndex(of: $0.element) ?? $0.offset)
+            snapshot($0.element, source: .prediction, engineRank: mainIndex[$0.element] ?? $0.offset)
         }
         guard !cancelled() else { return [] }
         var provided = specialProviders.flatMap {
@@ -289,8 +307,7 @@ nonisolated final class JapaneseCandidateEngine {
         // applies; otherwise 「…市ます」 (clause #0, main #4) ties the real best
         // sentence 「…します」 at rank zero.
         let clauses = result.firstClauseResults.enumerated().filter { $0.element.inputable }.map { offset, candidate in
-            var rest = query; rest.prefixComplete(composingCount: candidate.composingCount)
-            let sentenceRank = rest.isEmpty ? mainConversions.firstIndex(of: candidate) ?? offset : offset
+            let sentenceRank = completed(candidate.composingCount).isEmpty ? mainConversions[candidate] ?? offset : offset
             return snapshot(candidate, source: .conversion, engineRank: max(offset, sentenceRank))
         }
         trace?.record(.native, values: conversions + predictions + clauses)
@@ -534,6 +551,21 @@ nonisolated final class JapaneseCandidateEngine {
         return result
     }
 
+    /// `Array.firstIndex(of:)` for repeated lookups. Candidate is Equatable but
+    /// not Hashable; bucket by text and keep the first fully equal element.
+    struct FirstIndex {
+        private var buckets: [String: [(candidate: Candidate, index: Int)]] = [:]
+        init(_ candidates: [Candidate]) {
+            for (index, candidate) in candidates.enumerated() {
+                if buckets[candidate.text]?.contains(where: { $0.candidate == candidate }) == true { continue }
+                buckets[candidate.text, default: []].append((candidate, index))
+            }
+        }
+        subscript(_ candidate: Candidate) -> Int? {
+            buckets[candidate.text]?.first { $0.candidate == candidate }?.index
+        }
+    }
+
     private static func rawInput(_ query: ComposingText) -> String {
         query.input.compactMap { if case .character(let c) = $0.piece { return String(c) }; return nil }.joined()
     }
@@ -763,7 +795,12 @@ nonisolated final class JapaneseCandidateEngine {
         }
         guard !cancelled(), !matches.isEmpty else { return base }
         matches.sort { $0.2 == $1.2 ? $0.0.text < $1.0.text : $0.2 > $1.2 }
-        var seen = Set(base.map(CandidateIdentity.init))
+        // First position of each identity, as base.firstIndex(where:) found it.
+        var baseIndex: [CandidateIdentity: Int] = [:]
+        for (index, value) in base.enumerated() where baseIndex[CandidateIdentity(value)] == nil {
+            baseIndex[CandidateIdentity(value)] = index
+        }
+        var seen = Set(baseIndex.keys)
         var additions: [CandidateSnapshot] = []
         var replacements: [Int: CandidateSnapshot] = [:]
         var handled = Set<CandidateIdentity>()
@@ -777,7 +814,7 @@ nonisolated final class JapaneseCandidateEngine {
                 - originalQuality
             let identity = CandidateIdentity(snapshot)
             guard handled.insert(identity).inserted else { return }
-            if let index = base.firstIndex(where: { CandidateIdentity($0) == identity }) {
+            if let index = baseIndex[identity] {
                 let old = base[index]
                 let ruby = old.candidate.data.map(\.ruby).joined()
                 // Keep exact literal matches and actual prefix completions.
@@ -799,7 +836,7 @@ nonisolated final class JapaneseCandidateEngine {
         }
         guard !additions.isEmpty || !replacements.isEmpty else { return base }
         let pool = (currentPool.first?.revision == revision ? currentPool : base).enumerated().map { item in
-            if let replacement = replacements[base.firstIndex(where: { CandidateIdentity($0) == CandidateIdentity(item.element) }) ?? -1] {
+            if let replacement = replacements[baseIndex[CandidateIdentity(item.element)] ?? -1] {
                 return replacement
             }
             return item.element

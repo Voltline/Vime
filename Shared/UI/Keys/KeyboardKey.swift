@@ -50,6 +50,26 @@ final class KeyboardKey: UIButton {
             layer.cornerRadius = skin.document.style.cornerRadius * scale
             titleLabel?.font = skin.font(size: hasSkinArtwork ? min(size, 18 * scale) : size)
         }
+        updateShadowPath()
+    }
+
+    /// Without a path, Core Animation derives each key's shadow from its
+    /// rendered alpha in an offscreen pass. For an opaque fill without artwork
+    /// that shape is exactly the rounded bounds; translucent skins keep the
+    /// derived shadow, which follows their artwork and partial transparency.
+    private var shadowPathShape: (bounds: CGRect, radius: CGFloat)?
+    private func updateShadowPath() {
+        let opaque = !hasSkinArtwork && (backgroundColor?.resolvedColor(with: traitCollection).cgColor.alpha ?? 0) >= 1
+        guard opaque else {
+            if shadowPathShape != nil { layer.shadowPath = nil; shadowPathShape = nil }
+            return
+        }
+        let shape = (bounds: bounds, radius: layer.cornerRadius)
+        guard shadowPathShape?.bounds != shape.bounds || shadowPathShape?.radius != shape.radius else { return }
+        shadowPathShape = shape
+        // Circular arcs, matching CALayer's default cornerCurve.
+        let radius = min(layer.cornerRadius, bounds.width / 2, bounds.height / 2)
+        layer.shadowPath = CGPath(roundedRect: bounds, cornerWidth: radius, cornerHeight: radius, transform: nil)
     }
 
     init(title: String? = nil, symbol: String? = nil) {
@@ -75,6 +95,10 @@ final class KeyboardKey: UIButton {
         addTarget(self, action: #selector(upOutside), for: .touchUpOutside)
         addTarget(self, action: #selector(reenter), for: .touchDragEnter)
         updateAppearance()
+        // Dynamic fills can change opacity between light and dark appearance.
+        registerForTraitChanges(UITraitCollection.systemTraitsAffectingColorAppearance) { (key: KeyboardKey, _: UITraitCollection) in
+            key.updateShadowPath()
+        }
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -88,6 +112,7 @@ final class KeyboardKey: UIButton {
 
     override func layoutSubviews() {
         super.layoutSubviews()
+        updateShadowPath()
         hintLabel.frame = CGRect(x: 0, y: 2, width: bounds.width, height: 11)
         if hint != nil { titleLabel?.center.y = bounds.height * 0.59 }
         imageView?.isHidden = hasSkinArtwork
@@ -240,7 +265,10 @@ final class KeyboardKey: UIButton {
 
     override var isHighlighted: Bool { didSet { updateAppearance() } }
 
-    private func updateAppearance() { backgroundColor = isHighlighted ? KeyboardPalette.pressed : fillColor; artwork.alpha = isHighlighted ? 0.75 : 1 }
+    private func updateAppearance() {
+        backgroundColor = isHighlighted ? KeyboardPalette.pressed : fillColor; artwork.alpha = isHighlighted ? 0.75 : 1
+        updateShadowPath()
+    }
 
     @objc private func down() {
         pressDown(deferred: false)
