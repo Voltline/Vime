@@ -89,7 +89,16 @@ nonisolated final class JapaneseCandidateEngine {
         _ = userDictionary.nativeEntries()
     }
 
-    private var alternativeSession: KanaKanjiConverter.ConversionSessionID?
+    /// An n-boundary alternate keeps its separator at a fixed input index while
+    /// typing continues at the end, so one session per shape extends its lattice
+    /// incrementally. Moving a separator within one session is never attempted.
+    private struct AlternativeShape: Hashable {
+        let separator: Int
+        let inserted: Int
+    }
+    private var alternativeSessions: [AlternativeShape: KanaKanjiConverter.ConversionSessionID] = [:]
+    private var alternativeSessionOrder: [AlternativeShape] = []
+    static let maximumAlternativeSessions = 6
     private var classicTypoSession: KanaKanjiConverter.ConversionSessionID?
     private var prefixSession: KanaKanjiConverter.ConversionSessionID?
     private var widthSession: KanaKanjiConverter.ConversionSessionID?
@@ -127,6 +136,30 @@ nonisolated final class JapaneseCandidateEngine {
     private func invalidateNativeResults() {
         correctionCache = [:]; correctionCacheOrder = []
         firstClausePrefixCache.removeAll()
+        removeAlternativeSessions()
+    }
+
+    private func alternativeSession(for alternative: ComposingText, query: ComposingText) -> KanaKanjiConverter.ConversionSessionID {
+        let shape = AlternativeShape(separator: alternative.input.firstIndex { $0.piece == .compositionSeparator } ?? -1,
+                                     inserted: alternative.input.count - query.input.count)
+        if let session = alternativeSessions[shape] {
+            if let index = alternativeSessionOrder.firstIndex(of: shape) { alternativeSessionOrder.remove(at: index) }
+            alternativeSessionOrder.append(shape)
+            return session
+        }
+        if alternativeSessionOrder.count >= Self.maximumAlternativeSessions,
+           let session = alternativeSessions.removeValue(forKey: alternativeSessionOrder.removeFirst()) {
+            converter.removeSession(session)
+        }
+        let session = converter.createSession()
+        alternativeSessions[shape] = session
+        alternativeSessionOrder.append(shape)
+        return session
+    }
+
+    private func removeAlternativeSessions() {
+        for session in alternativeSessions.values { converter.removeSession(session) }
+        alternativeSessions = [:]; alternativeSessionOrder = []
     }
     static let maximumCorrectionQueries = 24
     static let correctionBudgetSeconds: TimeInterval = 0.060
@@ -291,16 +324,11 @@ nonisolated final class JapaneseCandidateEngine {
         for alternative in RomajiConverter.nReadingAlternatives(for: query)
         where alternative.input.count <= maxWordLength || alternative.convertTarget.count <= maxWordLength {
             guard !cancelled() else { return [] }
-            let session = alternativeSession ?? converter.createSession()
-            alternativeSession = session
             // Separate conversion state, shared dictionary/cache; no second
             // dictionary instance and no mutation of the literal query session.
+            let session = alternativeSession(for: alternative, query: query)
             guard let result = try? converter.withSession(session, operation: {
-                // Alternative boundaries are unrelated queries. Incremental
-                // separator replacement can leave invalid upstream lattice
-                // ranges on long sentences; retain caches, discard that state.
-                converter.stopComposition()
-                return converter.requestCandidates(alternative, options: alternativeOptions)
+                converter.requestCandidates(alternative, options: alternativeOptions)
             }) else { continue }
             guard !cancelled() else { return [] }
             let reading = RomajiConverter.katakana(alternative.convertTarget)
@@ -368,16 +396,28 @@ nonisolated final class JapaneseCandidateEngine {
                 if let results { firstClausePrefixCache.insert(results, for: prefix) }
             }
             KeyboardPerformance.record(.prefixConversion, since: prefixStarted)
+            // Prefix results share a few consuming counts; resolve each once.
+            var consumedCounts: [(count: ComposingCount, consumed: Int)] = []
             for (index, candidate) in (results ?? []).enumerated() where candidate.inputable {
                 guard !cancelled() else { return [] }
-                var rest = prefix; rest.prefixComplete(composingCount: candidate.composingCount)
-                let count = prefix.convertTarget.count - rest.convertTarget.count
+                let count: Int
+                if let cached = consumedCounts.first(where: { $0.count == candidate.composingCount }) { count = cached.consumed }
+                else {
+                    var rest = prefix; rest.prefixComplete(composingCount: candidate.composingCount)
+                    count = prefix.convertTarget.count - rest.convertTarget.count
+                    consumedCounts.append((candidate.composingCount, count))
+                }
                 guard count > 0 else { continue }
-                let remainder = CompositionSegmentBoundary.remainder(of: composing, consuming: count)
+                let remainder: ComposingText
+                if let cached = segmentRemainders[count] { remainder = cached }
+                else {
+                    remainder = CompositionSegmentBoundary.remainder(of: composing, consuming: count)
+                    segmentRemainders[count] = remainder
+                }
                 var value = CandidateSnapshot(candidate: candidate, revision: revision, source: .conversion,
                     remainingComposition: remainder, originalInputCount: composing.input.count,
                     consumedInputCount: max(0, composing.input.count - remainder.input.count),
-                    queryReading: RomajiConverter.katakana(query.convertTarget), engineRank: index)
+                    queryReading: queryReading, engineRank: index)
                 value.consumedReadingCount = count
                 value.scopeReading = RomajiConverter.katakana(String(query.convertTarget.prefix(count)))
                 currentPool.append(value)
@@ -1210,7 +1250,8 @@ nonisolated final class JapaneseCandidateEngine {
             preferenceMemory?.resetRecent()
             if let learningSession { try? converter.withSession(learningSession) { converter.stopComposition() } }
         }
-        for session in [alternativeSession, correctionSession, classicTypoSession, contextSession, prefixSession, widthSession].compactMap({ $0 }) {
+        removeAlternativeSessions()
+        for session in [correctionSession, classicTypoSession, contextSession, prefixSession, widthSession].compactMap({ $0 }) {
             try? converter.withSession(session) { converter.stopComposition() }
         }
     }
@@ -1221,6 +1262,7 @@ nonisolated final class JapaneseCandidateEngine {
         correctionCache.removeAll(keepingCapacity: false)
         correctionCacheOrder.removeAll(keepingCapacity: false)
         firstClausePrefixCache.removeAll()
+        removeAlternativeSessions()
         rawDiagnostics.removeAll(keepingCapacity: false)
         finalDiagnostics.removeAll(keepingCapacity: false)
         correctionQueryDiagnostics.removeAll(keepingCapacity: false)
