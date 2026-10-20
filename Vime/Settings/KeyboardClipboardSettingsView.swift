@@ -33,7 +33,7 @@ struct KeyboardClipboardSettingsView: View {
                     Button(role: .destructive) {
                         Task {
                             do { try await history.clear(); historyCount = 0; historyError = nil }
-                            catch { historyError = "清空失败，请稍后重试" }
+                            catch { historyError = String(localized: "清空失败，请稍后重试") }
                         }
                     } label: {
                         AppSettingsActionRow(title: "清空剪贴板历史", subtitle: "当前 \(historyCount) 条记录", symbol: "trash", accessory: "")
@@ -41,7 +41,7 @@ struct KeyboardClipboardSettingsView: View {
                     .disabled(historyCount == 0)
                     .accessibilityIdentifier("vime.settings.clipboard.clear")
                 }
-                Text(historyError ?? "历史仅在本机保留 24 小时，不上传。关闭此功能会清空历史。")
+                Text(historyError ?? String(localized: "历史仅在本机保留 24 小时，不上传。关闭此功能会清空历史。"))
                     .font(.footnote).foregroundStyle(.secondary).lineSpacing(4).padding(.horizontal, 4)
             }
 
@@ -86,7 +86,7 @@ struct KeyboardClipboardSettingsView: View {
                 if !enabled { try await history.clear(includingReadState: true) }
                 historyCount = try await history.entries().count
                 historyError = nil
-            } catch { historyError = "历史暂时无法读取，请稍后重试" }
+            } catch { historyError = String(localized: "历史暂时无法读取，请稍后重试") }
         }
         .alert("开启自动读取剪贴板？", isPresented: $confirming) {
             Button("取消", role: .cancel) {}

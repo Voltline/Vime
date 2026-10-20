@@ -1,0 +1,129 @@
+# Vime Privacy Policy
+
+Updated: 2026-10-20
+
+Effective: 2026-10-20
+
+This policy applies to the Vime app (the “app”) and its iOS keyboard extension (the “keyboard”), together “Vime”.
+
+Vime is a Japanese keyboard provided by the developer Voltline (“we”). We take your personal information seriously and handle it lawfully, fairly, only as necessary and in good faith. This policy explains what information Vime handles when you use it, why, where it is kept, for how long, and how you can manage it. **Please read this policy before using Vime, especially the parts in bold**. Declining or withdrawing optional permissions does not affect basic typing.
+
+## Key Points
+
+- **Typing happens on your device**. Conversion, correction, smart ranking and suggestions all run on your device. Vime contains no networking code and never uploads your input or clipboard content to us or anyone else.
+- **No account, no ads, no tracking**. Vime needs no sign-up, includes no third-party advertising, analytics or crash-reporting SDKs, and does not track you across apps.
+- **Optional features are off until you turn them on**. Clipboard reading is off by default; Allow Full Access is used only for sounds and haptics, sharing data between the app and the keyboard, and the clipboard feature.
+- **You stay in control**. You can clear learning data, delete dictionary entries and skins, clear clipboard history, or remove the keyboard and the app at any time.
+
+## Contents
+
+- [1. How We Handle Your Information](#1-how-we-handle-your-information)
+- [2. System Permissions](#2-system-permissions)
+- [3. Storage](#3-storage)
+- [4. Sharing, Transfer and Disclosure](#4-sharing-transfer-and-disclosure)
+- [5. How We Protect Your Information](#5-how-we-protect-your-information)
+- [6. Your Rights](#6-your-rights)
+- [7. Children's Privacy](#7-childrens-privacy)
+- [8. Changes to This Policy](#8-changes-to-this-policy)
+- [9. Contact Us](#9-contact-us)
+
+## 1. How We Handle Your Information
+
+1.1 **Principles**. Vime handles only the information needed for the features you use, and all processing happens on your device. We run no servers that store your input or personal data, so we cannot see or obtain any of that data on your device.
+
+1.2 **Information each feature handles**. The table below lists, for each feature, the information handled, its purpose, and where and how long it is kept:
+
+| Feature | Information handled | Purpose | Storage and retention |
+| --- | --- | --- | --- |
+| Typing and conversion | The keys and kana you type; part of the text around the cursor that the host app provides to keyboards through iOS | Generate conversion candidates, corrections and segmented conversion | Processed in memory only; not stored separately |
+| Smart ranking and next-word suggestions | The text before the cursor in the current sentence, and candidate words | Let the on-device language model order candidates and suggest following words | Processed in memory only; not stored separately |
+| Personal learning | Words and readings you confirm, how often and when; preceding text is kept only as hashes | Rank the words you use often higher | On this device; up to 2,048 preference records and 8,192 conversion records, kept until you clear them or delete the app |
+| User dictionary | Readings, words and phrases you add | Offer them as conversion candidates | On this device; up to 1,024 entries, kept until you delete them |
+| Clipboard (off by default) | Text on the clipboard and when it was read | Offer paste suggestions in the candidate bar and keep recent history | On this device; only the last 24 hours, up to 100 entries and 1 MB in total; excluded from system backups |
+| Skins | Skins you create or import, and images you choose | Display the keyboard's appearance | On this device; kept until you delete them |
+| Keyboard settings | Options such as keyboard height, sounds, haptics and ranking mode | Remember your preferences | On this device; kept until you change them or delete the app |
+| Keyboard status | When the keyboard was last used, whether Full Access is on, and the version and paused state of the on-device model | Show the keyboard's status on the app's Settings page | On this device; overwritten each time the keyboard is used, keeping only the latest |
+| Diagnostics | Text you type and events on the Diagnostics page | Let you copy a test log to report a problem yourself | Held in memory only while the page is open; never saved or uploaded automatically |
+
+1.3 **Preceding text in learning data**. To fit candidates to context, learning data is matched using SHA-256 hashes of the last 12 and the last 4 characters before the cursor; the text itself is not stored. Hashes are used for matching and are not the same as encryption or anonymization.
+
+1.4 **What we don't do**. We don't collect your name, phone number, location, contacts, device identifiers or advertising identifiers; we don't use your input, clipboard or personal data for advertising, profiling or cloud model training; and Vime includes no third-party SDKs.
+
+1.5 **Feedback you send**. When you send us a problem description, screenshots or test logs through the channel below, we use them only as needed to investigate, resolve and reply. Test logs may contain text you typed; please check them and remove anything sensitive before sending.
+
+## 2. System Permissions
+
+2.1 Vime uses the following system permissions only when a feature needs them. **Basic typing needs no permissions**.
+
+| Permission | Purpose | Required | How to manage |
+| --- | --- | --- | --- |
+| Keyboard “Allow Full Access” | Play key sounds and haptics; share settings, the user dictionary, learning data, skins and keyboard status between the app and the keyboard; read the clipboard | No | iOS Settings › General › Keyboard › Keyboards › Vime 日本語 |
+| Reading the clipboard | Offer paste suggestions and recent history in the candidate bar | No, off by default | Vime Settings › Clipboard; the iOS paste permission prompt |
+| Photos (only images you choose) | Set skin backgrounds and key images | No | Through the system photo picker, Vime receives only the images you select and cannot access your whole library |
+| Files | Import or export skins and the user dictionary | No | Through the system file picker, Vime handles only the files you select |
+
+2.2 Turning on Allow Full Access does not change how information is used under this policy, and does not mean you agree to have your input uploaded. The clipboard may contain passwords, verification codes or other sensitive information; turn on the clipboard feature only if you need it.
+
+## 3. Storage
+
+3.1 **Where**. The information above is kept only on your device, in storage shared by the app and the keyboard. It is never sent to any server, and it is not transferred across borders.
+
+3.2 **How long**. Retention for each kind of information is listed in the table in Section 1. Records beyond their time or size limits are removed automatically when the feature runs; deleting the Vime app deletes all of its data on your device.
+
+3.3 **System backups**. If you use iCloud Backup or back up your device to a computer, Vime's settings, user dictionary, learning data, skins and keyboard status may be included in the backup and restored with it; backups are provided by Apple or the service you choose and follow their privacy terms. Clipboard history is excluded from backups.
+
+## 4. Sharing, Transfer and Disclosure
+
+4.1 We do not sell, rent, share or transfer your personal information to any third party, and we do not disclose it publicly. Because this data stays on your device, we have none to provide.
+
+4.2 **Transfers you start**. Text you confirm or paste with the keyboard is received by the app you are using; when you export or share files or send feedback, the content goes to the recipient you choose. Their privacy policies apply.
+
+4.3 **System and external services**. When you open external links or use system backups, Universal Clipboard and similar features, those services are provided by Apple or other providers under their own privacy terms. Vime offers no cloud sync of its own.
+
+## 5. How We Protect Your Information
+
+5.1 We use safeguards suited to the information involved: all processing happens on your device; preceding text in learning data is kept only as hashes; clipboard history is limited in time and size and excluded from system backups; and system logs record only runtime state such as process and memory, never the text you type.
+
+5.2 The security of data on your device also depends on the device itself. Please use a passcode, keep iOS up to date, and grant permissions and manage backups with care.
+
+5.3 If an incident affects the security of your personal information, we will take prompt remedial action and notify you as required by applicable law.
+
+## 6. Your Rights
+
+6.1 **Access and correction**. You can view and change settings, the user dictionary and custom skins in the app; the Settings page shows how many words have been learned and how many dictionary entries you have.
+
+6.2 **Deletion**. You can delete local data as follows:
+
+| Data | How to delete |
+| --- | --- |
+| Learning data | App: Settings › Learning & Privacy › Clear Learning Data; it is cleared the next time the keyboard opens |
+| User dictionary | App: Settings › User Dictionary, entry by entry |
+| Clipboard history | App: Settings › Clipboard › Clear Clipboard History, or clear it from the keyboard's clipboard history; turning off the clipboard feature also deletes it |
+| Custom skins | Delete them on the app's Customize page |
+| All data | Delete the Vime app |
+
+6.3 **Withdrawing consent**. You can turn off the clipboard, smart ranking or next-word suggestions at any time, turn off Allow Full Access in iOS Settings, or remove the keyboard. **Turning off smart ranking or next-word suggestions does not delete existing learning data, and deleting dictionary entries does not delete existing learning data either**. Withdrawing consent does not affect processing that took place before.
+
+6.4 **Account deletion**. Vime has no accounts, so there is nothing to delete.
+
+6.5 **Requests**. To exercise other rights regarding your personal information or ask us to explain how it is handled, contact us through the channel in Section 9. We cannot access or delete data that exists only on your device, but we will explain how you can manage it.
+
+## 7. Children's Privacy
+
+7.1 If you are under 14, please read this policy with a parent or guardian and get their consent before using features that need permissions. Parents and guardians should help manage device permissions, especially the clipboard feature, which may involve sensitive content.
+
+7.2 We do not ask for age or identity information and do not target children with advertising or profiling. Parents and guardians with questions can contact us through the channel in Section 9.
+
+## 8. Changes to This Policy
+
+8.1 We may update this policy as Vime's features or the law change, and will publish the updated policy and its date in the app.
+
+8.2 If an update significantly changes the purpose, means or scope of processing, we will notify you prominently, for example with a pop-up or in-app notice, and will obtain your consent where the law requires. Updates will not reduce your rights under the law.
+
+## 9. Contact Us
+
+9.1 The developer Voltline is responsible for the processing described in this policy. If you have questions, comments or suggestions about this policy, or want to exercise your rights regarding personal information, contact us on the Vime project's Issues page: https://github.com/Voltline/Vime/issues .
+
+9.2 **That page is public, so please do not post passwords, verification codes, full chat logs or clipboard content there**. We will reply within 15 business days of receiving your request.
+
+Contact: [Vime Issues](https://github.com/Voltline/Vime/issues)

@@ -17,7 +17,7 @@ final class KeyboardHeightAdjustmentView: UIView {
         line.backgroundColor = .secondaryLabel; line.layer.cornerRadius = 3
         grip.addSubview(line); addSubview(grip)
         grip.accessibilityIdentifier = "vime.height.grip"
-        grip.isAccessibilityElement = true; grip.accessibilityLabel = "上下拖动调整键盘高度"
+        grip.isAccessibilityElement = true; grip.accessibilityLabel = String(localized: "上下拖动调整键盘高度")
         grip.addGestureRecognizer(UIPanGestureRecognizer(target: self, action: #selector(drag(_:))))
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }

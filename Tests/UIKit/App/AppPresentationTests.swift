@@ -27,6 +27,94 @@ final class AppPresentationTests: XCTestCase {
             window.isHidden = true
         }
     }
+    static let reportedStatus = Vime.KeyboardExtensionStatus(lastSeen: Date(), fullAccess: true,
+        modelVersion: "4.2-epoch20-step1081942-int8-b32-v1")
+    static func settingsSummary(status: Vime.KeyboardExtensionStatus?) -> Vime.KeyboardSettingsSummary {
+        Vime.KeyboardSettingsSummary(status: status, ranking: .languageModel, suggestions: true, hapticIntensity: 0.6,
+            nineKeyNumbers: true, autoPairBrackets: true, symbolCount: 12, clipboard: false, appVersion: "1.0")
+    }
+
+    func testExtensionStatusRoundTripsOnlyFromTheExtensionProcess() throws {
+        let suite = "vime.tests.status." + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        XCTAssertFalse(Vime.KeyboardExtensionStatus.isExtensionProcess, "The test host is the app")
+        Vime.KeyboardExtensionStatus.update(defaults: defaults) { $0.fullAccess = true }
+        XCTAssertNil(Vime.KeyboardExtensionStatus.load(from: defaults), "The app must never report keyboard activity")
+        let seen = Date(timeIntervalSince1970: 1_800_000_000)
+        Vime.KeyboardExtensionStatus.update(defaults: defaults, requireExtension: false) {
+            $0.lastSeen = seen; $0.fullAccess = true; $0.modelVersion = "4.2-epoch20-step1081942-int8-b32-v1"
+        }
+        Vime.KeyboardExtensionStatus.update(defaults: defaults, requireExtension: false) { $0.modelPaused = true }
+        let status = try XCTUnwrap(Vime.KeyboardExtensionStatus.load(from: defaults))
+        XCTAssertEqual(status.lastSeen, seen)
+        XCTAssertTrue(status.fullAccess)
+        XCTAssertTrue(status.modelPaused, "Later reports keep earlier fields")
+        XCTAssertEqual(status.modelShortVersion, "4.2")
+    }
+
+    func testSettingsSummaryDescribesRankingFeelAndSymbols() {
+        var summary = Self.settingsSummary(status: nil)
+        XCTAssertEqual(summary.rankingValue, "待使用")
+        summary.status = Self.reportedStatus
+        XCTAssertEqual(summary.rankingValue, "V4.2 就绪")
+        summary.status?.modelPaused = true
+        XCTAssertEqual(summary.rankingValue, "已暂停")
+        summary.status?.modelPaused = false; summary.status?.modelVersion = nil
+        XCTAssertEqual(summary.rankingValue, "待加载")
+        summary.ranking = .engine
+        XCTAssertEqual(summary.rankingValue, "词典排序")
+        XCTAssertEqual(summary.feelDetail, "振动中 · 九宫格")
+        summary.hapticIntensity = 0; summary.nineKeyNumbers = false
+        XCTAssertEqual(summary.feelDetail, "振动关 · 全键盘")
+        summary.hapticIntensity = 0.35
+        XCTAssertEqual(summary.feelDetail, "振动35% · 全键盘")
+        XCTAssertEqual(summary.symbolDetail, "12 个常用 · 自动配对开")
+    }
+
+    func testLearnedConversionCountIsDistinctReadingAndSurface() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let memory = Vime.CandidatePreferenceMemory(directory: directory)
+        let now = Date()
+        memory.record(reading: "ハシ", surface: "橋", scope: "conversion", now: now)
+        memory.record(reading: "ハシ", surface: "橋", context: "川を", scope: "conversion", now: now)
+        memory.record(reading: "ハシ", surface: "箸", scope: "conversion", now: now)
+        memory.record(reading: "ハシ", surface: "端", context: "", scope: "choice", now: now)
+        memory.flush()
+        XCTAssertEqual(Vime.CandidatePreferenceMemory(directory: directory).learnedConversionCount, 2)
+    }
+
+    func testEveryLanguageBundleResolvesAppAndKeyboardStrings() throws {
+        let expected: [String: [String: String]] = [
+            "zh-Hant": ["设置": "設定", "剪贴板": "剪貼簿", "符号与括号": "符號與括號", "%lld 条": "%lld 條"],
+            "ja": ["设置": "設定", "剪贴板": "クリップボード", "符号与括号": "記号と括弧", "%lld 条": "%lld 件"],
+            "en": ["设置": "Settings", "剪贴板": "Clipboard", "符号与括号": "Symbols & Brackets", "%lld 条": "%lld entries"],
+        ]
+        for (language, values) in expected {
+            let path = try XCTUnwrap(Bundle.main.path(forResource: language, ofType: "lproj"), language)
+            let bundle = try XCTUnwrap(Bundle(path: path))
+            for (key, value) in values {
+                XCTAssertEqual(bundle.localizedString(forKey: key, value: nil, table: nil), value, "\(language): \(key)")
+            }
+            // Runtime keys (symbol categories, license fields) are catalog entries too.
+            XCTAssertNotEqual(bundle.localizedString(forKey: "箭头", value: nil, table: nil), "箭头", language)
+            XCTAssertNotEqual(bundle.localizedString(forKey: "假名汉字转换与预测", value: nil, table: nil), "假名汉字转换与预测", language)
+        }
+    }
+
+    func testEveryPrivacyPolicyTranslationLoadsWithTheSourceStructure() throws {
+        let source = try Vime.PrivacyPolicy.load(language: "zh-Hans")
+        for language in Vime.PrivacyPolicy.translations {
+            let policy = try Vime.PrivacyPolicy.load(language: language)
+            XCTAssertEqual(policy.updated, source.updated, language)
+            XCTAssertEqual(policy.highlights.count, source.highlights.count, language)
+            XCTAssertEqual(policy.sections.map(\.paragraphs.count), source.sections.map(\.paragraphs.count), language)
+            XCTAssertNotEqual(policy.introduction, source.introduction, "\(language) must not fall back to the source text")
+        }
+    }
+
     func testNumberSymbolLinkRoutesDirectlyToAppEditorAndRejectsOtherURLs() throws {
         let router = Vime.AppRouter()
         router.openURL(Vime.KeyboardNumberSymbols.settingsURL)
@@ -128,23 +216,31 @@ final class AppPresentationTests: XCTestCase {
         XCTAssertFalse(policy.introduction.isEmpty)
         XCTAssertEqual(policy.effective, policy.updated)
         XCTAssertTrue(policy.sections.contains { $0.title.contains("系统权限") })
-        let paragraphs = policy.sections.flatMap(\.paragraphs)
-        let clipboardPolicy = try XCTUnwrap(paragraphs.first { $0.contains("剪贴板信息") })
-        XCTAssertTrue(clipboardPolicy.contains("默认关闭"))
-        XCTAssertTrue(clipboardPolicy.contains("仅保存在本机"))
-        XCTAssertTrue(clipboardPolicy.contains("不会上传"))
-        XCTAssertTrue(paragraphs.contains { $0.contains("不会同时删除已有学习记录") })
+        let paragraphs = policy.sections.flatMap(\.paragraphs).map(\.text)
+        XCTAssertTrue(policy.highlights.contains { $0.contains("不包含任何联网代码") })
+        let clipboardPolicy = try XCTUnwrap(paragraphs.first { $0.contains("剪贴板（默认关闭）") })
+        XCTAssertTrue(clipboardPolicy.contains("不纳入系统备份"))
+        XCTAssertTrue(clipboardPolicy.contains("最近 24 小时"))
+        XCTAssertTrue(paragraphs.contains { $0.contains("删除词典条目也不会同时删除已有学习记录") })
+        XCTAssertTrue(paragraphs.contains { $0.contains("键盘状态") }, "The status record shown in Settings is disclosed")
+        XCTAssertTrue(paragraphs.contains { $0.contains("清空学习记录") }, "The in-app learning reset is the documented deletion path")
         let licenseComponent = try XCTUnwrap(catalog.components.first { $0.id == "azookey" })
-        for (name, page) in [("试打", AnyView(Vime.KeyboardHomeView())),
-                             ("试打-大字", AnyView(Vime.KeyboardHomeView().environment(\.dynamicTypeSize, .accessibility1))),
-                             ("试打-深色", AnyView(Vime.KeyboardHomeView().environment(\.colorScheme, .dark))),
-                             ("设置", AnyView(Vime.KeyboardSettingsView())),
-                             ("设置-大字", AnyView(Vime.KeyboardSettingsView().environment(\.dynamicTypeSize, .accessibility1))),
+        for (name, page) in [("试打-未检测", AnyView(Vime.KeyboardHomeView(keyboardReady: false))),
+                             ("试打", AnyView(Vime.KeyboardHomeView(keyboardReady: true))),
+                             ("试打-大字", AnyView(Vime.KeyboardHomeView(keyboardReady: false).environment(\.dynamicTypeSize, .accessibility1))),
+                             ("试打-深色", AnyView(Vime.KeyboardHomeView(keyboardReady: true).environment(\.colorScheme, .dark))),
+                             ("设置-未检测", AnyView(Vime.KeyboardSettingsView(summary: Self.settingsSummary(status: nil)))),
+                             ("设置-运行正常", AnyView(Vime.KeyboardSettingsView(summary: Self.settingsSummary(status: Self.reportedStatus),
+                                 counts: .init(dictionary: 24, learned: 312)))),
+                             ("设置-运行正常-深色", AnyView(Vime.KeyboardSettingsView(summary: Self.settingsSummary(status: Self.reportedStatus),
+                                 counts: .init(dictionary: 24, learned: 312)).environment(\.colorScheme, .dark))),
+                             ("设置-运行正常-大字", AnyView(Vime.KeyboardSettingsView(summary: Self.settingsSummary(status: Self.reportedStatus),
+                                 counts: .init(dictionary: 24, learned: 312)).environment(\.dynamicTypeSize, .accessibility1))),
                              ("定制", AnyView(Vime.KeyboardSkinsView().environmentObject(Vime.AppRouter()))),
                              ("定制-大字", AnyView(Vime.KeyboardSkinsView().environmentObject(Vime.AppRouter()).environment(\.dynamicTypeSize, .accessibility1))),
                              ("定制-深色", AnyView(Vime.KeyboardSkinsView().environmentObject(Vime.AppRouter()).environment(\.colorScheme, .dark))),
-                             ("数据与隐私", AnyView(Vime.KeyboardDataPrivacyView())),
-                             ("数据与隐私-大字", AnyView(Vime.KeyboardDataPrivacyView().environment(\.dynamicTypeSize, .accessibility1))),
+                             ("学习与隐私", AnyView(Vime.KeyboardDataPrivacyView())),
+                             ("学习与隐私-大字", AnyView(Vime.KeyboardDataPrivacyView().environment(\.dynamicTypeSize, .accessibility1))),
                              ("剪贴板设置", AnyView(Vime.KeyboardClipboardSettingsView())),
                              ("剪贴板设置-大字", AnyView(Vime.KeyboardClipboardSettingsView().environment(\.dynamicTypeSize, .accessibility1))),
                              ("剪贴板设置-深色", AnyView(Vime.KeyboardClipboardSettingsView().environment(\.colorScheme, .dark))),
@@ -155,8 +251,8 @@ final class AppPresentationTests: XCTestCase {
                              ("用户词典", AnyView(Vime.KeyboardUserDictionaryView())),
                              ("手感与布局", AnyView(Vime.KeyboardFeedbackSettingsView().environmentObject(Vime.AppRouter()))),
                              ("手感与布局-大字", AnyView(Vime.KeyboardFeedbackSettingsView().environmentObject(Vime.AppRouter()).environment(\.dynamicTypeSize, .accessibility1))),
-                             ("常用符号", AnyView(Vime.KeyboardNumberSymbolsView())),
-                             ("常用符号-大字", AnyView(Vime.KeyboardNumberSymbolsView().environment(\.dynamicTypeSize, .accessibility1))),
+                             ("符号与括号", AnyView(Vime.KeyboardNumberSymbolsView())),
+                             ("符号与括号-大字", AnyView(Vime.KeyboardNumberSymbolsView().environment(\.dynamicTypeSize, .accessibility1))),
                              ("隐私政策", AnyView(Vime.PrivacyPolicyView()))] {
             let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
             let controller = UIHostingController(rootView: NavigationStack { page })

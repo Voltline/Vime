@@ -16,6 +16,19 @@ python3 Scripts/validate_model_resources.py
 
 App 的分组件许可与隐私政策可以用 `python3 Scripts/validate_app_resources.py` 校验，构建产物可传 `--resources <Vime.app>`，以检查声明原文和公开政策的一致性
 
+## 本地化
+
+App 与键盘支持简体中文（源语言）、繁体中文、日语和英语。界面文字统一放在 [Localizable.xcstrings](../Shared/Resources/Localizable.xcstrings)，由 App 与键盘扩展共用：
+
+- SwiftUI 字面量（`Text`、`Button`、`Toggle`、`navigationTitle` 等）自动提取；自定义组件的文字参数使用 `LocalizedStringResource`，不要用 `String` 接收再交给 `Text`。
+- 计算出的文字和 UIKit 标签使用 `String(localized:)`，整句作为一个 key，用插值代替字符串拼接，便于各语言调整语序。
+- 同时作为逻辑标识的文字（如数字键盘的按键值、符号分组名、许可清单字段）保留中文原值作为 ID，显示时再用 `String(localized: String.LocalizationValue(...))` 查找；这类运行时 key 在目录中标记为 manual。
+- 「変換 / 次候補 / 確定」等日语输入法惯用语在中文和日文界面保持原样，英文界面译为 Convert / Next / Confirm。
+
+新增或修改文字后运行 `xcodebuild -exportLocalizations -project Vime.xcodeproj -scheme Vime -localizationPath <目录>` 同步目录，再补全三种语言的翻译。`python3 Scripts/validate_app_resources.py` 会拒绝任何未翻译的条目。隐私政策按语言保存为 `Vime/Resources/PrivacyPolicy[-zh-Hant|-ja|-en].json`，公开文本由 `--write-policy` 生成，校验要求各语言日期和结构一致。
+
+测试断言使用简体中文界面文字，共享 scheme 的测试语言固定为 `zh-Hans` / `CN`，不随模拟器系统语言变化。
+
 ## 测试层次
 
 | 层次 | 覆盖范围 | 边界 |

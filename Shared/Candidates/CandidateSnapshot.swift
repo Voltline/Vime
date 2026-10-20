@@ -5,8 +5,8 @@ nonisolated enum CandidateWidthVariant: String, Codable, Sendable {
     case halfWidthKatakana, fullWidthAlphanumeric
     var annotation: String {
         switch self {
-        case .halfWidthKatakana: "半角片假名"
-        case .fullWidthAlphanumeric: "全角英数字"
+        case .halfWidthKatakana: String(localized: "半角片假名")
+        case .fullWidthAlphanumeric: String(localized: "全角英数字")
         }
     }
 }
@@ -74,11 +74,11 @@ nonisolated struct CandidateSnapshot: Sendable {
     var hasLearningEvidence: Bool { candidate.data.contains { $0.metadata.contains(.isLearned) } }
     var presentation: CandidatePresentation {
         .init(text: text, source: source, consumedInputCount: consumedInputCount, correction: correction,
-            detailAnnotation: widthVariant.map { $0.annotation + (fullConsumption ? "" : " · 前段") }
-                ?? (source == .specialConversion ? "格式转换" : source == .emoji ? "表情"
+            detailAnnotation: widthVariant.map { fullConsumption ? $0.annotation : String(localized: "\($0.annotation) · 前段") }
+                ?? (source == .specialConversion ? String(localized: "格式转换") : source == .emoji ? String(localized: "表情")
                 : source == .userDictionary ? "用户词典"
-                : source == .rememberedConversion ? "个人记忆"
-                : !fullConsumption ? (reading.applyingTransform(.hiraganaToKatakana, reverse: true) ?? reading) + " · 前段" : nil))
+                : source == .rememberedConversion ? String(localized: "个人记忆")
+                : !fullConsumption ? String(localized: "\(reading.applyingTransform(.hiraganaToKatakana, reverse: true) ?? reading) · 前段") : nil))
     }
 
     init(candidate: Candidate, revision: Int, source: CandidateSource, remainingComposition: ComposingText,

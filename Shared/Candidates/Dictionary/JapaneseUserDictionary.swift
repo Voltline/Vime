@@ -16,10 +16,10 @@ nonisolated final class JapaneseUserDictionaryStore {
         case invalidReading, invalidSurface, tooLarge, invalidArchive
         var errorDescription: String? {
             switch self {
-            case .invalidReading: "读音需为 1–64 个假名，可先输入完整罗马字。"
-            case .invalidSurface: "词语或短语需为 1–128 个字符，不能包含控制字符。"
-            case .tooLarge: "词典最多支持 1,024 条，导入文件不能超过 1 MB。"
-            case .invalidArchive: "无法读取词典，请使用 Vime 导出的 JSON 格式。"
+            case .invalidReading: String(localized: "读音需为 1–64 个假名，可先输入完整罗马字。")
+            case .invalidSurface: String(localized: "词语或短语需为 1–128 个字符，不能包含控制字符。")
+            case .tooLarge: String(localized: "词典最多支持 1,024 条，导入文件不能超过 1 MB。")
+            case .invalidArchive: String(localized: "无法读取词典，请使用 Vime 导出的 JSON 格式。")
             }
         }
     }

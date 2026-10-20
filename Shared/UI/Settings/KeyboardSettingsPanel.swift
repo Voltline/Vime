@@ -50,7 +50,7 @@ final class KeyboardSettingsPanel: UIScrollView {
         // Keep both destinations at the top without displacing feedback controls
         // from the first landscape screen. Large text gets full-width rows.
         shortcuts.spacing = 8
-        let historyRow = row(symbol: "clipboard", content: [label("剪贴板历史", weight: .medium)], height: 44)
+        let historyRow = row(symbol: "clipboard", content: [label(String(localized: "剪贴板历史"), weight: .medium)], height: 44)
         history.addSubview(historyRow)
         historyRow.isUserInteractionEnabled = false
         historyRow.translatesAutoresizingMaskIntoConstraints = false
@@ -59,14 +59,14 @@ final class KeyboardSettingsPanel: UIScrollView {
             historyRow.topAnchor.constraint(equalTo: history.topAnchor),
             historyRow.bottomAnchor.constraint(equalTo: history.bottomAnchor)])
         history.accessibilityIdentifier = "vime.setting.clipboardHistory"
-        history.accessibilityLabel = "剪贴板历史"
-        history.accessibilityValue = "最近 24 小时"
+        history.accessibilityLabel = String(localized: "剪贴板历史")
+        history.accessibilityValue = String(localized: "最近 24 小时")
         history.addAction(UIAction { [weak self] _ in self?.onHistory?() }, for: .touchUpInside)
         shortcuts.addArrangedSubview(group(history))
 
         let appSettings = UIButton(type: .custom)
         let appSettingsRow = row(symbol: "slider.horizontal.3",
-            content: [label("App 设置")], height: 44)
+            content: [label(String(localized: "App 设置"))], height: 44)
         appSettingsRow.isUserInteractionEnabled = false
         appSettingsRow.translatesAutoresizingMaskIntoConstraints = false
         appSettings.addSubview(appSettingsRow)
@@ -77,8 +77,8 @@ final class KeyboardSettingsPanel: UIScrollView {
             appSettingsRow.bottomAnchor.constraint(equalTo: appSettings.bottomAnchor)
         ])
         appSettings.accessibilityIdentifier = "vime.setting.openAppSettings"
-        appSettings.accessibilityLabel = "打开 App 设置"
-        appSettings.accessibilityHint = "前往 Vime App 调整更多设置"
+        appSettings.accessibilityLabel = String(localized: "打开 App 设置")
+        appSettings.accessibilityHint = String(localized: "前往 Vime App 调整更多设置")
         appSettings.addAction(UIAction { [weak self] _ in self?.onOpenAppSettings?() }, for: .touchUpInside)
         shortcuts.addArrangedSubview(group(appSettings))
         stack.addArrangedSubview(shortcuts)
@@ -103,7 +103,7 @@ final class KeyboardSettingsPanel: UIScrollView {
             self.hapticValue.text = HapticIntensity.description(value)
             if settled { self.onFeedback?() }
         }
-        let vibration = label("振动")
+        let vibration = label(String(localized: "振动"))
         vibration.setContentHuggingPriority(.required, for: .horizontal)
         let hapticRow = row(symbol: "iphone.radiowaves.left.and.right", content: [vibration, haptics, hapticValue], height: 46, adaptive: true)
         accessibleSliderWidth = haptics.widthAnchor.constraint(equalTo: haptics.superview!.widthAnchor)
@@ -111,7 +111,7 @@ final class KeyboardSettingsPanel: UIScrollView {
         feedback.axis = .vertical
         stack.addArrangedSubview(group(feedback))
 
-        numbers.accessibilityLabel = "数字键盘布局"; numbers.accessibilityIdentifier = "vime.setting.numbers"
+        numbers.accessibilityLabel = String(localized: "数字键盘布局"); numbers.accessibilityIdentifier = "vime.setting.numbers"
         numbers.setContentHuggingPriority(.required, for: .horizontal)
         numbers.widthAnchor.constraint(greaterThanOrEqualToConstant: 150).isActive = true
         numbers.addAction(UIAction { [weak self] _ in
@@ -140,10 +140,10 @@ final class KeyboardSettingsPanel: UIScrollView {
         stack.addArrangedSubview(group(row(symbol: "square.grid.2x2", content: [label("数字布局"), layouts], height: 48, adaptive: true)))
 
         configureTypography(notice, size: 12)
-        notice.text = "声音与振动需允许完全访问"
+        notice.text = String(localized: "声音与振动需允许完全访问")
         stack.addArrangedSubview(notice)
         configureTypography(neuralStatus, size: 12)
-        neuralStatus.text = "内存紧张后已暂停智能排序，词典输入仍可用。点击下方按钮可重试。"
+        neuralStatus.text = String(localized: "内存紧张后已暂停智能排序，词典输入仍可用。点击下方按钮可重试。")
         neuralStatus.accessibilityIdentifier = "vime.settings.neural.status"
         stack.addArrangedSubview(neuralStatus)
         let retryRow = row(symbol: "arrow.clockwise", content: [label("重试智能排序"), icon("chevron.right", size: 13)], height: 44)

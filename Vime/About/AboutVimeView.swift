@@ -27,7 +27,7 @@ struct AboutVimeView: View {
                 }.accessibilityIdentifier("vime.about.licenses")
             }
             AppInformationSection("本地模型") {
-                Text("Vime 日语模型 v2.1")
+                Text("Vime 日语模型 V\(VimeLanguageModel.Variant.runtimeDefault.displayVersion)")
                 Text("用于候选排序和下一词联想，在设备上运行。")
             }
         }
@@ -43,7 +43,7 @@ struct LicenseListView: View {
     private var filtered: [LicenseComponent] {
         let query = search.trimmingCharacters(in: .whitespacesAndNewlines)
         return (catalog?.components ?? []).filter {
-            query.isEmpty || ($0.name + " " + $0.use + " " + $0.license).localizedCaseInsensitiveContains(query)
+            query.isEmpty || ($0.name + " " + $0.localizedUse + " " + $0.license).localizedCaseInsensitiveContains(query)
         }
     }
     var body: some View {
@@ -52,14 +52,14 @@ struct LicenseListView: View {
             ForEach(categories, id: \.self) { category in
                 let rows = filtered.filter { $0.category == category }
                 if !rows.isEmpty {
-                    Section(category) {
+                    Section(LicenseComponent.localizedCategory(category)) {
                         ForEach(rows) { component in
                             NavigationLink {
                                 LicenseDetailView(component: component)
                             } label: {
                                 VStack(alignment: .leading, spacing: 5) {
                                     Text(component.name)
-                                    Text(component.use).font(.caption).foregroundStyle(.secondary)
+                                    Text(component.localizedUse).font(.caption).foregroundStyle(.secondary)
                                     Text(component.license).font(.caption2).foregroundStyle(.secondary)
                                 }.padding(.vertical, 3)
                             }.accessibilityIdentifier("vime.license." + component.id)
@@ -87,7 +87,7 @@ struct LicenseDetailView: View {
     var body: some View {
         AppSettingsPage {
             AppInformationSection("组件信息") {
-                Text(component.use)
+                Text(component.localizedUse)
                 LabeledContent("许可", value: component.license)
                 Text("版权方\n\(component.copyright)")
                 if !component.revision.isEmpty { Text("版本 / 修订\n\(component.revision)") }
@@ -100,7 +100,7 @@ struct LicenseDetailView: View {
                 }
             }
             if !component.modified.isEmpty {
-                AppInformationSection("补充说明") { Text(component.modified) }
+                AppInformationSection("补充说明") { Text(component.localizedModified) }
             }
             AppInformationSection("许可原文") {
                 Text(error ?? notice).font(.footnote).foregroundStyle(.primary).textSelection(.enabled)

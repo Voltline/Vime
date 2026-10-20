@@ -10,10 +10,12 @@ enum KeyboardSymbolCatalog {
         else { return Catalog(version: "", groups: []) }
         return catalog
     }()
+    /// Group names stay stable Chinese IDs; the catalog localizes them for display.
     static func title(for name: String) -> String {
-        ["Smileys & Emotion": "表情", "People & Body": "人物", "Component": "组件",
-         "Animals & Nature": "自然", "Food & Drink": "饮食", "Travel & Places": "出行",
-         "Activities": "活动", "Objects": "物品", "Symbols": "符号", "Flags": "旗帜"][name] ?? name
+        let key = ["Smileys & Emotion": "表情", "People & Body": "人物", "Component": "组件",
+                   "Animals & Nature": "自然", "Food & Drink": "饮食", "Travel & Places": "出行",
+                   "Activities": "活动", "Objects": "物品", "Symbols": "符号", "Flags": "旗帜"][name] ?? name
+        return String(localized: String.LocalizationValue(key))
     }
     /// Text symbols use text presentation even when Unicode also has an emoji
     /// form. In particular arrows must stay small monochrome arrow characters.

@@ -57,6 +57,7 @@ nonisolated final class VimeLanguageModel {
         /// earlier set is missing or fails its identity / Core ML checks.
         static let runtimePreference: [Variant] = [.v42, .v21]
         static var runtimeDefault: Variant { runtimePreference[0] }
+        var displayVersion: String { self == .v21 ? "2.1" : "4.2" }
         var modelResource: String { self == .v21 ? "TinyJapaneseV21INT8" : "TinyJapaneseV42INT8" }
         var tokenizerResource: String { self == .v21 ? "VimeJapaneseTokenizerV2" : "VimeJapaneseTokenizerV4" }
         var manifestResource: String { self == .v21 ? "VimeLMManifestV21" : "VimeLMManifestV42" }

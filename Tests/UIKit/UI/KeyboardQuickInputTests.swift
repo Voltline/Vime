@@ -83,7 +83,12 @@ final class KeyboardQuickInputTests: XCTestCase {
         candidate.layoutIfNeeded()
         XCTAssertFalse(underline.isHidden)
         XCTAssertEqual(underline.bounds.height, 2)
-        XCTAssertEqual(underline.frame.maxY, candidate.bounds.maxY)
+        let title = try XCTUnwrap(candidate.titleLabel)
+        let textBottom = candidate.convert(title.bounds, from: title).maxY
+        XCTAssertGreaterThanOrEqual(underline.frame.minY, textBottom, "The line stays below the glyphs")
+        XCTAssertLessThanOrEqual(underline.frame.minY - textBottom, KeyboardCandidateButton.underlineGap + 4,
+            "The line hugs the candidate text instead of the key row")
+        XCTAssertLessThan(underline.frame.maxY, candidate.bounds.maxY - 4)
         let emoji = try XCTUnwrap(fixture.descendants.first { $0.accessibilityLabel == "表情" })
         XCTAssertFalse(emoji.isHidden)
         XCTAssertGreaterThan(emoji.frame.minY, candidate.frame.maxY)

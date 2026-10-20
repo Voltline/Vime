@@ -14,7 +14,7 @@ final class ClipboardSuggestionView: UIView {
         accessibilityIdentifier = "vime.clipboard.preview"
         backgroundColor = .clear
         paste.accessibilityIdentifier = "vime.clipboard.paste"
-        paste.accessibilityHint = "输入剪贴板的完整文本"
+        paste.accessibilityHint = String(localized: "输入剪贴板的完整文本")
         paste.contentHorizontalAlignment = .leading
         paste.titleLabel?.numberOfLines = 1
         paste.addAction(UIAction { [weak self] _ in
@@ -22,8 +22,8 @@ final class ClipboardSuggestionView: UIView {
             self.onPaste?(value)
         }, for: .touchUpInside)
         dismiss.accessibilityIdentifier = "vime.clipboard.dismiss"
-        dismiss.accessibilityLabel = "收起剪贴板提示"
-        dismiss.accessibilityHint = "内容仍保留在剪贴板历史中"
+        dismiss.accessibilityLabel = String(localized: "收起剪贴板提示")
+        dismiss.accessibilityHint = String(localized: "内容仍保留在剪贴板历史中")
         dismiss.setImage(UIImage(systemName: "xmark", withConfiguration: UIImage.SymbolConfiguration(pointSize: 11, weight: .medium)), for: .normal)
         dismiss.addAction(UIAction { [weak self] _ in
             guard let self, let value = self.dismiss.takeValue() else { return }

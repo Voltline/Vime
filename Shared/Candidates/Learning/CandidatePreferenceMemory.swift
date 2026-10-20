@@ -108,6 +108,18 @@ nonisolated final class CandidatePreferenceMemory {
         } catch { persistenceError = String(describing: error) }
     }
 
+    /// Distinct accepted conversions (reading + surface), for the app summary.
+    var learnedConversionCount: Int {
+        Set(entries.values.lazy.filter { $0.scope == "conversion" }.map { $0.reading + "\0" + $0.surface }).count
+    }
+
+    /// The keyboard's shared learning directory; nil without an App Group,
+    /// where each process keeps a private store the app cannot summarize.
+    static var sharedDirectory: URL? {
+        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: KeyboardPreferences.appGroup)?
+            .appendingPathComponent("Vime/AzooKeyMemory", isDirectory: true)
+    }
+
     private func readArchive() throws -> Archive {
         guard FileManager.default.fileExists(atPath: url.path) else {
             loadedRevision = nil
@@ -589,7 +601,7 @@ nonisolated struct NextWordSuggestion: Sendable {
             && (nativePrediction?.replacedText ?? "").utf8.elementsEqual((other.nativePrediction?.replacedText ?? "").utf8)
     }
     var presentation: CandidatePresentation {
-        let replacementAnnotation = nativePrediction.flatMap { $0.isReplacement ? "替换「\($0.replacedText)」" : nil }
+        let replacementAnnotation = nativePrediction.flatMap { $0.isReplacement ? String(localized: "替换「\($0.replacedText)」") : nil }
         return .init(text: text, source: source, consumedInputCount: 0, correction: nil,
             detailAnnotation: replacementAnnotation ?? (source == .emoji ? "表情" : nil))
     }

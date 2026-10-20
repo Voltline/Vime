@@ -153,10 +153,10 @@ final class KeyboardSession: KeyboardInputSession {
         if raw.contains("@") { symbols.insert(".") }
         return KeyboardInputTraits(language: mode == .english ? .english : .japanese, modeLabel: mode.label,
             alternateLanguage: mode == .english ? .japanese : .english,
-            supportsPrimaryVariant: true, primaryVariantAccessibilityLabel: "切换平假名和片假名",
+            supportsPrimaryVariant: true, primaryVariantAccessibilityLabel: String(localized: "切换平假名和片假名"),
             prolongedInput: mode == .english ? nil : "ー", compositionInputSymbols: symbols, convertsNumbers: mode != .english,
             comma: mode == .english ? "," : "、", period: "。",
-            compositionSpaceTitle: selectedIndex == nil ? "変換" : "次候補", compositionReturnTitle: "確定")
+            compositionSpaceTitle: selectedIndex == nil ? String(localized: "変換") : String(localized: "次候補"), compositionReturnTitle: String(localized: "確定"))
     }
 
     private func presentation(_ original: CandidatePresentation, index: Int, kind: CandidateSelectionToken.Kind) -> CandidatePresentation {

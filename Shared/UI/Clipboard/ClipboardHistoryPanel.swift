@@ -18,15 +18,15 @@ final class ClipboardHistoryPanel: UIView, UITableViewDataSource, UITableViewDel
     override init(frame: CGRect) {
         super.init(frame: frame)
         accessibilityIdentifier = "vime.clipboard.history"
-        title.text = "剪贴板历史"; title.font = .systemFont(ofSize: 16, weight: .semibold)
+        title.text = String(localized: "剪贴板历史"); title.font = .systemFont(ofSize: 16, weight: .semibold)
         title.accessibilityTraits = .header
         addSubview(title)
         back.setImage(UIImage(systemName: "chevron.left", withConfiguration: UIImage.SymbolConfiguration(pointSize: 16, weight: .medium)), for: .normal)
-        back.accessibilityLabel = "返回快捷设置"
+        back.accessibilityLabel = String(localized: "返回快捷设置")
         back.accessibilityIdentifier = "vime.clipboard.history.back"
         back.addAction(UIAction { [weak self] _ in self?.onBack?() }, for: .touchUpInside)
         addSubview(back)
-        notice.text = "最近 24 小时 · 仅本机保存"
+        notice.text = String(localized: "最近 24 小时 · 仅本机保存")
         notice.font = .systemFont(ofSize: 12)
         addSubview(notice)
         clearButton.setTitle("清空", for: .normal)
@@ -54,13 +54,13 @@ final class ClipboardHistoryPanel: UIView, UITableViewDataSource, UITableViewDel
         empty.accessibilityIdentifier = "vime.clipboard.history.empty"
         addSubview(empty)
         applyTheme()
-        present([], message: "正在读取历史…")
+        present([], message: String(localized: "正在读取历史…"))
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     func present(_ entries: [ClipboardHistoryStore.Entry], message: String? = nil) {
         self.entries = entries
-        empty.text = message ?? "暂无剪贴板历史\n开启功能后，近期复制的文字会保留在这里"
+        empty.text = message ?? String(localized: "暂无剪贴板历史\n开启功能后，近期复制的文字会保留在这里")
         empty.isHidden = !entries.isEmpty; emptyIcon.isHidden = !entries.isEmpty
         table.isHidden = entries.isEmpty
         clearButton.isEnabled = !entries.isEmpty
@@ -120,7 +120,7 @@ final class ClipboardHistoryPanel: UIView, UITableViewDataSource, UITableViewDel
             preview.font = .systemFont(ofSize: 16); preview.numberOfLines = 2
             preview.lineBreakMode = .byTruncatingTail
             time.font = .systemFont(ofSize: 12)
-            action.font = .systemFont(ofSize: 12); action.text = "点击输入"
+            action.font = .systemFont(ofSize: 12); action.text = String(localized: "点击输入")
             arrow.contentMode = .scaleAspectFit
             for view in [preview, time, action, arrow] { view.translatesAutoresizingMaskIntoConstraints = false; card.addSubview(view) }
             NSLayoutConstraint.activate([
@@ -142,7 +142,7 @@ final class ClipboardHistoryPanel: UIView, UITableViewDataSource, UITableViewDel
         func present(_ entry: ClipboardHistoryStore.Entry) {
             preview.text = String(String.UnicodeScalarView(entry.text.unicodeScalars.prefix(240)))
             let age = Date().timeIntervalSince(entry.capturedAt)
-            time.text = age < 60 ? "刚刚" : age < 3600 ? "\(Int(age / 60)) 分钟前" : entry.capturedAt.formatted(date: .omitted, time: .shortened)
+            time.text = age < 60 ? String(localized: "刚刚") : age < 3600 ? String(localized: "\(Int(age / 60)) 分钟前") : entry.capturedAt.formatted(date: .omitted, time: .shortened)
             card.backgroundColor = KeyboardPalette.key
             preview.textColor = KeyboardPalette.text
             for item in [time, action] { item.textColor = KeyboardPalette.text.withAlphaComponent(0.55) }
@@ -150,7 +150,7 @@ final class ClipboardHistoryPanel: UIView, UITableViewDataSource, UITableViewDel
             accessibilityIdentifier = "vime.clipboard.history.item.\(entry.id)"
             accessibilityLabel = preview.text
             accessibilityValue = time.text
-            accessibilityHint = "输入这条历史记录的完整文本"
+            accessibilityHint = String(localized: "输入这条历史记录的完整文本")
         }
     }
 }
