@@ -44,13 +44,35 @@ final class VimeLanguageModelBenchmarkTests: XCTestCase {
         return ["n": Double(values.count), "p50": at(0.5), "p95": at(0.95), "max": sorted.last ?? 0]
     }
 
+    /// One resource set per process (VIME_LM_VARIANT=v21|v42; default v21) so
+    /// load and footprint numbers are not mixed between models.
+    private var variant: VimeLanguageModel.Variant {
+        get throws {
+            let name = ProcessInfo.processInfo.environment["VIME_LM_VARIANT"] ?? "v21"
+            return try XCTUnwrap(VimeLanguageModel.Variant(rawValue: name), "Unknown VIME_LM_VARIANT \(name)")
+        }
+    }
+
     func testDeviceLatencyAndMemory() throws {
         var report: [String: Any] = [:]
         report["footprint_before_mb"] = footprint().current
+        let thermal = { () -> String in
+            switch ProcessInfo.processInfo.thermalState {
+            case .nominal: "nominal"
+            case .fair: "fair"
+            case .serious: "serious"
+            case .critical: "critical"
+            @unknown default: "unknown"
+            }
+        }
+        report["thermal_state_start"] = thermal()
+        report["low_power_mode_start"] = ProcessInfo.processInfo.isLowPowerModeEnabled
+        let variant = try variant
         var lm: VimeLanguageModel!
         // Hash verification reads every file into autoreleased Data; drain it before measuring.
-        report["load_ms"] = try milliseconds { try autoreleasepool { lm = try VimeLanguageModel() } }
+        report["load_ms"] = try milliseconds { try autoreleasepool { lm = try VimeLanguageModel(variant: variant) } }
         report["model_version"] = lm.modelVersion
+        report["variant"] = variant.rawValue
         #if targetEnvironment(simulator)
         report["scope"] = "optimized iOS Simulator test-host process"
         #else
@@ -63,7 +85,7 @@ final class VimeLanguageModelBenchmarkTests: XCTestCase {
         report["footprint_after_first_predict_mb"] = footprint().current
         for _ in 0..<50 { try autoreleasepool { _ = try lm.predict(Array((Array(repeating: probe, count: 20).joined()).prefix(64))) } }
         report["footprint_after_50_predicts_mb"] = footprint().current
-        report["reload_ms"] = try milliseconds { try autoreleasepool { _ = try VimeLanguageModel() } }
+        report["reload_ms"] = try milliseconds { try autoreleasepool { _ = try VimeLanguageModel(variant: variant) } }
 
         var predict: [String: [String: Double]] = [:]
         var softmax: [Double] = []
@@ -125,6 +147,8 @@ final class VimeLanguageModelBenchmarkTests: XCTestCase {
         report["footprint_after_suggestions_mb"] = footprint().current
 
         report["footprint_peak_mb"] = footprint().peak
+        report["thermal_state_end"] = thermal()
+        report["low_power_mode_end"] = ProcessInfo.processInfo.isLowPowerModeEnabled
 
         let data = try JSONSerialization.data(withJSONObject: report, options: [.sortedKeys])
         print("VIME_LM_BENCHMARK " + String(decoding: data, as: UTF8.self))

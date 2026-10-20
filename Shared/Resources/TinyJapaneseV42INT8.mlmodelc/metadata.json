@@ -1,0 +1,85 @@
+[
+  {
+    "metadataOutputVersion" : "3.0",
+    "shortDescription" : "VimeML V4.2 RMSNorm\/SwiGLU 8K; FP32 computation; no KV cache.",
+    "outputSchema" : [
+      {
+        "hasShapeFlexibility" : "0",
+        "isOptional" : "0",
+        "dataType" : "Float32",
+        "formattedType" : "MultiArray (Float32)",
+        "shortDescription" : "",
+        "shape" : "[]",
+        "name" : "logits",
+        "type" : "MultiArray"
+      }
+    ],
+    "storagePrecision" : "Mixed (Float32, Int8)",
+    "modelParameters" : [
+
+    ],
+    "specificationVersion" : 9,
+    "mlProgramOperationTypeHistogram" : {
+      "Ios18.softmax" : 7,
+      "Range1d" : 1,
+      "Ios18.mul" : 44,
+      "Ios18.matmul" : 14,
+      "Ios18.rsqrt" : 15,
+      "Ios16.reduceMean" : 15,
+      "Split" : 7,
+      "Ios18.greaterEqual" : 4,
+      "Select" : 4,
+      "Ios18.gather" : 3,
+      "Ios18.add" : 41,
+      "Ios18.reshape" : 14,
+      "Shape" : 1,
+      "Ios18.linear" : 36,
+      "Ios18.concat" : 2,
+      "Ios18.transpose" : 14,
+      "Ios18.silu" : 7,
+      "Ios18.pow" : 15,
+      "Ios18.sliceByIndex" : 2,
+      "Ios18.squeeze" : 21,
+      "Ios18.constexprBlockwiseShiftScale" : 37
+    },
+    "computePrecision" : "Mixed (Float32, Int32)",
+    "isUpdatable" : "0",
+    "stateSchema" : [
+
+    ],
+    "availability" : {
+      "macOS" : "15.0",
+      "tvOS" : "18.0",
+      "visionOS" : "2.0",
+      "watchOS" : "11.0",
+      "iOS" : "18.0",
+      "macCatalyst" : "18.0"
+    },
+    "modelType" : {
+      "name" : "MLModelType_mlProgram"
+    },
+    "inputSchema" : [
+      {
+        "dataType" : "Int32",
+        "hasShapeFlexibility" : "1",
+        "isOptional" : "0",
+        "shapeFlexibility" : "1 × 1...128",
+        "shapeRange" : "[[1, 1], [1, 128]]",
+        "formattedType" : "MultiArray (Int32 1 × 16)",
+        "type" : "MultiArray",
+        "shape" : "[1, 16]",
+        "name" : "input_ids",
+        "shortDescription" : ""
+      }
+    ],
+    "userDefinedMetadata" : {
+      "com.github.apple.coremltools.conversion_date" : "2026-10-20",
+      "bundle_manifest_sha256" : "05ba14f33f28aa18317adfe007d4ac2a355d38ce8636b294ff37468b2209a41b",
+      "com.github.apple.coremltools.source" : "torch==2.7.1",
+      "com.github.apple.coremltools.version" : "9.0",
+      "com.github.apple.coremltools.source_dialect" : "TorchScript"
+    },
+    "generatedClassName" : "model",
+    "method" : "predict"
+  }
+]
