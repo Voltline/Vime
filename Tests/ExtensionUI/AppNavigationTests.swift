@@ -28,7 +28,7 @@ final class AppNavigationTests: XCTestCase {
         let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.005, dy: 0.5))
         start.press(forDuration: 0.01, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.5)),
                     withVelocity: .slow, thenHoldForDuration: 0)
-        XCTAssertTrue(app.navigationBars["键盘设置"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.navigationBars["设置"].waitForExistence(timeout: 3))
         app.buttons["vime.settings.feedback"].tap()
         XCTAssertEqual(slider.value as? String, "强 · 100%", "The drag must persist after returning to the page")
     }
@@ -37,11 +37,8 @@ final class AppNavigationTests: XCTestCase {
         let app = XCUIApplication(); app.launch()
         func openSymbols() {
             app.tabBars.buttons["设置"].tap()
-            app.buttons["vime.settings.input"].tap()
-            let entry = app.buttons["vime.settings.numberSymbols"]
-            if !entry.isHittable { app.swipeUp() }
-            entry.tap()
-            XCTAssertTrue(app.navigationBars["常用符号"].waitForExistence(timeout: 3))
+            app.buttons["vime.settings.symbols"].tap()
+            XCTAssertTrue(app.navigationBars["符号与括号"].waitForExistence(timeout: 3))
         }
         openSymbols()
         let symbol = "§" + String(Int.random(in: 100...999))
@@ -56,7 +53,7 @@ final class AppNavigationTests: XCTestCase {
         let item = app.staticTexts["vime.numberSymbols.item." + symbol]
         for _ in 0..<6 { if item.isHittable { break }; app.swipeUp() }
         XCTAssertTrue(item.exists)
-        capture(app, "App 常用符号编辑")
+        capture(app, "App 符号与括号编辑")
         item.swipeLeft()
         app.buttons["删除"].tap()
         XCTAssertFalse(item.exists)
@@ -67,7 +64,7 @@ final class AppNavigationTests: XCTestCase {
             let attachment = XCTAttachment(screenshot: app.screenshot())
             attachment.name = "App navigation result"; attachment.lifetime = .keepAlways; add(attachment)
         }
-        XCTAssertTrue(app.navigationBars["键盘试打"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.navigationBars["试打"].waitForExistence(timeout: 10))
         capture(app, "Home")
         app.tabBars.buttons["定制"].tap()
         XCTAssertTrue(app.navigationBars["定制"].waitForExistence(timeout: 3))

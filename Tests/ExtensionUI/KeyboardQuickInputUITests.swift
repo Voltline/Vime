@@ -55,7 +55,7 @@ final class KeyboardQuickInputUITests: XCTestCase {
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "实际扩展-符号栏与 App 入口"; screenshot.lifetime = .keepAlways; add(screenshot)
         link.tap()
-        XCTAssertTrue(app.navigationBars["常用符号"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["符号与括号"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["vime.numberSymbols.add"].exists)
     }
     func testClipboardHistorySurvivesDismissalAndPastesInInstalledExtension() throws {
@@ -212,7 +212,7 @@ final class KeyboardQuickInputUITests: XCTestCase {
         func setPairing(_ enabled: Bool) -> Bool {
             app.terminate(); app.launchArguments = []; app.launch()
             app.tabBars.buttons["设置"].tap()
-            app.buttons["vime.settings.input"].tap()
+            app.buttons["vime.settings.symbols"].tap()
             let toggle = app.switches["vime.settings.autoPairBrackets"]
             XCTAssertTrue(toggle.waitForExistence(timeout: 3))
             let previous = toggle.value as? String == "1"

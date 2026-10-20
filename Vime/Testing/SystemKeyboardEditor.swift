@@ -26,7 +26,7 @@ struct SystemKeyboardEditor: UIViewRepresentable {
         view.spellCheckingType = .no
         view.text = text
         view.delegate = context.coordinator
-        view.accessibilityLabel = "系统键盘试打输入框"
+        view.accessibilityLabel = String(localized: "系统键盘试打输入框")
         view.accessibilityIdentifier = "vime.extension.editor"
         view.onSnapshot = { [weak coordinator = context.coordinator] in coordinator?.publish($0) }
         return view

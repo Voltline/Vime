@@ -11,6 +11,10 @@ struct LicenseComponent: Decodable, Identifiable {
     let revision: String
     let modified: String
     let noticeFile: String
+    // The manifest keeps Chinese source text as stable keys; the catalog localizes it.
+    var localizedUse: String { String(localized: String.LocalizationValue(use)) }
+    var localizedModified: String { String(localized: String.LocalizationValue(modified)) }
+    static func localizedCategory(_ category: String) -> String { String(localized: String.LocalizationValue(category)) }
 }
 
 struct LicenseCatalog {
@@ -30,7 +34,7 @@ struct LicenseCatalog {
     enum ResourceError: LocalizedError {
         case missing, invalid
         var errorDescription: String? {
-            switch self { case .missing: "许可文件未找到"; case .invalid: "许可目录格式无效" }
+            switch self { case .missing: String(localized: "许可文件未找到"); case .invalid: String(localized: "许可目录格式无效") }
         }
     }
 }

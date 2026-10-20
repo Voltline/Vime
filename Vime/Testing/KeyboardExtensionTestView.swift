@@ -36,7 +36,7 @@ struct KeyboardExtensionTestView: View {
                 Button("复制测试记录") { UIPasteboard.general.string = events.joined(separator: "\n") }
             }.font(.subheadline).tint(blue)
 #if DEBUG
-            Button("模拟发送并保留键盘") { sendRequest += 1 }
+            Button(String(localized: "模拟发送并保留键盘")) { sendRequest += 1 }
                 .accessibilityIdentifier("vime.extension.send")
 #endif
             Text("可试：tennanhantenn → 展开候选 → 天 → 安 → 飯店\n点选前段后，剩余部分应继续显示为待确认文本")

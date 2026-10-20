@@ -202,28 +202,28 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         brandButton.addSubview(brandArtwork)
         brandButton.tintColor = UIColor(cgColor: VimeLogo.blue)
         brandButton.accessibilityIdentifier = "vime.brand.settings"
-        brandButton.accessibilityLabel = "键盘设置"
+        brandButton.accessibilityLabel = String(localized: "键盘设置")
         brandButton.addTarget(self, action: #selector(toggleSettings), for: .touchUpInside)
         addSubview(globeButton)
         globeButton.tintColor = .label
         globeButton.setImage(UIImage(systemName: "globe", withConfiguration: UIImage.SymbolConfiguration(pointSize: 27, weight: .regular)), for: .normal)
-        globeButton.accessibilityLabel = "切换系统键盘"
+        globeButton.accessibilityLabel = String(localized: "切换系统键盘")
         globeButton.addTarget(self, action: #selector(switchKeyboard), for: .touchUpInside)
         header.addSubview(modeButton)
         header.addSubview(neuralStatusLabel)
         neuralStatusLabel.font = .systemFont(ofSize: 12)
         neuralStatusLabel.textColor = .secondaryLabel
-        neuralStatusLabel.text = "内存不足，暂用词典"
+        neuralStatusLabel.text = String(localized: "内存不足，暂用词典")
         neuralStatusLabel.accessibilityIdentifier = "vime.neural.status"
         neuralStatusLabel.isHidden = true
         modeButton.titleLabel?.font = .systemFont(ofSize: 17, weight: .semibold)
         modeButton.backgroundColor = KeyboardPalette.key
         modeButton.tintColor = .secondaryLabel
         modeButton.addTarget(self, action: #selector(toggleKana), for: .touchUpInside)
-        modeButton.accessibilityLabel = "切换平假名和片假名"
+        modeButton.accessibilityLabel = String(localized: "切换平假名和片假名")
         header.addSubview(undoButton)
         undoButton.setImage(UIImage(systemName: "arrow.uturn.backward"), for: .normal)
-        undoButton.accessibilityLabel = "撤回刚才的删行"
+        undoButton.accessibilityLabel = String(localized: "撤回刚才的删行")
         undoButton.accessibilityIdentifier = "vime.delete.undo"
         undoButton.addAction(UIAction { [weak self] _ in self?.apply([.undoLineDeletion]) }, for: .touchUpInside)
         header.addSubview(candidateScroll)
@@ -259,7 +259,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         expandButton.tintColor = .secondaryLabel
         expandButton.backgroundColor = KeyboardPalette.key
         expandButton.addTarget(self, action: #selector(headerArrow), for: .touchUpInside)
-        expandButton.accessibilityLabel = "展开候选词"
+        expandButton.accessibilityLabel = String(localized: "展开候选词")
         addSubview(divider)
         panelTitle.font = .systemFont(ofSize: 16, weight: .medium)
         panelTitle.accessibilityIdentifier = "vime.candidates.title"
@@ -268,10 +268,11 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         for (button, title, identifier, action) in [
             (shortenRange, "−", "vime.segment.shorten", #selector(shortenConversion)),
             (lengthenRange, "+", "vime.segment.lengthen", #selector(lengthenConversion)),
-            (wholeRange, "整句", "vime.segment.whole", #selector(wholeConversion))] {
+            (wholeRange, String(localized: "整句"), "vime.segment.whole", #selector(wholeConversion))] {
             button.setTitle(title, for: .normal)
             button.accessibilityIdentifier = identifier
-            button.accessibilityLabel = title == "−" ? "缩短转换范围" : title == "+" ? "加长转换范围" : "恢复整句转换"
+            button.accessibilityLabel = title == "−" ? String(localized: "缩短转换范围")
+                : title == "+" ? String(localized: "加长转换范围") : String(localized: "恢复整句转换")
             button.addTarget(self, action: action, for: .touchUpInside)
             header.addSubview(button)
         }
@@ -298,7 +299,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
                 self.onEdit?([.moveCursor(horizontal: 0, vertical: 0)])
             }
             for row in self.rows { for (key, _) in row { key.alpha = gesture == .horizontalCursor || gesture == .spaceCursor ? 0 : 1 } }
-            self.gestureHint.text = gesture == .spaceCursor ? "上下左右移动光标" : "左右移动光标"
+            self.gestureHint.text = gesture == .spaceCursor ? String(localized: "上下左右移动光标") : String(localized: "左右移动光标")
             self.gestureHint.isHidden = gesture == nil || gesture == .deleteLine
             self.bringSubviewToFront(self.gestureHint)
         }
@@ -587,6 +588,15 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         keysContainer.scale = metrics.scale
     }
 
+    private static func numberPadTitle(_ value: String) -> String {
+        switch value {
+        case "空格": String(localized: "空格")
+        case "符号": String(localized: "符号")
+        case "换行": String(localized: "换行")
+        default: value
+        }
+    }
+
     private func key(_ title: String, utility: Bool = false, weight: CGFloat = 1, action: @escaping () -> Void) -> (KeyboardKey, CGFloat) {
         let button = KeyboardKey(title: title)
         button.previewContainer = previewOverlay
@@ -630,7 +640,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
             for letters in ["qwertyuiop", "asdfghjkl", "zxcvbnm"] {
                 var row: [(KeyboardKey, CGFloat)] = []
                 if letters == "zxcvbnm" {
-                    let shift = symbol("shift", label: "切换大小写", weight: 1.35) { [weak self] in self?.shift() }
+                    let shift = symbol("shift", label: String(localized: "切换大小写"), weight: 1.35) { [weak self] in self?.shift() }
                     shiftKey = shift.0
                     row.append(shift)
                 }
@@ -659,7 +669,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
                         guard let self else { return }
                         self.apply(self.session.type(prolongedInput))
                     }
-                    prolonged.0.accessibilityLabel = "长音符号"
+                    prolonged.0.accessibilityLabel = String(localized: "长音符号")
                     prolonged.0.accessibilityIdentifier = "vime.key.prolonged"
                     row.append(prolonged)
                 }
@@ -691,11 +701,12 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
                 rows.append(values.map { value in
                     if value == "删除" { return deleteKey(weight: 1) }
                     if value == "表情" {
-                        let item = symbol("face.smiling", label: "表情", weight: 1) { [weak self] in self?.toggleEmoji() }
+                        let item = symbol("face.smiling", label: String(localized: "表情"), weight: 1) { [weak self] in self?.toggleEmoji() }
                         item.0.accessibilityIdentifier = "vime.number.emoji"
                         return item
                     }
-                    let item = key(value, utility: ["ABC", "符号", "空格", "换行"].contains(value)) { [weak self] in
+                    // Values are stable key IDs (also accessibility IDs); titles are localized.
+                    let item = key(Self.numberPadTitle(value), utility: ["ABC", "符号", "空格", "换行"].contains(value)) { [weak self] in
                         guard let self else { return }
                         switch value {
                         case "ABC": self.page = .letters; self.rebuildKeys()
@@ -752,9 +763,10 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
             self.page = self.page == .letters ? .numbers : .letters
             self.rebuildKeys()
         }]
-        let emoji = symbol("face.smiling", label: "表情", weight: 1) { [weak self] in self?.toggleEmoji() }
+        let emoji = symbol("face.smiling", label: String(localized: "表情"), weight: 1) { [weak self] in self?.toggleEmoji() }
+        emoji.0.accessibilityIdentifier = "vime.key.emoji"
         bottom.append(emoji)
-        let comma = key(page == .letters ? "," : "符号", utility: page != .letters, weight: 1) { [weak self] in
+        let comma = key(page == .letters ? "," : String(localized: "符号"), utility: page != .letters, weight: 1) { [weak self] in
             guard let self else { return }
             if self.page != .letters { self.openSymbolPanel(mode: .symbols); return }
             self.apply(self.session.insertLiteral(self.session.inputTraits.comma))
@@ -771,7 +783,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
             guard let self else { return }
             self.apply(self.session.space())
         }
-        space.0.accessibilityLabel = "空格，转换候选"
+        space.0.accessibilityLabel = String(localized: "空格，转换候选")
         space.0.accessibilityIdentifier = "vime.key.space"
         spaceKey = space.0
         bottom.append(space)
@@ -788,7 +800,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         language.0.accessibilityLabel = session.inputTraits.languageSwitchAccessibilityLabel
         language.0.accessibilityIdentifier = "vime.key.language"
         bottom.append(language)
-        let enter = key("换行", weight: 1.55) { [weak self] in
+        let enter = key(String(localized: "换行"), weight: 1.55) { [weak self] in
             guard let self else { return }
             self.apply(self.session.enter())
         }
@@ -949,11 +961,11 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         candidateScroll.isHidden = !strip || showsQuick || showsClipboard || panel != .keyboard
         expandButton.isHidden = showsClipboard
         modeButton.setTitle(session.inputTraits.modeLabel, for: .normal)
-        accessibilityValue = composing ? "输入中：" + (session.markedText?.text ?? "") : session.inputTraits.modeLabel
+        accessibilityValue = composing ? String(localized: "输入中：\(session.markedText?.text ?? "")") : session.inputTraits.modeLabel
         expandButton.backgroundColor = composing ? KeyboardTouchBacking.color : KeyboardPalette.key
         divider.isHidden = !strip || showsClipboard || panel != .keyboard
         panelTitle.isHidden = panel != .candidates && panel != .settings
-        panelTitle.text = panel == .settings ? "快捷设置" : session.conversionRangeDescription ?? "候选词"
+        panelTitle.text = panel == .settings ? String(localized: "快捷设置") : session.conversionRangeDescription ?? String(localized: "候选词")
         for control in [shortenRange, lengthenRange, wholeRange] {
             control.isHidden = panel != .candidates || session.conversionRangeDescription == nil
         }
@@ -997,7 +1009,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         stripButtons.forEach { $0.isUserInteractionEnabled = session.candidatesAreCurrent && $0.selectionToken != nil }
         let panelOpen = panel != .keyboard
         expandButton.setImage(UIImage(systemName: panelOpen ? "chevron.up" : "chevron.down"), for: .normal)
-        expandButton.accessibilityLabel = panelOpen ? "返回键盘" : composing ? "展开候选词" : "收起键盘"
+        expandButton.accessibilityLabel = panelOpen ? String(localized: "返回键盘") : composing ? String(localized: "展开候选词") : String(localized: "收起键盘")
         expandButton.accessibilityIdentifier = panelOpen ? "vime.panel.close" : "vime.candidates.expand"
         let hidesKeys = panel != .keyboard
         numberSymbolRail?.isHidden = hidesKeys || !usesNumberPad
@@ -1040,13 +1052,13 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
 
     private var returnTitle: String {
         switch returnKeyType {
-        case .send: "发送"
-        case .search: "搜索"
-        case .go: "前往"
-        case .done: "完成"
-        case .next: "下一项"
-        case .join: "加入"
-        default: "换行"
+        case .send: String(localized: "发送")
+        case .search: String(localized: "搜索")
+        case .go: String(localized: "前往")
+        case .done: String(localized: "完成")
+        case .next: String(localized: "下一项")
+        case .join: String(localized: "加入")
+        default: String(localized: "换行")
         }
     }
 
@@ -1300,11 +1312,11 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
             view.onClear = { [weak self] in
                 guard let self else { return }
                 self.historyRequest += 1
-                self.clipboardHistoryPanel?.present([], message: "正在清空…")
+                self.clipboardHistoryPanel?.present([], message: String(localized: "正在清空…"))
                 Task { [weak self] in
                     guard let self else { return }
                     do { try await self.clipboard.clearHistory(); self.reloadClipboardHistory() }
-                    catch { self.clipboardHistoryPanel?.present([], message: "清空失败，请重试") }
+                    catch { self.clipboardHistoryPanel?.present([], message: String(localized: "清空失败，请重试")) }
                 }
             }
             addSubview(view)
@@ -1320,7 +1332,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         guard panel == .clipboardHistory else { return }
         guard preferences.clipboardSuggestions, hasFullAccess, clipboardActive, window != nil else {
             clipboardHistoryPanel?.present([], message: preferences.clipboardSuggestions
-                ? "请允许键盘完全访问后查看" : "请先在 Vime App 开启剪贴板功能")
+                ? String(localized: "请允许键盘完全访问后查看") : String(localized: "请先在 Vime App 开启剪贴板功能"))
             return
         }
         Task { [weak self] in
@@ -1331,7 +1343,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
                 self.clipboardHistoryPanel?.present(entries)
             } catch {
                 guard self.panel == .clipboardHistory, self.historyRequest == request else { return }
-                self.clipboardHistoryPanel?.present([], message: "历史暂时无法读取，请稍后重试")
+                self.clipboardHistoryPanel?.present([], message: String(localized: "历史暂时无法读取，请稍后重试"))
             }
         }
     }
@@ -1374,7 +1386,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
             else if key === returnKey { semantic = "return" }
             else if letterKeys.contains(where: { $0 === key }) { semantic = "letter." + identifier }
             else if key.repeats { semantic = "backspace" }
-            else if key.accessibilityLabel == "表情" { semantic = "emoji" }
+            else if key.accessibilityIdentifier == "vime.number.emoji" { semantic = "emoji" }
             else if ["123", "ABC", "#+="].contains(key.title(for: .normal) ?? "") { semantic = "numbers" }
             else { semantic = identifier }
             key.applySkin(KeyboardPalette.skin, key: semantic)

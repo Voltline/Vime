@@ -75,8 +75,8 @@ class KeyboardViewController: UIInputViewController {
         keyboard.onDismiss = { [weak self] in self?.dismissKeyboard() }
         keyboard.onOpenNumberSymbolSettings = { [weak self] in self?.openNumberSymbolSettings() }
         keyboard.onOpenAppSettings = { [weak self] in
-            self?.openApp(KeyboardAppLinks.settings, title: "打开 App 设置",
-                message: "请打开 Vime App，点击底部的“设置”。")
+            self?.openApp(KeyboardAppLinks.settings, title: String(localized: "打开 App 设置"),
+                message: String(localized: "请打开 Vime App，点击底部的“设置”。"))
         }
         NotificationCenter.default.addObserver(self, selector: #selector(pauseClipboard),
             name: .NSExtensionHostWillResignActive, object: nil)
@@ -86,8 +86,8 @@ class KeyboardViewController: UIInputViewController {
     }
 
     private func openNumberSymbolSettings() {
-        openApp(KeyboardNumberSymbols.settingsURL, title: "在 Vime App 中编辑",
-            message: "请打开 Vime → 设置 → 输入与联想 → 数字键盘常用符号。")
+        openApp(KeyboardNumberSymbols.settingsURL, title: String(localized: "在 Vime App 中编辑"),
+            message: String(localized: "请打开 Vime → 设置 → 符号与括号。"))
     }
 
     private func openApp(_ url: URL, title: String, message: String) {
@@ -114,6 +114,8 @@ class KeyboardViewController: UIInputViewController {
         updateKeyboardGeometry()
         updateTraits()
         rememberContext()
+        let fullAccess = hasFullAccess
+        KeyboardExtensionStatus.update { $0.lastSeen = Date(); $0.fullAccess = fullAccess }
     }
 
     override func viewDidAppear(_ animated: Bool) {

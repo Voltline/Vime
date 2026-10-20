@@ -6,7 +6,7 @@ nonisolated enum KeyboardInputLanguage: String, Sendable {
         switch self { case .japanese: "日"; case .chinese: "中"; case .english: "英" }
     }
     var accessibilityName: String {
-        switch self { case .japanese: "日语"; case .chinese: "中文"; case .english: "英文" }
+        switch self { case .japanese: String(localized: "日语"); case .chinese: String(localized: "中文"); case .english: String(localized: "英文") }
     }
 }
 
@@ -16,17 +16,17 @@ nonisolated struct KeyboardInputTraits: Equatable, Sendable {
     let modeLabel: String
     var alternateLanguage: KeyboardInputLanguage = .english
     var supportsPrimaryVariant = false
-    var primaryVariantAccessibilityLabel = "切换输入方式"
+    var primaryVariantAccessibilityLabel = String(localized: "切换输入方式")
     var prolongedInput: String? = nil
     var compositionInputSymbols: Set<String> = []
     var convertsNumbers = false
     var comma = ","
     var period = "."
-    var compositionSpaceTitle = "确认"
-    var compositionReturnTitle = "确认"
+    var compositionSpaceTitle = String(localized: "确认")
+    var compositionReturnTitle = String(localized: "确认")
     var isEnglish: Bool { language == .english }
     var languageSwitchAccessibilityLabel: String {
-        (isEnglish ? alternateLanguage : language).accessibilityName + "英文切换"
+        String(localized: "\((isEnglish ? alternateLanguage : language).accessibilityName)英文切换")
     }
 }
 

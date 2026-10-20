@@ -3,7 +3,7 @@ import UIKit
 enum KeyboardTheme: String, CaseIterable {
     case system, sakura, ocean, midnight, custom
     var title: String {
-        switch self { case .system: "系统"; case .sakura: "樱花"; case .ocean: "海蓝"; case .midnight: "深夜"; case .custom: "自定义" }
+        switch self { case .system: String(localized: "系统"); case .sakura: String(localized: "樱花"); case .ocean: String(localized: "海蓝"); case .midnight: String(localized: "深夜"); case .custom: String(localized: "自定义") }
     }
     var accent: UIColor {
         switch self {

@@ -63,10 +63,11 @@ nonisolated struct CandidatePresentation: Equatable, Sendable {
     let correction: CorrectionSuggestion?
     var selectionToken: CandidateSelectionToken? = nil
     var detailAnnotation: String? = nil
-    var annotation: String? { detailAnnotation ?? correction.map { $0.suggestedReading + " · 建议" } }
+    var annotation: String? { detailAnnotation ?? correction.map { String(localized: "\($0.suggestedReading) · 建议") } }
     var accessibilityLabel: String {
-        guard let correction else { return "候选词：" + text + (annotation.map { "，" + $0 } ?? "") }
-        return "纠错候选：" + text + "，建议读音：" + correction.suggestedReading
-            + "，原读音：" + correction.originalReading
+        guard let correction else {
+            return annotation.map { String(localized: "候选词：\(text)，\($0)") } ?? String(localized: "候选词：\(text)")
+        }
+        return String(localized: "纠错候选：\(text)，建议读音：\(correction.suggestedReading)，原读音：\(correction.originalReading)")
     }
 }

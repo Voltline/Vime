@@ -7,7 +7,7 @@ final class KeyboardSymbolPanel: UIView, UICollectionViewDataSource, UICollectio
     var onClose: (() -> Void)?
     var onFeedback: (() -> Void)?
     var compact = false { didSet { if oldValue != compact { setNeedsLayout() } } }
-    private let modes = UISegmentedControl(items: ["Emoji", "颜文字", "符号"])
+    private let modes = UISegmentedControl(items: ["Emoji", String(localized: "颜文字"), String(localized: "符号")])
     private let close = UIButton(type: .system)
     private let categories = UIScrollView()
     private let categoryIndicator = UIView()
@@ -66,7 +66,7 @@ final class KeyboardSymbolPanel: UIView, UICollectionViewDataSource, UICollectio
             guard let self, let mode = Mode(rawValue: self.modes.selectedSegmentIndex) else { return }
             self.showSection(self.section(for: mode, group: 0))
         }, for: .valueChanged)
-        close.setTitle("返回键盘", for: .normal)
+        close.setTitle(String(localized: "返回键盘"), for: .normal)
         close.titleLabel?.font = .systemFont(ofSize: 14, weight: .medium)
         close.accessibilityIdentifier = "vime.symbols.close"
         close.addAction(UIAction { [weak self] _ in
@@ -128,8 +128,8 @@ final class KeyboardSymbolPanel: UIView, UICollectionViewDataSource, UICollectio
         close.frame = CGRect(x: 6, y: top, width: 82, height: 34)
         modes.frame = CGRect(x: 96, y: top + 2, width: max(0, bounds.width - 104), height: 30)
         categories.frame = CGRect(x: 0, y: top + 32, width: bounds.width, height: 28)
-        close.setTitle(compact ? nil : "返回键盘", for: .normal)
-        close.accessibilityLabel = "返回键盘"
+        close.setTitle(compact ? nil : String(localized: "返回键盘"), for: .normal)
+        close.accessibilityLabel = String(localized: "返回键盘")
         close.setImage(compact ? UIImage(systemName: "chevron.up") : nil, for: .normal)
         close.backgroundColor = compact ? KeyboardPalette.key : .clear
         close.tintColor = compact ? .secondaryLabel : KeyboardPalette.accent

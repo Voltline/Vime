@@ -6,7 +6,7 @@ nonisolated enum HapticIntensity {
         let value: Double
         let title: String
     }
-    static let levels = [Level(value: 0, title: "关闭"), Level(value: 0.6, title: "中"), Level(value: 1, title: "强")]
+    static let levels = [Level(value: 0, title: String(localized: "关闭")), Level(value: 0.6, title: String(localized: "中")), Level(value: 1, title: String(localized: "强"))]
     // Four percentage points catches deliberate stops without rounding all input.
     static let snapRadius = 0.04
     static func normalized(_ value: Double) -> Double {

@@ -5,7 +5,7 @@ final class KeyboardDeletePrompt: UIView {
     private let red = UIView()
     private let icon = UIImageView(image: UIImage(systemName: "trash"))
     private let label = UILabel()
-    var armed = false { didSet { label.text = armed ? "松手清空" : "上滑清空" } }
+    var armed = false { didSet { label.text = armed ? String(localized: "松手清空") : String(localized: "上滑清空") } }
     override init(frame: CGRect) {
         super.init(frame: frame)
         accessibilityIdentifier = "vime.delete.prompt"
@@ -15,7 +15,7 @@ final class KeyboardDeletePrompt: UIView {
         layer.shadowRadius = 6; layer.shadowOffset = CGSize(width: 0, height: 3)
         red.backgroundColor = .systemRed; red.layer.cornerRadius = 8
         icon.tintColor = .white; icon.contentMode = .scaleAspectFit
-        label.textColor = .white; label.text = "上滑清空"
+        label.textColor = .white; label.text = String(localized: "上滑清空")
         label.font = .systemFont(ofSize: 16, weight: .medium)
         label.adjustsFontSizeToFitWidth = true
         addSubview(red); red.addSubview(icon); red.addSubview(label)

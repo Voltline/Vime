@@ -6,11 +6,13 @@ struct KeyboardNumberSymbolsView: View {
     @State private var adding = false
     @State private var draft = ""
     @State private var confirmingReset = false
+    @AppStorage private var autoPairBrackets: Bool
     @Environment(\.scenePhase) private var scenePhase
 
     init(preferences: KeyboardPreferences = KeyboardPreferences()) {
         self.preferences = preferences
         _symbols = State(initialValue: preferences.numberSymbols)
+        _autoPairBrackets = AppStorage(wrappedValue: preferences.autoPairBrackets, "vime.autoPairBrackets", store: preferences.store)
     }
 
     private var newSymbol: String? {
@@ -21,6 +23,12 @@ struct KeyboardNumberSymbolsView: View {
 
     var body: some View {
         List {
+            Section {
+                Toggle("自动补全括号", isOn: $autoPairBrackets)
+                    .accessibilityIdentifier("vime.settings.autoPairBrackets")
+            } footer: {
+                Text("输入左括号时补上右括号，光标移到中间；支持 ()、（）、「」等括号。剪贴板粘贴保持原样。")
+            }
             Section {
                 ForEach(symbols, id: \.self) { symbol in
                     Text(symbol).font(.title3).accessibilityIdentifier("vime.numberSymbols.item." + symbol)
@@ -35,7 +43,7 @@ struct KeyboardNumberSymbolsView: View {
                     .accessibilityIdentifier("vime.numberSymbols.reset")
             }
         }
-        .navigationTitle("常用符号").navigationBarTitleDisplayMode(.inline)
+        .navigationTitle("符号与括号").navigationBarTitleDisplayMode(.inline)
         .listStyle(.insetGrouped)
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {

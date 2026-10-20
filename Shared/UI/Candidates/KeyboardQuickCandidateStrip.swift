@@ -46,11 +46,11 @@ final class KeyboardQuickCandidateStrip: UIScrollView {
             case .replacement:
                 button.primaryResult = index == 0
                 button.accessibilityIdentifier = "vime.calculation.\(index)"
-                button.accessibilityHint = "替换光标前的完整算式"
+                button.accessibilityHint = String(localized: "替换光标前的完整算式")
             case .symbol:
                 button.primaryResult = false
                 button.accessibilityIdentifier = "vime.quickSymbol.\(items[index].title)"
-                button.accessibilityHint = "输入符号"
+                button.accessibilityHint = String(localized: "输入符号")
             }
         }
         applyTheme()
@@ -102,7 +102,9 @@ final class KeyboardQuickCandidateStrip: UIScrollView {
         override func layoutSubviews() {
             super.layoutSubviews()
             let width = min(titleLabel?.intrinsicContentSize.width ?? 0, max(0, bounds.width - 24))
-            underline.frame = CGRect(x: (bounds.width - width) / 2, y: max(0, bounds.height - 2), width: width, height: 2)
+            let textBottom = (bounds.height + ceil(titleLabel?.font.lineHeight ?? 22)) / 2
+            underline.frame = CGRect(x: (bounds.width - width) / 2,
+                y: min(max(0, bounds.height - 2), ceil(textBottom + KeyboardCandidateButton.underlineGap)), width: width, height: 2)
         }
         @objc private func arm() { armed = true; touchedItem = item }
         @objc private func cancel() { armed = false; touchedItem = nil }

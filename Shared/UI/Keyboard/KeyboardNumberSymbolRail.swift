@@ -14,17 +14,17 @@ final class KeyboardNumberSymbolRail: UIScrollView {
     override init(frame: CGRect) {
         super.init(frame: frame)
         accessibilityIdentifier = "vime.numberSymbols"
-        accessibilityLabel = "常用符号"
-        accessibilityHint = "上下滑动选择符号，底部的编辑入口可打开 Vime 设置"
+        accessibilityLabel = String(localized: "常用符号")
+        accessibilityHint = String(localized: "上下滑动选择符号，底部的编辑入口可打开 Vime 设置")
         alwaysBounceVertical = true
         showsHorizontalScrollIndicator = false
         contentInsetAdjustmentBehavior = .never
         canCancelContentTouches = true
         delaysContentTouches = true
         clipsToBounds = true
-        settingsLink.setTitle("编辑 ↗", for: .normal)
+        settingsLink.setTitle(String(localized: "编辑 ↗"), for: .normal)
         settingsLink.titleLabel?.font = .systemFont(ofSize: 12)
-        settingsLink.accessibilityLabel = "在 Vime App 中编辑常用符号"
+        settingsLink.accessibilityLabel = String(localized: "在 Vime App 中编辑常用符号")
         settingsLink.accessibilityIdentifier = "vime.numberSymbols.edit"
         settingsLink.addAction(UIAction { [weak self] _ in self?.onEdit?() }, for: .touchUpInside)
         addSubview(settingsLink)

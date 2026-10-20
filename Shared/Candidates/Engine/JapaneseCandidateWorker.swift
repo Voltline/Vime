@@ -36,12 +36,17 @@ final class JapaneseCandidateWorker {
         private var ready = false
         var isSuspended: Bool { lock.lock(); defer { lock.unlock() }; return suspended }
         var isReady: Bool { lock.lock(); defer { lock.unlock() }; return ready && !suspended }
-        func setSuspended(_ value: Bool) { lock.lock(); suspended = value; lock.unlock() }
+        func setSuspended(_ value: Bool) {
+            lock.lock(); suspended = value; lock.unlock()
+            KeyboardExtensionStatus.update { $0.modelPaused = value }
+        }
         func retry(requestID: String) -> Bool {
-            lock.lock(); defer { lock.unlock() }
-            guard requestID != handledRetryID else { return false }
+            lock.lock()
+            guard requestID != handledRetryID else { lock.unlock(); return false }
             handledRetryID = requestID
             suspended = false
+            lock.unlock()
+            KeyboardExtensionStatus.update { $0.modelPaused = false }
             return true
         }
         private func setReady(_ value: Bool) { lock.lock(); ready = value; lock.unlock() }
@@ -78,6 +83,7 @@ final class JapaneseCandidateWorker {
                     guard !isSuspended else { return nil }
                     cachedModel = model
                     setReady(true)
+                    KeyboardExtensionStatus.update { $0.modelVersion = model.modelVersion; $0.modelPaused = false }
                 } catch {
                     log.error("Model unavailable (\(String(describing: error), privacy: .public)); retaining dictionary candidates.")
                 }

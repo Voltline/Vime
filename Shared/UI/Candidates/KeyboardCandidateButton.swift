@@ -63,7 +63,7 @@ final class KeyboardCandidateButton: UIButton {
             annotation.text = presentation.annotation
             annotation.isHidden = presentation.annotation == nil
             accessibilityLabel = presentation.accessibilityLabel
-            accessibilityHint = presentation.correction == nil ? "点击确认候选词" : "点击采用建议读音"
+            accessibilityHint = presentation.correction == nil ? String(localized: "点击确认候选词") : String(localized: "点击采用建议读音")
             invalidateIntrinsicContentSize()
         }
         if presentedIndex != index {
@@ -94,18 +94,25 @@ final class KeyboardCandidateButton: UIButton {
 
     override func contentRect(forBounds bounds: CGRect) -> CGRect { bounds.insetBy(dx: 12, dy: 2) }
 
+    /// Gap between the text block and its selection underline.
+    static let underlineGap: CGFloat = 3
+
     override func layoutSubviews() {
         super.layoutSubviews()
-        underline.frame = CGRect(x: 12, y: max(0, bounds.height - 2),
-            width: min(max(0, bounds.width - 24), ceil(measuredTextWidth)), height: 2)
+        let titleHeight = ceil(titleLabel?.font.lineHeight ?? 22)
+        var textBottom = (bounds.height + titleHeight) / 2
         if !annotation.isHidden {
-            let titleHeight = ceil(titleLabel?.font.lineHeight ?? 22)
             let noteHeight = ceil(annotation.font.lineHeight)
             let top = max(0, (bounds.height - titleHeight - noteHeight - 3) / 2)
             titleLabel?.frame = CGRect(x: 12, y: top, width: max(0, bounds.width - 24), height: titleHeight)
             annotation.frame = CGRect(x: 12, y: top + titleHeight + 1,
                 width: max(0, bounds.width - 24), height: noteHeight)
+            textBottom = annotation.frame.maxY
         }
+        // Follow the text, not the strip: a full-height button would otherwise
+        // draw the line against the first key row.
+        underline.frame = CGRect(x: 12, y: min(max(0, bounds.height - 2), ceil(textBottom + Self.underlineGap)),
+            width: min(max(0, bounds.width - 24), ceil(measuredTextWidth)), height: 2)
     }
     func applyTheme() {
         underline.backgroundColor = KeyboardPalette.accent

@@ -39,7 +39,7 @@ struct KeyboardUserDictionaryView: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(entry.surface).foregroundStyle(.primary)
                             Text((entry.reading.applyingTransform(.hiraganaToKatakana, reverse: true) ?? entry.reading)
-                                + (entry.kind == .shortcut ? " · 短语快捷输入" : " · 词语"))
+                                + (entry.kind == .shortcut ? String(localized: " · 短语快捷输入") : String(localized: " · 词语")))
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                     }

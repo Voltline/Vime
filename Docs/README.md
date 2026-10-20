@@ -5,7 +5,7 @@
 ## 使用指南
 
 - [App 设置](Guides/AppSettings.md)：试打、定制、三档吸附与设置导航
-- [隐私政策](Guides/Privacy.md)：与 App 内政策一致的公开文本
+- [隐私政策](Guides/Privacy.md)：与 App 内政策一致的公开文本（另有 [繁體中文](Guides/Privacy.zh-Hant.md)、[日本語](Guides/Privacy.ja.md)、[English](Guides/Privacy.en.md)）
 
 - [自定义皮肤](Guides/CustomSkins.md)：创建、导入、导出及文件格式。
 - [用户词典](Guides/UserDictionary.md)：注册词语、短语快捷输入及 JSON 交换格式。

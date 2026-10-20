@@ -6,7 +6,7 @@ import UniformTypeIdentifiers
 nonisolated struct KeyboardSkinDocument: Codable, Identifiable, Equatable, Sendable {
     var format = "vime.skin.v1"
     var id = UUID().uuidString
-    var name = "我的皮肤"
+    var name = String(localized: "我的皮肤")
     var author = ""
     var palette = Palette()
     var style = Style()
@@ -94,10 +94,10 @@ nonisolated struct KeyboardSkinDocument: Codable, Identifiable, Equatable, Senda
         case invalid, image, tooLarge, full
         var errorDescription: String? {
             switch self {
-            case .invalid: "皮肤格式或颜色无效，请使用 Vime 导出的皮肤文件"
-            case .image: "图片无效或过大，仅支持 PNG/JPEG，总像素不超过 500 万"
-            case .tooLarge: "皮肤文件不能超过 8 MB"
-            case .full: "最多保留 30 个自定义皮肤，请先删除不需要的皮肤"
+            case .invalid: String(localized: "皮肤格式或颜色无效，请使用 Vime 导出的皮肤文件")
+            case .image: String(localized: "图片无效或过大，仅支持 PNG/JPEG，总像素不超过 500 万")
+            case .tooLarge: String(localized: "皮肤文件不能超过 8 MB")
+            case .full: String(localized: "最多保留 30 个自定义皮肤，请先删除不需要的皮肤")
             }
         }
     }
@@ -118,7 +118,7 @@ final class KeyboardSkinStore {
               let values = try? JSONDecoder().decode([Summary].self, from: data) else { return [] }
         return Array(values.filter { UUID(uuidString: $0.id) != nil && $0.name.count <= 60 }.prefix(30))
     }
-    private func file(_ id: String) -> URL? {
+    func file(_ id: String) -> URL? {
         guard let uuid = UUID(uuidString: id) else { return nil }
         return directory.appendingPathComponent(uuid.uuidString + ".vimeskin")
     }
