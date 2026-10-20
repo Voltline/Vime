@@ -1,0 +1,48 @@
+{
+ "format": "vime_ios_lm_v4",
+ "architecture": "tiny_gpt_v4",
+ "model_version": "4.2-epoch20-step1081942-int8-b32-v1",
+ "minimum_ios": 18,
+ "vocab_size": 8192,
+ "context_length": 128,
+ "compute_units": "CPU_ONLY",
+ "special_ids": {
+  "pad": 0,
+  "unk": 1,
+  "bos": 2,
+  "eos": 3
+ },
+ "forbidden_generation_ids": [
+  0,
+  1,
+  2,
+  4,
+  5,
+  6
+ ],
+ "reserved_marker_ids": [
+  4,
+  5,
+  6
+ ],
+ "tokenizer_sha256": "296a2bdf4f4862be8bda848ed1cd261f0b0fd43064181fad5a513c6ce73081b5",
+ "checkpoint_sha256": "0e83ea7417b9816b37183044468343b151f4e610da0764c31f1f780c5fa5796d",
+ "bundle_manifest_sha256": "05ba14f33f28aa18317adfe007d4ac2a355d38ce8636b294ff37468b2209a41b",
+ "kind": "linear8_fp32_compute",
+ "quantization": "weight-only symmetric INT8 block32; FP32 computation",
+ "strict_fp32_logits_alignment_passed": false,
+ "compiled_files_sha256": {
+  "analytics/coremldata.bin": "7d5d07bcf51bed471e94e12b783caa4a1f845012f6eed4972409839684c0a081",
+  "coremldata.bin": "03ee1a1a1562e63e242466b59557d97e95f69a7d8959d55e602bdd1220cd3f0b",
+  "metadata.json": "f43fd2268e8dc3a27aa61f8b6a05c8179eff933a4b5109f7d6719e4b03f99ac2",
+  "model.mil": "0624f692509f2c87666c7d74602f257efd16f0f8d918dd6ef6802af60c863fd0",
+  "weights/weight.bin": "2cd491c088d638dedffa796e44ba6801a4a2cb55a080a81d0b2d3ebf0deb760e"
+ },
+ "source_manifest_sha256": "0c3b6f3b809aaf3dd2f9ae18626c363f72dd34c59953dea48fe865ebbde9d6da",
+ "vimeml_resource_manifest_sha256": "948f3426f53983d0bad3548e186b55ded77ebccb2840f0bdd4ede02e9263b016",
+ "interface": {
+  "input_ids": "int32 [1,T], 1<=T<=128; right PAD",
+  "logits": "float32 [1,T,8192]; full vocabulary; no softmax"
+ },
+ "policy": "Opt-in measurement variant; V2.1 remains the default runtime model."
+}

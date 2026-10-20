@@ -14,3 +14,5 @@ Local changes (2026-10-09):
   using deprecated sprintf. This also avoids an intermediate terminator writing
   past the end when exactly four bytes remain; the final terminator is checked
   separately by the existing function.
+- Bridge.cc (2026-10-20): `vime_sp_load` takes the expected piece count instead of
+  a fixed 16384, so the V2 16K and opt-in V4 8K tokenizers are each checked exactly.

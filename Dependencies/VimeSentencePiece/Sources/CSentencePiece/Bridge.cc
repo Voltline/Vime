@@ -10,10 +10,10 @@
 // The package's narrowing-warning exception is for upstream code only.
 #pragma clang diagnostic warning "-Wshorten-64-to-32"
 #endif
-extern "C" void *vime_sp_load(const char *path) {
+extern "C" void *vime_sp_load(const char *path, int32_t pieces) {
   try {
     auto p = std::make_unique<sentencepiece::SentencePieceProcessor>();
-    if (!p->Load(path).ok() || p->GetPieceSize() != 16384 || p->pad_id() != 0 ||
+    if (pieces <= 0 || !p->Load(path).ok() || p->GetPieceSize() != pieces || p->pad_id() != 0 ||
         p->unk_id() != 1 || p->bos_id() != 2 || p->eos_id() != 3) return nullptr;
     return p.release();
   } catch (...) { return nullptr; }

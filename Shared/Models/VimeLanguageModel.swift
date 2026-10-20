@@ -6,8 +6,9 @@ import Accelerate
 /// Confined to the worker's model queue, independently of dictionary conversion.
 nonisolated final class VimeSentenceTokenizer {
     private let processor: UnsafeMutableRawPointer
-    init(url: URL) throws {
-        guard let p = url.path.withCString({ vime_sp_load($0) }) else { throw VimeLanguageModel.Failure.tokenizer }
+    init(url: URL, vocabulary: Int = VimeLanguageModel.vocabulary) throws {
+        guard let pieces = Int32(exactly: vocabulary),
+              let p = url.path.withCString({ vime_sp_load($0, pieces) }) else { throw VimeLanguageModel.Failure.tokenizer }
         processor = p
     }
     deinit { vime_sp_destroy(processor) }
@@ -48,8 +49,24 @@ nonisolated final class VimeLanguageModel {
         let tokenizer_sha256: String
         let compiled_files_sha256: [String: String]
     }
+    /// Bundled model generations. V2.1 is the shipped default; V4.2 is an
+    /// explicit measurement/opt-in variant with its own 8K tokenizer.
+    enum Variant: String, Sendable, CaseIterable {
+        case v21, v42
+        var modelResource: String { self == .v21 ? "TinyJapaneseV21INT8" : "TinyJapaneseV42INT8" }
+        var tokenizerResource: String { self == .v21 ? "VimeJapaneseTokenizerV2" : "VimeJapaneseTokenizerV4" }
+        var manifestResource: String { self == .v21 ? "VimeLMManifestV21" : "VimeLMManifestV42" }
+        var format: String { self == .v21 ? "vime_ios_lm_v2" : "vime_ios_lm_v4" }
+        var architecture: String { self == .v21 ? "tiny_gpt_v2" : "tiny_gpt_v4" }
+        var vocabulary: Int { self == .v21 ? 16384 : 8192 }
+        /// V4 reserves 4–6 as conversion markers: never ordinary text input or output.
+        var reservedTokens: Set<Int32> { self == .v21 ? [] : [4, 5, 6] }
+    }
     let tokenizer: VimeSentenceTokenizer
     private let model: MLModel
+    let variant: Variant
+    let vocabularySize: Int
+    /// V2.1 vocabulary; instances report their own `vocabularySize`.
     static let vocabulary = 16384
     static let contextLength = 128
     /// Model-queue confined. Cache causal output rows, never full prediction
@@ -103,7 +120,7 @@ nonisolated final class VimeLanguageModel {
             let pointer = logits.dataPointer.assumingMemoryBound(to: Float.self)
                 .advanced(by: row * logits.strides[1].intValue)
             let stride = logits.strides[2].intValue
-            rows[key] = Row(logits: (0..<VimeLanguageModel.vocabulary).map { pointer[$0 * stride] },
+            rows[key] = Row(logits: (0..<logits.shape[2].intValue).map { pointer[$0 * stride] },
                 normalizer: normalizer, sumBeforeLast: sumBeforeLast)
             order.append(key)
         }
@@ -148,18 +165,20 @@ nonisolated final class VimeLanguageModel {
     }
     /// A failed model identity check uses the worker's dictionary fallback.
     let modelVersion: String
-    init(bundle: Bundle = .main, computeUnits: MLComputeUnits = .cpuOnly) throws {
-        guard let modelURL = bundle.url(forResource: "TinyJapaneseV21INT8", withExtension: "mlmodelc"),
-              let tokenizerURL = bundle.url(forResource: "VimeJapaneseTokenizerV2", withExtension: "model"),
-              let manifestURL = bundle.url(forResource: "VimeLMManifestV21", withExtension: "json") else { throw Failure.resources }
+    init(bundle: Bundle = .main, computeUnits: MLComputeUnits = .cpuOnly, variant: Variant = .v21) throws {
+        guard let modelURL = bundle.url(forResource: variant.modelResource, withExtension: "mlmodelc"),
+              let tokenizerURL = bundle.url(forResource: variant.tokenizerResource, withExtension: "model"),
+              let manifestURL = bundle.url(forResource: variant.manifestResource, withExtension: "json") else { throw Failure.resources }
         let manifest = try JSONDecoder().decode(Manifest.self, from: Data(contentsOf: manifestURL))
-        guard manifest.format == "vime_ios_lm_v2",
-              manifest.architecture == "tiny_gpt_v2", manifest.compute_units == "CPU_ONLY",
+        guard manifest.format == variant.format,
+              manifest.architecture == variant.architecture, manifest.compute_units == "CPU_ONLY",
               manifest.special_ids == ["pad": 0, "unk": 1, "bos": 2, "eos": 3],
               let version = manifest.model_version, !version.isEmpty,
               computeUnits == .cpuOnly else { throw Failure.integrity }
         modelVersion = version
-        guard manifest.minimum_ios == 18, manifest.vocab_size == Self.vocabulary,
+        self.variant = variant
+        vocabularySize = variant.vocabulary
+        guard manifest.minimum_ios == 18, manifest.vocab_size == variant.vocabulary,
               manifest.context_length == Self.contextLength,
               !manifest.tokenizer_sha256.isEmpty,
               !manifest.compiled_files_sha256.isEmpty else { throw Failure.integrity }
@@ -170,7 +189,7 @@ nonisolated final class VimeLanguageModel {
             guard !name.hasPrefix("/"), !name.split(separator: "/").contains(".."),
                   !digest.isEmpty else { throw Failure.integrity }
         }
-        tokenizer = try VimeSentenceTokenizer(url: tokenizerURL)
+        tokenizer = try VimeSentenceTokenizer(url: tokenizerURL, vocabulary: variant.vocabulary)
         // This package computes in FP32, so the Neural Engine cannot run it, and its INT8 embedding
         // gather aborts inside MPS on .all/.cpuAndGPU (iPhone 16 Pro Max, iOS 27). Keep .cpuOnly.
         let configuration = MLModelConfiguration()
@@ -201,14 +220,14 @@ nonisolated final class VimeLanguageModel {
     }
     func predict(_ ids: [Int32]) throws -> MLMultiArray {
         guard !ids.isEmpty, ids.count <= Self.contextLength,
-              ids.allSatisfy({ $0 >= 0 && $0 < Self.vocabulary }) else { throw Failure.tensor }
+              ids.allSatisfy({ $0 >= 0 && $0 < vocabularySize }) else { throw Failure.tensor }
         let input = try MLMultiArray(shape: [1, NSNumber(value: ids.count)], dataType: .int32)
         let pointer = input.dataPointer.bindMemory(to: Int32.self, capacity: ids.count)
         for (i, id) in ids.enumerated() { pointer[i] = id }
         let output = try model.prediction(from: MLDictionaryFeatureProvider(dictionary: ["input_ids": input]))
         guard let logits = output.featureValue(for: "logits")?.multiArrayValue,
               logits.dataType == .float32,
-              logits.shape.map(\.intValue) == [1, ids.count, Self.vocabulary] else { throw Failure.tensor }
+              logits.shape.map(\.intValue) == [1, ids.count, vocabularySize] else { throw Failure.tensor }
         return logits
     }
     static func logProbabilities(_ logits: MLMultiArray, row: Int) throws -> [Double] {
@@ -216,7 +235,7 @@ nonisolated final class VimeLanguageModel {
         let pointer = logits.dataPointer.assumingMemoryBound(to: Float.self)
         let offset = row * logits.strides[1].intValue
         let stride = logits.strides[2].intValue
-        var values = (0..<vocabulary).map { Double(pointer[offset + $0 * stride]) }
+        var values = (0..<logits.shape[2].intValue).map { Double(pointer[offset + $0 * stride]) }
         guard values.allSatisfy(\.isFinite), let maximum = values.max() else { throw Failure.tensor }
         let normalizer = maximum + log(values.reduce(0) { $0 + exp($1 - maximum) })
         for i in values.indices { values[i] -= normalizer }
@@ -249,7 +268,9 @@ nonisolated final class VimeLanguageModel {
         }
         defer { KeyboardPerformance.record(.lmScoringTokenization, since: started) }
         let ids = try tokenizer.encode(text)
-        guard Self.exactText(try tokenizer.decode(ids), text) else { throw Failure.ineligible }
+        guard Self.exactText(try tokenizer.decode(ids), text),
+              variant.reservedTokens.isEmpty || !ids.contains(where: variant.reservedTokens.contains)
+        else { throw Failure.ineligible }
         cache?.storeValidatedTokens(ids, for: text)
         return ids
     }
@@ -323,7 +344,7 @@ nonisolated final class VimeLanguageModel {
                 // vocabulary buffer and vectorize the full normalizer instead
                 // of allocating and normalizing a Swift array for every token.
                 guard !cancelled() else { throw Failure.cancelled }
-                if scratch.isEmpty { scratch = Array(repeating: 0, count: Self.vocabulary) }
+                if scratch.isEmpty { scratch = Array(repeating: 0, count: vocabularySize) }
                 if prefixScores.isEmpty {
                     let normalizer = try Self.logNormalizer(logits, row: common - 1, scratch: &scratch)
                     let pointer = logits.dataPointer.assumingMemoryBound(to: Float.self)
@@ -373,6 +394,8 @@ nonisolated final class VimeLanguageModel {
         let stride = logits.strides[2].intValue
         return try scratch.withUnsafeMutableBufferPointer { buffer in
             let p = buffer.baseAddress!
+            let vocabulary = logits.shape[2].intValue
+            guard buffer.count >= vocabulary else { throw Failure.tensor }
             let count = vDSP_Length(vocabulary)
             vDSP_vspdp(pointer, vDSP_Stride(stride), p, 1, count)
             var finiteCheck = 0.0
@@ -539,6 +562,7 @@ nonisolated final class VimeLanguageModel {
                 try Self.logProbabilities(predict(prefix + ids), row: prefix.count + ids.count - 1)
             }
             for token in 0...3 { values[token] = -.infinity } // PAD, UNK, BOS, EOS
+            for token in variant.reservedTokens { values[Int(token)] = -.infinity }
             return values
         }
         if cancelled() { throw Failure.cancelled }
@@ -637,7 +661,8 @@ nonisolated final class VimeLanguageModel {
                      cancelled: () -> Bool = { false }) throws -> [Suggestion] {
         guard !prompt.isEmpty, (1...5).contains(count), (1...8).contains(maxTokens) else { throw Failure.ineligible }
         let content = try tokenizer.encode(prompt)
-        guard Self.exactText(try tokenizer.decode(content), prompt), content.count + 1 <= Self.contextLength else { throw Failure.ineligible }
+        guard Self.exactText(try tokenizer.decode(content), prompt), content.count + 1 <= Self.contextLength,
+              !content.contains(where: variant.reservedTokens.contains) else { throw Failure.ineligible }
         let prefix: [Int32] = [2] + content
         struct Beam { let ids: [Int32]; let score: Double; var incomplete = false }
         var active = [Beam(ids: [], score: 0)]
@@ -661,6 +686,7 @@ nonisolated final class VimeLanguageModel {
                     return try Self.logProbabilities(logits, row: prefix.count + beam.ids.count - 1)
                 }
                 for token in [0, 1, 2] { probabilities[token] = -.infinity }
+                for token in variant.reservedTokens { probabilities[Int(token)] = -.infinity }
                 if (try decodedSuffix(beam.ids) ?? "").trimmingCharacters(in: trim).isEmpty {
                     probabilities[3] = -.infinity
                 }

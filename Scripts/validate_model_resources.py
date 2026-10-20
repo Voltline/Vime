@@ -42,6 +42,39 @@ def validate(resources):
     return manifest["model_version"]
 
 
+def validate_v42(resources):
+    """Optional opt-in V4.2 set: verified only when its manifest is bundled."""
+    path = resources / "VimeLMManifestV42.json"
+    if not path.exists():
+        return None
+    manifest = json.loads(path.read_text())
+    if (manifest["format"] != "vime_ios_lm_v4"
+            or manifest["architecture"] != "tiny_gpt_v4"
+            or manifest["compute_units"] != "CPU_ONLY"
+            or manifest["minimum_ios"] != 18
+            or manifest["vocab_size"] != 8192
+            or manifest["context_length"] != 128
+            or manifest["special_ids"] != {"pad": 0, "unk": 1, "bos": 2, "eos": 3}
+            or manifest["reserved_marker_ids"] != [4, 5, 6]
+            or not manifest["model_version"]):
+        raise ValueError("V4.2 manifest identity is invalid")
+    if digest(resources / "VimeJapaneseTokenizerV4.model") != manifest["tokenizer_sha256"]:
+        raise ValueError("V4 tokenizer checksum mismatch")
+    model = resources / "TinyJapaneseV42INT8.mlmodelc"
+    expected = manifest["compiled_files_sha256"]
+    actual = {p.relative_to(model).as_posix() for p in model.rglob("*") if p.is_file()}
+    if not expected or actual != set(expected):
+        raise ValueError("V4.2 compiled model is missing or its file set differs")
+    for name, checksum in expected.items():
+        relative = PurePosixPath(name)
+        path = model / name
+        if (relative.is_absolute() or ".." in relative.parts
+                or not path.resolve().is_relative_to(model.resolve())
+                or digest(path) != checksum):
+            raise ValueError(f"V4.2 model checksum mismatch: {name}")
+    return manifest["model_version"]
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--resources", type=Path,
@@ -49,11 +82,12 @@ def main():
     args = parser.parse_args()
     try:
         version = validate(args.resources)
+        optional = validate_v42(args.resources)
     except (OSError, ValueError, KeyError) as error:
         print(f"error: Vime model preflight failed: {error}. "
               "Install the matching payload with Scripts/install_v21_resources.py.", file=sys.stderr)
         return 1
-    print(f"Vime model preflight passed: {version}")
+    print(f"Vime model preflight passed: {version}" + (f"; opt-in {optional}" if optional else ""))
     return 0
 
 

@@ -44,4 +44,8 @@ python3 Scripts/validate_model_resources.py
 python3 Scripts/validate_model_resources.py --resources '<BUNDLE_RESOURCE_DIRECTORY>'
 ```
 
+### 可选 V4.2 测量变体
+
+`VimeLanguageModel(variant: .v42)` 加载 `TinyJapaneseV42INT8.mlmodelc`、`VimeJapaneseTokenizerV4.model` 与 `VimeLMManifestV42.json`（`vime_ios_lm_v4`，词表 8,192）。V4 的 4–6 号 token 是转换标记，评分与 beam 输入中出现即判为不合格，联想与 beam 输出也不会生成。所有产品调用点仍使用默认的 v2.1；V4.2 只由 `VimeLanguageModelV42Tests` 和基准测试显式选择，不是默认模型的替换。资源用 [install_v42_resources.py](../../Scripts/install_v42_resources.py) 从 VimeML 的 `tiny-ja-v4.2-epoch20-client-resources-v1` 安装；清单存在时 `validate_model_resources.py` 同时校验其哈希。`Scripts/benchmark_lm_variants.py` 在独立测试进程中交替运行两种变体的基准测试（`TEST_RUNNER_VIME_LM_VARIANT=v21|v42`）。
+
 [install_v21_resources.py](../../Scripts/install_v21_resources.py) 用于补齐缺失的匹配资源，不是覆盖已有模型的一般升级器。实际替换应遵守脚本校验和资源契约，并使用固定参考数据核对候选评分、联想、输入边界和内存。Release 资源输入见 [ModelResources.Release.xcfilelist](../../Configuration/ModelResources.Release.xcfilelist)。
