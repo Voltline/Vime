@@ -46,7 +46,7 @@ final class VimeLanguageModelTests: XCTestCase {
     }
 
     func testConversionCacheReusesAcrossChangingPoolsAndBoundariesWithoutChangingScores() throws {
-        let model = try VimeLanguageModel(), cache = VimeLanguageModel.ConversionScoreCache()
+        let model = try VimeLanguageModel(variant: .v21), cache = VimeLanguageModel.ConversionScoreCache()
         let context = "週末の旅行について友人と相談しているので、"
         let pools = [["東京", "大阪"], ["東京へ", "京都"],
                      ["東京へ旅行する予定です", "大阪", "日本の会社で働く"]]
@@ -75,7 +75,7 @@ final class VimeLanguageModelTests: XCTestCase {
     }
 
     func testConversionCacheEvictionKeepsNumericalParityAndBoundedMemory() throws {
-        let model = try VimeLanguageModel(), cache = VimeLanguageModel.ConversionScoreCache()
+        let model = try VimeLanguageModel(variant: .v21), cache = VimeLanguageModel.ConversionScoreCache()
         let context = "明日は、"
         for index in 0..<80 {
             _ = try model.scores(context: context, candidates: ["東京の予定\(index)について相談する"], conversionCache: cache)
@@ -89,7 +89,7 @@ final class VimeLanguageModelTests: XCTestCase {
     }
 
     func testConversionCacheReusesLongCandidateWhenOnlyLastTokenChanges() throws {
-        let model = try VimeLanguageModel(), cache = VimeLanguageModel.ConversionScoreCache()
+        let model = try VimeLanguageModel(variant: .v21), cache = VimeLanguageModel.ConversionScoreCache()
         let context = "旅行について相談していて、"
         let texts = (0..<10).map { "東京へ行く予定の便番号は\($0)" }
         let groups = try Dictionary(grouping: texts) { Array(try model.tokenizer.encode(context + $0).dropLast()) }
@@ -105,7 +105,7 @@ final class VimeLanguageModelTests: XCTestCase {
     }
 
     func testSharedPrefixScoresUseOnePredictionAndMatchIndependentShortAndLongContexts() throws {
-        let model = try VimeLanguageModel()
+        let model = try VimeLanguageModel(variant: .v21)
         let long = String("来週の旅行に備えて必要な物を整理しながら現地で何をするか友人と相談していて、まだ決まっていない予定について詳しく話すために、".suffix(64))
         for context in ["", "明日は、", long] {
             let candidates = try singleTokenCandidates(model, context: context)
@@ -123,7 +123,7 @@ final class VimeLanguageModelTests: XCTestCase {
     }
 
     func testSharedPrefixScoresPreserveMultiTokenAndReversedCandidateNumericalParity() throws {
-        let model = try VimeLanguageModel()
+        let model = try VimeLanguageModel(variant: .v21)
         let context = "週末の旅行について友人と相談しているので、"
         let candidates = ["東京へ旅行する予定です", "大阪", "京都", "日本の会社で働く"]
         let reference = try independentScores(model, context: context, candidates: candidates)
@@ -136,7 +136,7 @@ final class VimeLanguageModelTests: XCTestCase {
     }
 
     func testSharedPrefixReuseStillHonorsCancellationBetweenCandidates() throws {
-        let model = try VimeLanguageModel()
+        let model = try VimeLanguageModel(variant: .v21)
         let candidates = try singleTokenCandidates(model, context: "明日は、")
         XCTAssertGreaterThanOrEqual(candidates.count, 3)
         KeyboardPerformance.configure(enabled: true, reset: true)
@@ -148,7 +148,7 @@ final class VimeLanguageModelTests: XCTestCase {
         XCTAssertEqual(KeyboardPerformance.report()["lmScoringPrefixReuse"]?["totalCount"], 1)
     }
     func testNativeSentencePieceMatchesFrozenCorpusAndUnicode() throws {
-        let lm = try VimeLanguageModel()
+        let lm = try VimeLanguageModel(variant: .v21)
         let data = try fixtures()
         XCTAssertGreaterThan(data.tokenization.count, 1000)
         for item in data.tokenization {
@@ -157,7 +157,7 @@ final class VimeLanguageModelTests: XCTestCase {
         }
     }
     func testJointSuffixScoresMatchMacINT8IncludingBoundaryRetokenization() throws {
-        let lm = try VimeLanguageModel()
+        let lm = try VimeLanguageModel(variant: .v21)
         let corpus = try fixtures().scoring
         XCTAssertFalse(corpus.isEmpty, "An empty reference corpus cannot certify numerical parity")
         for item in corpus {
@@ -169,7 +169,7 @@ final class VimeLanguageModelTests: XCTestCase {
         }
     }
     func testWholePoolFallbackAndCancellation() throws {
-        let lm = try VimeLanguageModel()
+        let lm = try VimeLanguageModel(variant: .v21)
         XCTAssertThrowsError(try lm.scores(context: "", candidates: ["東京", "東京"]))
         XCTAssertThrowsError(try lm.scores(context: "", candidates: ["", "東京"]))
         XCTAssertThrowsError(try lm.scores(context: "▁", candidates: ["東京", "大阪"]))
@@ -181,7 +181,7 @@ final class VimeLanguageModelTests: XCTestCase {
     }
 
     func testNextWordFinalRankingReusesGeneratedScoresWithNumericalParity() throws {
-        let model = try VimeLanguageModel()
+        let model = try VimeLanguageModel(variant: .v21)
         for prompt in ["明日は", "私は", "東京"] {
             let cache = VimeLanguageModel.SuggestionScoreCache()
             let words = try model.scoredNextWords(prompt: prompt, cache: cache)
@@ -201,7 +201,7 @@ final class VimeLanguageModelTests: XCTestCase {
     }
 
     func testNextWordStagesShareValidatedTokensAndPreserveHistorySelection() throws {
-        let model = try VimeLanguageModel()
+        let model = try VimeLanguageModel(variant: .v21)
         defer { KeyboardPerformance.configure(enabled: false) }
         let history = ["京都に行く", "▁", "大阪に行く", "京都に行く", "最後の未使用"]
         for prompt in ["明日は", "私は", "東京"] {
@@ -242,7 +242,7 @@ final class VimeLanguageModelTests: XCTestCase {
     }
 
     func testSuggestionTokenCacheIsBoundedAndRequiresExactUTF8() throws {
-        let model = try VimeLanguageModel()
+        let model = try VimeLanguageModel(variant: .v21)
         defer { KeyboardPerformance.configure(enabled: false) }
         let cache = VimeLanguageModel.SuggestionScoreCache()
         let expected = try model.scores(context: "", candidates: ["が"]).first
@@ -281,7 +281,7 @@ final class VimeLanguageModelTests: XCTestCase {
     }
 
     func testScoreCacheRevalidatesBoundaryAndPromptAgainstFrozenReferences() throws {
-        let model = try VimeLanguageModel()
+        let model = try VimeLanguageModel(variant: .v21)
         let cache = VimeLanguageModel.SuggestionScoreCache()
         for item in try fixtures().scoring {
             // Individually-scored candidates can have a different common
@@ -298,7 +298,7 @@ final class VimeLanguageModelTests: XCTestCase {
         for (actual, expected) in zip(cached, fresh) { XCTAssertEqual(actual, expected, accuracy: 0.0001) }
     }
     func testPaddingAndCausality() throws {
-        let lm = try VimeLanguageModel()
+        let lm = try VimeLanguageModel(variant: .v21)
         let ids: [Int32] = [2] + (try lm.tokenizer.encode("明日の会議までに、"))
         let plain = try lm.predict(ids)
         let padded = try lm.predict(ids + Array(repeating: 0, count: 128 - ids.count))
@@ -312,7 +312,7 @@ final class VimeLanguageModelTests: XCTestCase {
         }
     }
     func testRerankerRetainsMetadataAndExplicitScriptAndCancelledOrders() throws {
-        let lm = try VimeLanguageModel()
+        let lm = try VimeLanguageModel(variant: .v21)
         let engine = JapaneseCandidateEngine()
         var query = ComposingText()
         RomajiConverter.insert("nihongo", into: &query)
@@ -328,7 +328,7 @@ final class VimeLanguageModelTests: XCTestCase {
         }
     }
     func testNativeBeamMatchesTwentyMacINT8Prefixes() throws {
-        let lm = try VimeLanguageModel()
+        let lm = try VimeLanguageModel(variant: .v21)
         let corpus = try fixtures().phrases
         XCTAssertEqual(corpus.count, 20, "All twenty frozen prefixes must be checked")
         for phrase in corpus {
@@ -345,7 +345,7 @@ final class VimeLanguageModelTests: XCTestCase {
     }
 
     func testRerankerUsesFrozenScoresAndPreservesIneligibleSlot() throws {
-        let lm = try VimeLanguageModel()
+        let lm = try VimeLanguageModel(variant: .v21)
         let reference = try XCTUnwrap(try fixtures().scoring.first { $0.context == "コーヒーを" })
         XCTAssertEqual(reference.candidates, ["飲む", "買う", "飲みたい"])
         // Warm the same deployed model, and independently check its numerical
@@ -384,7 +384,7 @@ final class VimeLanguageModelTests: XCTestCase {
     }
 
     func testRerankingUsesValidatedTokensOnceAndKeepsUnsupportedSlots() throws {
-        let model = try VimeLanguageModel()
+        let model = try VimeLanguageModel(variant: .v21)
         let context = "明日は、"
         let texts = ["東京", "▁", String(repeating: "東京", count: 200), "大阪", "京都"]
         let pool = texts.map { text in
@@ -417,7 +417,7 @@ final class VimeLanguageModelTests: XCTestCase {
     }
 
     func testPostCompositionReusesValidatedTokensAndMatchesIndependentScores() throws {
-        let model = try VimeLanguageModel()
+        let model = try VimeLanguageModel(variant: .v21)
         let prompt = "コーヒーを"
         let unique = ["買う", "飲む", "飲みたい"]
         let reference = try independentScores(model, context: prompt, candidates: unique)
@@ -458,7 +458,7 @@ final class VimeLanguageModelTests: XCTestCase {
     }
 
     func testSentenceInitialRerankingMatchesFrozenBOSScoresAndProtectsLearnedLeader() throws {
-        let model = try VimeLanguageModel()
+        let model = try VimeLanguageModel(variant: .v21)
         let fixture = try XCTUnwrap(try fixtures().scoring.first { $0.context.isEmpty })
         let texts = Array(fixture.candidates.reversed()), sums = Array(fixture.sums.reversed())
         var pool = texts.map { text in
@@ -482,7 +482,7 @@ final class VimeLanguageModelTests: XCTestCase {
         XCTAssertNil(KeyboardPerformance.report()["lmScoringTokenization"])
     }
     func testNextWordsAreShortAndStopBeforePunctuation() throws {
-        let lm = try VimeLanguageModel()
+        let lm = try VimeLanguageModel(variant: .v21)
         var report: [String: [String]] = [:]
         for prompt in ["ご確認のほど、", "本日はお忙しい中", "明日の会議までに", "朝起きたら、コーヒーを", "パスワードを入力して"] {
             let words = try lm.nextWords(prompt: prompt)

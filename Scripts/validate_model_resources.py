@@ -1,4 +1,4 @@
-"""Validate the complete V2.1 payload before a Release build or in its bundle."""
+"""Validate the runtime V4.2 payload and its V2.1 fallback before a Release build or in its bundle."""
 import argparse
 import hashlib
 import json
@@ -43,11 +43,8 @@ def validate(resources):
 
 
 def validate_v42(resources):
-    """Optional opt-in V4.2 set: verified only when its manifest is bundled."""
-    path = resources / "VimeLMManifestV42.json"
-    if not path.exists():
-        return None
-    manifest = json.loads(path.read_text())
+    """Runtime default V4.2 set; the keyboard falls back to V2.1 only at runtime."""
+    manifest = json.loads((resources / "VimeLMManifestV42.json").read_text())
     if (manifest["format"] != "vime_ios_lm_v4"
             or manifest["architecture"] != "tiny_gpt_v4"
             or manifest["compute_units"] != "CPU_ONLY"
@@ -81,13 +78,13 @@ def main():
                         default=Path(__file__).resolve().parents[1] / "Shared/Resources")
     args = parser.parse_args()
     try:
-        version = validate(args.resources)
-        optional = validate_v42(args.resources)
+        runtime = validate_v42(args.resources)
+        fallback = validate(args.resources)
     except (OSError, ValueError, KeyError) as error:
-        print(f"error: Vime model preflight failed: {error}. "
-              "Install the matching payload with Scripts/install_v21_resources.py.", file=sys.stderr)
+        print(f"error: Vime model preflight failed: {error}. Install the matching payload with "
+              "Scripts/install_v42_resources.py or Scripts/install_v21_resources.py.", file=sys.stderr)
         return 1
-    print(f"Vime model preflight passed: {version}" + (f"; opt-in {optional}" if optional else ""))
+    print(f"Vime model preflight passed: runtime {runtime}; fallback {fallback}")
     return 0
 
 

@@ -49,10 +49,14 @@ nonisolated final class VimeLanguageModel {
         let tokenizer_sha256: String
         let compiled_files_sha256: [String: String]
     }
-    /// Bundled model generations. V2.1 is the shipped default; V4.2 is an
-    /// explicit measurement/opt-in variant with its own 8K tokenizer.
+    /// Bundled model generations. V4.2 (8K tokenizer) is the runtime default;
+    /// V2.1 ships alongside it as the fallback resource set.
     enum Variant: String, Sendable, CaseIterable {
         case v21, v42
+        /// Load order for the keyboard. A later entry is used only when an
+        /// earlier set is missing or fails its identity / Core ML checks.
+        static let runtimePreference: [Variant] = [.v42, .v21]
+        static var runtimeDefault: Variant { runtimePreference[0] }
         var modelResource: String { self == .v21 ? "TinyJapaneseV21INT8" : "TinyJapaneseV42INT8" }
         var tokenizerResource: String { self == .v21 ? "VimeJapaneseTokenizerV2" : "VimeJapaneseTokenizerV4" }
         var manifestResource: String { self == .v21 ? "VimeLMManifestV21" : "VimeLMManifestV42" }
@@ -165,7 +169,7 @@ nonisolated final class VimeLanguageModel {
     }
     /// A failed model identity check uses the worker's dictionary fallback.
     let modelVersion: String
-    init(bundle: Bundle = .main, computeUnits: MLComputeUnits = .cpuOnly, variant: Variant = .v21) throws {
+    init(bundle: Bundle = .main, computeUnits: MLComputeUnits = .cpuOnly, variant: Variant = .runtimeDefault) throws {
         guard let modelURL = bundle.url(forResource: variant.modelResource, withExtension: "mlmodelc"),
               let tokenizerURL = bundle.url(forResource: variant.tokenizerResource, withExtension: "model"),
               let manifestURL = bundle.url(forResource: variant.manifestResource, withExtension: "json") else { throw Failure.resources }
@@ -195,6 +199,18 @@ nonisolated final class VimeLanguageModel {
         let configuration = MLModelConfiguration()
         configuration.computeUnits = computeUnits
         model = try MLModel(contentsOf: modelURL, configuration: configuration)
+    }
+    /// Loads the first usable variant in runtime preference order. Each failure
+    /// is reported before trying the fallback; the last error is rethrown so the
+    /// worker can keep dictionary ranking when no model loads.
+    static func runtime(bundle: Bundle = .main, preference: [Variant] = Variant.runtimePreference,
+                        failed: (Variant, Error) -> Void = { _, _ in }) throws -> VimeLanguageModel {
+        var lastError: Error = Failure.resources
+        for variant in preference {
+            do { return try autoreleasepool { try VimeLanguageModel(bundle: bundle, variant: variant) } }
+            catch { failed(variant, error); lastError = error }
+        }
+        throw lastError
     }
     /// The model was trained on independent sentences (BOS + one sentence).
     /// Feed it only the unfinished sentence before the caret, bounded so the

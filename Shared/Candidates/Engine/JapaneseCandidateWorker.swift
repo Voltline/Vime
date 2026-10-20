@@ -66,7 +66,9 @@ final class JapaneseCandidateWorker {
                 let log = Logger(subsystem: "com.Voltline.Vime", category: "LanguageModel")
                 let started = ProcessInfo.processInfo.systemUptime
                 do {
-                    let model = try autoreleasepool { try VimeLanguageModel() }
+                    let model = try VimeLanguageModel.runtime { variant, error in
+                        log.error("Model \(variant.rawValue, privacy: .public) unavailable (\(String(describing: error), privacy: .public)); trying fallback.")
+                    }
                     loadCount += 1
                     let milliseconds = Int((ProcessInfo.processInfo.systemUptime - started) * 1000)
                     VimeExtensionAudit.recordModelLoad(version: model.modelVersion, milliseconds: milliseconds)

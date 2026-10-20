@@ -194,8 +194,14 @@ nonisolated final class JapaneseCandidateEngine {
             snapshot(Candidate(text: $0, value: .zero, composingCount: .inputCount(query.input.count),
                                lastMid: MIDData.EOS.mid, data: [], isLearningTarget: false), source: .scriptVariant)
         }
+        // Conversion order excludes interleaved autoMix predictions, which have
+        // their own list and score scale. mainResults otherwise keeps azooKey's
+        // order (sentences, clauses, words) including its learning placement.
+        let mainConversions = result.mainResults.filter { !result.predictionResults.contains($0) }
         let conversions = result.mainResults.enumerated().filter { $0.element.inputable }.map {
-            snapshot($0.element, source: result.predictionResults.contains($0.element) ? .prediction : .conversion, engineRank: $0.offset)
+            let prediction = result.predictionResults.contains($0.element)
+            return snapshot($0.element, source: prediction ? .prediction : .conversion,
+                engineRank: prediction ? $0.offset : mainConversions.firstIndex(of: $0.element) ?? $0.offset)
         }
         guard !cancelled() else { return [] }
         let predictions = result.predictionResults.enumerated().filter { $0.element.inputable }.map {
@@ -278,8 +284,14 @@ nonisolated final class JapaneseCandidateEngine {
             }
             return value
         }
-        let clauses = result.firstClauseResults.enumerated().filter { $0.element.inputable }.map {
-            snapshot($0.element, source: .conversion, engineRank: $0.offset)
+        // First-clause order ranks one bunsetsu, not sentences. When a clause
+        // consumes the whole query, its sentence position in mainResults also
+        // applies; otherwise 「…市ます」 (clause #0, main #4) ties the real best
+        // sentence 「…します」 at rank zero.
+        let clauses = result.firstClauseResults.enumerated().filter { $0.element.inputable }.map { offset, candidate in
+            var rest = query; rest.prefixComplete(composingCount: candidate.composingCount)
+            let sentenceRank = rest.isEmpty ? mainConversions.firstIndex(of: candidate) ?? offset : offset
+            return snapshot(candidate, source: .conversion, engineRank: max(offset, sentenceRank))
         }
         trace?.record(.native, values: conversions + predictions + clauses)
         guard !cancelled() else { return [] }

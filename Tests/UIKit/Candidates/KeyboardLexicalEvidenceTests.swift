@@ -3,6 +3,49 @@ import KanaKanjiConverterModuleWithDefaultDictionary
 
 @MainActor
 final class KeyboardLexicalEvidenceTests: XCTestCase {
+    func testSuruVerbDiagnostics() throws {
+        let directory = isolatedLearningDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let engine = JapaneseCandidateEngine(memoryDirectoryURL: directory, learningEnabled: false)
+        for input in ["りふぁくたりんぐします", "でぷろいします", "きゃっしゅします", "べんちまーくします", "みらーりんぐします", "さいひょうかします", "どうきします", "べんきょうします", "しんせいします", "しんじゅくします", "しみん", "よこはまし", "ししょくします", "りふぁくたりんぐしました", "でぷろいしません", "きゃっしゅして", "りふぁくたりんぐする"] {
+            engine.reset()
+            var query = ComposingText()
+            RomajiConverter.insert(input, into: &query)
+            let values = engine.candidates(for: query, revision: 1, includeCorrections: false)
+            print("SURU_INPUT \(input) TOP \(values.prefix(8).map(\.text))")
+            for value in values.prefix(5) {
+                print("SURU_DATA \(value.text) score=\(value.features.total) native=\(value.engineScore) rank=\(value.engineRank) parts=\(value.candidate.data)")
+            }
+        }
+    }
+
+    /// azooKey's first-clause list can lead with a single-bunsetsu reading
+    /// (「…市ます」) that mainResults ranks below the suru verb. Dictionary order
+    /// is what the strip shows whenever the model window is missed.
+    func testSuruVerbOutranksFirstClauseNounReading() {
+        let directory = isolatedLearningDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let engine = JapaneseCandidateEngine(memoryDirectoryURL: directory, learningEnabled: false)
+        let expected = [
+            "rifakutaringusimasu": "リファクタリングします", "depuroisimasu": "デプロイします",
+            "kyasshusimasu": "キャッシュします", "bentimaーkusimasu": "ベンチマークします",
+            "miraーringusimasu": "ミラーリングします", "benkyousimasu": "勉強します",
+            "rifakutaringusimasita": "リファクタリングしました", "depuroisimasenn": "デプロイしません",
+            "kyasshusite": "キャッシュして"
+        ]
+        for (input, surface) in expected.sorted(by: { $0.key < $1.key }) {
+            engine.reset()
+            var query = ComposingText()
+            RomajiConverter.insert(input, into: &query)
+            let values = engine.candidates(for: query, revision: 1, includeCorrections: false)
+            XCTAssertEqual(values.first?.text, surface, input)
+            let top = values.first?.features.total ?? 0
+            for value in values.dropFirst() where value.fullConsumption && value.text.contains(where: { "市氏誌師".contains($0) }) {
+                XCTAssertLessThan(value.features.total, top - 1, "\(input): \(value.text)")
+            }
+        }
+    }
+
     func testMixedPhraseCanCompeteWithoutAdmittingUnknownCorrection() {
         let word = DicdataElement(word: "学校", ruby: "ガッコウ", cid: CIDData.一般名詞.cid,
                                   mid: MIDData.一般.mid, value: -10)
