@@ -3,6 +3,8 @@ import KanaKanjiConverterModuleWithDefaultDictionary
 
 // Idle-time typo and phonetic correction search over the literal candidate pool.
 nonisolated extension JapaneseCandidateEngine {
+    typealias CorrectionMatch = (candidate: Candidate, variant: KeyboardCorrectionVariants.Variant, score: Double)
+
     func addingCorrections(to base: [CandidateSnapshot], for query: ComposingText, katakana: Bool,
                            revision: Int, cancelled: () -> Bool = { false },
                            now: () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }) -> [CandidateSnapshot] {
@@ -17,9 +19,40 @@ nonisolated extension JapaneseCandidateEngine {
             return false
         }
         guard !stopSearch() else { return base }
-        let generated = KeyboardCorrectionVariants.generate(for: query, cancelled: stopSearch)
-        guard !stopSearch() else { return base }
         let literalReading = RomajiConverter.katakana(query.convertTarget)
+        guard let variants = rankedCorrectionVariants(for: query, base: base, literalReading: literalReading, stopSearch: stopSearch)
+        else { return base }
+        lastCorrectionMetrics.variants = variants.count
+        guard !variants.isEmpty, !stopSearch() else { return base }
+        let originalQuality = base.filter {
+            $0.remainingComposition.isEmpty && ($0.source == .conversion || $0.source == .readingAlternative || $0.source == .userDictionary)
+                && ($0.source == .readingAlternative || $0.candidate.data.map(\.ruby).joined() == literalReading)
+                && Self.hasDictionaryEvidence($0.candidate)
+        }.map { Self.quality($0.candidate) }.max() ?? -8
+        var correctionOptions = options
+        correctionOptions.N_best = 2
+        correctionOptions.requireJapanesePrediction = .disabled
+        var matches = readingCorrections(variants, for: query, originalQuality: originalQuality,
+                                         options: correctionOptions, stopSearch: stopSearch)
+        if matches.isEmpty {
+            matches = classicTypoCorrections(for: query, literalReading: literalReading, originalQuality: originalQuality,
+                                             options: correctionOptions, stopSearch: stopSearch)
+        }
+        if matches.isEmpty {
+            matches = experimentalTypoCorrections(for: query, literalReading: literalReading, originalQuality: originalQuality,
+                                                  options: correctionOptions, stopSearch: stopSearch)
+        }
+        guard !cancelled(), !matches.isEmpty else { return base }
+        return merging(matches, into: base, query: query, katakana: katakana, revision: revision,
+                       literalReading: literalReading, originalQuality: originalQuality)
+    }
+
+    /// Candidate readings ordered by edit cost and the local lexical gain of the
+    /// edited span over the literal reading's best segmentation. Nil on stop.
+    func rankedCorrectionVariants(for query: ComposingText, base: [CandidateSnapshot], literalReading: String,
+                                  stopSearch: () -> Bool) -> [KeyboardCorrectionVariants.Variant]? {
+        let generated = KeyboardCorrectionVariants.generate(for: query, cancelled: stopSearch)
+        guard !stopSearch() else { return nil }
         let evidence = base.first { $0.remainingComposition.isEmpty && $0.candidate.data.map(\.ruby).joined() == literalReading }
         var fallbackRanges: [Range<Int>] = []
         var segments: [Range<Int>] = []
@@ -79,7 +112,7 @@ nonisolated extension JapaneseCandidateEngine {
         }
         var weighted: [(variant: KeyboardCorrectionVariants.Variant, priority: Double, index: Int)] = []
         for (index, variant) in generated.enumerated() {
-            guard !stopSearch() else { return base }
+            guard !stopSearch() else { return nil }
             weighted.append((variant, priority(variant), index))
         }
         // Rank complete two-sound hypotheses using the same lexical hints as
@@ -87,25 +120,22 @@ nonisolated extension JapaneseCandidateEngine {
         // This supplementary work shares the existing deadline and query limit.
         let paired = KeyboardCorrectionVariants.phoneticPairs(for: query, priority: priority, cancelled: stopSearch)
         for (index, variant) in paired.enumerated() {
-            guard !stopSearch() else { return base }
+            guard !stopSearch() else { return nil }
             weighted.append((variant, priority(variant), generated.count + index))
         }
-        guard !stopSearch() else { return base }
+        guard !stopSearch() else { return nil }
         weighted.sort {
             $0.priority == $1.priority ? $0.index < $1.index : $0.priority < $1.priority
         }
-        let variants = weighted.map(\.variant)
-        lastCorrectionMetrics.variants = variants.count
-        guard !variants.isEmpty, !stopSearch() else { return base }
-        let originalQuality = base.filter {
-            $0.remainingComposition.isEmpty && ($0.source == .conversion || $0.source == .readingAlternative || $0.source == .userDictionary)
-                && ($0.source == .readingAlternative || $0.candidate.data.map(\.ruby).joined() == literalReading)
-                && Self.hasDictionaryEvidence($0.candidate)
-        }.map { Self.quality($0.candidate) }.max() ?? -8
-        var correctionOptions = options
-        correctionOptions.N_best = 2
-        correctionOptions.requireJapanesePrediction = .disabled
-        var matches: [(Candidate, KeyboardCorrectionVariants.Variant, Double)] = []
+        return weighted.map(\.variant)
+    }
+
+    /// Converts each ranked reading and admits words that beat the literal
+    /// reading by a length-normalized margin.
+    func readingCorrections(_ variants: [KeyboardCorrectionVariants.Variant], for query: ComposingText,
+                            originalQuality: Double, options correctionOptions: ConvertRequestOptions,
+                            stopSearch: () -> Bool) -> [CorrectionMatch] {
+        var matches: [CorrectionMatch] = []
         var admittedReadings = Set<String>()
         for variant in variants {
             if stopSearch() { break }
@@ -117,34 +147,7 @@ nonisolated extension JapaneseCandidateEngine {
             if lastCorrectionMetrics.queries >= Self.maximumCorrectionQueries {
                 lastCorrectionMetrics.budgetExhausted = true; break
             }
-            let reading = RomajiConverter.katakana(variant.reading)
-            let candidates: [Candidate]
-            if let cached = correctionCache[reading] {
-                lastCorrectionMetrics.cacheHits += 1
-                candidates = cached
-            } else {
-                lastCorrectionMetrics.queries += 1
-                var corrected = ComposingText()
-                corrected.insertAtCursorPosition(variant.reading, inputStyle: .direct)
-                let session = correctionSession ?? converter.createSession()
-                correctionSession = session
-                let result = try? converter.withSession(session) {
-                    converter.stopComposition()
-                    return converter.requestCandidates(corrected, options: correctionOptions)
-                }
-                candidates = (result?.mainResults ?? []).filter { candidate in
-                    guard candidate.inputable, candidate.data.map(\.ruby).joined() == reading,
-                          Self.hasDictionaryEvidence(candidate) else { return false }
-                    var remaining = corrected
-                    remaining.prefixComplete(composingCount: candidate.composingCount)
-                    return remaining.isEmpty
-                }
-                correctionCache[reading] = candidates
-                correctionCacheOrder.append(reading)
-                if correctionCacheOrder.count > CandidateCorrectionPolicy.maximumCachedReadings {
-                    correctionCache.removeValue(forKey: correctionCacheOrder.removeFirst())
-                }
-            }
+            let candidates = verifiedCorrectionCandidates(for: variant, options: correctionOptions)
             for candidate in candidates {
                 // Lattice scores include lexical and word-connection costs.
                 // Normalize by reading length before comparing edits of unequal
@@ -171,63 +174,112 @@ nonisolated extension JapaneseCandidateEngine {
             // Admission and query counts stay bounded; after one reading only
             // paired hypotheses are considered, never more unrelated single edits.
         }
+        return matches
+    }
+
+    /// Dictionary words that consume exactly this reading, cached across
+    /// requests until the dictionary or learning state changes.
+    func verifiedCorrectionCandidates(for variant: KeyboardCorrectionVariants.Variant,
+                                      options correctionOptions: ConvertRequestOptions) -> [Candidate] {
+        let reading = RomajiConverter.katakana(variant.reading)
+        if let cached = correctionCache[reading] {
+            lastCorrectionMetrics.cacheHits += 1
+            return cached
+        }
+        lastCorrectionMetrics.queries += 1
+        var corrected = ComposingText()
+        corrected.insertAtCursorPosition(variant.reading, inputStyle: .direct)
+        let session = correctionSession ?? converter.createSession()
+        correctionSession = session
+        let result = try? converter.withSession(session) {
+            converter.stopComposition()
+            return converter.requestCandidates(corrected, options: correctionOptions)
+        }
+        let candidates = (result?.mainResults ?? []).filter { candidate in
+            guard candidate.inputable, candidate.data.map(\.ruby).joined() == reading,
+                  Self.hasDictionaryEvidence(candidate) else { return false }
+            var remaining = corrected
+            remaining.prefixComplete(composingCount: candidate.composingCount)
+            return remaining.isEmpty
+        }
+        correctionCache[reading] = candidates
+        correctionCacheOrder.append(reading)
+        if correctionCacheOrder.count > CandidateCorrectionPolicy.maximumCachedReadings {
+            correctionCache.removeValue(forKey: correctionCacheOrder.removeFirst())
+        }
+        return candidates
+    }
+
+    func classicTypoCorrections(for query: ComposingText, literalReading: String, originalQuality: Double,
+                                options correctionOptions: ConvertRequestOptions, stopSearch: () -> Bool) -> [CorrectionMatch] {
         let classicStarted = KeyboardPerformance.start()
-        if matches.isEmpty, !stopSearch(), Self.supportsClassicTypo(query) {
-            var classicOptions = correctionOptions; classicOptions.typoCorrectionMode = .enabled
-            let classicSession = classicTypoSession ?? converter.createSession(); classicTypoSession = classicSession
-            let classic: [Candidate] = (try? converter.withSession(classicSession) {
+        guard !stopSearch(), Self.supportsClassicTypo(query) else { return [] }
+        var classicOptions = correctionOptions; classicOptions.typoCorrectionMode = .enabled
+        let classicSession = classicTypoSession ?? converter.createSession(); classicTypoSession = classicSession
+        let classic: [Candidate] = (try? converter.withSession(classicSession) {
+            converter.stopComposition()
+            return converter.requestCandidates(query, options: classicOptions).mainResults
+        }) ?? []
+        KeyboardPerformance.record(.classicTypo, since: classicStarted)
+        // The pinned classic table supports a limited set of Roman substitutions
+        // and kana voicing. Apply the same dictionary/evidence admission gate as
+        // topology search; correct literal input must never become a correction.
+        var matches: [CorrectionMatch] = []
+        for candidate in classic where Self.hasDictionaryEvidence(candidate) {
+            let ruby = candidate.data.map(\.ruby).joined()
+            var remaining = query; remaining.prefixComplete(composingCount: candidate.composingCount)
+            let score = Self.quality(candidate) - CandidateCorrectionPolicy.channelWeight / Double(max(3, ruby.count))
+            guard remaining.isEmpty, ruby != literalReading, Self.quality(candidate) > CandidateCorrectionPolicy.minimumQuality,
+                  score > originalQuality + CandidateCorrectionPolicy.admissionMargin / Double(max(3, query.convertTarget.count)) else { continue }
+            let reading = Self.hiragana(ruby)
+            let suggestion = CorrectionSuggestion(originalReading: query.convertTarget, suggestedReading: reading,
+                correctedRomanInput: nil, kind: .phonetic, rangeOffset: 0,
+                rangeLength: query.convertTarget.count, rangeUnit: .kanaReading, errorCost: 1,
+                originalInput: Self.rawInput(query), method: "azooKeyClassic")
+            matches.append((candidate, .init(reading: reading, suggestion: suggestion), score))
+        }
+        return matches
+    }
+
+    func experimentalTypoCorrections(for query: ComposingText, literalReading: String, originalQuality: Double,
+                                     options correctionOptions: ConvertRequestOptions, stopSearch: () -> Bool) -> [CorrectionMatch] {
+        guard let config = experimentalTypoConfig, !stopSearch() else { return [] }
+        let lmStarted = KeyboardPerformance.start()
+        let proposals = converter.experimentalRequestTypoCorrection(leftSideContext: committedContext,
+            composingText: query, options: correctionOptions, inputStyle: .roman2kana, config: config)
+        KeyboardPerformance.record(.experimentalTypo, since: lmStarted)
+        var matches: [CorrectionMatch] = []
+        for proposal in proposals where proposal.channelCost > 0 && proposal.prominence >= CandidateCorrectionPolicy.minimumProminence {
+            guard !stopSearch() else { break }
+            var corrected = ComposingText(); RomajiConverter.insert(proposal.correctedInput, into: &corrected)
+            let reading = corrected.convertTarget
+            guard RomajiConverter.katakana(reading) != literalReading else { continue }
+            let session = correctionSession ?? converter.createSession(); correctionSession = session
+            let verified: [Candidate] = (try? converter.withSession(session) {
                 converter.stopComposition()
-                return converter.requestCandidates(query, options: classicOptions).mainResults
+                return converter.requestCandidates(corrected, options: correctionOptions).mainResults
             }) ?? []
-            KeyboardPerformance.record(.classicTypo, since: classicStarted)
-            // The pinned classic table supports a limited set of Roman substitutions
-            // and kana voicing. Apply the same dictionary/evidence admission gate as
-            // topology search; correct literal input must never become a correction.
-            for candidate in classic where Self.hasDictionaryEvidence(candidate) {
-                let ruby = candidate.data.map(\.ruby).joined()
-                var remaining = query; remaining.prefixComplete(composingCount: candidate.composingCount)
-                let score = Self.quality(candidate) - CandidateCorrectionPolicy.channelWeight / Double(max(3, ruby.count))
-                guard remaining.isEmpty, ruby != literalReading, Self.quality(candidate) > CandidateCorrectionPolicy.minimumQuality,
-                      score > originalQuality + CandidateCorrectionPolicy.admissionMargin / Double(max(3, query.convertTarget.count)) else { continue }
-                let reading = Self.hiragana(ruby)
+            for candidate in verified where Self.hasDictionaryEvidence(candidate)
+                && candidate.data.map(\.ruby).joined() == RomajiConverter.katakana(reading) {
+                var remainder = corrected; remainder.prefixComplete(composingCount: candidate.composingCount)
+                let score = Self.quality(candidate) - Double(proposal.channelCost) / Double(max(3, reading.count))
+                guard remainder.isEmpty, score > originalQuality + CandidateCorrectionPolicy.admissionMargin / Double(max(3, query.convertTarget.count)) else { continue }
                 let suggestion = CorrectionSuggestion(originalReading: query.convertTarget, suggestedReading: reading,
-                    correctedRomanInput: nil, kind: .phonetic, rangeOffset: 0,
-                    rangeLength: query.convertTarget.count, rangeUnit: .kanaReading, errorCost: 1,
-                    originalInput: Self.rawInput(query), method: "azooKeyClassic")
+                    correctedRomanInput: proposal.correctedInput, kind: .phonetic, rangeOffset: 0,
+                    rangeLength: query.input.count, rangeUnit: .romanInput, errorCost: Double(proposal.channelCost),
+                    originalInput: Self.rawInput(query), lmScore: Double(proposal.lmScore),
+                    convertedText: proposal.convertedText, prominence: Double(proposal.prominence), method: "azooKeyExperimental")
                 matches.append((candidate, .init(reading: reading, suggestion: suggestion), score))
             }
         }
-        if matches.isEmpty, let config = experimentalTypoConfig, !stopSearch() {
-            let lmStarted = KeyboardPerformance.start()
-            let proposals = converter.experimentalRequestTypoCorrection(leftSideContext: committedContext,
-                composingText: query, options: correctionOptions, inputStyle: .roman2kana, config: config)
-            KeyboardPerformance.record(.experimentalTypo, since: lmStarted)
-            for proposal in proposals where proposal.channelCost > 0 && proposal.prominence >= CandidateCorrectionPolicy.minimumProminence {
-                guard !stopSearch() else { break }
-                var corrected = ComposingText(); RomajiConverter.insert(proposal.correctedInput, into: &corrected)
-                let reading = corrected.convertTarget
-                guard RomajiConverter.katakana(reading) != literalReading else { continue }
-                let session = correctionSession ?? converter.createSession(); correctionSession = session
-                let verified: [Candidate] = (try? converter.withSession(session) {
-                    converter.stopComposition()
-                    return converter.requestCandidates(corrected, options: correctionOptions).mainResults
-                }) ?? []
-                for candidate in verified where Self.hasDictionaryEvidence(candidate)
-                    && candidate.data.map(\.ruby).joined() == RomajiConverter.katakana(reading) {
-                    var remainder = corrected; remainder.prefixComplete(composingCount: candidate.composingCount)
-                    let score = Self.quality(candidate) - Double(proposal.channelCost) / Double(max(3, reading.count))
-                    guard remainder.isEmpty, score > originalQuality + CandidateCorrectionPolicy.admissionMargin / Double(max(3, query.convertTarget.count)) else { continue }
-                    let suggestion = CorrectionSuggestion(originalReading: query.convertTarget, suggestedReading: reading,
-                        correctedRomanInput: proposal.correctedInput, kind: .phonetic, rangeOffset: 0,
-                        rangeLength: query.input.count, rangeUnit: .romanInput, errorCost: Double(proposal.channelCost),
-                        originalInput: Self.rawInput(query), lmScore: Double(proposal.lmScore),
-                        convertedText: proposal.convertedText, prominence: Double(proposal.prominence), method: "azooKeyExperimental")
-                    matches.append((candidate, .init(reading: reading, suggestion: suggestion), score))
-                }
-            }
-        }
-        guard !cancelled(), !matches.isEmpty else { return base }
-        matches.sort { $0.2 == $1.2 ? $0.0.text < $1.0.text : $0.2 > $1.2 }
+        return matches
+    }
+
+    /// Adds admitted corrections (word and kana forms) to the pool, refreshing
+    /// stale predictions of the same word, and reranks everything together.
+    func merging(_ matches: [CorrectionMatch], into base: [CandidateSnapshot], query: ComposingText, katakana: Bool,
+                 revision: Int, literalReading: String, originalQuality: Double) -> [CandidateSnapshot] {
+        let matches = matches.sorted { $0.score == $1.score ? $0.candidate.text < $1.candidate.text : $0.score > $1.score }
         // First position of each identity, as base.firstIndex(where:) found it.
         var baseIndex: [CandidateIdentity: Int] = [:]
         for (index, value) in base.enumerated() where baseIndex[CandidateIdentity(value)] == nil {

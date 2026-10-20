@@ -153,277 +153,37 @@ nonisolated final class JapaneseCandidateEngine {
             _ = query.moveCursorFromCursorPosition(count: length - query.convertTargetCursorPosition)
             query = query.prefixToCursorPosition()
         }
-        let lexiconStarted = KeyboardPerformance.start()
-        let resources = JapaneseLanguageResources.shared
-        let registered = userDictionary.nativeEntries()
-        let matching = resources.matchingWords(RomajiConverter.katakana(query.convertTarget)) + registered.words
-        if matching != installedWords || registered.shortcuts != installedShortcuts {
-            converter.importDynamicUserDictionary(matching, shortcuts: registered.shortcuts)
-            converter.stopComposition()
-            primaryQuery = nil
-            invalidateNativeResults()
-            installedWords = matching
-            installedShortcuts = registered.shortcuts
-        }
-        KeyboardPerformance.record(.lexiconLookup, since: lexiconStarted)
+        let registered = installDynamicDictionary(for: query)
         guard !cancelled() else { return [] }
         currentContinuity = previousTop
-        let conversionStarted = KeyboardPerformance.start()
-        var requestOptions = options
-        if conversionLength != nil {
-            requestOptions.N_best = 40
-            requestOptions.requireJapanesePrediction = .disabled
-        }
-        let result: ConversionResult
-        if conversionLength != nil {
-            let session = prefixSession ?? converter.createSession(); prefixSession = session
-            if let isolated = try? converter.withSession(session, operation: {
-                converter.stopComposition()
-                return converter.requestCandidates(query, options: requestOptions)
-            }) { result = isolated }
-            else {
-                result = converter.requestCandidates(query, options: requestOptions)
-                primaryQuery = query
-            }
-        } else {
-            result = converter.requestCandidates(query, options: requestOptions)
-            primaryQuery = query
-        }
-        KeyboardPerformance.record(.baseConversion, since: conversionStarted)
+        let (result, requestOptions) = baseConversion(of: query, explicitScope: conversionLength != nil)
         // Finish each native call atomically, then abandon obsolete work before
         // building snapshots or starting unrelated conversion sessions.
         guard !cancelled() else { return [] }
-        let kana = query.convertTarget
-        let queryReading = RomajiConverter.katakana(kana)
-        // Each prefixComplete re-runs Roman conversion over the remaining input,
-        // and a segment remainder also rebuilds the input/surface boundary map.
-        // Native lists share a handful of consuming counts; resolve each once.
-        var completions: [(count: ComposingCount, text: ComposingText)] = []
-        func completed(_ count: ComposingCount) -> ComposingText {
-            if let cached = completions.first(where: { $0.count == count }) { return cached.text }
-            var text = query; text.prefixComplete(composingCount: count)
-            completions.append((count, text))
-            return text
+        let builder = SnapshotBuilder(query: query, composing: composing, revision: revision,
+                                      explicitScope: conversionLength != nil, registered: registered)
+        let scripts = (katakana ? [builder.queryReading, builder.kana] : [builder.kana, builder.queryReading]).map {
+            builder.snapshot(builder.wholeQuery($0), source: .scriptVariant)
         }
-        var segmentRemainders: [Int: ComposingText] = [:]
-        var registeredKeys: Set<String>?
-        func snapshot(_ candidate: Candidate, source: CandidateSource, engineRank: Int = 0) -> CandidateSnapshot {
-            let engineRemainder = completed(candidate.composingCount)
-            // Prediction selection commits the suggested completion of the
-            // entire query, including an unresolved suffix. The upstream count
-            // can describe only the resolved base; keep it intact as metadata.
-            // acceptPredictionCandidate is a different API: it expands an
-            // UNCOMMITTED composition and constrains subsequent neural queries.
-            var remaining = source == .prediction || source == .readingAlternative
-                ? completed(.inputCount(query.input.count)) : engineRemainder
-            let consumedReading = query.convertTarget.count - remaining.convertTarget.count
-            if conversionLength != nil || !remaining.isEmpty {
-                if let cached = segmentRemainders[consumedReading] { remaining = cached }
-                else {
-                    remaining = CompositionSegmentBoundary.remainder(of: composing, consuming: consumedReading)
-                    segmentRemainders[consumedReading] = remaining
-                }
-            }
-            let isRegistered = (source == .conversion || source == .prediction) && candidate.data.contains { element in
-                guard element.metadata.contains(.isFromUserDictionary) else { return false }
-                if registeredKeys == nil {
-                    registeredKeys = Set((installedShortcuts + registered.words).map { $0.word + "\u{0}" + $0.ruby })
-                }
-                return registeredKeys!.contains(element.word + "\u{0}" + element.ruby)
-            }
-            var value = CandidateSnapshot(candidate: candidate, revision: revision, source: isRegistered ? .userDictionary : source, remainingComposition: remaining,
-                originalInputCount: composing.input.count, consumedInputCount: max(0, composing.input.count - remaining.input.count),
-                queryReading: queryReading, engineRank: engineRank,
-                engineFullConsumption: engineRemainder.isEmpty,
-                readingOverride: source == .readingAlternative && candidate.data.isEmpty ? candidate.text : nil,
-                predictionStatus: source == .prediction)
-            value.consumedReadingCount = consumedReading
-            if conversionLength != nil {
-                value.scopeReading = queryReading
-                value.explicitScope = true
-            } else if !remaining.isEmpty {
-                value.scopeReading = RomajiConverter.katakana(String(kana.prefix(consumedReading)))
-            }
-            return value
+        guard let native = nativeCandidates(from: result, builder: builder, cancelled: cancelled) else { return [] }
+        let special = specialCandidates(for: query, options: requestOptions, builder: builder)
+        let emoji = textReplacer.getSearchResult(query: builder.kana, target: [.emoji], ignoreNonBaseEmoji: true).prefix(6).map {
+            builder.snapshot(builder.wholeQuery($0.text, value: -3, lastMid: MIDData.一般.mid), source: .emoji)
         }
-        let scripts = katakana ? [queryReading, kana] : [kana, queryReading]
-        let scriptCandidates = scripts.map {
-            snapshot(Candidate(text: $0, value: .zero, composingCount: .inputCount(query.input.count),
-                               lastMid: MIDData.EOS.mid, data: [], isLearningTarget: false), source: .scriptVariant)
-        }
-        // Conversion order excludes interleaved autoMix predictions, which have
-        // their own list and score scale. mainResults otherwise keeps azooKey's
-        // order (sentences, clauses, words) including its learning placement.
-        let predictionIndex = Self.FirstIndex(result.predictionResults)
-        let interleavedPrediction = result.mainResults.map { predictionIndex[$0] != nil }
-        let mainConversions = Self.FirstIndex(zip(result.mainResults, interleavedPrediction).filter { !$0.1 }.map(\.0))
-        let mainIndex = Self.FirstIndex(result.mainResults)
-        let conversions = result.mainResults.enumerated().filter { $0.element.inputable }.map {
-            let prediction = interleavedPrediction[$0.offset]
-            return snapshot($0.element, source: prediction ? .prediction : .conversion,
-                engineRank: prediction ? $0.offset : mainConversions[$0.element] ?? $0.offset)
-        }
+        let literalScore = native.conversions.first { $0.exactReading && $0.fullConsumption }?.engineScore
+        guard let alternatives = readingAlternatives(for: query, literalScore: literalScore, builder: builder, cancelled: cancelled)
+        else { return [] }
+        trace?.record(.native, values: native.conversions + native.predictions + native.clauses)
         guard !cancelled() else { return [] }
-        let predictions = result.predictionResults.enumerated().filter { $0.element.inputable }.map {
-            snapshot($0.element, source: .prediction, engineRank: mainIndex[$0.element] ?? $0.offset)
+        currentPool = native.conversions + native.predictions + scripts + alternatives + native.clauses + special + emoji
+        if conversionLength == nil {
+            guard let prefixed = firstClausePrefixCandidates(after: native.clauses, builder: builder, cancelled: cancelled)
+            else { return [] }
+            currentPool += prefixed
         }
-        guard !cancelled() else { return [] }
-        var provided = specialProviders.flatMap {
-            $0.provideCandidates(converter: converter, inputData: query, options: requestOptions).enumerated().map { ($0.element, $0.offset) }
-        }
-        let asciiInput = Self.rawInput(query)
-        if (asciiInput.hasPrefix("u") || asciiInput.hasPrefix("U") || asciiInput.contains("@"))
-            && asciiInput.unicodeScalars.allSatisfy(\.isASCII) {
-            var direct = ComposingText(); direct.insertAtCursorPosition(asciiInput, inputStyle: .direct)
-            provided += asciiSpecialProviders.flatMap {
-                $0.provideCandidates(converter: converter, inputData: direct, options: requestOptions).enumerated().map { ($0.element, $0.offset) }
-            }
-        }
-        let specialCandidates = provided.map { original, rank in
-            var candidate = original; candidate.isLearningTarget = false
-            candidate.composingCount = .inputCount(query.input.count)
-            return snapshot(candidate, source: .specialConversion, engineRank: rank)
-        }
-        let emojiCandidates = textReplacer.getSearchResult(query: kana, target: [.emoji], ignoreNonBaseEmoji: true).prefix(6).map {
-            snapshot(Candidate(text: $0.text, value: -3, composingCount: .inputCount(query.input.count),
-                lastMid: MIDData.一般.mid, data: [], isLearningTarget: false), source: .emoji)
-        }
-        var alternatives: [CandidateSnapshot] = []
-        // Alternate readings only need exact conversions. Running prediction
-        // for every alternate repeats expensive work that cannot be selected.
-        var alternativeOptions = options
-        alternativeOptions.N_best = 3
-        alternativeOptions.requireJapanesePrediction = .disabled
-        // Only a single dictionary word may consume an alternate reading, and
-        // the lattice never spans a word past `maxlength` input elements or
-        // surface characters; longer alternates cannot produce a match.
-        let maxWordLength = dictionary.maxlength
-        for alternative in RomajiConverter.nReadingAlternatives(for: query)
-        where alternative.input.count <= maxWordLength || alternative.convertTarget.count <= maxWordLength {
-            guard !cancelled() else { return [] }
-            // Separate conversion state, shared dictionary/cache; no second
-            // dictionary instance and no mutation of the literal query session.
-            let session = alternativeSession(for: alternative, query: query)
-            guard let result = try? converter.withSession(session, operation: {
-                converter.requestCandidates(alternative, options: alternativeOptions)
-            }) else { continue }
-            guard !cancelled() else { return [] }
-            let reading = RomajiConverter.katakana(alternative.convertTarget)
-            let matches = result.mainResults.filter { candidate in
-                guard candidate.inputable, candidate.data.count == 1,
-                      candidate.text != reading,
-                      candidate.data.map(\.ruby).joined() == reading else { return false }
-                // Upstream injects a fixed-score hiragana fallback as a proper
-                // noun/general entry. It is presentation, not dictionary evidence.
-                if candidate.text == alternative.convertTarget,
-                   candidate.data.first?.lcid == CIDData.固有名詞.cid,
-                   candidate.data.first?.mid == MIDData.一般.mid { return false }
-                var remainder = alternative; remainder.prefixComplete(composingCount: candidate.composingCount)
-                return remainder.isEmpty
-            }
-            for candidate in matches {
-                alternatives.append(snapshot(candidate, source: .readingAlternative))
-            }
-            // Keep the alternate kana selectable even if the dictionary prefers
-            // a kanji spelling; only offer it when this reading has a match.
-            if let best = matches.first {
-                let kana = Candidate(text: alternative.convertTarget, value: best.value - 1,
-                    composingCount: .inputCount(query.input.count), lastMid: MIDData.EOS.mid,
-                    data: [], isLearningTarget: false)
-                alternatives.append(snapshot(kana, source: .readingAlternative))
-            }
-        }
-        // Preserve the established n interpretation's dictionary-score evidence
-        // inside the unified model, instead of placing its array before literals.
-        let literalScore = conversions.first { $0.exactReading && $0.fullConsumption }?.engineScore
-        alternatives = alternatives.map { original in
-            var value = original
-            if let literalScore {
-                value.interpretationGain = (value.engineScore - literalScore) / Double(max(3, value.reading.count))
-            }
-            return value
-        }
-        // First-clause order ranks one bunsetsu, not sentences. When a clause
-        // consumes the whole query, its sentence position in mainResults also
-        // applies; otherwise 「…市ます」 (clause #0, main #4) ties the real best
-        // sentence 「…します」 at rank zero.
-        let clauses = result.firstClauseResults.enumerated().filter { $0.element.inputable }.map { offset, candidate in
-            let sentenceRank = completed(candidate.composingCount).isEmpty ? mainConversions[candidate] ?? offset : offset
-            return snapshot(candidate, source: .conversion, engineRank: max(offset, sentenceRank))
-        }
-        trace?.record(.native, values: conversions + predictions + clauses)
-        guard !cancelled() else { return [] }
-        currentPool = conversions + predictions + scriptCandidates + alternatives + clauses + specialCandidates + emojiCandidates
-        // Query the most likely first lexical boundary once, rather than converting
-        // every possible prefix on every key. Explicit controls cover shorter units.
-        if conversionLength == nil, let length = clauses.filter({ !$0.fullConsumption && $0.consumedReadingCount > 0 })
-            .map(\.consumedReadingCount).max(), length < query.convertTarget.count {
-            var prefix = query
-            _ = prefix.moveCursorFromCursorPosition(count: length - prefix.convertTargetCursorPosition)
-            prefix = prefix.prefixToCursorPosition()
-            var prefixOptions = options; prefixOptions.N_best = 10; prefixOptions.requireJapanesePrediction = .disabled
-            let session = prefixSession ?? converter.createSession(); prefixSession = session
-            let prefixStarted = KeyboardPerformance.start()
-            var results = firstClausePrefixCache.results(for: prefix)
-            if results == nil {
-                results = try? converter.withSession(session) {
-                    converter.stopComposition()
-                    return converter.requestCandidates(prefix, options: prefixOptions).mainResults
-                }
-                if let results { firstClausePrefixCache.insert(results, for: prefix) }
-            }
-            KeyboardPerformance.record(.prefixConversion, since: prefixStarted)
-            // Prefix results share a few consuming counts; resolve each once.
-            var consumedCounts: [(count: ComposingCount, consumed: Int)] = []
-            for (index, candidate) in (results ?? []).enumerated() where candidate.inputable {
-                guard !cancelled() else { return [] }
-                let count: Int
-                if let cached = consumedCounts.first(where: { $0.count == candidate.composingCount }) { count = cached.consumed }
-                else {
-                    var rest = prefix; rest.prefixComplete(composingCount: candidate.composingCount)
-                    count = prefix.convertTarget.count - rest.convertTarget.count
-                    consumedCounts.append((candidate.composingCount, count))
-                }
-                guard count > 0 else { continue }
-                let remainder: ComposingText
-                if let cached = segmentRemainders[count] { remainder = cached }
-                else {
-                    remainder = CompositionSegmentBoundary.remainder(of: composing, consuming: count)
-                    segmentRemainders[count] = remainder
-                }
-                var value = CandidateSnapshot(candidate: candidate, revision: revision, source: .conversion,
-                    remainingComposition: remainder, originalInputCount: composing.input.count,
-                    consumedInputCount: max(0, composing.input.count - remainder.input.count),
-                    queryReading: queryReading, engineRank: index)
-                value.consumedReadingCount = count
-                value.scopeReading = RomajiConverter.katakana(String(query.convertTarget.prefix(count)))
-                currentPool.append(value)
-            }
-        }
-        var spellingVariants: [CandidateSnapshot] = []
-        for original in currentPool where original.lexical && original.source == .conversion {
-            guard !cancelled() else { return [] }
-            let preferred = resources.preferredSurface(original.candidate)
-            guard !preferred.isEmpty, preferred != original.text else { continue }
-            var variant = CandidateSnapshot(candidate: original.candidate, revision: revision, source: .orthographicVariant,
-                remainingComposition: original.remainingComposition, originalInputCount: original.originalInputCount,
-                consumedInputCount: original.consumedInputCount, queryReading: original.queryReading, engineRank: original.engineRank)
-            variant.consumedReadingCount = original.consumedReadingCount
-            variant.scopeReading = original.scopeReading
-            variant.explicitScope = original.explicitScope
-            variant.displaySurface = preferred
-            spellingVariants.append(variant)
-        }
-        currentPool += spellingVariants
-        let remembered = preferenceMemory?.rememberedConversions(reading: queryReading, context: committedContext) ?? []
-        for (index, surface) in remembered.enumerated() {
-            // Exact scoped recall only. The normal snapshot builder maps input
-            // counts/remainders, including explicit prefix selection. No fake
-            // word IDs enter native completion or its learning archive.
-            let candidate = Candidate(text: surface, value: .zero, composingCount: .inputCount(query.input.count),
-                lastMid: MIDData.EOS.mid, data: [], isLearningTarget: false)
-            currentPool.append(snapshot(candidate, source: .rememberedConversion, engineRank: 10 + index))
-        }
+        guard let variants = spellingVariants(of: currentPool, cancelled: cancelled) else { return [] }
+        currentPool += variants
+        currentPool += rememberedConversions(builder: builder)
         trace?.record(.pooled, values: currentPool)
         if diagnosticsEnabled {
             rawDiagnostics = currentPool.enumerated().map { CandidateDiagnostic($0.element, rank: $0.offset + 1) }
