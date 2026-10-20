@@ -145,6 +145,21 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     private var symbolPanel: KeyboardSymbolPanel?
     private var rows: [[(KeyboardKey, CGFloat)]] = []
     private var rebuildingKeys = false
+    /// Every candidate refresh requests layout. The key grid (frames, fonts,
+    /// skin metrics, touch regions) depends only on these inputs, so it is laid
+    /// out again when one changes rather than on every keystroke.
+    private struct KeyGridLayout: Equatable {
+        let size: CGSize
+        let compact: Bool
+        let showsFooter: Bool
+        let heightFactor: CGFloat
+        let page: Page
+        let numberPad: Bool
+        let generation: Int
+    }
+    private var keyGridGeneration = 0
+    private var laidOutKeyGrid: KeyGridLayout?
+    private func invalidateKeyGrid() { keyGridGeneration &+= 1; setNeedsLayout() }
     private var letterKeys: [KeyboardKey] = []
     private var shiftKey: KeyboardKey?
     private var spaceKey: KeyboardKey?
@@ -495,9 +510,42 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         clipboardHistoryPanel?.frame = CGRect(x: 0, y: 0, width: width, height: metrics.contentHeight)
         settingsPanel?.setContentMargins(left: compact ? metrics.contentLeft : 12,
             right: compact ? width - metrics.contentRight : 12)
+        let keyGrid = KeyGridLayout(size: bounds.size, compact: compact, showsFooter: showsFooter,
+            heightFactor: heightFactor, page: page, numberPad: usesNumberPad, generation: keyGridGeneration)
+        if keyGrid != laidOutKeyGrid {
+            laidOutKeyGrid = keyGrid
+            layoutKeyGrid(metrics: metrics)
+        }
+        globeButton.isHidden = !showsFooter || panel == .symbols
+        globeButton.frame = CGRect(x: 22 * xScale, y: metrics.contentHeight + (compact ? 0 : 17 * scale), width: 40 * scale, height: compact ? 34 : 40 * scale)
+        bringSubviewToFront(header)
+        if !deletePrompt.isHidden { bringSubviewToFront(deletePrompt) }
+        // Candidate refreshes and layout changes must never raise a sibling
+        // above held key previews. This overlay also stays transparent to input.
+        bringSubviewToFront(previewOverlay)
+        let columns = width > 600 ? 5 : 3
+        let panelLeft: CGFloat = compact ? metrics.contentLeft : 8
+        let panelWidth: CGFloat = compact ? metrics.contentWidth : width - 20
+        let cellWidth = compact ? (panelWidth + 8) / CGFloat(columns) : panelWidth / CGFloat(columns)
+        for (index, button) in panelCandidates.enumerated() {
+            button.frame = CGRect(x: panelLeft + CGFloat(index % columns) * cellWidth, y: CGFloat(index / columns) * 46,
+                width: cellWidth - (compact ? 8 : 5), height: 41)
+        }
+        panelScroll.contentSize = CGSize(width: width, height: CGFloat((panelCandidates.count + columns - 1) / columns) * 46)
+        if let timing = pendingCandidateTiming {
+            pendingCandidateTiming = nil
+            if window != nil, panel == .keyboard || panel == .candidates,
+               session.candidatesAreCurrent, stripButtons.first?.selectionToken == timing.token {
+                KeyboardPerformance.record(.inputToCandidateInteractive, since: timing.startedAt)
+            }
+        }
+    }
+
+    private func layoutKeyGrid(metrics: KeyboardMetrics) {
+        let scale = metrics.scale
         for (rowIndex, row) in rows.enumerated() {
             for (column, pair) in row.enumerated() {
-                if page == .numbers && preferences.nineKeyNumbers {
+                if usesNumberPad {
                     pair.0.frame = metrics.numberPadFrame(row: rowIndex, column: column + (rowIndex < 3 ? 1 : 0))
                 } else {
                     pair.0.frame = metrics.frame(row: rowIndex, column: column, letters: page == .letters,
@@ -534,29 +582,6 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
             let h = metrics.keyHeight + 10 * scale
             deletePrompt.frame = CGRect(x: max(0, key.frame.maxX - promptWidth),
                 y: max(metrics.headerHeight, key.frame.minY - h - 6 * scale), width: promptWidth, height: h)
-        }
-        globeButton.isHidden = !showsFooter || panel == .symbols
-        globeButton.frame = CGRect(x: 22 * xScale, y: metrics.contentHeight + (compact ? 0 : 17 * scale), width: 40 * scale, height: compact ? 34 : 40 * scale)
-        bringSubviewToFront(header)
-        if !deletePrompt.isHidden { bringSubviewToFront(deletePrompt) }
-        // Candidate refreshes and layout changes must never raise a sibling
-        // above held key previews. This overlay also stays transparent to input.
-        bringSubviewToFront(previewOverlay)
-        let columns = width > 600 ? 5 : 3
-        let panelLeft: CGFloat = compact ? metrics.contentLeft : 8
-        let panelWidth: CGFloat = compact ? metrics.contentWidth : width - 20
-        let cellWidth = compact ? (panelWidth + 8) / CGFloat(columns) : panelWidth / CGFloat(columns)
-        for (index, button) in panelCandidates.enumerated() {
-            button.frame = CGRect(x: panelLeft + CGFloat(index % columns) * cellWidth, y: CGFloat(index / columns) * 46,
-                width: cellWidth - (compact ? 8 : 5), height: 41)
-        }
-        panelScroll.contentSize = CGSize(width: width, height: CGFloat((panelCandidates.count + columns - 1) / columns) * 46)
-        if let timing = pendingCandidateTiming {
-            pendingCandidateTiming = nil
-            if window != nil, panel == .keyboard || panel == .candidates,
-               session.candidatesAreCurrent, stripButtons.first?.selectionToken == timing.token {
-                KeyboardPerformance.record(.inputToCandidateInteractive, since: timing.startedAt)
-            }
         }
     }
 
@@ -625,7 +650,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
 
     private func rebuildKeys() {
         rebuildingKeys = true
-        defer { rebuildingKeys = false; setNeedsLayout() }
+        defer { rebuildingKeys = false; invalidateKeyGrid() }
         keysContainer.cancelAllPresses()
         keysContainer.regions = []
         for row in rows { for (button, _) in row { button.stopTracking(); button.removeFromSuperview() } }
@@ -935,7 +960,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
             displayedLanguage = traits.language
             displayedAlternateLanguage = traits.alternateLanguage
         }
-        languageKey?.accessibilityValue = session.inputTraits.language.accessibilityName
+        languageKey?.accessibilityValue = traits.language.accessibilityName
         languageKey?.accessibilityLabel = traits.languageSwitchAccessibilityLabel
         let composing = session.isComposing
         // Composition candidates and LM suggestions share the strip.
@@ -956,12 +981,12 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         let showsQuickToolbar = (showsQuick || showsClipboard) && !composing
         brandButton.isHidden = (panel == .keyboard && (page != .letters || (strip && !showsQuickToolbar)))
             || (panel == .candidates || panel == .symbols || panel == .clipboardHistory)
-        modeButton.isHidden = strip || page != .letters || panel != .keyboard || !session.inputTraits.supportsPrimaryVariant
-        modeButton.accessibilityLabel = session.inputTraits.primaryVariantAccessibilityLabel
+        modeButton.isHidden = strip || page != .letters || panel != .keyboard || !traits.supportsPrimaryVariant
+        modeButton.accessibilityLabel = traits.primaryVariantAccessibilityLabel
         candidateScroll.isHidden = !strip || showsQuick || showsClipboard || panel != .keyboard
         expandButton.isHidden = showsClipboard
-        modeButton.setTitle(session.inputTraits.modeLabel, for: .normal)
-        accessibilityValue = composing ? String(localized: "输入中：\(session.markedText?.text ?? "")") : session.inputTraits.modeLabel
+        modeButton.setTitle(traits.modeLabel, for: .normal)
+        accessibilityValue = composing ? String(localized: "输入中：\(session.markedText?.text ?? "")") : traits.modeLabel
         expandButton.backgroundColor = composing ? KeyboardTouchBacking.color : KeyboardPalette.key
         divider.isHidden = !strip || showsClipboard || panel != .keyboard
         panelTitle.isHidden = panel != .candidates && panel != .settings
@@ -1008,7 +1033,8 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         // its appearance, but never let a stale tap discard the newer letters.
         stripButtons.forEach { $0.isUserInteractionEnabled = session.candidatesAreCurrent && $0.selectionToken != nil }
         let panelOpen = panel != .keyboard
-        expandButton.setImage(UIImage(systemName: panelOpen ? "chevron.up" : "chevron.down"), for: .normal)
+        let chevron = panelOpen ? Self.chevronUp : Self.chevronDown
+        if expandButton.image(for: .normal) !== chevron { expandButton.setImage(chevron, for: .normal) }
         expandButton.accessibilityLabel = panelOpen ? String(localized: "返回键盘") : composing ? String(localized: "展开候选词") : String(localized: "收起键盘")
         expandButton.accessibilityIdentifier = panelOpen ? "vime.panel.close" : "vime.candidates.expand"
         let hidesKeys = panel != .keyboard
@@ -1021,8 +1047,8 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         clipboardHistoryPanel?.isHidden = panel != .clipboardHistory
         if panel == .candidates { rebuildCandidatePanel() }
         else if panel == .symbols { showSymbolPanel() }
-        spaceKey?.setTitle(usesNumberPad ? "空格" : composing ? session.inputTraits.compositionSpaceTitle : "", for: .normal)
-        returnKey?.setTitle(composing ? session.inputTraits.compositionReturnTitle : returnTitle, for: .normal)
+        spaceKey?.setTitle(usesNumberPad ? "空格" : composing ? traits.compositionSpaceTitle : "", for: .normal)
+        returnKey?.setTitle(composing ? traits.compositionReturnTitle : returnTitle, for: .normal)
         let actionReturn = !composing && [.send, .search, .go, .done, .next, .join, .route, .continue].contains(returnKeyType)
         returnKey?.fillColor = actionReturn ? UIColor(cgColor: VimeLogo.blue) : KeyboardPalette.utility
         returnKey?.setTitleColor(actionReturn ? .white : KeyboardPalette.text, for: .normal)
@@ -1036,6 +1062,9 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         }
         setNeedsLayout()
     }
+
+    private static let chevronUp = UIImage(systemName: "chevron.up")
+    private static let chevronDown = UIImage(systemName: "chevron.down")
 
     private func layoutCandidateStrip() {
         let height = candidateScroll.bounds.height
@@ -1391,6 +1420,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
             else { semantic = identifier }
             key.applySkin(KeyboardPalette.skin, key: semantic)
         }
+        invalidateKeyGrid()
     }
     private func applyTheme() {
         KeyboardPalette.theme = preferences.theme
