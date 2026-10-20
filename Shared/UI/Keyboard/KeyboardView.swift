@@ -9,9 +9,9 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     }
     var enableInputClicksWhenVisible: Bool { preferences.sound }
     let preferences: KeyboardPreferences
-    private var appliedPreferences: KeyboardPreferences.Snapshot?
-    private let skinCanvas = KeyboardSkinCanvas()
-    private let brandArtwork = UIImageView()
+    var appliedPreferences: KeyboardPreferences.Snapshot?
+    let skinCanvas = KeyboardSkinCanvas()
+    let brandArtwork = UIImageView()
     var onEdit: (([KeyboardEdit]) -> Void)?
     /// Partial commits replace the old mark and publish its remainder in one
     /// host transaction, before processing host change notifications.
@@ -56,7 +56,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         if next.theme != previous?.theme || next.customSkinID != previous?.customSkinID || next.skinRevision != previous?.skinRevision { applyTheme() }
         settingsPanel?.update(hasFullAccess: hasFullAccess, neuralPaused: session.neuralModeSuspendedForMemoryPressure)
     }
-    private func applyNeuralRetry() {
+    func applyNeuralRetry() {
         guard preferences.candidateRanking == .languageModel, let id = preferences.neuralRetryID else { return }
         session.retryLanguageModel(requestID: id)
     }
@@ -79,76 +79,66 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         }
     }
 
-    private enum Page { case letters, numbers, symbols }
-    private func shouldConvertNumber(_ text: String) -> Bool {
-        session.inputTraits.convertsNumbers && keyboardType == .default
-            && !text.isEmpty && text.allSatisfy { $0.isASCII && $0.isNumber }
-    }
-    private func composesNumberPageInput(_ text: String) -> Bool {
-        if shouldConvertNumber(text) { return true }
-        let mark = session.markedText?.text ?? ""
-        let numeric = !mark.isEmpty && mark.allSatisfy { "0123456789０１２３４５６７８９.．".contains($0) }
-        return session.isComposing && !numeric && session.inputTraits.compositionInputSymbols.contains(text)
-    }
-    private let session: any KeyboardInputSession
-    private var displayedCandidates: [CandidatePresentation] = []
-    private var displayedSelection: Int?
-    private var pendingCandidateTiming: (startedAt: TimeInterval, token: CandidateSelectionToken)?
-    private var page: Page = .letters
-    private var shifted = false
-    private var capsLocked = false
-    private var lastShiftTap: TimeInterval = 0
-    private enum Panel { case keyboard, candidates, settings, symbols, clipboardHistory }
-    private var panel: Panel = .keyboard {
+    enum Page { case letters, numbers, symbols }
+    let session: any KeyboardInputSession
+    var displayedCandidates: [CandidatePresentation] = []
+    var displayedSelection: Int?
+    var pendingCandidateTiming: (startedAt: TimeInterval, token: CandidateSelectionToken)?
+    var page: Page = .letters
+    var shifted = false
+    var capsLocked = false
+    var lastShiftTap: TimeInterval = 0
+    enum Panel { case keyboard, candidates, settings, symbols, clipboardHistory }
+    var panel: Panel = .keyboard {
         didSet {
             if (oldValue == .candidates) != (panel == .candidates) {
                 session.setExpandedCandidates(panel == .candidates)
             }
         }
     }
-    private var previewsEnabled: Bool { preferences.previews }
-    private var impactGenerators: [Int: UIImpactFeedbackGenerator] = [:]
-    private let header = UIView()
-    private let candidateScroll = UIScrollView()
-    private let candidateRow = UIView()
-    private let quickCandidates = KeyboardQuickCandidateStrip()
-    private let clipboardSuggestion = ClipboardSuggestionView()
-    private let clipboard: KeyboardClipboard
-    private var clipboardTimer: Timer?
-    private var clipboardActive = true
-    private var clipboardHistoryPanel: ClipboardHistoryPanel?
-    private var historyRequest = 0
-    private var stripButtons: [KeyboardCandidateButton] = []
-    private var spareCandidateButtons: [KeyboardCandidateButton] = []
-    private var displayedLanguage: KeyboardInputLanguage?
-    private var displayedAlternateLanguage: KeyboardInputLanguage?
-    private let brandButton = KeyboardToolbarButton(type: .custom)
-    private let globeButton = UIButton(type: .custom)
-    private let modeButton = KeyboardToolbarButton(type: .system)
-    private let neuralStatusLabel = UILabel()
-    private let undoButton = KeyboardToolbarButton(type: .system)
-    private let expandButton = KeyboardToolbarButton(type: .system)
-    private let divider = UIView()
-    private let panelTitle = UILabel()
-    private let shortenRange = KeyboardToolbarButton(type: .system)
-    private let lengthenRange = KeyboardToolbarButton(type: .system)
-    private let wholeRange = KeyboardToolbarButton(type: .system)
-    private var panelLimit = 40
-    private let gestureHint = UILabel()
-    private let deletePrompt = KeyboardDeletePrompt()
-    private let previewOverlay = UIView()
-    private let keysContainer = KeyboardTouchSurface()
-    private let panelScroll = UIScrollView()
-    private var panelCandidates: [KeyboardCandidateButton] = []
-    private var sparePanelButtons: [KeyboardCandidateButton] = []
-    private var settingsPanel: KeyboardSettingsPanel?
-    private var symbolPanel: KeyboardSymbolPanel?
-    private var rows: [[(KeyboardKey, CGFloat)]] = []
-    private var rebuildingKeys = false
+    var previewsEnabled: Bool { preferences.previews }
+    var impactGenerators: [Int: UIImpactFeedbackGenerator] = [:]
+    let header = UIView()
+    let candidateScroll = UIScrollView()
+    let candidateRow = UIView()
+    let quickCandidates = KeyboardQuickCandidateStrip()
+    let clipboardSuggestion = ClipboardSuggestionView()
+    let clipboard: KeyboardClipboard
+    var clipboardTimer: Timer?
+    var clipboardActive = true
+    var clipboardHistoryPanel: ClipboardHistoryPanel?
+    var historyRequest = 0
+    var stripButtons: [KeyboardCandidateButton] = []
+    var spareCandidateButtons: [KeyboardCandidateButton] = []
+    var displayedLanguage: KeyboardInputLanguage?
+    var displayedAlternateLanguage: KeyboardInputLanguage?
+    let brandButton = KeyboardToolbarButton(type: .custom)
+    let globeButton = UIButton(type: .custom)
+    let modeButton = KeyboardToolbarButton(type: .system)
+    let neuralStatusLabel = UILabel()
+    let undoButton = KeyboardToolbarButton(type: .system)
+    let expandButton = KeyboardToolbarButton(type: .system)
+    let divider = UIView()
+    let panelTitle = UILabel()
+    let shortenRange = KeyboardToolbarButton(type: .system)
+    let lengthenRange = KeyboardToolbarButton(type: .system)
+    let wholeRange = KeyboardToolbarButton(type: .system)
+    var panelLimit = 40
+    let gestureHint = UILabel()
+    let deletePrompt = KeyboardDeletePrompt()
+    let previewOverlay = UIView()
+    let keysContainer = KeyboardTouchSurface()
+    let panelScroll = UIScrollView()
+    var panelCandidates: [KeyboardCandidateButton] = []
+    var sparePanelButtons: [KeyboardCandidateButton] = []
+    var settingsPanel: KeyboardSettingsPanel?
+    var symbolPanel: KeyboardSymbolPanel?
+    var rows: [[(KeyboardKey, CGFloat)]] = []
+    var rebuildingKeys = false
     /// Every candidate refresh requests layout. The key grid (frames, fonts,
     /// skin metrics, touch regions) depends only on these inputs, so it is laid
     /// out again when one changes rather than on every keystroke.
-    private struct KeyGridLayout: Equatable {
+    struct KeyGridLayout: Equatable {
         let size: CGSize
         let compact: Bool
         let showsFooter: Bool
@@ -157,17 +147,17 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         let numberPad: Bool
         let generation: Int
     }
-    private var keyGridGeneration = 0
-    private var laidOutKeyGrid: KeyGridLayout?
-    private func invalidateKeyGrid() { keyGridGeneration &+= 1; setNeedsLayout() }
-    private var letterKeys: [KeyboardKey] = []
-    private var shiftKey: KeyboardKey?
-    private var spaceKey: KeyboardKey?
-    private var languageKey: KeyboardKey?
-    private var returnKey: KeyboardKey?
-    private var numberSymbolRail: KeyboardNumberSymbolRail?
-    private var numberBackKey: KeyboardKey?
-    private var usesNumberPad: Bool { page == .numbers && preferences.nineKeyNumbers }
+    var keyGridGeneration = 0
+    var laidOutKeyGrid: KeyGridLayout?
+    func invalidateKeyGrid() { keyGridGeneration &+= 1; setNeedsLayout() }
+    var letterKeys: [KeyboardKey] = []
+    var shiftKey: KeyboardKey?
+    var spaceKey: KeyboardKey?
+    var languageKey: KeyboardKey?
+    var returnKey: KeyboardKey?
+    var numberSymbolRail: KeyboardNumberSymbolRail?
+    var numberBackKey: KeyboardKey?
+    var usesNumberPad: Bool { page == .numbers && preferences.nineKeyNumbers }
 
     override convenience init(frame: CGRect) {
         self.init(frame: frame, session: KeyboardSession(asynchronousCandidates: true))
@@ -359,49 +349,6 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         updateClipboardMonitoring()
     }
 
-    func setClipboardActive(_ active: Bool) {
-        clipboardActive = active
-        updateClipboardMonitoring()
-    }
-
-    private func updateClipboardMonitoring() {
-        let active = clipboardActive && window != nil && preferences.clipboardSuggestions && hasFullAccess
-        guard active else {
-            if clipboardTimer != nil {
-                NotificationCenter.default.removeObserver(self, name: UIPasteboard.changedNotification, object: nil)
-                clipboardTimer?.invalidate(); clipboardTimer = nil
-            }
-            historyRequest += 1
-            clipboardHistoryPanel?.present([])
-            if panel == .clipboardHistory { panel = .keyboard }
-            if preferences.clipboardSuggestions { clipboard.clear() }
-            else { clipboard.disable() }
-            refresh()
-            return
-        }
-        if clipboardTimer == nil {
-            NotificationCenter.default.addObserver(self, selector: #selector(checkClipboard),
-                name: UIPasteboard.changedNotification, object: nil)
-            let timer = Timer(timeInterval: KeyboardClipboard.fallbackInterval, repeats: true) { [weak self] _ in
-                MainActor.assumeIsolated { self?.checkClipboard() }
-            }
-            timer.tolerance = 0.1
-            clipboardTimer = timer
-            RunLoop.main.add(timer, forMode: .common)
-        }
-        checkClipboard()
-    }
-
-    @objc private func checkClipboard() {
-        guard clipboardActive, window != nil, preferences.clipboardSuggestions, hasFullAccess else {
-            updateClipboardMonitoring(); return
-        }
-        clipboard.checkForChanges(enabled: true, hasFullAccess: true)
-        if !clipboardActive || window == nil || !preferences.clipboardSuggestions || !hasFullAccess {
-            updateClipboardMonitoring()
-        }
-    }
-
     deinit { clipboardTimer?.invalidate() }
     override var intrinsicContentSize: CGSize { CGSize(width: UIView.noIntrinsicMetric, height: preferredHeight(for: bounds.width)) }
 
@@ -541,340 +488,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         }
     }
 
-    private func layoutKeyGrid(metrics: KeyboardMetrics) {
-        let scale = metrics.scale
-        for (rowIndex, row) in rows.enumerated() {
-            for (column, pair) in row.enumerated() {
-                if usesNumberPad {
-                    pair.0.frame = metrics.numberPadFrame(row: rowIndex, column: column + (rowIndex < 3 ? 1 : 0))
-                } else {
-                    pair.0.frame = metrics.frame(row: rowIndex, column: column, letters: page == .letters,
-                                                prolonged: rowIndex == 1 && row.count == 10)
-                }
-                pair.0.layer.cornerRadius = 6.2 * scale
-                // Compact phone keys are shorter despite the wider viewport.
-                // Typography follows their height rather than landscape width.
-                let textScale = compact ? scale : min(scale, metrics.keyHeight / 46.5)
-                var fontSize: CGFloat = compact ? (rowIndex == 3 ? 13 : 18)
-                    : (rowIndex == 3 ? 15 : 21) * textScale
-                if usesNumberPad {
-                    let isDigit = Int(pair.0.title(for: .normal) ?? "") != nil
-                    fontSize = compact ? (isDigit ? 18 : rowIndex == 3 ? 13 : 15)
-                        : (isDigit ? 20 : rowIndex == 3 ? 14 : 16) * textScale
-                    pair.0.setPreferredSymbolConfiguration(UIImage.SymbolConfiguration(pointSize: compact ? 16 : 18 * textScale),
-                        forImageIn: .normal)
-                }
-                pair.0.hintLabel.font = .systemFont(ofSize: compact ? 8 : 9 * textScale)
-                pair.0.titleLabel?.font = .systemFont(ofSize: fontSize)
-                pair.0.applySkinMetrics(size: fontSize, scale: textScale)
-            }
-        }
-        if usesNumberPad {
-            let top = metrics.numberPadFrame(row: 0, column: 0)
-            let bottom = metrics.numberPadFrame(row: 2, column: 0)
-            numberSymbolRail?.frame = top.union(bottom)
-            numberSymbolRail?.scale = scale
-            numberSymbolRail?.layoutIfNeeded()
-        }
-        updateTouchBounds(metrics: metrics)
-        if let key = rows.flatMap({ $0 }).first(where: { $0.0.repeats })?.0 {
-            let promptWidth = 112 * scale
-            let h = metrics.keyHeight + 10 * scale
-            deletePrompt.frame = CGRect(x: max(0, key.frame.maxX - promptWidth),
-                y: max(metrics.headerHeight, key.frame.minY - h - 6 * scale), width: promptWidth, height: h)
-        }
-    }
-
-    private func updateTouchBounds(metrics: KeyboardMetrics) {
-        var regions: [KeyboardTouchSurface.Region] = []
-        for (rowIndex, row) in rows.enumerated() {
-            guard let first = row.first?.0 else { continue }
-            let top = rowIndex == 0
-                ? metrics.headerHeight
-                : (rows[rowIndex - 1][0].0.frame.maxY + first.frame.minY) / 2
-            let bottom = rowIndex == rows.count - 1
-                ? bounds.height
-                : (first.frame.maxY + rows[rowIndex + 1][0].0.frame.minY) / 2
-            for (column, pair) in row.enumerated() {
-                let key = pair.0
-                // Boundaries lie in the gaps, never inside a painted key. This
-                // respects wide utility keys as well as staggered letter rows.
-                let leading = usesNumberPad && rowIndex < 3
-                    ? (metrics.numberPadFrame(row: rowIndex, column: 0).maxX + first.frame.minX) / 2 : 0
-                let left = column == 0 ? leading : (row[column - 1].0.frame.maxX + key.frame.minX) / 2
-                let right = column == row.count - 1 ? bounds.width : (key.frame.maxX + row[column + 1].0.frame.minX) / 2
-                key.touchBounds = CGRect(x: left - key.frame.minX, y: top - key.frame.minY,
-                                         width: right - left, height: bottom - top)
-                regions.append(.init(key: key, body: key.frame,
-                                     cell: CGRect(x: left, y: top, width: right - left, height: bottom - top)))
-            }
-        }
-        keysContainer.regions = regions
-        keysContainer.scale = metrics.scale
-    }
-
-    private static func numberPadTitle(_ value: String) -> String {
-        switch value {
-        case "空格": String(localized: "空格")
-        case "符号": String(localized: "符号")
-        case "换行": String(localized: "换行")
-        default: value
-        }
-    }
-
-    private func key(_ title: String, utility: Bool = false, weight: CGFloat = 1, action: @escaping () -> Void) -> (KeyboardKey, CGFloat) {
-        let button = KeyboardKey(title: title)
-        button.previewContainer = previewOverlay
-        button.action = action
-        button.feedback = { [weak self] in self?.playFeedback() }
-        if utility {
-            button.isUtility = true
-            button.fillColor = KeyboardPalette.utility
-            button.titleLabel?.font = .systemFont(ofSize: 16)
-        }
-        keysContainer.addSubview(button)
-        return (button, weight)
-    }
-
-    private func symbol(_ name: String, label: String, weight: CGFloat, action: @escaping () -> Void) -> (KeyboardKey, CGFloat) {
-        let button = KeyboardKey(symbol: name)
-        button.previewContainer = previewOverlay
-        button.accessibilityLabel = label
-        button.isUtility = true
-        button.fillColor = KeyboardPalette.utility
-        button.action = action
-        button.feedback = { [weak self] in self?.playFeedback() }
-        keysContainer.addSubview(button)
-        return (button, weight)
-    }
-
-    private func rebuildKeys() {
-        rebuildingKeys = true
-        defer { rebuildingKeys = false; invalidateKeyGrid() }
-        keysContainer.cancelAllPresses()
-        keysContainer.regions = []
-        for row in rows { for (button, _) in row { button.stopTracking(); button.removeFromSuperview() } }
-        rows = []
-        letterKeys = []
-        shiftKey = nil
-        spaceKey = nil
-        languageKey = nil
-        returnKey = nil
-        numberBackKey = nil
-        if page == .letters {
-            for letters in ["qwertyuiop", "asdfghjkl", "zxcvbnm"] {
-                var row: [(KeyboardKey, CGFloat)] = []
-                if letters == "zxcvbnm" {
-                    let shift = symbol("shift", label: String(localized: "切换大小写"), weight: 1.35) { [weak self] in self?.shift() }
-                    shiftKey = shift.0
-                    row.append(shift)
-                }
-                for character in letters {
-                    let value = String(character)
-                    let item = key(value.uppercased()) { [weak self] in
-                        guard let self else { return }
-                        KeyboardPerformance.record(.touchUpToType, since: self.keysContainer.releaseStartedAt)
-                        self.apply(self.session.type(self.shifted && self.session.inputTraits.isEnglish ? value.uppercased() : value))
-                        if self.shifted && !self.capsLocked { self.shifted = false; self.updateKeyLabels() }
-                    }
-                    item.0.showsPreview = previewsEnabled
-                    item.0.accessibilityIdentifier = "vime.key." + value
-                    item.0.hint = Self.letterHints[value]
-                    item.0.alternateTitle = Self.letterHints[value]
-                    item.0.alternateAction = { [weak self] in
-                        guard let self, let hint = Self.letterHints[value] else { return }
-                        self.insertSymbol(hint)
-                    }
-                    letterKeys.append(item.0)
-                    row.append(item)
-                }
-                if letters == "zxcvbnm" { row.append(deleteKey(weight: 1.35)) }
-                if letters == "asdfghjkl", preferences.prolongedKey, let prolongedInput = session.inputTraits.prolongedInput {
-                    let prolonged = key(prolongedInput) { [weak self] in
-                        guard let self else { return }
-                        self.apply(self.session.type(prolongedInput))
-                    }
-                    prolonged.0.accessibilityLabel = String(localized: "长音符号")
-                    prolonged.0.accessibilityIdentifier = "vime.key.prolonged"
-                    row.append(prolonged)
-                }
-                rows.append(row)
-            }
-        } else if page == .numbers && preferences.nineKeyNumbers {
-            if numberSymbolRail == nil {
-                let rail = KeyboardNumberSymbolRail()
-                rail.onSelect = { [weak self] symbol in
-                    guard let self, self.usesNumberPad, self.panel == .keyboard else { return }
-                    self.playFeedback()
-                    if self.composesNumberPageInput(symbol) { self.apply(self.session.type(symbol)) }
-                    else { self.insertSymbol(symbol) }
-                }
-                rail.onEdit = { [weak self] in
-                    guard let self, self.panel == .keyboard, self.usesNumberPad else { return }
-                    self.stopInteractions()
-                    self.onOpenNumberSymbolSettings?()
-                }
-                numberSymbolRail = rail
-                addSubview(rail)
-            }
-            numberSymbolRail?.present(preferences.numberSymbols)
-            let values = [["1", "2", "3", "删除"],
-                          ["4", "5", "6", "空格"],
-                          ["7", "8", "9", "表情"],
-                          ["ABC", "符号", "0", ".", "换行"]]
-            for (r, values) in values.enumerated() {
-                rows.append(values.map { value in
-                    if value == "删除" { return deleteKey(weight: 1) }
-                    if value == "表情" {
-                        let item = symbol("face.smiling", label: String(localized: "表情"), weight: 1) { [weak self] in self?.toggleEmoji() }
-                        item.0.accessibilityIdentifier = "vime.number.emoji"
-                        return item
-                    }
-                    // Values are stable key IDs (also accessibility IDs); titles are localized.
-                    let item = key(Self.numberPadTitle(value), utility: ["ABC", "符号", "空格", "换行"].contains(value)) { [weak self] in
-                        guard let self else { return }
-                        switch value {
-                        case "ABC": self.page = .letters; self.rebuildKeys()
-                        case "空格": self.apply(self.session.insertLiteral(" "))
-                        case "符号": self.openSymbolPanel(mode: .symbols)
-                        case "换行": self.apply(self.session.enter())
-                        default:
-                            let composes = self.composesNumberPageInput(value)
-                            if composes { self.apply(self.session.type(value)) } else { self.insertSymbol(value) }
-                        }
-                    }
-                    item.0.accessibilityIdentifier = "vime.number." + value
-                    if value == "ABC" { numberBackKey = item.0 }
-                    if r == 3 && value == "换行" {
-                        returnKey = item.0; item.0.accessibilityIdentifier = "vime.key.return"
-                    }
-                    if value == "空格" {
-                        spaceKey = item.0; item.0.accessibilityIdentifier = "vime.key.space"
-                    }
-                    return item
-                })
-            }
-            applyKeySkins(); refresh(); setNeedsLayout(); return
-        } else {
-            let values = page == .numbers
-                ? [Array("1234567890").map(String.init), ["-", "/", ":", ";", "(", ")", "¥", "&", "@", "\""], ["。", "、", "？", "！", "'", "ー", "・"]]
-                : [["[", "]", "{", "}", "#", "%", "^", "*", "+", "="], ["_", "\\", "|", "~", "<", ">", "$", "€", "£", "・"], ["「", "」", "『", "』", "…", "〜", "々"]]
-            for (index, values) in values.enumerated() {
-                var row = values.map { value in
-                    let item = key(value) { [weak self] in
-                        guard let self else { return }
-                        if self.composesNumberPageInput(value) {
-                            self.apply(self.session.type(value))
-                        } else {
-                            self.insertSymbol(value)
-                        }
-                    }
-                    item.0.titleLabel?.font = .systemFont(ofSize: 21)
-                    return item
-                }
-                if index == 2 {
-                    row.insert(key(page == .numbers ? "#+=" : "123", utility: true, weight: 1.4) { [weak self] in
-                        guard let self else { return }
-                        self.page = self.page == .numbers ? .symbols : .numbers
-                        self.rebuildKeys()
-                    }, at: 0)
-                    row.append(deleteKey(weight: 1.4))
-                }
-                rows.append(row)
-            }
-        }
-        var bottom = [key(page == .letters ? "123" : "ABC", utility: true, weight: 1.25) { [weak self] in
-            guard let self else { return }
-            self.page = self.page == .letters ? .numbers : .letters
-            self.rebuildKeys()
-        }]
-        let emoji = symbol("face.smiling", label: String(localized: "表情"), weight: 1) { [weak self] in self?.toggleEmoji() }
-        emoji.0.accessibilityIdentifier = "vime.key.emoji"
-        bottom.append(emoji)
-        let comma = key(page == .letters ? "," : String(localized: "符号"), utility: page != .letters, weight: 1) { [weak self] in
-            guard let self else { return }
-            if self.page != .letters { self.openSymbolPanel(mode: .symbols); return }
-            self.apply(self.session.insertLiteral(self.session.inputTraits.comma))
-        }
-        comma.0.accessibilityIdentifier = page == .letters ? "vime.key.comma" : "vime.key.symbols"
-        comma.0.hint = page == .letters ? "°" : nil
-        comma.0.alternateTitle = page == .letters ? session.inputTraits.period : nil
-        comma.0.alternateAction = { [weak self] in
-            guard let self else { return }
-            self.apply(self.session.insertLiteral(self.session.inputTraits.period))
-        }
-        bottom.append(comma)
-        let space = key("", weight: 1) { [weak self] in
-            guard let self else { return }
-            self.apply(self.session.space())
-        }
-        space.0.accessibilityLabel = String(localized: "空格，转换候选")
-        space.0.accessibilityIdentifier = "vime.key.space"
-        spaceKey = space.0
-        bottom.append(space)
-        let language = key("", weight: 1) { [weak self] in
-            guard let self else { return }
-            self.apply(self.session.toggleEnglish())
-            self.shifted = false
-            self.capsLocked = false
-            self.rebuildKeys()
-        }
-        language.0.setImage(KeyboardGlyphs.language(primary: session.inputTraits.language.glyph,
-                                                 secondary: session.inputTraits.alternateLanguage.glyph), for: .normal)
-        languageKey = language.0
-        language.0.accessibilityLabel = session.inputTraits.languageSwitchAccessibilityLabel
-        language.0.accessibilityIdentifier = "vime.key.language"
-        bottom.append(language)
-        let enter = key(String(localized: "换行"), weight: 1.55) { [weak self] in
-            guard let self else { return }
-            self.apply(self.session.enter())
-        }
-        enter.0.titleLabel?.font = .systemFont(ofSize: 16, weight: .medium)
-        enter.0.fillColor = KeyboardPalette.utility
-        enter.0.setTitleColor(.label, for: .normal)
-        enter.0.accessibilityIdentifier = "vime.key.return"
-        returnKey = enter.0
-        bottom.append(enter)
-        rows.append(bottom)
-        applyKeySkins()
-        updateKeyLabels()
-        refresh()
-        setNeedsLayout()
-    }
-
-    private func deleteKey(weight: CGFloat) -> (KeyboardKey, CGFloat) {
-        let item = symbol("delete.left", label: "删除", weight: weight) { [weak self] in
-            guard let self else { return }
-            guard self.hasDeletableContent else { return }
-            self.apply(self.session.backspace())
-        }
-        item.0.accessibilityIdentifier = "vime.key.delete"
-        item.0.repeats = true
-        item.0.canRepeat = { [weak self] in self?.hasDeletableContent ?? false }
-        return item
-    }
-
-    private var hasDeletableContent: Bool {
-        session.isComposing || (deletionAvailabilityProvider?() ?? true)
-    }
-
-    private static let bracketPairs: [String: String] = [
-        "(": ")", "（": "）", "[": "]", "［": "］", "{": "}", "｛": "｝",
-        "「": "」", "『": "』", "【": "】", "〔": "〕", "〈": "〉", "《": "》",
-        "〖": "〗", "〘": "〙", "〚": "〛", "⌈": "⌉", "⌊": "⌋", "⟨": "⟩"
-    ]
-
-    private func insertSymbol(_ text: String) {
-        guard preferences.autoPairBrackets, let closing = Self.bracketPairs[text] else {
-            apply(session.insertLiteral(text)); return
-        }
-        let edits = session.confirmAll()
-        session.invalidateLearningFeedback()
-        session.reset()
-        apply(edits + [.insertPair(opening: text, closing: closing)])
-    }
-
-    private func apply(_ edits: [KeyboardEdit]) {
+    func apply(_ edits: [KeyboardEdit]) {
         if !edits.isEmpty, let onEditsAndPreeditChange {
             onEditsAndPreeditChange(edits, session.markedText)
         } else {
@@ -893,7 +507,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         refresh()
     }
 
-    private func publishPreedit() {
+    func publishPreedit() {
         onPreeditChange?(session.markedText)
     }
 
@@ -949,7 +563,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         refresh()
     }
 
-    private func refresh() {
+    func refresh() {
         let uiStartedAt = KeyboardPerformance.start()
         defer { KeyboardPerformance.record(.candidateUIUpdate, since: uiStartedAt) }
         let traits = session.inputTraits
@@ -1063,400 +677,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         setNeedsLayout()
     }
 
-    private static let chevronUp = UIImage(systemName: "chevron.up")
-    private static let chevronDown = UIImage(systemName: "chevron.down")
+    static let chevronUp = UIImage(systemName: "chevron.up")
+    static let chevronDown = UIImage(systemName: "chevron.down")
 
-    private func layoutCandidateStrip() {
-        let height = candidateScroll.bounds.height
-        var x: CGFloat = 0
-        for button in stripButtons {
-            button.frame = CGRect(x: x, y: 0, width: button.presentationWidth, height: height)
-            button.layoutIfNeeded()
-            x = button.frame.maxX + 2
-        }
-        let size = CGSize(width: max(0, x - 2), height: height)
-        candidateRow.frame = CGRect(origin: .zero, size: size)
-        candidateScroll.contentSize = size
-    }
-
-    private var returnTitle: String {
-        switch returnKeyType {
-        case .send: String(localized: "发送")
-        case .search: String(localized: "搜索")
-        case .go: String(localized: "前往")
-        case .done: String(localized: "完成")
-        case .next: String(localized: "下一项")
-        case .join: String(localized: "加入")
-        default: String(localized: "换行")
-        }
-    }
-
-    private func candidateButton(_ presentation: CandidatePresentation, index: Int) -> KeyboardCandidateButton {
-        let button = KeyboardCandidateButton(frame: .zero)
-        presentCandidate(button, presentation: presentation, index: index)
-        button.addTarget(self, action: #selector(selectCandidate(_:)), for: .touchUpInside)
-        return button
-    }
-
-    private func presentCandidate(_ button: KeyboardCandidateButton, presentation: CandidatePresentation, index: Int) {
-        let configurationStartedAt = KeyboardPerformance.start()
-        defer { KeyboardPerformance.record(.candidateButtonConfiguration, since: configurationStartedAt) }
-        button.present(presentation, index: index, highlighted: session.isComposing && index == (session.selectedIndex ?? 0))
-    }
-
-    @objc private func selectCandidate(_ sender: UIButton) {
-        guard let token = (sender as? KeyboardCandidateButton)?.takeSelectionToken() else { return }
-        playFeedback()
-        apply(session.chooseCandidate(token))
-    }
-
-    private func rebuildCandidatePanel() {
-        let values = session.candidatePage(offset: 0, limit: panelLimit)
-        while panelCandidates.count > values.count {
-            let button = panelCandidates.removeLast()
-            button.removeFromSuperview(); sparePanelButtons.append(button)
-        }
-        while panelCandidates.count < values.count {
-            let index = panelCandidates.count
-            let button = sparePanelButtons.popLast() ?? candidateButton(values[index], index: index)
-            button.backgroundColor = .clear
-            button.layer.cornerRadius = 6
-            button.titleLabel?.lineBreakMode = .byTruncatingTail
-            panelScroll.addSubview(button)
-            panelCandidates.append(button)
-        }
-        for (index, button) in panelCandidates.enumerated() {
-            presentCandidate(button, presentation: values[index], index: index)
-            button.isUserInteractionEnabled = session.candidatesAreCurrent && button.selectionToken != nil
-        }
-    }
-
-    private func updateKeyLabels() {
-        for button in letterKeys {
-            if let value = button.title(for: .normal) {
-                button.setTitle(value.uppercased(), for: .normal)
-            }
-        }
-        let active = shifted
-        shiftKey?.setImage(UIImage(systemName: capsLocked && session.inputTraits.isEnglish ? "capslock.fill" : active ? "shift.fill" : "shift"), for: .normal)
-        shiftKey?.tintColor = KeyboardPalette.text
-    }
-
-    private func shift() {
-        let now = Date.timeIntervalSinceReferenceDate
-        if now - lastShiftTap < 0.3 { capsLocked = true; shifted = true }
-        else { shifted.toggle(); capsLocked = false }
-        lastShiftTap = now
-        updateKeyLabels()
-    }
-
-    private func playFeedback() {
-        if preferences.sound && hasFullAccess {
-            // Apple documents audio (including input clicks) as an open-access
-            // capability for extensions. Never invoke a denied audio path that
-            // could stall input. Visual feedback and haptic attempts are separate.
-            UIDevice.current.playInputClick()
-        }
-        let intensity = preferences.hapticIntensity
-        guard intensity > 0 else { return }
-        // Keep one feedback style across the range so intermediate values do not
-        // jump when crossing a style boundary
-        let generator = impactGenerators[1] ?? UIImpactFeedbackGenerator(style: .heavy)
-        impactGenerators[1] = generator
-        generator.impactOccurred(intensity: CGFloat(intensity))
-        generator.prepare()
-    }
-
-    @objc private func toolbarFeedback() { playFeedback() }
-
-    private func configureScroll(_ scroll: UIScrollView) {
-        scroll.backgroundColor = KeyboardTouchBacking.color
-        scroll.contentInsetAdjustmentBehavior = .never
-        if #available(iOS 26.0, *) {
-            // Candidate text is foreground content, not content behind a toolbar.
-            for edge in [scroll.topEdgeEffect, scroll.bottomEdgeEffect, scroll.leftEdgeEffect, scroll.rightEdgeEffect] {
-                edge.isHidden = true
-            }
-        }
-    }
-
-    private static let letterHints: [String: String] = Dictionary(uniqueKeysWithValues: zip(
-        Array("qwertyuiopasdfghjklzxcvbnm").map(String.init),
-        ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "/", ":", ";", "(", ")", "~", "“", "”", "@", "·", "#", "`", "?", "!", "…"]
-    ))
-
-    private func configureGlobe() {
-        globeButton.removeTarget(nil, action: nil, for: .allTouchEvents)
-        if needsGlobe, let target = inputModeListTarget, let selector = inputModeListAction {
-            globeButton.addTarget(target, action: selector, for: .allTouchEvents)
-        } else { globeButton.addTarget(self, action: #selector(switchKeyboard), for: .touchUpInside) }
-        // Configuring the system input-mode selector removes old touch targets;
-        // reinstall feedback each time so the globe still has a native click.
-        globeButton.addTarget(self, action: #selector(toolbarFeedback), for: .touchDown)
-    }
-
-    @objc private func switchKeyboard() { confirmComposition(); onSwitchKeyboard?() }
-
-    @objc private func headerArrow() {
-        if panel != .keyboard {
-            panel = .keyboard; refresh()
-        } else if session.isComposing { toggleExpanded() }
-        else { onDismiss?() }
-    }
-
-    private func toggleEmoji() {
-        openSymbolPanel(mode: .emoji)
-    }
-
-    private func openSymbolPanel(mode: KeyboardSymbolPanel.Mode) {
-        apply(session.confirm())
-        panel = .symbols
-        panelScroll.setContentOffset(.zero, animated: false)
-        refresh()
-        symbolPanel?.selectMode(mode)
-    }
-
-    private func showSymbolPanel() {
-        if symbolPanel == nil {
-            let panel = KeyboardSymbolPanel()
-            panel.onFeedback = { [weak self] in self?.playFeedback() }
-            panel.onSelect = { [weak self] text in
-                guard let self else { return }
-                self.playFeedback()
-                let composes = self.session.isComposing && self.session.inputTraits.compositionInputSymbols.contains(text)
-                if composes { self.apply(self.session.type(text)) } else { self.insertSymbol(text) }
-            }
-            panel.onClose = { [weak self] in self?.headerArrow() }
-            addSubview(panel); symbolPanel = panel
-            panel.applyTheme()
-        }
-        symbolPanel?.isHidden = false
-        setNeedsLayout()
-    }
-
-    @objc private func toggleKana() {
-        apply(session.togglePrimaryVariant())
-        rebuildKeys()
-    }
-
-    private func canUseClipboardSuggestion(_ text: String) -> Bool {
-        !clipboardSuggestion.isHidden && panel == .keyboard && !session.isComposing
-            && clipboardActive && window != nil && preferences.clipboardSuggestions && hasFullAccess
-            && clipboard.text == text && quickCandidateItems().isEmpty
-    }
-
-    private func quickCandidateItems() -> [KeyboardQuickCandidate] {
-        guard page == .numbers else { return [] }
-        // A word being converted keeps its full candidate strip. Pure numeric
-        // input gets shortcuts immediately, including when digits are marked.
-        let mark = session.markedText?.text ?? ""
-        guard mark.isEmpty || mark.allSatisfy({ "0123456789０１２３４５６７８９.．+-−－＋*/×÷＊／()（）%％".contains($0) }) else { return [] }
-        var items: [KeyboardQuickCandidate] = []
-        if onReplaceText != nil, let anchor = learningContextProvider?(), !anchor.hasSelection,
-           let before = anchor.before, let calculation = KeyboardCalculation.trailing(in: before + mark),
-           calculation.expression.hasSuffix(mark), calculation.expression.count >= mark.count {
-            let suffix = String(calculation.expression.dropLast(mark.count))
-            for text in [calculation.result, calculation.equation] {
-                let replacement = KeyboardTextReplacement(anchor: anchor, markedText: session.markedText?.text,
-                    committedSuffix: suffix, text: text)
-                items.append(.init(title: text, action: .replacement(replacement)))
-            }
-        }
-        items += KeyboardCalculation.symbols.map { .init(title: $0, action: .symbol($0)) }
-        return items
-    }
-
-    private func selectQuickCandidate(_ item: KeyboardQuickCandidate) {
-        guard quickCandidateItems().contains(item) else { refresh(); return }
-        playFeedback()
-        switch item.action {
-        case .symbol(let text):
-            insertSymbol(text)
-        case .replacement(let replacement):
-            guard learningContextProvider?() == replacement.anchor,
-                  session.markedText?.text == replacement.markedText,
-                  onReplaceText?(replacement) == true else { refresh(); return }
-            session.invalidateLearningFeedback()
-            session.reset()
-            if panel == .candidates { panel = .keyboard }
-            refresh()
-        }
-    }
-
-    @objc private func shortenConversion() {
-        panelLimit = 40
-        session.adjustConversionRange(by: -1)
-        panelScroll.setContentOffset(.zero, animated: false)
-        refresh()
-    }
-    @objc private func lengthenConversion() {
-        panelLimit = 40
-        session.adjustConversionRange(by: 1)
-        panelScroll.setContentOffset(.zero, animated: false)
-        refresh()
-    }
-    @objc private func wholeConversion() {
-        panelLimit = 40
-        session.resetConversionRange()
-        refresh()
-    }
-    func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        guard scrollView === panelScroll, panel == .candidates, panelLimit < session.candidateCount,
-              session.candidatesAreCurrent, scrollView.contentSize.height > scrollView.bounds.height,
-              scrollView.contentOffset.y + scrollView.bounds.height >= scrollView.contentSize.height - 90 else { return }
-        panelLimit += 40
-        rebuildCandidatePanel()
-        setNeedsLayout()
-    }
-    @objc private func toggleExpanded() {
-        panelLimit = 40
-        panel = panel == .candidates ? .keyboard : .candidates
-        panelScroll.setContentOffset(.zero, animated: false)
-        refresh()
-    }
-
-    @objc private func toggleSettings() {
-        panel = panel == .settings ? .keyboard : .settings
-        if settingsPanel == nil { createSettingsPanel() }
-        refresh()
-    }
-
-    private func insertClipboardText(_ text: String) {
-        panel = .keyboard
-        let edits = session.confirmAll()
-        session.invalidateLearningFeedback()
-        session.reset()
-        apply(edits + [.insert(text)])
-    }
-
-    private func openClipboardHistory() {
-        panel = .clipboardHistory
-        if clipboardHistoryPanel == nil {
-            let view = ClipboardHistoryPanel()
-            view.onBack = { [weak self] in
-                guard let self else { return }
-                self.playFeedback(); self.panel = .settings; self.refresh()
-            }
-            view.onSelect = { [weak self] entry in self?.selectClipboardHistory(entry) }
-            view.onClear = { [weak self] in
-                guard let self else { return }
-                self.historyRequest += 1
-                self.clipboardHistoryPanel?.present([], message: String(localized: "正在清空…"))
-                Task { [weak self] in
-                    guard let self else { return }
-                    do { try await self.clipboard.clearHistory(); self.reloadClipboardHistory() }
-                    catch { self.clipboardHistoryPanel?.present([], message: String(localized: "清空失败，请重试")) }
-                }
-            }
-            addSubview(view)
-            clipboardHistoryPanel = view
-        }
-        reloadClipboardHistory()
-        refresh()
-    }
-
-    private func reloadClipboardHistory() {
-        historyRequest += 1
-        let request = historyRequest
-        guard panel == .clipboardHistory else { return }
-        guard preferences.clipboardSuggestions, hasFullAccess, clipboardActive, window != nil else {
-            clipboardHistoryPanel?.present([], message: preferences.clipboardSuggestions
-                ? String(localized: "请允许键盘完全访问后查看") : String(localized: "请先在 Vime App 开启剪贴板功能"))
-            return
-        }
-        Task { [weak self] in
-            guard let self else { return }
-            do {
-                let entries = try await self.clipboard.history.entries()
-                guard self.panel == .clipboardHistory, self.historyRequest == request else { return }
-                self.clipboardHistoryPanel?.present(entries)
-            } catch {
-                guard self.panel == .clipboardHistory, self.historyRequest == request else { return }
-                self.clipboardHistoryPanel?.present([], message: String(localized: "历史暂时无法读取，请稍后重试"))
-            }
-        }
-    }
-
-    private func selectClipboardHistory(_ entry: ClipboardHistoryStore.Entry) {
-        let request = historyRequest
-        Task { [weak self] in
-            guard let self else { return }
-            let value = try? await self.clipboard.history.text(for: entry.id)
-            guard self.panel == .clipboardHistory, self.historyRequest == request,
-                  self.clipboardActive, self.window != nil, self.preferences.clipboardSuggestions,
-                  self.hasFullAccess, value == entry.text else { return }
-            self.playFeedback()
-            self.insertClipboardText(entry.text)
-            if self.clipboard.text == entry.text { self.clipboard.consume() }
-        }
-    }
-
-    private func createSettingsPanel() {
-        let view = KeyboardSettingsPanel(preferences: preferences)
-        configureScroll(view)
-        view.onHistory = { [weak self] in self?.openClipboardHistory() }
-        view.onOpenAppSettings = { [weak self] in self?.onOpenAppSettings?() }
-        view.onFeedback = { [weak self] in self?.playFeedback() }
-        view.onNumberLayoutChange = { [weak self] in self?.rebuildKeys() }
-        view.onRetryNeural = { [weak self] in
-            guard let self else { return }
-            self.preferences.requestNeuralRetry()
-            self.reloadPreferences()
-        }
-        addSubview(view)
-        settingsPanel = view
-    }
-
-    private func applyKeySkins() {
-        for (key, _) in rows.flatMap({ $0 }) {
-            let identifier = key.accessibilityIdentifier?.replacingOccurrences(of: "vime.key.", with: "") ?? ""
-            let semantic: String
-            if key === shiftKey { semantic = "shift" }
-            else if key === returnKey { semantic = "return" }
-            else if letterKeys.contains(where: { $0 === key }) { semantic = "letter." + identifier }
-            else if key.repeats { semantic = "backspace" }
-            else if key.accessibilityIdentifier == "vime.number.emoji" { semantic = "emoji" }
-            else if ["123", "ABC", "#+="].contains(key.title(for: .normal) ?? "") { semantic = "numbers" }
-            else { semantic = identifier }
-            key.applySkin(KeyboardPalette.skin, key: semantic)
-        }
-        invalidateKeyGrid()
-    }
-    private func applyTheme() {
-        KeyboardPalette.theme = preferences.theme
-        let document = preferences.theme == .custom ? try? KeyboardSkinStore().load(preferences.customSkinID) : nil
-        KeyboardPalette.skin = document.map { KeyboardSkinAppearance($0, reusing: skinCanvas.appearance) }
-        skinCanvas.appearance = KeyboardPalette.skin
-        brandArtwork.image = KeyboardPalette.skin?.image(for: "brand")
-        brandButton.setImage(brandArtwork.image == nil ? KeyboardGlyphs.logo() : nil, for: .normal)
-        applyKeySkins()
-        overrideUserInterfaceStyle = preferences.theme == .midnight ? .dark : .unspecified
-        backgroundColor = document.map { KeyboardSkinAppearance.color($0.palette.background) } ?? preferences.theme.background
-        header.backgroundColor = document.map { KeyboardSkinAppearance.color($0.palette.key).withAlphaComponent(0.88) } ?? .clear
-        setNeedsLayout()
-        for row in rows {
-            for (key, _) in row {
-                key.fillColor = key.isUtility ? KeyboardPalette.utility : KeyboardPalette.key
-                key.setTitleColor(KeyboardPalette.text, for: .normal)
-                key.tintColor = KeyboardPalette.text
-            }
-        }
-        for button in stripButtons + spareCandidateButtons { button.applyTheme() }
-        for button in panelCandidates + sparePanelButtons {
-            button.applyTheme()
-            button.tintColor = KeyboardPalette.text
-        }
-        for button in [brandButton, undoButton, modeButton, expandButton] { button.backgroundColor = KeyboardPalette.key }
-        clipboardSuggestion.applyTheme()
-        quickCandidates.applyTheme()
-        numberSymbolRail?.applyTheme()
-        clipboardHistoryPanel?.applyTheme()
-        undoButton.tintColor = KeyboardPalette.accent
-        deletePrompt.applyTheme()
-        panelTitle.textColor = KeyboardPalette.text
-        gestureHint.textColor = KeyboardPalette.text
-        settingsPanel?.applyTheme()
-        symbolPanel?.applyTheme()
-        refresh()
-    }
 }
