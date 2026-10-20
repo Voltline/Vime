@@ -2,7 +2,7 @@ import Foundation
 import KanaKanjiConverterModuleWithDefaultDictionary
 
 // Request-scoped and cross-request lookup structures used by the engine.
-extension JapaneseCandidateEngine {
+nonisolated extension JapaneseCandidateEngine {
     /// Native results for one exact input under the current dictionary and
     /// learning state. Typing at the end usually keeps the first clause intact,
     /// so its prefix query repeats across keystrokes.

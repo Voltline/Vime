@@ -2,7 +2,7 @@ import Foundation
 import KanaKanjiConverterModuleWithDefaultDictionary
 
 // Committed context, staged learning feedback and post-composition suggestions.
-extension JapaneseCandidateEngine {
+nonisolated extension JapaneseCandidateEngine {
     /// Reconcile against real host text (already excluding the marked range).
     /// No replayed learning: parsing external context only supplies POS evidence.
     func reconcileContext(_ left: String?) {

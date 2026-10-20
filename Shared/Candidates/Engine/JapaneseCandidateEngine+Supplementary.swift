@@ -2,7 +2,7 @@ import Foundation
 import KanaKanjiConverterModuleWithDefaultDictionary
 
 // Expanded-panel additions: width variants and enumerated prefix boundaries.
-extension JapaneseCandidateEngine {
+nonisolated extension JapaneseCandidateEngine {
     /// Expanded-panel formatting uses native options on isolated queries. Raw
     /// Roman input is queried directly for full-width letters, so resolved kana
     /// does not replace the user's original spelling. No dictionary is duplicated

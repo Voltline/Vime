@@ -2,7 +2,7 @@ import Foundation
 import KanaKanjiConverterModuleWithDefaultDictionary
 
 // Idle-time typo and phonetic correction search over the literal candidate pool.
-extension JapaneseCandidateEngine {
+nonisolated extension JapaneseCandidateEngine {
     func addingCorrections(to base: [CandidateSnapshot], for query: ComposingText, katakana: Bool,
                            revision: Int, cancelled: () -> Bool = { false },
                            now: () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }) -> [CandidateSnapshot] {
