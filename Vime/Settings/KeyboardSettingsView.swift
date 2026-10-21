@@ -100,7 +100,8 @@ struct KeyboardSettingsSummary: Equatable {
         guard ranking == .languageModel else { return String(localized: "词典排序") }
         guard let status else { return String(localized: "待使用") }
         if status.modelPaused { return String(localized: "已暂停") }
-        return status.modelShortVersion.map { String(localized: "V\($0) 就绪") } ?? String(localized: "待加载")
+        // The model version is diagnostics detail; users only need the state.
+        return status.modelShortVersion == nil ? String(localized: "待加载") : String(localized: "已开启")
     }
 }
 

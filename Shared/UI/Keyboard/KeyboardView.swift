@@ -270,14 +270,13 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         panelTitle.accessibilityIdentifier = "vime.candidates.title"
         panelTitle.isUserInteractionEnabled = false
         header.addSubview(panelTitle)
-        for (button, title, identifier, action) in [
-            (shortenRange, "−", "vime.segment.shorten", #selector(shortenConversion)),
-            (lengthenRange, "+", "vime.segment.lengthen", #selector(lengthenConversion)),
-            (wholeRange, String(localized: "整句"), "vime.segment.whole", #selector(wholeConversion))] {
+        for (button, title, label, identifier, action) in [
+            (shortenRange, String(localized: "缩短"), String(localized: "缩短转换范围"), "vime.segment.shorten", #selector(shortenConversion)),
+            (lengthenRange, String(localized: "延长"), String(localized: "加长转换范围"), "vime.segment.lengthen", #selector(lengthenConversion)),
+            (wholeRange, String(localized: "整句"), String(localized: "恢复整句转换"), "vime.segment.whole", #selector(wholeConversion))] {
             button.setTitle(title, for: .normal)
             button.accessibilityIdentifier = identifier
-            button.accessibilityLabel = title == "−" ? String(localized: "缩短转换范围")
-                : title == "+" ? String(localized: "加长转换范围") : String(localized: "恢复整句转换")
+            button.accessibilityLabel = label
             button.addTarget(self, action: action, for: .touchUpInside)
             header.addSubview(button)
         }
@@ -431,9 +430,13 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         layoutCandidateStrip()
         // Range controls use full targets too; their clear backgrounds keep
         // the existing compact appearance while avoiding overlapping actions.
-        wholeRange.frame = CGRect(x: expandButton.frame.midX - 22 - 8 - 44, y: centerY - 22, width: 44, height: 44)
-        lengthenRange.frame = wholeRange.frame.offsetBy(dx: -52, dy: 0)
-        shortenRange.frame = lengthenRange.frame.offsetBy(dx: -52, dy: 0)
+        // Text labels vary by language; each target is at least 44 pt wide.
+        var rangeRight = expandButton.frame.midX - 22
+        for control in [wholeRange, lengthenRange, shortenRange] {
+            let width = max(44, ceil(control.intrinsicContentSize.width))
+            control.frame = CGRect(x: rangeRight - 8 - width, y: centerY - 22, width: width, height: 44)
+            rangeRight = control.frame.minX
+        }
         let titleLeft = compact ? metrics.contentLeft : 12 * xScale
         let titleRight = shortenRange.isHidden ? expandButton.frame.midX - 22 : shortenRange.frame.minX
         panelTitle.frame = CGRect(x: titleLeft, y: centerY - diameter / 2,
