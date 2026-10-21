@@ -23,7 +23,7 @@ struct KeyboardPreferences {
             self.defaults.set(Double(legacy) / 5, forKey: "vime.hapticIntensity")
         }
     }
-    private static let sharedKeys = ["vime.sound", "vime.hapticLevel", "vime.hapticIntensity", "vime.nineKeyNumbers",
+    private static let sharedKeys = ["vime.sound", "vime.hapticLevel", "vime.hapticIntensity", "vime.nineKeyNumbers", "vime.kanaLayout",
         "vime.prolongedKey", "vime.previews", "vime.theme", "vime.candidateRanking", "vime.phraseSuggestions", "vime.clipboardSuggestions", "vime.autoPairBrackets", "vime.customSkinID", "vime.skinRevision", "vime.numberSymbols"]
     var store: UserDefaults { defaults }
     struct Snapshot: Equatable {
@@ -31,6 +31,7 @@ struct KeyboardPreferences {
         let sound: Bool
         let hapticIntensity: Double
         let nineKeyNumbers: Bool
+        let kanaLayout: Bool
         let prolongedKey: Bool
         let previews: Bool
         let theme: KeyboardTheme
@@ -46,7 +47,7 @@ struct KeyboardPreferences {
     }
     var snapshot: Snapshot {
         Snapshot(heightFactor: heightFactor, sound: sound, hapticIntensity: hapticIntensity,
-            nineKeyNumbers: nineKeyNumbers, prolongedKey: prolongedKey, previews: previews,
+            nineKeyNumbers: nineKeyNumbers, kanaLayout: kanaLayout, prolongedKey: prolongedKey, previews: previews,
             theme: theme, customSkinID: customSkinID, skinRevision: skinRevision, candidateRanking: candidateRanking, phraseSuggestions: phraseSuggestions,
             clipboardSuggestions: clipboardSuggestions, autoPairBrackets: autoPairBrackets, numberSymbols: numberSymbols,
             neuralRetryID: neuralRetryID, learningResetID: learningResetRequests.requestID)
@@ -78,6 +79,11 @@ struct KeyboardPreferences {
     var nineKeyNumbers: Bool {
         get { defaults.object(forKey: "vime.nineKeyNumbers") as? Bool ?? true }
         nonmutating set { defaults.set(newValue, forKey: "vime.nineKeyNumbers") }
+    }
+    /// Japanese letters on a 12-key flick pad instead of romaji QWERTY.
+    var kanaLayout: Bool {
+        get { defaults.object(forKey: "vime.kanaLayout") as? Bool ?? false }
+        nonmutating set { defaults.set(newValue, forKey: "vime.kanaLayout") }
     }
     var numberSymbols: [String] {
         get { KeyboardNumberSymbols.normalized(defaults.stringArray(forKey: "vime.numberSymbols") ?? KeyboardNumberSymbols.defaults) }

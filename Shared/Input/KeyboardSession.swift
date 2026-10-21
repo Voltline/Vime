@@ -194,6 +194,20 @@ final class KeyboardSession: KeyboardInputSession {
         return edits
     }
 
+    func replaceLastKana(_ transform: (Character) -> Character?) -> [KeyboardEdit]? {
+        // A selected candidate or queued conversion owns the preedit; the
+        // next tap starts a new character there instead.
+        guard mode != .english, selectedIndex == nil, pendingSpaces == 0,
+              let last = composing.convertTarget.last, let next = transform(last) else { return nil }
+        inputStartedAt = KeyboardPerformance.start()
+        clearSuggestions()
+        conversionLength = nil
+        composing.deleteBackwardFromCursorPosition(count: 1)
+        RomajiConverter.insert(String(next), into: &composing)
+        refresh(startedAt: inputStartedAt)
+        return []
+    }
+
     func backspace() -> [KeyboardEdit] {
         clearSuggestions()
         if selectedIndex != nil || pendingSpaces > 0 {

@@ -10,6 +10,13 @@ final class KeyboardKey: UIButton {
     var canRepeat: (() -> Bool)?
     var alternateAction: (() -> Void)?
     var alternateTitle: String?
+    /// Flick kana: outputs for center, left, up, right and down ("" = none).
+    /// The touch surface resolves the direction; release calls flickAction.
+    var flickOutputs: [String]? { didSet { updateFlickLabels() } }
+    /// A title that already lists every output (、。?!) needs no direction hints.
+    var showsFlickHints = true { didSet { updateFlickLabels() } }
+    var flickAction: ((KeyFlick) -> Void)?
+    private var flickLabels: [UILabel] = []
     private var swipe = KeySwipeSelection()
     private var touchOrigin = CGPoint.zero
     let hintLabel = UILabel()
@@ -151,6 +158,7 @@ final class KeyboardKey: UIButton {
             }
             hintLabel.isHidden = true
         } else { hintLabel.isHidden = false }
+        layoutFlickLabels()
     }
 
     override func beginTracking(_ touch: UITouch, with event: UIEvent?) -> Bool {
@@ -208,7 +216,50 @@ final class KeyboardKey: UIButton {
         else { preview?.removeFromSuperview(); preview = nil }
     }
 
-    func finishResolvedPress(cancelled: Bool, alternate: Bool, stillPressed: Bool, deferredRepeat: Bool = false) {
+    private func updateFlickLabels() {
+        flickLabels.forEach { $0.removeFromSuperview() }
+        flickLabels = (showsFlickHints ? flickOutputs ?? [] : []).dropFirst().map { text in
+            let label = UILabel()
+            label.text = text
+            label.textAlignment = .center
+            label.isUserInteractionEnabled = false
+            label.isAccessibilityElement = false
+            addSubview(label)
+            return label
+        }
+        setNeedsLayout()
+    }
+
+    /// The four direction hints around the center title.
+    private func layoutFlickLabels() {
+        guard flickLabels.count == 4 else { return }
+        let size = max(8, min(11, bounds.height * 0.24))
+        let box = CGSize(width: size + 4, height: size + 2)
+        for (index, label) in flickLabels.enumerated() {
+            label.font = .systemFont(ofSize: size)
+            label.textColor = KeyboardPalette.text.withAlphaComponent(0.45)
+            label.isHidden = hasSkinArtwork
+            let center = switch KeyFlick.directions[index] {
+            case .left: CGPoint(x: 3 + box.width / 2, y: bounds.midY)
+            case .up: CGPoint(x: bounds.midX, y: 2 + box.height / 2)
+            case .right: CGPoint(x: bounds.maxX - 3 - box.width / 2, y: bounds.midY)
+            default: CGPoint(x: bounds.midX, y: bounds.maxY - 2 - box.height / 2)
+            }
+            label.frame = CGRect(x: center.x - box.width / 2, y: center.y - box.height / 2, width: box.width, height: box.height)
+        }
+    }
+
+    /// Previews the character the current direction would enter.
+    func presentFlick(_ flick: KeyFlick) {
+        guard let outputs = flickOutputs, outputs.indices.contains(flick.rawValue),
+              !outputs[flick.rawValue].isEmpty, flick != .center || showsPreview else {
+            preview?.removeFromSuperview(); preview = nil; return
+        }
+        showPreview(outputs[flick.rawValue], alternate: flick != .center)
+    }
+
+    func finishResolvedPress(cancelled: Bool, alternate: Bool, stillPressed: Bool, deferredRepeat: Bool = false,
+                             flick: KeyFlick = .center) {
         KeyboardTouchDiagnostics.record("KeyboardKey.resolvedRelease", view: self,
             detail: "cancelled=\(cancelled) alternate=\(alternate) stillPressed=\(stillPressed)")
         if !stillPressed {
@@ -218,7 +269,8 @@ final class KeyboardKey: UIButton {
         // The surface owns selection per finger; UIButton's shared swipe/up
         // state must not decide another simultaneous finger's character.
         if !cancelled && !repeats {
-            if alternate { alternateAction?() }
+            if let flickAction { flickAction(flick) }
+            else if alternate { alternateAction?() }
             else { action?() }
         }
         if !cancelled && repeats && deferredRepeat && !resolvedRepeatOccurred && repeatIsAllowed { action?() }
@@ -334,6 +386,20 @@ final class KeyboardKey: UIButton {
 
     override func didMoveToWindow() { if window == nil { stopTracking() } }
     deinit { delayTimer?.invalidate(); repeatTimer?.invalidate() }
+}
+
+/// A flick key's selection. Raw values index KeyboardKey.flickOutputs.
+nonisolated enum KeyFlick: Int, Sendable {
+    case center, left, up, right, down
+    static let directions: [KeyFlick] = [.left, .up, .right, .down]
+    /// Scaled points; a tap may drift this far and still enter the center.
+    static let activationDistance = 20.0
+    /// Direction of a drag from touch-down; reversible until release.
+    static func resolve(x: Double, y: Double, scale: Double = 1) -> KeyFlick {
+        guard (x * x + y * y).squareRoot() / max(0.01, scale) >= activationDistance else { return .center }
+        if abs(x) > abs(y) { return x < 0 ? .left : .right }
+        return y < 0 ? .up : .down
+    }
 }
 
 /// The same UIKit keyboard is used by the extension and the containing app's sandbox.

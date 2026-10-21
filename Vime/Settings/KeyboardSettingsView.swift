@@ -23,19 +23,23 @@ struct KeyboardSettingsView: View {
     var body: some View {
         AppDashboardPage {
             KeyboardStatusCard(summary: summary, counts: counts)
-            LazyVGrid(columns: columns, spacing: 12) {
-                SettingsTile(title: "转换与联想", detail: summary.suggestions ? String(localized: "下一词联想 开") : String(localized: "下一词联想 关"),
-                             icon: .glyph("あ"), tint: .blue, id: "vime.settings.input") { KeyboardInputSettingsView() }
-                SettingsTile(title: "用户词典", detail: String(localized: "姓名、词语与短语"),
-                             icon: .symbol("character.book.closed"), tint: .orange, id: "vime.settings.dictionary") { KeyboardUserDictionaryView() }
-                SettingsTile(title: "手感与布局", detail: summary.feelDetail,
-                             icon: .symbol("keyboard"), tint: .teal, id: "vime.settings.feedback") { KeyboardFeedbackSettingsView() }
-                SettingsTile(title: "符号与括号", detail: summary.symbolDetail,
-                             icon: .symbol("number"), tint: .indigo, id: "vime.settings.symbols") { KeyboardNumberSymbolsView() }
-                SettingsTile(title: "剪贴板", detail: summary.clipboard ? String(localized: "自动读取已开启") : String(localized: "自动读取已关闭"),
-                             icon: .symbol("doc.on.clipboard"), tint: .gray, id: "vime.settings.clipboard") { KeyboardClipboardSettingsView() }
-                SettingsTile(title: "学习与隐私", detail: String(localized: "清空学习 · 隐私政策"),
-                             icon: .symbol("checkmark.shield"), tint: .green, id: "vime.settings.privacy") { KeyboardDataPrivacyView() }
+            SettingsQuickToggles { reload() }
+            VStack(alignment: .leading, spacing: 10) {
+                AppSectionTitle("更多设置")
+                LazyVGrid(columns: columns, spacing: 12) {
+                    SettingsTile(title: "转换与联想", detail: summary.suggestions ? String(localized: "下一词联想 开") : String(localized: "下一词联想 关"),
+                                 icon: .glyph("あ"), tint: .blue, id: "vime.settings.input") { KeyboardInputSettingsView() }
+                    SettingsTile(title: "用户词典", detail: String(localized: "姓名、词语与短语"),
+                                 icon: .symbol("character.book.closed"), tint: .orange, id: "vime.settings.dictionary") { KeyboardUserDictionaryView() }
+                    SettingsTile(title: "手感与布局", detail: summary.feelDetail,
+                                 icon: .symbol("keyboard"), tint: .teal, id: "vime.settings.feedback") { KeyboardFeedbackSettingsView() }
+                    SettingsTile(title: "符号与括号", detail: summary.symbolDetail,
+                                 icon: .symbol("number"), tint: .indigo, id: "vime.settings.symbols") { KeyboardNumberSymbolsView() }
+                    SettingsTile(title: "剪贴板", detail: summary.clipboard ? String(localized: "自动读取已开启") : String(localized: "自动读取已关闭"),
+                                 icon: .symbol("doc.on.clipboard"), tint: .gray, id: "vime.settings.clipboard") { KeyboardClipboardSettingsView() }
+                    SettingsTile(title: "学习与隐私", detail: String(localized: "清空学习 · 隐私政策"),
+                                 icon: .symbol("checkmark.shield"), tint: .green, id: "vime.settings.privacy") { KeyboardDataPrivacyView() }
+                }
             }
             AppSettingsActionGroup {
                 NavigationLink { KeyboardSetupGuide() } label: { SettingsListRow(title: "启用指南") }
@@ -238,6 +242,62 @@ private struct VimeLogoMark: Shape {
     }
 }
 
+/// The switches changed most often, without opening a sub-page.
+private struct SettingsQuickToggles: View {
+    @AppStorage private var suggestions: Bool
+    @AppStorage private var sound: Bool
+    @AppStorage private var clipboard: Bool
+    @State private var confirmingClipboard = false
+    let onChange: () -> Void
+
+    init(onChange: @escaping () -> Void) {
+        let prefs = KeyboardPreferences(), store = prefs.store
+        _suggestions = AppStorage(wrappedValue: prefs.phraseSuggestions, "vime.phraseSuggestions", store: store)
+        _sound = AppStorage(wrappedValue: prefs.sound, "vime.sound", store: store)
+        _clipboard = AppStorage(wrappedValue: prefs.clipboardSuggestions, "vime.clipboardSuggestions", store: store)
+        self.onChange = onChange
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            AppSectionTitle("常用开关")
+            AppSettingsActionGroup {
+                toggle("下一词联想", "确认文字后建议接下来的词", symbol: "text.append", isOn: $suggestions,
+                       id: "vime.settings.quick.suggestions")
+                Divider().padding(.leading, 52)
+                toggle("按键声音", "需要允许完全访问", symbol: "speaker.wave.2", isOn: $sound, id: "vime.settings.quick.sound")
+                Divider().padding(.leading, 52)
+                // Same consent as the clipboard page: confirm before reading,
+                // and turning it off deletes the history.
+                toggle("自动读取剪贴板", "复制的文字出现在候选栏", symbol: "doc.on.clipboard",
+                       isOn: Binding(get: { clipboard }, set: { value in
+                           if value { confirmingClipboard = true; return }
+                           clipboard = false
+                           Task { try? await ClipboardHistoryStore().clear(includingReadState: true) }
+                       }), id: "vime.settings.quick.clipboard")
+            }
+        }
+        .onChange(of: suggestions) { onChange() }
+        .onChange(of: sound) { onChange() }
+        .onChange(of: clipboard) { onChange() }
+        .alert("开启自动读取剪贴板？", isPresented: $confirmingClipboard) {
+            Button("取消", role: .cancel) {}
+            Button("了解并开启") { clipboard = true }
+        } message: {
+            Text("键盘显示时会读取你复制的文本，可能包含敏感信息。最近 24 小时的记录仅保存在本机，不上传；你可以清空历史，关闭功能也会删除记录。iOS 仍会单独请求粘贴权限。")
+        }
+    }
+
+    private func toggle(_ title: LocalizedStringResource, _ subtitle: LocalizedStringResource, symbol: String,
+                        isOn: Binding<Bool>, id: String) -> some View {
+        Toggle(isOn: isOn) { AppSettingsLabel(title: title, subtitle: subtitle, symbol: symbol) }
+            .tint(.vimeBlue)
+            .padding(.horizontal, 14).padding(.vertical, 8)
+            .frame(minHeight: 60)
+            .accessibilityIdentifier(id)
+    }
+}
+
 private struct SettingsTile<Destination: View>: View {
     let title: LocalizedStringResource
     let detail: String
@@ -328,6 +388,7 @@ struct KeyboardFeedbackSettingsView: View {
     @AppStorage private var sound: Bool
     @AppStorage private var intensity: Double
     @AppStorage private var nineKeyNumbers: Bool
+    @AppStorage private var kanaLayout: Bool
     @AppStorage private var prolongedKey: Bool
     @AppStorage private var previews: Bool
     init() {
@@ -335,6 +396,7 @@ struct KeyboardFeedbackSettingsView: View {
         _sound = AppStorage(wrappedValue: prefs.sound, "vime.sound", store: store)
         _intensity = AppStorage(wrappedValue: prefs.hapticIntensity, "vime.hapticIntensity", store: store)
         _nineKeyNumbers = AppStorage(wrappedValue: prefs.nineKeyNumbers, "vime.nineKeyNumbers", store: store)
+        _kanaLayout = AppStorage(wrappedValue: prefs.kanaLayout, "vime.kanaLayout", store: store)
         _prolongedKey = AppStorage(wrappedValue: prefs.prolongedKey, "vime.prolongedKey", store: store)
         _previews = AppStorage(wrappedValue: prefs.previews, "vime.previews", store: store)
     }
@@ -363,13 +425,17 @@ struct KeyboardFeedbackSettingsView: View {
                         Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
                     }
                 }.accessibilityIdentifier("vime.settings.height")
+                Picker("日语布局", selection: $kanaLayout) {
+                    Text("罗马字").tag(false); Text("假名九宫格").tag(true)
+                }
+                .accessibilityIdentifier("vime.settings.kanaLayout")
                 Picker("数字布局", selection: $nineKeyNumbers) {
                     Text("九宫格").tag(true); Text("全键盘").tag(false)
                 }
-                Toggle("显示长音键 ー", isOn: $prolongedKey)
+                Toggle("显示长音键 ー", isOn: $prolongedKey).disabled(kanaLayout)
                 Toggle("按键预览", isOn: $previews)
             } header: { Text("布局") } footer: {
-                Text("声音、振动和数字布局也可在键盘左上角快速调整\n修改后重新打开键盘即可读取更新")
+                Text("假名九宫格：点按输入あ段，上下左右滑动输入其他段；连续点按同一键依次切换\n声音、振动和数字布局也可在键盘左上角快速调整\n修改后重新打开键盘即可读取更新")
             }
         }
         .navigationTitle("手感与布局").navigationBarTitleDisplayMode(.inline)
