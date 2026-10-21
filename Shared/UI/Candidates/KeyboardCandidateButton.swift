@@ -4,12 +4,18 @@ import UIKit
 /// hit area or a wider cell in the expanded candidate panel.
 final class KeyboardCandidateButton: UIButton {
     private let underline = UIView()
+    private let separator = UIView()
+    /// Next-word suggestions read as equal, divided slots (like QuickType)
+    /// rather than a ranked list with a leading best guess.
+    private(set) var suggestion = false
     private let annotation = UILabel()
     private var presentedPresentation: CandidatePresentation?
     private var presentedIndex: Int?
     private var presentedHighlight: Bool?
     private var measuredTextWidth: CGFloat = 0
-    var presentationWidth: CGFloat { ceil(measuredTextWidth) + 24 }
+    var presentationWidth: CGFloat { max(ceil(measuredTextWidth) + 24, suggestion ? Self.suggestionMinimumWidth : 0) }
+    /// Keeps one-character suggestions such as は or 、 from crowding together.
+    static let suggestionMinimumWidth: CGFloat = 56
     var selectionToken: CandidateSelectionToken? { presentedPresentation?.selectionToken }
     private var armedSelectionToken: CandidateSelectionToken?
     private var selectionArmed = false
@@ -43,6 +49,10 @@ final class KeyboardCandidateButton: UIButton {
         underline.accessibilityIdentifier = "vime.candidate.underline"
         underline.layer.cornerRadius = 1
         insertSubview(underline, at: 0)
+        separator.isUserInteractionEnabled = false
+        separator.backgroundColor = KeyboardPalette.text.withAlphaComponent(0.18)
+        separator.isHidden = true
+        addSubview(separator)
         annotation.font = .systemFont(ofSize: 10)
         annotation.accessibilityIdentifier = "vime.candidate.annotation"
         annotation.isUserInteractionEnabled = false
@@ -55,8 +65,18 @@ final class KeyboardCandidateButton: UIButton {
 
     func present(_ presentation: CandidatePresentation, index: Int, highlighted: Bool) {
         tag = index
+        let suggests = presentation.selectionToken?.kind == .suggestion
         let needsMeasurement = presentation.text != presentedPresentation?.text
             || presentation.annotation != presentedPresentation?.annotation || presentedIndex != index
+            || suggests != suggestion
+        if suggests != suggestion {
+            suggestion = suggests
+            contentHorizontalAlignment = suggests ? .center : .left
+            titleLabel?.textAlignment = suggests ? .center : .left
+            annotation.textAlignment = suggests ? .center : .natural
+            presentedIndex = nil
+        }
+        separator.isHidden = !suggests || index == 0
         if presentation != presentedPresentation {
             if presentation.text != presentedPresentation?.text { setTitle(presentation.text, for: .normal) }
             presentedPresentation = presentation
@@ -67,7 +87,7 @@ final class KeyboardCandidateButton: UIButton {
             invalidateIntrinsicContentSize()
         }
         if presentedIndex != index {
-            titleLabel?.font = .systemFont(ofSize: 18, weight: index == 0 ? .medium : .regular)
+            titleLabel?.font = .systemFont(ofSize: 18, weight: index == 0 && !suggestion ? .medium : .regular)
             presentedIndex = index
             invalidateIntrinsicContentSize()
         }
@@ -113,9 +133,12 @@ final class KeyboardCandidateButton: UIButton {
         // draw the line against the first key row.
         underline.frame = CGRect(x: 12, y: min(max(0, bounds.height - 2), ceil(textBottom + Self.underlineGap)),
             width: min(max(0, bounds.width - 24), ceil(measuredTextWidth)), height: 2)
+        let separatorHeight = min(bounds.height, 18)
+        separator.frame = CGRect(x: -1, y: (bounds.height - separatorHeight) / 2, width: 1 / max(1, traitCollection.displayScale), height: separatorHeight)
     }
     func applyTheme() {
         underline.backgroundColor = KeyboardPalette.accent
+        separator.backgroundColor = KeyboardPalette.text.withAlphaComponent(0.18)
         setTitleColor(presentedHighlight == true ? KeyboardPalette.accent : KeyboardPalette.text, for: .normal)
         annotation.textColor = presentedHighlight == true ? KeyboardPalette.accent : .secondaryLabel
     }

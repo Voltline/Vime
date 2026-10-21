@@ -87,6 +87,9 @@ protocol KeyboardInputSession: AnyObject {
     func confirm() -> [KeyboardEdit]
     func confirmAll() -> [KeyboardEdit]
     func insertLiteral(_ text: String) -> [KeyboardEdit]
+    /// Kana layouts edit the last composed character in place (repeated taps,
+    /// dakuten and small kana). nil: nothing to edit; type a new character.
+    func replaceLastKana(_ transform: (Character) -> Character?) -> [KeyboardEdit]?
     func chooseCandidate(_ token: CandidateSelectionToken) -> [KeyboardEdit]
     func activateEnglish() -> [KeyboardEdit]
     func toggleEnglish() -> [KeyboardEdit]
@@ -118,6 +121,7 @@ extension KeyboardInputSession {
     func adjustConversionRange(by delta: Int) {}
     func resetConversionRange() {}
     func setExpandedCandidates(_ enabled: Bool) {}
+    func replaceLastKana(_ transform: (Character) -> Character?) -> [KeyboardEdit]? { nil }
     var candidateCount: Int { candidatePresentations.count }
     func candidatePage(offset: Int, limit: Int) -> [CandidatePresentation] {
         Array(candidatePresentations.dropFirst(max(0, offset)).prefix(max(0, limit)))

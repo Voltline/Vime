@@ -27,6 +27,7 @@ final class KeyboardTouchSurface: UIView {
         let origin: CGPoint
         var swipe = KeySwipeSelection()
         var alternateLocked = false
+        var flick = KeyFlick.center
         let sequence: Int
     }
 
@@ -119,6 +120,13 @@ final class KeyboardTouchSurface: UIView {
             return
         }
         let delta = CGPoint(x: point.x - press.origin.x, y: point.y - press.origin.y)
+        // Flick keys own every direction: no cursor gesture, no alternate.
+        if press.key.flickOutputs != nil {
+            press.flick = KeyFlick.resolve(x: Double(delta.x), y: Double(delta.y), scale: Double(scale))
+            presses[id] = press
+            press.key.presentFlick(press.flick)
+            return
+        }
         if allowsActivation, presses.count == 1 {
             if press.key.repeats, delta.y <= -30 * scale, abs(delta.x) < 30 * scale {
                 startGesture(.deleteLine, owner: id, at: point); return
@@ -160,7 +168,7 @@ final class KeyboardTouchSurface: UIView {
         if press.key.repeats { onDeletePressChange?(presses.values.contains { $0.key.repeats }) }
         // Remove ownership before invoking an action: switching layouts may
         // cancel the remaining touches and remove these same key objects.
-        let draggedAway = !press.alternateLocked
+        let draggedAway = !press.alternateLocked && press.flick == .center
             && !interactionBounds.insetBy(dx: -12 * scale, dy: -12 * scale).contains(point)
         KeyboardTouchDiagnostics.record("surface.touchUp", point: point, view: self, result: press.key,
             detail: "cancelled=\(cancelled) draggedAway=\(draggedAway) alternate=\(press.swipe.alternate)")
@@ -172,11 +180,12 @@ final class KeyboardTouchSurface: UIView {
     private func finish(_ press: Press, cancelled: Bool) {
         let stillPressed = presses.values.contains { $0.key === press.key }
         press.key.finishResolvedPress(cancelled: cancelled, alternate: press.swipe.alternate,
-            stillPressed: stillPressed, deferredRepeat: press.key.repeats)
+            stillPressed: stillPressed, deferredRepeat: press.key.repeats, flick: press.flick)
         // Actions can rebuild the layout/cancel every other touch. Re-read the
         // owners after the action before restoring a held finger's preview.
         if let remaining = presses.values.filter({ $0.key === press.key }).max(by: { $0.sequence < $1.sequence }) {
-            press.key.presentResolvedPress(alternate: remaining.swipe.alternate)
+            if press.key.flickOutputs != nil { press.key.presentFlick(remaining.flick) }
+            else { press.key.presentResolvedPress(alternate: remaining.swipe.alternate) }
         }
     }
 

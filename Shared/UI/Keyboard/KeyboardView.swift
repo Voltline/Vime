@@ -46,7 +46,8 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
             refresh()
         }
         if next.clipboardSuggestions != previous?.clipboardSuggestions { updateClipboardMonitoring() }
-        if next.nineKeyNumbers != previous?.nineKeyNumbers || next.prolongedKey != previous?.prolongedKey {
+        if next.nineKeyNumbers != previous?.nineKeyNumbers || next.prolongedKey != previous?.prolongedKey
+            || next.kanaLayout != previous?.kanaLayout {
             rebuildKeys()
         }
         if next.numberSymbols != previous?.numberSymbols { numberSymbolRail?.present(next.numberSymbols) }
@@ -145,6 +146,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         let heightFactor: CGFloat
         let page: Page
         let numberPad: Bool
+        let kana: Bool
         let generation: Int
     }
     var keyGridGeneration = 0
@@ -158,6 +160,13 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     var numberSymbolRail: KeyboardNumberSymbolRail?
     var numberBackKey: KeyboardKey?
     var usesNumberPad: Bool { page == .numbers && preferences.nineKeyNumbers }
+    /// Japanese input on the flick pad; English keeps QWERTY.
+    var prefersKanaLayout: Bool { preferences.kanaLayout && !session.inputTraits.isEnglish }
+    var usesKanaLayout: Bool { page == .letters && prefersKanaLayout }
+    /// The layout the current rows were built for.
+    var kanaLayoutActive = false
+    /// The last toggle-input tap: key row in KeyboardKanaLayout.keys, what it entered, and when.
+    var kanaToggle: (key: Int, output: Character, time: TimeInterval)?
 
     override convenience init(frame: CGRect) {
         self.init(frame: frame, session: KeyboardSession(asynchronousCandidates: true))
@@ -461,7 +470,8 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         settingsPanel?.setContentMargins(left: compact ? metrics.contentLeft : 12,
             right: compact ? width - metrics.contentRight : 12)
         let keyGrid = KeyGridLayout(size: bounds.size, compact: compact, showsFooter: showsFooter,
-            heightFactor: heightFactor, page: page, numberPad: usesNumberPad, generation: keyGridGeneration)
+            heightFactor: heightFactor, page: page, numberPad: usesNumberPad, kana: kanaLayoutActive,
+            generation: keyGridGeneration)
         if keyGrid != laidOutKeyGrid {
             laidOutKeyGrid = keyGrid
             layoutKeyGrid(metrics: metrics)

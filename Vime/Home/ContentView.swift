@@ -2,6 +2,9 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var router = AppRouter()
+    /// Shown once, until the user finishes or skips it.
+    @AppStorage("vime.onboarding.completed") private var onboardingCompleted = false
+    @State private var showsOnboarding = false
     private let blue = Color(uiColor: UIColor(cgColor: VimeLogo.blue))
     var body: some View {
         TabView(selection: $router.tab) {
@@ -20,6 +23,18 @@ struct ContentView: View {
         .environmentObject(router)
         .tint(blue)
         .onOpenURL { router.openURL($0) }
+        .onAppear {
+            // A keyboard that already reported full access needs no setup.
+            if !onboardingCompleted && !KeyboardSetupProgress.load().fullAccess { showsOnboarding = true }
+            else { onboardingCompleted = true }
+        }
+        .fullScreenCover(isPresented: $showsOnboarding) {
+            KeyboardOnboardingView {
+                onboardingCompleted = true
+                showsOnboarding = false
+                router.tab = .typing
+            }
+        }
         .sheet(item: $router.sheet, onDismiss: router.sheetDismissed) { sheet in
             switch sheet {
             case .skin(let document): KeyboardSkinEditor(document: document, store: KeyboardSkinStore())

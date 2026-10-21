@@ -63,6 +63,15 @@ struct KeyboardMetrics {
                       width: widths[column] * width / 440, height: keyHeight)
     }
 
+    /// Flick kana: a 3 × 4 grid of kana keys between two utility columns.
+    /// A key spanning two rows (確定) covers the gap between them.
+    func kanaFrame(row: Int, column: Int, rows span: Int = 1) -> CGRect {
+        let positions: [CGFloat] = [5, 74, 173.3, 272.7, 372]
+        let widths: [CGFloat] = [63, 93.3, 93.3, 93.3, 63]
+        return CGRect(x: positions[column] * width / 440, y: headerHeight + CGFloat(row) * rowStep,
+                      width: widths[column] * width / 440, height: keyHeight + CGFloat(span - 1) * rowStep)
+    }
+
     func frame(row: Int, column: Int, letters: Bool = true, prolonged: Bool = false) -> CGRect {
         let xScale = width / 440
         let y = headerHeight + CGFloat(row) * rowStep

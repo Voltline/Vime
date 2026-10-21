@@ -41,7 +41,7 @@ extension KeyboardView {
             else if letterKeys.contains(where: { $0 === key }) { semantic = "letter." + identifier }
             else if key.repeats { semantic = "backspace" }
             else if key.accessibilityIdentifier == "vime.number.emoji" { semantic = "emoji" }
-            else if ["123", "ABC", "#+="].contains(key.title(for: .normal) ?? "") { semantic = "numbers" }
+            else if ["123", "ABC", "#+=", "かな"].contains(key.title(for: .normal) ?? "") { semantic = "numbers" }
             else { semantic = identifier }
             key.applySkin(KeyboardPalette.skin, key: semantic)
         }

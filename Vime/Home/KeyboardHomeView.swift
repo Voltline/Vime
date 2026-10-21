@@ -8,6 +8,9 @@ struct KeyboardHomeView: View {
     @State private var focusRequest = 0
     @State private var clearRequest = 0
     @State private var keyboardReady: Bool
+    @State private var practiceIndex = 0
+    /// Onboarding covers this page while the keyboard first reports in.
+    @AppStorage("vime.onboarding.completed") private var onboardingCompleted = false
     /// Fixed state for rendering tests; the live page rereads the status record.
     private let fixed: Bool
 
@@ -23,13 +26,16 @@ struct KeyboardHomeView: View {
         AppDashboardPage {
             if !keyboardReady { setupBanner }
             editorCard
+            practiceCard
             VStack(alignment: .leading, spacing: 10) {
-                AppSectionTitle("输入操作")
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12, alignment: .top),
-                                         count: typeSize.isAccessibilitySize ? 1 : 2), spacing: 12) {
+                AppSectionTitle("键位速查")
+                AppSettingsActionGroup {
                     operation("空格", "开始转换，再按切换候选", tint: .blue)
+                    Divider().padding(.leading, 16)
                     operation("回车", "确认输入，再按换行", tint: .teal)
+                    Divider().padding(.leading, 16)
                     operation("あ / ア", "切换平假名与片假名", tint: .indigo)
+                    Divider().padding(.leading, 16)
                     operation("日 / 英", "切换日语与英文", tint: .orange)
                 }
                 Text("字母上滑输入符号，长按空格拖动移动光标。")
@@ -40,6 +46,7 @@ struct KeyboardHomeView: View {
         .scrollDismissesKeyboard(.interactively)
         .onAppear(perform: reload)
         .onChange(of: scenePhase) { _, phase in if phase == .active { reload() } }
+        .onChange(of: onboardingCompleted) { reload() }
     }
 
     private func reload() {
@@ -115,17 +122,98 @@ struct KeyboardHomeView: View {
     }
 
     private func operation(_ key: LocalizedStringResource, _ detail: LocalizedStringResource, tint: Color) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(key).font(.subheadline.weight(.semibold)).foregroundStyle(tint)
-                .padding(.horizontal, 10).padding(.vertical, 5)
-                .background(tint.opacity(0.15), in: RoundedRectangle(cornerRadius: 8))
-            Text(detail).font(.subheadline).foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+        // Typography sets the chip column; a fixed width would clip large type.
+        let chip = Text(key).font(.subheadline.weight(.semibold)).foregroundStyle(tint)
+            .padding(.horizontal, 10).padding(.vertical, 5)
+            .background(tint.opacity(0.15), in: RoundedRectangle(cornerRadius: 8))
+        let detail = Text(detail).font(.subheadline).foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+        return Group {
+            if typeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 8) { chip; detail }
+            } else {
+                HStack(spacing: 12) { chip.frame(minWidth: 72, alignment: .leading); detail }
+            }
         }
-        .padding(.horizontal, 16).padding(.vertical, 14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .appCard()
+        .padding(.horizontal, 16).padding(.vertical, 10)
+        .frame(maxWidth: .infinity, minHeight: 48, alignment: .leading)
         .accessibilityElement(children: .combine)
+    }
+
+    // MARK: - Practice
+
+    private var practice: TypingPractice { TypingPractice.sentences[practiceIndex % TypingPractice.sentences.count] }
+
+    /// Follows the editor: the committed text is compared with the target.
+    private var practiceCard: some View {
+        let target = practice.target
+        let matched = TypingPractice.matchedCount(typed: text, target: target)
+        let done = matched == target.count
+        var shown = AttributedString(String(target.prefix(matched)))
+        shown.foregroundColor = Color.vimeBlue
+        var rest = AttributedString(String(target.dropFirst(matched)))
+        rest.foregroundColor = Color.primary
+        shown.append(rest)
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("跟打练习").font(.subheadline.weight(.semibold))
+                Text(verbatim: "\(practiceIndex % TypingPractice.sentences.count + 1)/\(TypingPractice.sentences.count)")
+                    .font(.footnote.monospacedDigit()).foregroundStyle(.secondary)
+                Spacer(minLength: 8)
+                Button {
+                    practiceIndex += 1
+                    text = ""; composition = ""; clearRequest += 1; focusRequest += 1
+                } label: {
+                    Label("换一句", systemImage: "arrow.triangle.2.circlepath").font(.subheadline)
+                        .padding(.horizontal, 12).frame(minHeight: 34)
+                        .background(Color(uiColor: .tertiarySystemFill), in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("vime.home.practice.next")
+            }
+            Text(shown).font(.title3.weight(.semibold))
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("vime.home.practice.target")
+            Text(verbatim: practice.romaji).font(.footnote.monospaced()).foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+            ProgressView(value: Double(matched), total: Double(max(1, target.count)))
+                .tint(done ? .green : .vimeBlue)
+                .accessibilityLabel("练习进度")
+            if done {
+                Label("完成！换一句继续", systemImage: "checkmark.circle.fill")
+                    .font(.footnote.weight(.semibold)).foregroundStyle(.green)
+            } else {
+                Text("在上方输入框照着打一遍，打对的部分会变成蓝色。")
+                    .font(.footnote).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(18)
+        .appCard(cornerRadius: 24)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("vime.home.practice")
+    }
+}
+
+/// Short everyday sentences with the romaji that produces them.
+struct TypingPractice: Equatable {
+    let target: String
+    let romaji: String
+
+    static let sentences = [
+        TypingPractice(target: "今日はいい天気ですね", romaji: "kyouha ii tenki desune"),
+        TypingPractice(target: "ありがとうございます", romaji: "arigatou gozaimasu"),
+        TypingPractice(target: "明日の会議は十時からです", romaji: "ashitano kaigiha juujikara desu"),
+        TypingPractice(target: "駅まで歩いて五分です", romaji: "ekimade aruite gofun desu"),
+        TypingPractice(target: "お疲れさまでした", romaji: "otsukaresama deshita"),
+        TypingPractice(target: "よろしくお願いします", romaji: "yoroshiku onegaishimasu"),
+    ]
+
+    /// Leading characters of the target already typed. Surrounding whitespace
+    /// is ignored so a trailing newline or space doesn't reset progress.
+    static func matchedCount(typed: String, target: String) -> Int {
+        let typed = typed.trimmingCharacters(in: .whitespacesAndNewlines)
+        return zip(typed, target).prefix { $0 == $1 }.count
     }
 }
 

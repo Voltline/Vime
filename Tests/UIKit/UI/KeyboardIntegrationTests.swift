@@ -206,11 +206,19 @@ final class KeyboardIntegrationTests: XCTestCase {
         XCTAssertEqual(view.text, "駅に")
         XCTAssertNil(view.markedTextRange)
         XCTAssertNil(host.markedText)
+        keyboard.layoutIfNeeded()
         let settings = try XCTUnwrap(descendants(keyboard).first { $0.accessibilityLabel == "键盘设置" })
-        XCTAssertTrue(settings.isHidden)
+        XCTAssertFalse(settings.isHidden, "Suggestions sit beside the brand, as the idle toolbar does")
         let strip = try XCTUnwrap(descendants(keyboard).first { $0.accessibilityIdentifier == "vime.candidates" } as? UIScrollView)
         XCTAssertFalse(strip.isHidden)
-        XCTAssertFalse(descendants(strip).compactMap { $0 as? UIButton }.isEmpty, "Actual suggestions, not merely a hidden settings button")
+        XCTAssertGreaterThanOrEqual(strip.frame.minX, settings.frame.maxX)
+        let suggestions = descendants(strip).compactMap { $0 as? KeyboardCandidateButton }.filter { !$0.isHidden }
+        XCTAssertFalse(suggestions.isEmpty, "Actual suggestions, not merely the settings button")
+        for suggestion in suggestions {
+            XCTAssertTrue(suggestion.suggestion)
+            XCTAssertEqual(suggestion.contentHorizontalAlignment, .center)
+            XCTAssertGreaterThanOrEqual(suggestion.frame.width, KeyboardCandidateButton.suggestionMinimumWidth)
+        }
     }
 
     func testMarkedTextDeletionCancellationModeAndCaretChanges() throws {

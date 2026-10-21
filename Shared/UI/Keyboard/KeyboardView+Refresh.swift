@@ -19,6 +19,8 @@ extension KeyboardView {
         let hidesDivider: Bool
         let hidesPanelTitle: Bool
         let hidesRangeControls: Bool
+        /// Next-word suggestions after a commit, shown beside the brand.
+        let showsNextWords: Bool
 
         init(panel: Panel, page: Page, composing: Bool, sessionStrip: Bool, quickAvailable: Bool,
              clipboardOffered: Bool, neuralPaused: Bool, canUndo: Bool, supportsPrimaryVariant: Bool,
@@ -32,8 +34,9 @@ extension KeyboardView {
             hidesNeuralStatus = !neuralPaused || strip || !keyboard
             hidesHeader = panel == .symbols || panel == .clipboardHistory
             hidesUndo = !canUndo || strip || !keyboard
-            let showsQuickToolbar = (showsQuick || showsClipboard) && !composing
-            hidesBrand = (keyboard && (page != .letters || (strip && !showsQuickToolbar)))
+            showsNextWords = keyboard && sessionStrip && !composing && !showsQuick && !showsClipboard
+            let idleToolbar = (showsQuick || showsClipboard || showsNextWords) && !composing
+            hidesBrand = (keyboard && (page != .letters || (strip && !idleToolbar)))
                 || (panel == .candidates || panel == .symbols || panel == .clipboardHistory)
             hidesMode = strip || page != .letters || !keyboard || !supportsPrimaryVariant
             hidesCandidateScroll = !strip || showsQuick || showsClipboard || !keyboard
@@ -46,6 +49,9 @@ extension KeyboardView {
     func refresh() {
         let uiStartedAt = KeyboardPerformance.start()
         defer { KeyboardPerformance.record(.candidateUIUpdate, since: uiStartedAt) }
+        // Any switch between Japanese and English (language key, mode button,
+        // host keyboard type) swaps the flick pad and QWERTY.
+        if !rebuildingKeys && page == .letters && kanaLayoutActive != usesKanaLayout { rebuildKeys(); return }
         let traits = session.inputTraits
         let composing = session.isComposing
         refreshLanguageKey(traits)
@@ -160,7 +166,8 @@ extension KeyboardView {
     }
 
     func refreshActionKeys(_ traits: KeyboardInputTraits, composing: Bool) {
-        spaceKey?.setTitle(usesNumberPad ? "空格" : composing ? traits.compositionSpaceTitle : "", for: .normal)
+        spaceKey?.setTitle(usesNumberPad ? "空格" : composing ? traits.compositionSpaceTitle
+            : kanaLayoutActive ? String(localized: "空格") : "", for: .normal)
         returnKey?.setTitle(composing ? traits.compositionReturnTitle : returnTitle, for: .normal)
         let actionReturn = !composing && [.send, .search, .go, .done, .next, .join, .route, .continue].contains(returnKeyType)
         returnKey?.fillColor = actionReturn ? UIColor(cgColor: VimeLogo.blue) : KeyboardPalette.utility

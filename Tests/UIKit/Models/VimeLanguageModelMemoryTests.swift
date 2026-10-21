@@ -367,14 +367,14 @@ final class VimeLanguageModelMemoryTests: XCTestCase {
                     }
                 }
             }
-            try await measure("model_release") { autoreleasepool { model = nil } }
+            await measure("model_release") { autoreleasepool { model = nil } }
         } else if ["dictionary", "incremental", "expanded", "context"].contains(scenario) {
             let directory = isolatedLearningDirectory()
             defer { try? FileManager.default.removeItem(at: directory) }
             var engine: JapaneseCandidateEngine?
             var model: VimeLanguageModel?
             var revision = 0
-            try await measure("engine_init") {
+            await measure("engine_init") {
                 autoreleasepool { engine = JapaneseCandidateEngine(memoryDirectoryURL: directory, learningEnabled: false) }
             }
             if scenario == "incremental" {
@@ -412,7 +412,7 @@ final class VimeLanguageModelMemoryTests: XCTestCase {
                             _ = current.addingPrefixCandidates(to: width, for: query, katakana: false, revision: revision)
                         }
                     }
-                    try await measure("reset_\(index)") { engine?.reset(preservingContext: false) }
+                    await measure("reset_\(index)") { engine?.reset(preservingContext: false) }
                 }
             } else if scenario == "expanded" {
                 for repetitions in [1, 3, 5, 8, 10] {
@@ -421,20 +421,20 @@ final class VimeLanguageModelMemoryTests: XCTestCase {
                     revision += 1
                     var base = [CandidateSnapshot]()
                     var formatted = [CandidateSnapshot]()
-                    try await measure("ordinary_\(repetitions)", inputCount: query.convertTarget.count) {
+                    await measure("ordinary_\(repetitions)", inputCount: query.convertTarget.count) {
                         autoreleasepool {
                             base = engine!.candidates(for: query, revision: revision, includeCorrections: false)
                             XCTAssertFalse(base.isEmpty)
                         }
                     }
-                    try await measure("width_\(repetitions)", inputCount: query.input.count) {
+                    await measure("width_\(repetitions)", inputCount: query.input.count) {
                         autoreleasepool {
                             formatted = engine!.addingWidthCandidates(to: base, for: query, katakana: false, revision: revision)
                             XCTAssertTrue(formatted.contains { $0.widthVariant == .fullWidthAlphanumeric })
                             XCTAssertTrue(formatted.contains { $0.widthVariant == .halfWidthKatakana })
                         }
                     }
-                    try await measure("prefix_\(repetitions)", inputCount: query.convertTarget.count) {
+                    await measure("prefix_\(repetitions)", inputCount: query.convertTarget.count) {
                         autoreleasepool {
                             let expanded = engine!.addingPrefixCandidates(to: formatted, for: query, katakana: false, revision: revision)
                             XCTAssertTrue(expanded.contains { !$0.fullConsumption })
@@ -446,12 +446,12 @@ final class VimeLanguageModelMemoryTests: XCTestCase {
                     let prefixAfter = try XCTUnwrap(prefixStage["after"] as? [String: Double])
                     XCTAssertLessThan(try XCTUnwrap(prefixAfter["physical_mib"]) - XCTUnwrap(prefixBefore["physical_mib"]), 6,
                         "Expanded prefix candidates must not retain tens of MiB of duplicated input suffixes")
-                    try await measure("corrections_\(repetitions)", inputCount: query.convertTarget.count) {
+                    await measure("corrections_\(repetitions)", inputCount: query.convertTarget.count) {
                         autoreleasepool {
                             _ = engine!.addingCorrections(to: formatted, for: query, katakana: false, revision: revision)
                         }
                     }
-                    try await measure("reset_\(repetitions)") {
+                    await measure("reset_\(repetitions)") {
                         autoreleasepool { base = []; formatted = []; engine?.reset(preservingContext: false) }
                     }
                 }
@@ -494,10 +494,10 @@ final class VimeLanguageModelMemoryTests: XCTestCase {
                             _ = try XCTUnwrap(model).nextWords(prompt: VimeLanguageModel.sentenceContext(left))
                         }
                     }
-                    try await measure("context_reset_\(index)") { engine?.reset(preservingContext: false) }
+                    await measure("context_reset_\(index)") { engine?.reset(preservingContext: false) }
                 }
             }
-            try await measure("engine_model_release") { autoreleasepool { engine = nil; model = nil } }
+            await measure("engine_model_release") { autoreleasepool { engine = nil; model = nil } }
         } else if scenario == "typing" {
             let directory = isolatedLearningDirectory()
             defer { try? FileManager.default.removeItem(at: directory) }
@@ -568,20 +568,20 @@ final class VimeLanguageModelMemoryTests: XCTestCase {
         } else if scenario == "availability" || scenario == "legacyGlyphs" {
             for (index, group) in KeyboardSymbolCatalog.emoji.groups.enumerated() {
                 var items = [KeyboardSymbolCatalog.Item]()
-                try await measure("availability_\(index)", inputCount: group.items.count) {
+                await measure("availability_\(index)", inputCount: group.items.count) {
                     items = await withCheckedContinuation { continuation in
                         KeyboardEmojiAvailability.load(group) { continuation.resume(returning: $0) }
                     }
                     XCTAssertFalse(items.isEmpty)
                 }
                 if scenario == "legacyGlyphs" {
-                    try await measure("glyphs_\(index)", inputCount: items.count) {
+                    await measure("glyphs_\(index)", inputCount: items.count) {
                         for item in items { autoreleasepool { _ = LegacyEmojiRasterizer.image(item.text) } }
                     }
                 }
             }
             if scenario == "legacyGlyphs" {
-                try await measure("raster_cache_clear") { LegacyEmojiRasterizer.cache.removeAllObjects() }
+                await measure("raster_cache_clear") { LegacyEmojiRasterizer.cache.removeAllObjects() }
             }
         } else {
             let session = KeyboardSession()
@@ -630,7 +630,7 @@ final class VimeLanguageModelMemoryTests: XCTestCase {
                     close.sendActions(for: .touchUpInside); keyboard?.layoutIfNeeded()
                 }
             }
-            try await measure("keyboard_release") {
+            await measure("keyboard_release") {
                 keyboard?.stopInteractions(); keyboard?.removeFromSuperview(); keyboard = nil
             }
         }
@@ -647,7 +647,7 @@ final class VimeLanguageModelMemoryTests: XCTestCase {
         if scenario == "legacyGlyphs" {
             // Diagnostic control only: distinguish live caches from freed
             // allocator pages. This is not a production memory-pressure fix.
-            try await measure("allocator_pressure_relief_control") {
+            await measure("allocator_pressure_relief_control") {
                 let released = malloc_zone_pressure_relief(nil, 0)
                 print("VIME_STEP_ALLOCATOR_RELEASED bytes=\(released)")
             }

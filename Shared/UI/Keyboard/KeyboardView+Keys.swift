@@ -17,7 +17,9 @@ extension KeyboardView {
         let scale = metrics.scale
         for (rowIndex, row) in rows.enumerated() {
             for (column, pair) in row.enumerated() {
-                if usesNumberPad {
+                if kanaLayoutActive {
+                    pair.0.frame = metrics.kanaFrame(row: rowIndex, column: column, rows: pair.0 === returnKey ? 2 : 1)
+                } else if usesNumberPad {
                     pair.0.frame = metrics.numberPadFrame(row: rowIndex, column: column + (rowIndex < 3 ? 1 : 0))
                 } else {
                     pair.0.frame = metrics.frame(row: rowIndex, column: column, letters: page == .letters,
@@ -33,6 +35,12 @@ extension KeyboardView {
                     let isDigit = Int(pair.0.title(for: .normal) ?? "") != nil
                     fontSize = compact ? (isDigit ? 18 : rowIndex == 3 ? 13 : 15)
                         : (isDigit ? 20 : rowIndex == 3 ? 14 : 16) * textScale
+                    pair.0.setPreferredSymbolConfiguration(UIImage.SymbolConfiguration(pointSize: compact ? 16 : 18 * textScale),
+                        forImageIn: .normal)
+                }
+                if kanaLayoutActive {
+                    let kana = pair.0.flickOutputs != nil && pair.0.title(for: .normal)?.count == 1
+                    fontSize = compact ? (kana ? 20 : 14) : (kana ? 23 : 16) * textScale
                     pair.0.setPreferredSymbolConfiguration(UIImage.SymbolConfiguration(pointSize: compact ? 16 : 18 * textScale),
                         forImageIn: .normal)
                 }
@@ -74,7 +82,16 @@ extension KeyboardView {
                 let leading = usesNumberPad && rowIndex < 3
                     ? (metrics.numberPadFrame(row: rowIndex, column: 0).maxX + first.frame.minX) / 2 : 0
                 let left = column == 0 ? leading : (row[column - 1].0.frame.maxX + key.frame.minX) / 2
-                let right = column == row.count - 1 ? bounds.width : (key.frame.maxX + row[column + 1].0.frame.minX) / 2
+                var right = column == row.count - 1 ? bounds.width : (key.frame.maxX + row[column + 1].0.frame.minX) / 2
+                var bottom = bottom
+                // The flick pad's 確定 spans two rows: it owns the rest of the
+                // column, and the row beside its lower half stops at the gap.
+                if kanaLayoutActive, let tall = returnKey {
+                    if key === tall { bottom = bounds.height }
+                    else if column == row.count - 1, tall.frame.minX > key.frame.maxX, tall.frame.maxY > key.frame.minY {
+                        right = (key.frame.maxX + tall.frame.minX) / 2
+                    }
+                }
                 key.touchBounds = CGRect(x: left - key.frame.minX, y: top - key.frame.minY,
                                          width: right - left, height: bottom - top)
                 regions.append(.init(key: key, body: key.frame,
@@ -133,6 +150,12 @@ extension KeyboardView {
         languageKey = nil
         returnKey = nil
         numberBackKey = nil
+        kanaLayoutActive = usesKanaLayout
+        kanaToggle = nil
+        if kanaLayoutActive {
+            buildKanaKeys()
+            applyKeySkins(); updateKeyLabels(); refresh(); setNeedsLayout(); return
+        }
         if page == .letters {
             for letters in ["qwertyuiop", "asdfghjkl", "zxcvbnm"] {
                 var row: [(KeyboardKey, CGFloat)] = []
@@ -216,7 +239,10 @@ extension KeyboardView {
                         }
                     }
                     item.0.accessibilityIdentifier = "vime.number." + value
-                    if value == "ABC" { numberBackKey = item.0 }
+                    if value == "ABC" {
+                        numberBackKey = item.0
+                        if prefersKanaLayout { item.0.setTitle("かな", for: .normal) }
+                    }
                     if r == 3 && value == "换行" {
                         returnKey = item.0; item.0.accessibilityIdentifier = "vime.key.return"
                     }
@@ -255,7 +281,7 @@ extension KeyboardView {
                 rows.append(row)
             }
         }
-        var bottom = [key(page == .letters ? "123" : "ABC", utility: true, weight: 1.25) { [weak self] in
+        var bottom = [key(page == .letters ? "123" : prefersKanaLayout ? "かな" : "ABC", utility: true, weight: 1.25) { [weak self] in
             guard let self else { return }
             self.page = self.page == .letters ? .numbers : .letters
             self.rebuildKeys()
@@ -318,6 +344,7 @@ extension KeyboardView {
         let item = symbol("delete.left", label: "删除", weight: weight) { [weak self] in
             guard let self else { return }
             guard self.hasDeletableContent else { return }
+            self.kanaToggle = nil
             self.apply(self.session.backspace())
         }
         item.0.accessibilityIdentifier = "vime.key.delete"

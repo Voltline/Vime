@@ -6,9 +6,7 @@ struct KeyboardPreferences {
     private let defaults: UserDefaults
     private let heightDefaults: UserDefaults
     init(defaults: UserDefaults = .standard, heightDefaults: UserDefaults? = nil, sharedDefaults: UserDefaults? = nil) {
-        let shared = sharedDefaults ?? (defaults === UserDefaults.standard
-            && FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: Self.appGroup) != nil
-            ? UserDefaults(suiteName: Self.appGroup) : nil)
+        let shared = sharedDefaults ?? (defaults === UserDefaults.standard ? Self.sharedStore() : nil)
         self.defaults = shared ?? defaults
         self.heightDefaults = heightDefaults ?? shared ?? defaults
         // Preserve each existing shared choice; migrate legacy per-process values
@@ -23,7 +21,11 @@ struct KeyboardPreferences {
             self.defaults.set(Double(legacy) / 5, forKey: "vime.hapticIntensity")
         }
     }
-    private static let sharedKeys = ["vime.sound", "vime.hapticLevel", "vime.hapticIntensity", "vime.nineKeyNumbers",
+    /// The App Group store when this process can reach it.
+    nonisolated static func sharedStore() -> UserDefaults? {
+        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroup) != nil ? UserDefaults(suiteName: appGroup) : nil
+    }
+    private static let sharedKeys = ["vime.sound", "vime.hapticLevel", "vime.hapticIntensity", "vime.nineKeyNumbers", "vime.kanaLayout",
         "vime.prolongedKey", "vime.previews", "vime.theme", "vime.candidateRanking", "vime.phraseSuggestions", "vime.clipboardSuggestions", "vime.autoPairBrackets", "vime.customSkinID", "vime.skinRevision", "vime.numberSymbols"]
     var store: UserDefaults { defaults }
     struct Snapshot: Equatable {
@@ -31,6 +33,7 @@ struct KeyboardPreferences {
         let sound: Bool
         let hapticIntensity: Double
         let nineKeyNumbers: Bool
+        let kanaLayout: Bool
         let prolongedKey: Bool
         let previews: Bool
         let theme: KeyboardTheme
@@ -46,7 +49,7 @@ struct KeyboardPreferences {
     }
     var snapshot: Snapshot {
         Snapshot(heightFactor: heightFactor, sound: sound, hapticIntensity: hapticIntensity,
-            nineKeyNumbers: nineKeyNumbers, prolongedKey: prolongedKey, previews: previews,
+            nineKeyNumbers: nineKeyNumbers, kanaLayout: kanaLayout, prolongedKey: prolongedKey, previews: previews,
             theme: theme, customSkinID: customSkinID, skinRevision: skinRevision, candidateRanking: candidateRanking, phraseSuggestions: phraseSuggestions,
             clipboardSuggestions: clipboardSuggestions, autoPairBrackets: autoPairBrackets, numberSymbols: numberSymbols,
             neuralRetryID: neuralRetryID, learningResetID: learningResetRequests.requestID)
@@ -79,6 +82,11 @@ struct KeyboardPreferences {
         get { defaults.object(forKey: "vime.nineKeyNumbers") as? Bool ?? true }
         nonmutating set { defaults.set(newValue, forKey: "vime.nineKeyNumbers") }
     }
+    /// Japanese letters on a 12-key flick pad instead of romaji QWERTY.
+    var kanaLayout: Bool {
+        get { defaults.object(forKey: "vime.kanaLayout") as? Bool ?? false }
+        nonmutating set { defaults.set(newValue, forKey: "vime.kanaLayout") }
+    }
     var numberSymbols: [String] {
         get { KeyboardNumberSymbols.normalized(defaults.stringArray(forKey: "vime.numberSymbols") ?? KeyboardNumberSymbols.defaults) }
         nonmutating set { defaults.set(KeyboardNumberSymbols.normalized(newValue), forKey: "vime.numberSymbols") }
@@ -104,18 +112,25 @@ struct KeyboardPreferences {
         nonmutating set { defaults.set(newValue, forKey: "vime.skinRevision") }
     }
     var candidateRanking: CandidateRankingMode {
-        get { CandidateRankingMode(rawValue: defaults.string(forKey: "vime.candidateRanking") ?? "") ?? .languageModel }
+        get { Self.candidateRanking(in: defaults) }
         nonmutating set {
             if newValue == .languageModel && candidateRanking != .languageModel { requestNeuralRetry() }
             defaults.set(newValue.rawValue, forKey: "vime.candidateRanking")
         }
     }
+    /// Also read by the extension audit off the main actor.
+    nonisolated static func candidateRanking(in defaults: UserDefaults) -> CandidateRankingMode {
+        CandidateRankingMode(rawValue: defaults.string(forKey: "vime.candidateRanking") ?? "") ?? .languageModel
+    }
     var neuralRetryID: String? { defaults.string(forKey: "vime.neuralRetryID") }
     func requestNeuralRetry() { defaults.set(UUID().uuidString, forKey: "vime.neuralRetryID") }
     var learningResetRequests: KeyboardLearningResetRequests { KeyboardLearningResetRequests(defaults: defaults) }
     var phraseSuggestions: Bool {
-        get { defaults.object(forKey: "vime.phraseSuggestions") as? Bool ?? true }
+        get { Self.phraseSuggestions(in: defaults) }
         nonmutating set { defaults.set(newValue, forKey: "vime.phraseSuggestions") }
+    }
+    nonisolated static func phraseSuggestions(in defaults: UserDefaults) -> Bool {
+        defaults.object(forKey: "vime.phraseSuggestions") as? Bool ?? true
     }
     /// Only the containing app exposes the opt-in, alongside its explanation.
     var clipboardSuggestions: Bool {

@@ -729,7 +729,7 @@ final class KeyboardFeatureTests: XCTestCase {
                 try await Task.sleep(for: .milliseconds(5))
             }
             let cell = try XCTUnwrap(grid.cellForItem(at: path))
-            let label = try XCTUnwrap(cell.contentView.subviews.compactMap { $0 as? UILabel }.first)
+            XCTAssertNotNil(cell.contentView.subviews.compactMap { $0 as? UILabel }.first)
             XCTAssertEqual(cell.accessibilityIdentifier, "vime.symbol.\(sample)")
             var selected: String?
             panel.onSelect = { selected = $0 }; panel.collectionView(grid, didSelectItemAt: path)

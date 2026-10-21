@@ -528,6 +528,50 @@
     "あ / ア": {
       "shouldTranslate": false
     },
+    "三步启用 Vime": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set Up Vime in 3 Steps"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "3ステップで Vime を有効に"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "三步啟用 Vime"
+          }
+        }
+      }
+    },
+    "上一个假名": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Previous Kana"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "前のかな"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "上一個假名"
+          }
+        }
+      }
+    },
     "上下左右移动光标": {
       "localizations": {
         "en": {
@@ -679,6 +723,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "上滑清除"
+          }
+        }
+      }
+    },
+    "下一个字": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next Character"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "次の文字"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下一個字"
           }
         }
       }
@@ -1324,6 +1390,50 @@
         }
       }
     },
+    "假名九宫格": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kana Flick"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "かなフリック"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "假名九宮格"
+          }
+        }
+      }
+    },
+    "假名九宫格：点按输入あ段，上下左右滑动输入其他段；连续点按同一键依次切换\n声音、振动和数字布局也可在键盘左上角快速调整\n修改后重新打开键盘即可读取更新": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kana Flick: tap for the あ column, flick left, up, right or down for the others; tap a key again to cycle through it\nSound, haptics and number layout can also be changed from the top-left of the keyboard\nReopen the keyboard after making changes to apply them"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "かなフリック：タップであ段、上下左右のフリックで他の段を入力。同じキーを続けてタップすると順に切り替わります\nサウンド、触覚、数字の配列はキーボード左上からも変更できます\n変更後にキーボードを開き直すと反映されます"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "假名九宮格：點按輸入あ段，上下左右滑動輸入其他段；連續點按同一鍵依次切換\n聲音、震動和數字佈局也可在鍵盤左上角快速調整\n修改後重新打開鍵盤即可讀取更新"
+          }
+        }
+      }
+    },
     "假名汉字转换与预测": {
       "extractionState": "manual",
       "localizations": {
@@ -1347,6 +1457,50 @@
         }
       }
     },
+    "允许完全访问": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allow Full Access"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "フルアクセスを許可"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "允許完整取用"
+          }
+        }
+      }
+    },
+    "先逛逛，稍后再说": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Look Around First"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "あとで設定する"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "先逛逛，稍後再說"
+          }
+        }
+      }
+    },
     "全角英数字": {
       "localizations": {
         "en": {
@@ -1365,6 +1519,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "全形英數字"
+          }
+        }
+      }
+    },
+    "全部完成，正在打开试打…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All set. Opening Try It…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完了しました。試し打ちを開いています…"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "全部完成，正在開啟試打…"
           }
         }
       }
@@ -2629,6 +2805,28 @@
         }
       }
     },
+    "在上方输入框照着打一遍，打对的部分会变成蓝色。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Type it in the field above. Matching text turns blue."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "上の入力欄で同じ文を入力してください。合っている部分が青くなります。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在上方輸入框照著打一遍，打對的部分會變成藍色。"
+          }
+        }
+      }
+    },
     "在任意输入框切换到 Vime 打一个字": {
       "localizations": {
         "en": {
@@ -2691,28 +2889,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "聲音、震動、共用辭典與學習需要完整取用"
-          }
-        }
-      }
-    },
-    "声音、振动和数字布局也可在键盘左上角快速调整\n修改后重新打开键盘即可读取更新": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sounds, haptics and number layout can also be changed from the keyboard's top-left menu\nChanges apply after reopening the keyboard"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "サウンド・振動・数字配列はキーボード左上からもすぐ変更できます\n変更はキーボードを開き直すと反映されます"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "聲音、震動和數字佈局也可在鍵盤左上角快速調整\n修改後重新打開鍵盤即可讀取更新"
           }
         }
       }
@@ -2845,6 +3021,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "拷貝的文字會出現在候選列，點選即可輸入。僅在鍵盤顯示時讀取，相鄰相同內容不會重複提示。"
+          }
+        }
+      }
+    },
+    "复制的文字出现在候选栏": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copied text appears in the candidate bar"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "コピーしたテキストを候補バーに表示"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "複製的文字會出現在候選欄"
           }
         }
       }
@@ -3110,6 +3308,50 @@
           "stringUnit": {
             "state": "translated",
             "value": "完成"
+          }
+        }
+      }
+    },
+    "完成后这页会自动跳到试打，不用回来确认。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "When you're done, this page opens Try It on its own."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完了すると自動で試し打ちに移ります。戻って確認する必要はありません。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完成後此頁會自動跳到試打，不用回來確認。"
+          }
+        }
+      }
+    },
+    "完成！换一句继续": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Done! Try the next sentence"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完了！次の文へ"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完成！換一句繼續"
           }
         }
       }
@@ -3446,6 +3688,28 @@
         }
       }
     },
+    "已完成": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Done"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完了"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已完成"
+          }
+        }
+      }
+    },
     "已开启": {
       "localizations": {
         "en": {
@@ -3486,6 +3750,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "已暫停"
+          }
+        }
+      }
+    },
+    "已检测到 Vime 日本語": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vime 日本語 detected"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vime 日本語 を検出しました"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已偵測到 Vime 日本語"
           }
         }
       }
@@ -3531,6 +3817,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "常用"
+          }
+        }
+      }
+    },
+    "常用开关": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quick Settings"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "よく使う設定"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "常用開關"
           }
         }
       }
@@ -4221,6 +4529,28 @@
         }
       }
     },
+    "打一句试试": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Type Something"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "入力してみる"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "打一句試試"
+          }
+        }
+      }
+    },
     "打开 App 设置": {
       "localizations": {
         "en": {
@@ -4548,6 +4878,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "震動強度"
+          }
+        }
+      }
+    },
+    "换一句": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next Sentence"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "次の文"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "換一句"
           }
         }
       }
@@ -5039,6 +5391,28 @@
         }
       }
     },
+    "日语布局": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Japanese Layout"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "日本語の配列"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "日語佈局"
+          }
+        }
+      }
+    },
     "日语输入法": {
       "localizations": {
         "en": {
@@ -5167,6 +5541,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "尚無剪貼簿歷史記錄\n開啟功能後，近期拷貝的文字會保留在這裡"
+          }
+        }
+      }
+    },
+    "更多设置": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "More Settings"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "その他の設定"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "更多設定"
           }
         }
       }
@@ -5321,6 +5717,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "最近 24 小時 · 僅本機儲存"
+          }
+        }
+      }
+    },
+    "未完成": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not done"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未完了"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未完成"
           }
         }
       }
@@ -5704,6 +6122,50 @@
         }
       }
     },
+    "正在等待完全访问…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting for Full Access…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "フルアクセスを待っています…"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在等待完整取用…"
+          }
+        }
+      }
+    },
+    "正在等待添加键盘…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting for the keyboard to be added…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "キーボードの追加を待っています…"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在等待新增鍵盤…"
+          }
+        }
+      }
+    },
     "正在读取历史…": {
       "localizations": {
         "en": {
@@ -5789,6 +6251,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "活動"
+          }
+        }
+      }
+    },
+    "浊音、半浊音和小写": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Voiced, Semi-voiced and Small Kana"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "濁点・半濁点・小文字"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "濁音、半濁音和小寫"
           }
         }
       }
@@ -6343,6 +6827,28 @@
         }
       }
     },
+    "点这里试打": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tap here to type"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ここをタップして入力"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "點這裡試打"
+          }
+        }
+      }
+    },
     "点选即可使用，重新打开键盘后生效。": {
       "localizations": {
         "en": {
@@ -6473,6 +6979,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "用於候選排序和下一詞聯想，在裝置上執行。"
+          }
+        }
+      }
+    },
+    "用于按键声音、振动、共享词典与学习。输入内容只在本机处理，不会上传。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Used for key sounds, haptics, the shared dictionary and learning. What you type stays on this device and is never uploaded."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "キーのサウンド、触覚、共有辞書と学習に使います。入力内容は端末内で処理され、アップロードされません。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "用於按鍵聲音、震動、共享詞典與學習。輸入內容只在本機處理，不會上傳。"
           }
         }
       }
@@ -6671,6 +7199,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "確認"
+          }
+        }
+      }
+    },
+    "确认文字后建议接下来的词": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suggests the next word after you confirm text"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "確定した後に続く言葉を提案"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "確認文字後建議接下來的詞"
           }
         }
       }
@@ -7094,6 +7644,28 @@
         }
       }
     },
+    "练习进度": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Practice Progress"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "練習の進み具合"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "練習進度"
+          }
+        }
+      }
+    },
     "组件": {
       "extractionState": "manual",
       "localizations": {
@@ -7267,6 +7839,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "縮短轉換範圍"
+          }
+        }
+      }
+    },
+    "罗马字": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Romaji"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ローマ字"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "羅馬字"
           }
         }
       }
@@ -7847,6 +8441,28 @@
         }
       }
     },
+    "设置 › 通用 › 键盘 › 键盘 › Vime 日本語 › 允许完全访问": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Settings › General › Keyboard › Keyboards › Vime 日本語 › Allow Full Access"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "設定 › 一般 › キーボード › キーボード › Vime 日本語 › フルアクセスを許可"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "設定 › 一般 › 鍵盤 › 鍵盤 › Vime 日本語 › 允許完整取用"
+          }
+        }
+      }
+    },
     "词典使用说明": {
       "localizations": {
         "en": {
@@ -8288,6 +8904,28 @@
         }
       }
     },
+    "跟打练习": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Typing Practice"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "タイピング練習"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "跟打練習"
+          }
+        }
+      }
+    },
     "转换、纠错、排序和联想在设备上完成，不上传输入或剪贴板内容。": {
       "localizations": {
         "en": {
@@ -8506,28 +9144,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "輸入左括號時補上右括號，游標移到中間；支援 ()、（）、「」等括號。剪貼簿貼上保持原樣。"
-          }
-        }
-      }
-    },
-    "输入操作": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Typing Basics"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "入力操作"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "輸入操作"
           }
         }
       }
@@ -8818,6 +9434,28 @@
         }
       }
     },
+    "键位速查": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Key Reference"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "キーの早見表"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "鍵位速查"
+          }
+        }
+      }
+    },
     "键帽不透明度": {
       "localizations": {
         "en": {
@@ -8968,6 +9606,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "鍵盤高度"
+          }
+        }
+      }
+    },
+    "长按地球键切到 Vime，输入 nihongo": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Touch and hold the globe key, switch to Vime and type nihongo"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "地球儀キーを長押しして Vime に切り替え、nihongo と入力"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "長按地球鍵切到 Vime，輸入 nihongo"
           }
         }
       }
@@ -9236,6 +9896,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "集合資料結構"
+          }
+        }
+      }
+    },
+    "需要允许完全访问": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Requires Full Access"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "フルアクセスが必要です"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "需要允許完整取用"
           }
         }
       }
