@@ -83,20 +83,23 @@ final class KeyboardLocalEvaluationTests: XCTestCase {
     private func continuousInitial(_ worker: JapaneseCandidateWorker, item: Item, startingRevision: Int,
                                    intervalMs: Int) async throws -> ([CandidateSnapshot], CandidatePipelineTrace.Snapshot, Double, Int) {
         worker.reset()
-        var prefix = "", latest = startingRevision, elapsed = 0.0, stale = 0
+        /// The newest revision typed so far, read when an older revision completes.
+        @MainActor final class Latest { var revision: Int; init(_ revision: Int) { self.revision = revision } }
+        let latest = Latest(startingRevision)
+        var prefix = "", elapsed = 0.0, stale = 0
         var published: [CandidateSnapshot]?
         var traces: [CandidatePipelineTrace] = []
         let ready = expectation(description: "continuous local case \(item.id)")
         let keys = Array(item.reading)
         for (offset, key) in keys.enumerated() {
-            prefix.append(key); latest += 1
-            let revision = latest, input = query(prefix), isLast = offset == keys.count - 1
+            prefix.append(key); latest.revision += 1
+            let revision = latest.revision, input = query(prefix), isLast = offset == keys.count - 1
             let trace = CandidatePipelineTrace(revision: revision, references: [item.reference], consumedInputCount: input.input.count)
             traces.append(trace)
             let start = ProcessInfo.processInfo.systemUptime
             worker.candidates(for: input, katakana: false, revision: revision, leftContext: item.context,
                 continuity: nil, trace: trace) { values, _, supplementary in
-                    guard revision == latest else { stale += 1; return }
+                    guard revision == latest.revision else { stale += 1; return }
                     guard isLast, !supplementary else { return }
                     XCTAssertNil(published, "A revision must publish its initial list only once")
                     guard published == nil else { return }

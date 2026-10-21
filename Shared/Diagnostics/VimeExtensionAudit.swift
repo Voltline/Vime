@@ -260,14 +260,14 @@ nonisolated final class VimeExtensionAudit: @unchecked Sendable {
         let environment = "physical_device"
         let scope = "physical keyboard extension"
         #endif
-        let preferences = KeyboardPreferences()
+        let preferences = KeyboardPreferences.sharedStore() ?? .standard
         var report: [String: Any] = ["format": "vime_extension_audit_v21", "schema_version": 2,
             "scope": scope, "environment": environment, "pid": getpid(), "started_utc": startedUTC,
             "elapsed_seconds": seconds, "ended": ended,
             "bundle_id": Bundle.main.bundleIdentifier ?? "unknown", "os": ProcessInfo.processInfo.operatingSystemVersionString,
             "configuration": configuration.dictionary,
-            "settings": ["candidate_ranking": preferences.candidateRanking.rawValue,
-                         "next_words": preferences.phraseSuggestions],
+            "settings": ["candidate_ranking": KeyboardPreferences.candidateRanking(in: preferences).rawValue,
+                         "next_words": KeyboardPreferences.phraseSuggestions(in: preferences)],
             "model_loads": modelLoads, "lifecycle_events": lifecycleEvents,
             "samples": values, "timing": KeyboardPerformance.report(), "timing_windows": windows,
             "lifecycle_counts": eventCounts,

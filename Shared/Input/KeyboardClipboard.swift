@@ -9,7 +9,7 @@ final class KeyboardClipboard {
     // Cross-process copies do not reliably notify a visible keyboard extension.
     // The fallback checks only changeCount; unchanged text is never reloaded.
     static let fallbackInterval: TimeInterval = 0.5
-    static let suggestionLifetime: TimeInterval = 30
+    nonisolated static let suggestionLifetime: TimeInterval = 30
     static let maximumUTF8Bytes = ClipboardHistoryStore.maximumTextBytes
     let history: ClipboardHistoryStore
     private let changeCount: () -> Int

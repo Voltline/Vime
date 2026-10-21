@@ -235,8 +235,8 @@ private final class DelayedDocumentProxy: NSObject, UITextDocumentProxy {
     let documentIdentifier = UUID()
     var documentInputMode: UITextInputMode? { nil }
     var hasText: Bool { text.hasText }
-    var keyboardType: UIKeyboardType { .default }
-    var returnKeyType: UIReturnKeyType { .default }
+    var keyboardType: UIKeyboardType = .default
+    var returnKeyType: UIReturnKeyType = .default
     private var publishedBefore: String? = ""
     private var publishedAfter: String? = ""
     private var delayed = false
