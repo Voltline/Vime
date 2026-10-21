@@ -51,28 +51,6 @@
     "%@ · %@": {
       "shouldTranslate": false
     },
-    "%@ · 前段": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ · leading part"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ · 前半"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ · 前段"
-          }
-        }
-      }
-    },
     "%@ · 建议": {
       "localizations": {
         "en": {
@@ -91,6 +69,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ · 建議"
+          }
+        }
+      }
+    },
+    "%@ · 部分转换": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · partial"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · 一部変換"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · 部分轉換"
           }
         }
       }
@@ -429,28 +429,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Swift 實作，增加長度、版本和維度驗證，支援有界快取"
-          }
-        }
-      }
-    },
-    "V%@ 就绪": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "V%@ ready"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "V%@ 準備完了"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "V%@ 就緒"
           }
         }
       }
@@ -3468,6 +3446,28 @@
         }
       }
     },
+    "已开启": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "オン"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已開啟"
+          }
+        }
+      }
+    },
     "已暂停": {
       "localizations": {
         "en": {
@@ -3599,6 +3599,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "序號"
+          }
+        }
+      }
+    },
+    "延长": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Longer"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "伸ばす"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "延長"
           }
         }
       }
@@ -7201,6 +7223,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "編輯主題"
+          }
+        }
+      }
+    },
+    "缩短": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shorter"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "縮める"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "縮短"
           }
         }
       }

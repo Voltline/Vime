@@ -34,7 +34,7 @@ final class KeyboardQuickInputTests: XCTestCase {
 
     func testCandidateMetricsPreserveJapaneseLatinEmojiAndAnnotationWidths() {
         for font in [UIFont.systemFont(ofSize: 18), .systemFont(ofSize: 18, weight: .medium), .systemFont(ofSize: 10)] {
-            for text in ["日本語", "ひらがな", "半角片假名 · 前段", "GitHub 123", "ｶﾞｯｺｳ", "ㇱㇿ", "2️⃣", "👨‍👩‍👧‍👦", "1+1=2", "長い候補\n短い", " "] {
+            for text in ["日本語", "ひらがな", "半角片假名 · 部分转换", "GitHub 123", "ｶﾞｯｺｳ", "ㇱㇿ", "2️⃣", "👨‍👩‍👧‍👦", "1+1=2", "長い候補\n短い", " "] {
                 let reference = (text as NSString).size(withAttributes: [.font: font]).width
                 let measured = KeyboardCandidateTextMetrics.width(of: text, font: font)
                 XCTAssertEqual(ceil(measured), ceil(reference), accuracy: 1, text)

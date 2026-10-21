@@ -86,7 +86,7 @@ final class KeyboardWidthCandidateTests: XCTestCase {
         XCTAssertTrue(value.explicitScope)
         XCTAssertEqual(value.consumedReadingCount, 4)
         XCTAssertEqual(value.remainingComposition.convertTarget, "です")
-        XCTAssertEqual(value.presentation.annotation, "半角片假名 · 前段")
+        XCTAssertEqual(value.presentation.annotation, "半角片假名 · 部分转换")
         let session = KeyboardSession()
         _ = session.type("gakkoudesu")
         session.adjustConversionRange(by: -1)

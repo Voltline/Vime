@@ -76,7 +76,7 @@ struct KeyboardSkinsView: View {
                     .background(Color.vimeBlue.opacity(0.12), in: Capsule())
             }
             if let previewDocument {
-                SkinPreview(document: previewDocument).frame(height: 130)
+                SkinPreview(document: previewDocument).frame(height: 160)
                     .clipShape(RoundedRectangle(cornerRadius: 16))
                     .accessibilityLabel("当前皮肤预览")
             }
@@ -289,7 +289,7 @@ struct KeyboardSkinEditor: View {
         NavigationStack {
             Form {
                 Section {
-                    SkinPreview(document: draft).frame(height: 160)
+                    SkinPreview(document: draft).frame(height: 190)
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                 }.listRowInsets(EdgeInsets()).listRowBackground(Color.clear)
                 Section("皮肤信息") {
@@ -411,9 +411,15 @@ private struct SkinPreview: UIViewRepresentable {
         let letters = Array("QWERTYUIOPASDFGHJKLZXCVBNM").map { String($0) }
         var keys: [KeyboardSkinCaption] = []
         var pictures: [UIImageView] = []
+        /// A sample candidate strip, so the accent color is visible in context.
+        let candidates = ["日本語", "にほんご", "二本後"].map { text in
+            let label = UILabel(); label.text = text; return label
+        }
+        let selection = UIView()
         var document: KeyboardSkinDocument?
         override init(frame: CGRect) {
             super.init(frame: frame); addSubview(canvas); clipsToBounds = true
+            candidates.forEach(addSubview); addSubview(selection)
             for text in letters {
                 let image = UIImageView(); image.contentMode = .scaleAspectFit; addSubview(image); pictures.append(image)
                 let label = KeyboardSkinCaption(); label.text = text; addSubview(label); keys.append(label)
@@ -430,17 +436,30 @@ private struct SkinPreview: UIViewRepresentable {
                 key.backgroundColor = KeyboardSkinAppearance.color(doc.palette.key).withAlphaComponent(doc.style.keyOpacity)
                 key.layer.cornerRadius = doc.style.cornerRadius; key.clipsToBounds = true
             }
+            for (index, label) in candidates.enumerated() {
+                label.font = appearance.font(size: 14)
+                label.textColor = KeyboardSkinAppearance.color(index == 0 ? doc.palette.accent : doc.palette.text)
+            }
+            selection.backgroundColor = KeyboardSkinAppearance.color(doc.palette.accent)
             setNeedsLayout()
         }
         override func layoutSubviews() {
             super.layoutSubviews(); canvas.frame = bounds
-            let rowHeight = max(1, (bounds.height - 12) / 3)
+            let stripHeight = min(30, bounds.height * 0.2)
+            var left: CGFloat = 12
+            for label in candidates {
+                let width = ceil(label.intrinsicContentSize.width)
+                label.frame = CGRect(x: left, y: 0, width: width, height: stripHeight - 2)
+                left += width + 18
+            }
+            selection.frame = CGRect(x: candidates[0].frame.minX, y: stripHeight - 3, width: candidates[0].frame.width, height: 2)
+            let rowHeight = max(1, (bounds.height - stripHeight - 6) / 3)
             var index = 0
             for (row, count) in [10, 9, 7].enumerated() {
                 let width = (bounds.width - 12) / 10
                 let offset = (bounds.width - CGFloat(count) * width) / 2
                 for column in 0..<count {
-                    let rect = CGRect(x: offset + CGFloat(column) * width, y: 6 + CGFloat(row) * rowHeight, width: width - 3, height: max(1, rowHeight - 6))
+                    let rect = CGRect(x: offset + CGFloat(column) * width, y: stripHeight + CGFloat(row) * rowHeight, width: width - 3, height: max(1, rowHeight - 6))
                     let decorated = pictures[index].image != nil
                     let captionHeight = min(22, rect.height * 0.38)
                     if let appearance = canvas.appearance {

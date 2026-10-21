@@ -57,7 +57,7 @@ final class AppPresentationTests: XCTestCase {
         var summary = Self.settingsSummary(status: nil)
         XCTAssertEqual(summary.rankingValue, "待使用")
         summary.status = Self.reportedStatus
-        XCTAssertEqual(summary.rankingValue, "V4.2 就绪")
+        XCTAssertEqual(summary.rankingValue, "已开启")
         summary.status?.modelPaused = true
         XCTAssertEqual(summary.rankingValue, "已暂停")
         summary.status?.modelPaused = false; summary.status?.modelVersion = nil

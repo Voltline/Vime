@@ -75,11 +75,11 @@ nonisolated struct CandidateSnapshot: Sendable {
     var hasLearningEvidence: Bool { candidate.data.contains { $0.metadata.contains(.isLearned) } }
     var presentation: CandidatePresentation {
         .init(text: text, source: source, consumedInputCount: consumedInputCount, correction: correction,
-            detailAnnotation: widthVariant.map { fullConsumption ? $0.annotation : String(localized: "\($0.annotation) · 前段") }
+            detailAnnotation: widthVariant.map { fullConsumption ? $0.annotation : String(localized: "\($0.annotation) · 部分转换") }
                 ?? (source == .specialConversion ? String(localized: "格式转换") : source == .emoji ? String(localized: "表情")
                 : source == .userDictionary ? "用户词典"
                 : source == .rememberedConversion ? String(localized: "个人记忆")
-                : !fullConsumption ? String(localized: "\(Self.hiraganaAnnotation(reading)) · 前段") : nil))
+                : !fullConsumption ? String(localized: "\(Self.hiraganaAnnotation(reading)) · 部分转换") : nil))
     }
 
     /// Presentations are rebuilt for every published list. A plain scalar shift
