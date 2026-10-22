@@ -60,6 +60,14 @@ def load_policies(resources: Path):
             for language, (suffix, *_) in POLICY_LANGUAGES.items()}
 
 
+def translated(localization) -> bool:
+    """A string unit, or every form of a plural/device variation, is translated."""
+    if "stringUnit" in localization:
+        return localization["stringUnit"].get("state") == "translated"
+    forms = [form for variation in localization.get("variations", {}).values() for form in variation.values()]
+    return bool(forms) and all(translated(form) for form in forms)
+
+
 def validate(resources: Path, root: Path) -> None:
     manifest = json.loads((resources / "LicenseManifest.json").read_text())
     ids = [row["id"] for row in manifest]
@@ -95,7 +103,7 @@ def validate(resources: Path, root: Path) -> None:
         f"{language}: {key}" for key, entry in catalog["strings"].items()
         if entry.get("shouldTranslate", True) and entry.get("extractionState") != "stale"
         for language in ("zh-Hant", "ja", "en", "ko")
-        if entry.get("localizations", {}).get(language, {}).get("stringUnit", {}).get("state") != "translated"
+        if not translated(entry.get("localizations", {}).get(language, {}))
     ]
     if untranslated:
         raise ValueError("Untranslated strings:\n" + "\n".join(untranslated[:20]))
