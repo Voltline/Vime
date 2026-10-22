@@ -15,6 +15,7 @@
 - [项目目录](ProjectLayout.md)：App、扩展、共享代码、资源和测试的职责。
 - [开发与验证](Development.md)：构建、真实键盘扩展测试、资源校验与发布检查。
 - [日语模型](Models/JapaneseModel.md)：模型资源、评分方式、推理边界及替换流程。
+- [App Store 元数据](AppStore/Metadata.md)：四种语言的商店文案、审核备注和内购信息。
 
 ## 架构
 
