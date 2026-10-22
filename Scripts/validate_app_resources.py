@@ -75,8 +75,9 @@ def validate(resources: Path, root: Path) -> None:
             path = resources / (name + ".txt")  # Xcode's flattened resource bundle
         notice = path.read_bytes()
         if row["id"] == "vime":
-            if notice != (root / "LICENSE").read_bytes():
-                raise ValueError("Vime notice differs from LICENSE")
+            # The App shows Vime's additional permission ahead of the GPL text.
+            if notice != (root / "LICENSE-EXCEPTION").read_bytes() + b"\n\n" + (root / "LICENSE").read_bytes():
+                raise ValueError("Vime notice differs from LICENSE-EXCEPTION and LICENSE")
         else:
             sections.append((original.index(notice), notice))
     if b"".join(text for _, text in sorted(sections)) != original:

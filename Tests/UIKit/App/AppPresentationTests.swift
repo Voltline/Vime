@@ -200,7 +200,7 @@ final class AppPresentationTests: XCTestCase {
     }
     func testBundledComponentNoticesCoverOriginalBytesAndPolicyLoadsOffline() async throws {
         let catalog = try Vime.LicenseCatalog()
-        XCTAssertEqual(catalog.components.count, 12)
+        XCTAssertEqual(catalog.components.count, 14)
         let url = try XCTUnwrap(Bundle.main.url(forResource: "ThirdPartyNotices", withExtension: "txt"))
         let original = try String(contentsOf: url, encoding: .utf8)
         var sections: [(String.Index, String)] = []
@@ -211,7 +211,9 @@ final class AppPresentationTests: XCTestCase {
         }
         XCTAssertEqual(sections.sorted { $0.0 < $1.0 }.map(\.1).joined(), original)
         let own = try XCTUnwrap(catalog.components.first { $0.id == "vime" })
-        XCTAssertTrue(try catalog.notice(for: own).contains("GNU GENERAL PUBLIC LICENSE"))
+        let ownNotice = try catalog.notice(for: own)
+        XCTAssertTrue(ownNotice.contains("GNU GENERAL PUBLIC LICENSE") && ownNotice.contains("Version 3, 29 June 2007"))
+        XCTAssertTrue(ownNotice.contains("Additional permission under GNU GPL version 3 section 7"))
         let policy = try Vime.PrivacyPolicy.load()
         XCTAssertFalse(policy.introduction.isEmpty)
         XCTAssertEqual(policy.effective, policy.updated)

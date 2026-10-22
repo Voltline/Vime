@@ -1,0 +1,53 @@
+Vime
+Copyright (C) 2026 Voltline and Vime contributors
+
+This program is free software: you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the Free
+Software Foundation, either version 3 of the License, or (at your option)
+any later version, with the additional permission below.
+
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+more details. The full text of the License is in the file LICENSE.
+
+
+Additional permission under GNU GPL version 3 section 7
+
+If you convey object code of this program, or of a work based on it,
+through an application distribution service (such as Apple's App Store)
+whose terms of service, usage rules or technical measures conflict with
+this License, the copyright holders of Vime grant you additional permission
+to convey that object code under those terms, provided that:
+
+  a) you offer the Corresponding Source of the conveyed version, free of
+     charge and under this License with this additional permission, in a
+     manner permitted by section 6 (for example, through a public source
+     repository that the application or its store listing links to); and
+
+  b) the application displays, or provides a link to, this notice and the
+     full text of the License.
+
+This permission does not limit any right that recipients have under the
+License. As permitted by section 7, you may remove this additional
+permission from copies of your modified versions; it then no longer applies
+to those copies.
+
+
+Separately licensed components
+
+The application also contains third-party code, language data and language
+models under their own licenses, including SentencePiece, swift-algorithms,
+swift-collections, swift-numerics, swift-tokenizers and the azooKey default
+dictionary (Apache-2.0), AzooKeyKanaKanjiConverter, Jinja and EmojiFonts
+(MIT), the azooKey emoji dictionary built from Mozc data (BSD-3-Clause),
+Unicode Emoji and CLDR data (Unicode License V3), JMdict-derived data
+(CC BY-SA 4.0) and the VimeML Japanese language model. Their notices are in
+Shared/Resources/ThirdPartyNotices.txt. This License and its additional
+permission apply to Vime's own work and do not relicense those components.
+
+
+Earlier versions
+
+Vime was licensed under GPL-2.0-only until 2026-10-22. Copies received
+under those terms remain available under them.

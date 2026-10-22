@@ -2,7 +2,7 @@
 
 [简体中文](README.md) | **English** | [日本語](README.ja.md)
 
-![Platform](https://img.shields.io/badge/platform-iOS%2018%2B-blue) ![Swift](https://img.shields.io/badge/Swift-UIKit%20%2B%20SwiftUI-orange) ![License](https://img.shields.io/badge/license-GPL--2.0-green)
+![Platform](https://img.shields.io/badge/platform-iOS%2018%2B-blue) ![Swift](https://img.shields.io/badge/Swift-UIKit%20%2B%20SwiftUI-orange) ![License](https://img.shields.io/badge/license-GPL--3.0--or--later-green)
 
 Vime is a fully offline Japanese keyboard for iOS. It offers a romaji QWERTY layout and a 12-key kana pad, and switches between hiragana, katakana and English at any time. Kana-kanji conversion is built on the [azooKey](https://github.com/azooKey/AzooKeyKanaKanjiConverter) dictionary engine. A small on-device Core ML language model reranks the candidates and suggests the next word after you commit text. Conversion, correction, learning and suggestions all run on your device, and nothing you type is uploaded.
 
@@ -117,4 +117,4 @@ The detailed documentation is written in Chinese.
 
 ## License and acknowledgements
 
-Vime is released under the [GPL-2.0](LICENSE) license. Kana-kanji conversion uses [AzooKeyKanaKanjiConverter](https://github.com/azooKey/AzooKeyKanaKanjiConverter), and tokenization uses [SentencePiece](https://github.com/google/sentencepiece). Licenses, acknowledgements and sources for third-party code and data are in [ThirdPartyNotices.txt](Shared/Resources/ThirdPartyNotices.txt), the [SentencePiece LICENSE](Dependencies/VimeSentencePiece/LICENSE) and the [language resource sources](Shared/Resources/LanguageResourceSources.json). The full texts are also available in the app under Settings → About Vime → Open Source Licenses.
+Vime is released under [GPL-3.0-or-later](LICENSE), with an additional permission under GPLv3 section 7 that allows distribution through app stores such as the App Store as long as the Corresponding Source is offered; see [LICENSE-EXCEPTION](LICENSE-EXCEPTION). Versions before 2026-10-22 were released under GPL-2.0-only. The bundled [VimeML](https://github.com/Voltline/VimeML) Japanese model uses the same license; its training data attribution is in the third-party notices. Kana-kanji conversion uses [AzooKeyKanaKanjiConverter](https://github.com/azooKey/AzooKeyKanaKanjiConverter), and tokenization uses [SentencePiece](https://github.com/google/sentencepiece). Licenses, acknowledgements and sources for third-party code and data are in [ThirdPartyNotices.txt](Shared/Resources/ThirdPartyNotices.txt), the [SentencePiece LICENSE](Dependencies/VimeSentencePiece/LICENSE) and the [language resource sources](Shared/Resources/LanguageResourceSources.json). The full texts are also available in the app under Settings → About Vime → Open Source Licenses.
