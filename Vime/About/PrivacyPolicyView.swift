@@ -27,7 +27,7 @@ struct PrivacyPolicy: Decodable {
     let sections: [Section]
     /// Translations live beside the Simplified Chinese source as
     /// PrivacyPolicy-<language>.json; the app's current localization picks one.
-    static let translations = ["zh-Hant", "ja", "en"]
+    static let translations = ["zh-Hant", "ja", "en", "ko"]
     static func load(bundle: Bundle = .main, language: String? = nil) throws -> Self {
         let preferred = language ?? bundle.preferredLocalizations.first ?? "zh-Hans"
         let name = translations.contains(preferred) ? "PrivacyPolicy-" + preferred : "PrivacyPolicy"
