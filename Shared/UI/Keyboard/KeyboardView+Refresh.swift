@@ -65,7 +65,7 @@ extension KeyboardView {
     func refreshLanguageKey(_ traits: KeyboardInputTraits) {
         if displayedLanguage != traits.language || displayedAlternateLanguage != traits.alternateLanguage {
             traitCollection.performAsCurrent {
-                languageKey?.setImage(KeyboardGlyphs.language(primary: traits.language.glyph, secondary: traits.alternateLanguage.glyph), for: .normal)
+                languageKey?.setImage(KeyboardGlyphs.language(active: traits.language, other: traits.alternateLanguage), for: .normal)
             }
             displayedLanguage = traits.language
             displayedAlternateLanguage = traits.alternateLanguage

@@ -45,9 +45,15 @@ struct KeyboardSettingsView: View {
                 NavigationLink { KeyboardSetupGuide() } label: { SettingsListRow(title: "启用指南") }
                     .accessibilityIdentifier("vime.settings.setup")
                 Divider().padding(.leading, 16)
+                NavigationLink { TipJarView() } label: { SettingsListRow(title: "赞助开发") }
+                    .accessibilityIdentifier("vime.settings.tips")
+                Divider().padding(.leading, 16)
+#if DEBUG
+                // Developer test host; App Store builds use the home typing tab instead.
                 NavigationLink { KeyboardExtensionTestView() } label: { SettingsListRow(title: "问题诊断") }
                     .accessibilityIdentifier("vime.settings.diagnostics")
                 Divider().padding(.leading, 16)
+#endif
                 NavigationLink { AboutVimeView() } label: { SettingsListRow(title: "关于 Vime", value: summary.appVersion) }
                     .accessibilityIdentifier("vime.settings.about")
             }

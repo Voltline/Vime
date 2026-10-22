@@ -71,7 +71,8 @@ extension KeyboardView {
             button.applyTheme()
             button.tintColor = KeyboardPalette.text
         }
-        for button in [brandButton, undoButton, modeButton, expandButton] { button.backgroundColor = KeyboardPalette.key }
+        // The logo sits directly on the toolbar; only the trailing controls get a backing.
+        for button in [undoButton, modeButton, expandButton] { button.backgroundColor = KeyboardPalette.key }
         clipboardSuggestion.applyTheme()
         quickCandidates.applyTheme()
         numberSymbolRail?.applyTheme()

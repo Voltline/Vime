@@ -210,7 +210,6 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         addSubview(panelScroll)
         panelScroll.isHidden = true
         header.addSubview(brandButton)
-        brandButton.backgroundColor = KeyboardPalette.key
         brandButton.setImage(KeyboardGlyphs.logo(), for: .normal)
         brandArtwork.contentMode = .scaleAspectFit; brandArtwork.isUserInteractionEnabled = false
         brandButton.addSubview(brandArtwork)
@@ -344,7 +343,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
             (view: KeyboardView, _: UITraitCollection) in
             view.traitCollection.performAsCurrent {
                 let traits = view.session.inputTraits
-                view.languageKey?.setImage(KeyboardGlyphs.language(primary: traits.language.glyph, secondary: traits.alternateLanguage.glyph), for: .normal)
+                view.languageKey?.setImage(KeyboardGlyphs.language(active: traits.language, other: traits.alternateLanguage), for: .normal)
             }
             view.setNeedsLayout()
         }
@@ -420,7 +419,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         neuralStatusLabel.frame = CGRect(x: brandButton.frame.maxX + 8, y: centerY - diameter / 2,
             width: max(0, undoButton.frame.minX - brandButton.frame.maxX - 16), height: diameter)
         expandButton.frame = metrics.trailingToolbarFrame(index: 0)
-        for button in [brandButton, undoButton, modeButton, expandButton] { button.layer.cornerRadius = diameter / 2 }
+        for button in [undoButton, modeButton, expandButton] { button.layer.cornerRadius = diameter / 2 }
         candidateScroll.frame = CGRect(x: compact ? metrics.contentLeft : 4 * xScale,
             y: 3, width: expandButton.frame.midX - 22 - (compact ? metrics.contentLeft : 4 * xScale),
             height: headerHeight - 6)
