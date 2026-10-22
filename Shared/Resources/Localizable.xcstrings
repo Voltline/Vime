@@ -238,6 +238,12 @@
             "value": "%lld개"
           }
         },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld 个"
+          }
+        },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
@@ -360,6 +366,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "%lld개 항목"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld 条"
           }
         },
         "zh-Hant": {

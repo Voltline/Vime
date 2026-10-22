@@ -25,7 +25,7 @@ App 与键盘支持简体中文（源语言）、繁体中文、日语、英语�
 - 同时作为逻辑标识的文字（如数字键盘的按键值、符号分组名、许可清单字段）保留中文原值作为 ID，显示时再用 `String(localized: String.LocalizationValue(...))` 查找；这类运行时 key 在目录中标记为 manual。
 - 「変換 / 次候補 / 確定」等日语输入法惯用语在中文和日文界面保持原样，英文界面译为 Convert / Next / Confirm，韩文界面译为 변환 / 다음 후보 / 확정。
 
-新增或修改文字后运行 `xcodebuild -exportLocalizations -project Vime.xcodeproj -scheme Vime -localizationPath <目录>` 同步目录，再补全四种语言的翻译。`python3 Scripts/validate_app_resources.py` 会拒绝任何未翻译的条目。隐私政策按语言保存为 `Vime/Resources/PrivacyPolicy[-zh-Hant|-ja|-en|-ko].json`，公开文本由 `--write-policy` 生成，校验要求各语言日期和结构一致。
+新增或修改文字后运行 `xcodebuild -exportLocalizations -project Vime.xcodeproj -scheme Vime -localizationPath <目录>` 同步目录，再补全四种语言的翻译。`python3 Scripts/validate_app_resources.py` 会拒绝任何未翻译的条目；带复数变体的条目还必须显式写出 zh-Hans 值，否则简体中文会回退到英文的复数形式。隐私政策按语言保存为 `Vime/Resources/PrivacyPolicy[-zh-Hant|-ja|-en|-ko].json`，公开文本由 `--write-policy` 生成，校验要求各语言日期和结构一致。
 
 测试断言使用简体中文界面文字，共享 scheme 的测试语言固定为 `zh-Hans` / `CN`，不随模拟器系统语言变化。
 

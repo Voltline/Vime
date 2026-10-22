@@ -107,6 +107,16 @@ def validate(resources: Path, root: Path) -> None:
     ]
     if untranslated:
         raise ValueError("Untranslated strings:\n" + "\n".join(untranslated[:20]))
+    # A plural variation compiles to a stringsdict; a source-language key without its own
+    # entry then falls back to the development region's (English) plural forms.
+    source = catalog["sourceLanguage"]
+    fallback = [
+        key for key, entry in catalog["strings"].items()
+        if any("variations" in localization for localization in entry.get("localizations", {}).values())
+        and source not in entry.get("localizations", {})
+    ]
+    if fallback:
+        raise ValueError(f"Plural strings need an explicit {source} entry:\n" + "\n".join(fallback))
     print(f"Verified {len(ids)} component notices, {len(POLICY_LANGUAGES)} matching privacy policies "
           f"and {len(catalog['strings'])} translated strings")
 
