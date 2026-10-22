@@ -44,7 +44,7 @@ The companion app handles setup, typing practice, appearance and settings. The k
 - **Three-step setup**: add the keyboard, allow full access and switch to Vime; once done, the app opens the typing practice.
 - **Typing practice**: type a sample sentence, and correct characters turn blue as you go.
 - A status card in Settings shows whether the keyboard is working, which model version is loaded and how much it has learned.
-- The interface is available in Simplified Chinese, Traditional Chinese, Japanese and English.
+- The interface is available in Simplified Chinese, Traditional Chinese, Japanese, English and Korean.
 
 ## Installation
 
@@ -80,7 +80,7 @@ Candidate quality depends on the dictionary, the context and the lookup time bud
 
 - Conversion, correction, ranking, suggestions and learning all happen on the device. Vime contains no networking code and never uploads what you type or copy.
 - Learning data, the user dictionary and skins live in the shared App Group container; clipboard history is excluded from system backups.
-- See the full [privacy policy](Docs/Guides/Privacy.en.md) (also in [日本語](Docs/Guides/Privacy.ja.md), [简体中文](Docs/Guides/Privacy.md) and [繁體中文](Docs/Guides/Privacy.zh-Hant.md)).
+- See the full [privacy policy](Docs/Guides/Privacy.en.md) (also in [日本語](Docs/Guides/Privacy.ja.md), [简体中文](Docs/Guides/Privacy.md), [繁體中文](Docs/Guides/Privacy.zh-Hant.md) and [한국어](Docs/Guides/Privacy.ko.md)).
 
 ## Project layout
 

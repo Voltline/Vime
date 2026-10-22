@@ -26,6 +26,7 @@ POLICY_LANGUAGES = {
     "zh-Hant": ("-zh-Hant", "Privacy.zh-Hant.md", "Vime 隱私權政策", "更新日期：", "生效日期：", "重點摘要", "目錄", "聯絡"),
     "ja": ("-ja", "Privacy.ja.md", "Vime プライバシーポリシー", "更新日：", "施行日：", "要点", "目次", "お問い合わせ："),
     "en": ("-en", "Privacy.en.md", "Vime Privacy Policy", "Updated: ", "Effective: ", "Key Points", "Contents", "Contact: "),
+    "ko": ("-ko", "Privacy.ko.md", "Vime 개인정보 처리방침", "업데이트: ", "시행: ", "핵심 요약", "목차", "문의: "),
 }
 
 
@@ -93,7 +94,7 @@ def validate(resources: Path, root: Path) -> None:
     untranslated = [
         f"{language}: {key}" for key, entry in catalog["strings"].items()
         if entry.get("shouldTranslate", True) and entry.get("extractionState") != "stale"
-        for language in ("zh-Hant", "ja", "en")
+        for language in ("zh-Hant", "ja", "en", "ko")
         if entry.get("localizations", {}).get(language, {}).get("stringUnit", {}).get("state") != "translated"
     ]
     if untranslated:

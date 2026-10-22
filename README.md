@@ -44,7 +44,7 @@ Vime 是一款完全离线的 iOS 日语输入法。它支持罗马字 QWERTY �
 - **三步启用引导**：添加键盘、开启完全访问、切换到 Vime，完成后自动进入试打。
 - **跟打练习**：照着例句输入，打对的部分逐字标蓝。
 - 设置页的状态卡会显示键盘是否在正常工作、已加载的模型版本和学习统计。
-- 界面支持简体中文、繁體中文、日本語和 English。
+- 界面支持简体中文、繁體中文、日本語、English 和 한국어。
 
 ## 安装与启用
 
@@ -80,7 +80,7 @@ Vime 是一款完全离线的 iOS 日语输入法。它支持罗马字 QWERTY �
 
 - 转换、纠错、排序、联想和学习都在设备上完成，没有网络请求，不上传输入内容或剪贴板。
 - 学习数据、用户词典和皮肤保存在 App Group 共享容器中；剪贴板历史不纳入系统备份。
-- 完整说明见 [隐私政策](Docs/Guides/Privacy.md)（另有 [繁體中文](Docs/Guides/Privacy.zh-Hant.md)、[日本語](Docs/Guides/Privacy.ja.md)、[English](Docs/Guides/Privacy.en.md)）。
+- 完整说明见 [隐私政策](Docs/Guides/Privacy.md)（另有 [繁體中文](Docs/Guides/Privacy.zh-Hant.md)、[日本語](Docs/Guides/Privacy.ja.md)、[English](Docs/Guides/Privacy.en.md)、[한국어](Docs/Guides/Privacy.ko.md)）。
 
 ## 项目结构
 

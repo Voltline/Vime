@@ -20,6 +20,11 @@
           "locale" : "ja"
         },
         {
+          "description" : "작은 감사의 마음입니다. 기능은 잠금 해제되지 않습니다.",
+          "displayName" : "차 한 잔",
+          "locale" : "ko"
+        },
+        {
           "description" : "一点小小的心意，不解锁任何功能。",
           "displayName" : "一杯茶",
           "locale" : "zh_Hans"
@@ -50,6 +55,11 @@
           "locale" : "ja"
         },
         {
+          "description" : "개발을 이어 가는 힘이 됩니다. 기능은 잠금 해제되지 않습니다.",
+          "displayName" : "커피 한 잔",
+          "locale" : "ko"
+        },
+        {
           "description" : "给开发者续一杯，不解锁任何功能。",
           "displayName" : "一杯咖啡",
           "locale" : "zh_Hans"
@@ -78,6 +88,11 @@
           "description" : "今後のアップデートへの大きな応援です。機能は追加されません。",
           "displayName" : "ごちそう一食",
           "locale" : "ja"
+        },
+        {
+          "description" : "앞으로의 업데이트에 큰 힘이 됩니다. 기능은 잠금 해제되지 않습니다.",
+          "displayName" : "근사한 한 끼",
+          "locale" : "ko"
         },
         {
           "description" : "为后续更新加油，不解锁任何功能。",

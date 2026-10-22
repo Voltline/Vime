@@ -91,6 +91,7 @@ final class AppPresentationTests: XCTestCase {
             "zh-Hant": ["设置": "設定", "剪贴板": "剪貼簿", "符号与括号": "符號與括號", "%lld 条": "%lld 條"],
             "ja": ["设置": "設定", "剪贴板": "クリップボード", "符号与括号": "記号と括弧", "%lld 条": "%lld 件"],
             "en": ["设置": "Settings", "剪贴板": "Clipboard", "符号与括号": "Symbols & Brackets", "%lld 条": "%lld entries"],
+            "ko": ["设置": "설정", "剪贴板": "클립보드", "符号与括号": "기호 및 괄호", "%lld 条": "%lld개 항목"],
         ]
         for (language, values) in expected {
             let path = try XCTUnwrap(Bundle.main.path(forResource: language, ofType: "lproj"), language)
