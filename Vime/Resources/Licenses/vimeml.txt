@@ -1,0 +1,36 @@
+
+
+VimeML Japanese language model (GPL-3.0-or-later with additional permission)
+Source: https://github.com/Voltline/VimeML
+Models: https://huggingface.co/Voltline/vimeml-tiny-ja-v4.2
+        https://huggingface.co/Voltline/vimeml-tiny-ja-v2.1
+Bundled: V4.2 (default) TinyJapaneseV42INT8.mlmodelc,
+VimeJapaneseTokenizerV4.model and VimeLMManifestV42.json; V2.1 (fallback)
+TinyJapaneseV21INT8.mlmodelc, VimeJapaneseTokenizerV2.model and
+VimeLMManifestV21.json.
+Modified: Core ML conversions of the published weights with INT8 block-32
+weight compression. The published weights, tokenizers and the conversion
+code in the VimeML repository are their corresponding source.
+
+Copyright (C) 2026 Voltline
+
+The models and tokenizers are licensed under the GNU General Public License
+version 3 or (at your option) any later version, with the VimeML additional
+permission under section 7 for conveyance through application distribution
+services. The full License text is shown with the Vime notice in this app;
+the additional permission is in LICENSE-EXCEPTION of the VimeML repository.
+
+Training data attribution. The terms of each corpus are independent of the
+model license. This app contains no training text.
+
+- FineWeb2-Edu Japanese, Yuichi Tateno (hotchpotch), derived from FineWeb2
+  and Common Crawl. ODC-By 1.0, also subject to the Common Crawl Terms of
+  Use. https://huggingface.co/datasets/hotchpotch/fineweb-2-edu-japanese
+  Used by V2.1 and V4.2.
+- Tatoeba Japanese sentences, Tatoeba contributors. CC BY 2.0 FR unless a
+  sentence is marked CC0. https://tatoeba.org/  Used by V2.1 and V4.2.
+- RealPersonaChat, nu-dialogue. CC BY-SA 4.0.
+  https://github.com/nu-dialogue/real-persona-chat  Used by V4.2.
+- Multi-Relational Multi-Party Chat Corpus, nu-dialogue. CC BY-SA 4.0.
+  https://github.com/nu-dialogue/multi-relational-multi-party-chat-corpus
+  Used by V4.2.

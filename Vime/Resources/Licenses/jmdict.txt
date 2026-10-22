@@ -1,5 +1,8 @@
 JMdict-derived Vime language packs (OrthographyPreferences.json, SupplementalLexicon.json)
 Copyright Electronic Dictionary Research and Development Group (EDRDG).
+This application uses the JMdict dictionary files. These files are the property of the Electronic Dictionary Research and Development Group, and are used in conformance with the Group's licence.
+Project: https://www.edrdg.org/jmdict/j_jmdict.html
+Licence: https://www.edrdg.org/edrdg/licence.html
 Source: https://www.edrdg.org/pub/Nihongo/JMdict_e.gz
 License: CC BY-SA 4.0 https://creativecommons.org/licenses/by-sa/4.0/
 Vime modifications: filtered noun/colloquial entries and spelling preferences; see LanguageResourceSources.json and Scripts/build_language_resources.py. Derivative data is distributed under CC BY-SA 4.0. The application code has a separate license.

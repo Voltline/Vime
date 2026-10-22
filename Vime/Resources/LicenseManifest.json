@@ -24,6 +24,18 @@
     "noticeFile": "sentencepiece"
   },
   {
+    "id": "vimeml",
+    "name": "VimeML",
+    "use": "候选重排与下一词联想",
+    "category": "转换与分词",
+    "license": "GPL v3+*",
+    "copyright": "Voltline",
+    "source": "https://github.com/Voltline/VimeML",
+    "revision": "V4.2 epoch 20 / V2.1",
+    "modified": "Core ML INT8 量化编译版本；附 App Store 分发额外许可",
+    "noticeFile": "vimeml"
+  },
+  {
     "id": "dictionary",
     "name": "azooKey 默认词典",
     "use": "转换词条与纠错索引",
@@ -42,7 +54,7 @@
     "category": "语言与表情数据",
     "license": "CC BY-SA 4.0",
     "copyright": "Electronic Dictionary Research and Development Group (EDRDG)",
-    "source": "https://www.edrdg.org/pub/Nihongo/JMdict_e.gz",
+    "source": "https://www.edrdg.org/jmdict/j_jmdict.html",
     "revision": "来源日期 2026-10-11",
     "modified": "Vime 筛选词语与口语条目、提取假名表记偏好；衍生语言数据与 App 代码分别展示许可",
     "noticeFile": "jmdict"
@@ -58,6 +70,18 @@
     "revision": "18.0",
     "modified": "",
     "noticeFile": "unicode"
+  },
+  {
+    "id": "emojidictionary",
+    "name": "azooKey 表情词典",
+    "use": "表情读音检索",
+    "category": "语言与表情数据",
+    "license": "BSD-3-Clause / Unicode V3",
+    "copyright": "Google Inc.；Unicode, Inc.",
+    "source": "https://github.com/azooKey/azooKey_emoji_dictionary_storage",
+    "revision": "d59a28e4c7ca049aef04f29a91eae9677a7753f2",
+    "modified": "由 Mozc 表情数据与 Unicode / CLDR 日语注释生成",
+    "noticeFile": "emojidictionary"
   },
   {
     "id": "algorithms",
@@ -124,11 +148,11 @@
     "name": "Vime",
     "use": "本项目代码",
     "category": "本项目",
-    "license": "GPL v2",
+    "license": "GPL v3+*",
     "copyright": "Voltline / Vime contributors",
     "source": "https://github.com/Voltline/Vime",
     "revision": "1.0",
-    "modified": "",
+    "modified": "附 App Store 等应用商店分发的额外许可（GPLv3 第 7 条）",
     "noticeFile": "vime"
   },
   {

@@ -2,7 +2,7 @@
 
 **简体中文** | [English](README.en.md) | [日本語](README.ja.md)
 
-![Platform](https://img.shields.io/badge/platform-iOS%2018%2B-blue) ![Swift](https://img.shields.io/badge/Swift-UIKit%20%2B%20SwiftUI-orange) ![License](https://img.shields.io/badge/license-GPL--2.0-green)
+![Platform](https://img.shields.io/badge/platform-iOS%2018%2B-blue) ![Swift](https://img.shields.io/badge/Swift-UIKit%20%2B%20SwiftUI-orange) ![License](https://img.shields.io/badge/license-GPL--3.0--or--later-green)
 
 Vime 是一款完全离线的 iOS 日语输入法。它支持罗马字 QWERTY 和假名九宫格两种布局，平假名、片假名和英文可以随时切换。假名汉字转换基于 [azooKey](https://github.com/azooKey/AzooKeyKanaKanjiConverter) 词典引擎，再由设备上的小型 Core ML 语言模型对候选重新排序，并在确认文字后给出下一词联想。转换、纠错、学习和联想都在本机完成，输入内容不会上传。
 
@@ -115,4 +115,4 @@ python3 Scripts/validate_app_resources.py
 
 ## 许可与致谢
 
-Vime 以 [GPL-2.0](LICENSE) 许可发布。假名汉字转换使用 [AzooKeyKanaKanjiConverter](https://github.com/azooKey/AzooKeyKanaKanjiConverter)，分词使用 [SentencePiece](https://github.com/google/sentencepiece)。第三方代码与数据的许可、致谢和来源见 [ThirdPartyNotices.txt](Shared/Resources/ThirdPartyNotices.txt)、[SentencePiece LICENSE](Dependencies/VimeSentencePiece/LICENSE) 和 [语言资源来源清单](Shared/Resources/LanguageResourceSources.json)，App 内「设置 → 关于 Vime → 开源组件与许可」也可查看完整原文。
+Vime 以 [GPL-3.0-or-later](LICENSE) 许可发布，并依 GPLv3 第 7 条附加一项额外许可，允许在 App Store 等应用商店分发，条件是同时提供对应源代码，见 [LICENSE-EXCEPTION](LICENSE-EXCEPTION)。2026-10-22 之前的版本仍以 GPL-2.0-only 发布。随附的 [VimeML](https://github.com/Voltline/VimeML) 日语模型采用相同许可，训练语料的署名见第三方声明。假名汉字转换使用 [AzooKeyKanaKanjiConverter](https://github.com/azooKey/AzooKeyKanaKanjiConverter)，分词使用 [SentencePiece](https://github.com/google/sentencepiece)。第三方代码与数据的许可、致谢和来源见 [ThirdPartyNotices.txt](Shared/Resources/ThirdPartyNotices.txt)、[SentencePiece LICENSE](Dependencies/VimeSentencePiece/LICENSE) 和 [语言资源来源清单](Shared/Resources/LanguageResourceSources.json)，App 内「设置 → 关于 Vime → 开源组件与许可」也可查看完整原文。

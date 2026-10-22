@@ -384,6 +384,29 @@
         }
       }
     },
+    "Core ML INT8 量化编译版本；附 App Store 分发额外许可": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compiled Core ML INT8 build, with an additional permission for App Store distribution"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Core ML INT8 量子化コンパイル版。App Store 配布のための追加許可付き"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Core ML INT8 量化編譯版本；附 App Store 發佈額外許可"
+          }
+        }
+      }
+    },
     "CorrectionReadings.bin 是固定默认词典的衍生索引，包含读音哈希、词条成本与连接 ID": {
       "extractionState": "manual",
       "localizations": {
@@ -1386,6 +1409,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "候選詞：%@，%@"
+          }
+        }
+      }
+    },
+    "候选重排与下一词联想": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Candidate reranking and next-word suggestions"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "候補の並べ替えと次の単語の予測"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "候選重排與下一詞聯想"
           }
         }
       }
@@ -7027,6 +7073,29 @@
         }
       }
     },
+    "由 Mozc 表情数据与 Unicode / CLDR 日语注释生成": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Generated from Mozc emoji data and Unicode / CLDR Japanese annotations"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mozc の絵文字データと Unicode / CLDR の日本語注釈から生成"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "由 Mozc 表情資料與 Unicode / CLDR 日語註解產生"
+          }
+        }
+      }
+    },
     "皮肤信息": {
       "localizations": {
         "en": {
@@ -8260,6 +8329,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "表情符號分類目錄"
+          }
+        }
+      }
+    },
+    "表情读音检索": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Emoji search by reading"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "読みで絵文字を検索"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "表情讀音檢索"
           }
         }
       }
@@ -9783,6 +9875,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "陰影"
+          }
+        }
+      }
+    },
+    "附 App Store 等应用商店分发的额外许可（GPLv3 第 7 条）": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "With an additional permission for distribution through app stores such as the App Store (GPLv3 section 7)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App Store などのアプリストアで配布するための追加許可付き（GPLv3 第 7 条）"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "附 App Store 等應用程式商店發佈的額外許可（GPLv3 第 7 條）"
           }
         }
       }

@@ -2,7 +2,7 @@
 
 [简体中文](README.md) | [English](README.en.md) | **日本語**
 
-![Platform](https://img.shields.io/badge/platform-iOS%2018%2B-blue) ![Swift](https://img.shields.io/badge/Swift-UIKit%20%2B%20SwiftUI-orange) ![License](https://img.shields.io/badge/license-GPL--2.0-green)
+![Platform](https://img.shields.io/badge/platform-iOS%2018%2B-blue) ![Swift](https://img.shields.io/badge/Swift-UIKit%20%2B%20SwiftUI-orange) ![License](https://img.shields.io/badge/license-GPL--3.0--or--later-green)
 
 Vime は完全オフラインで動く iOS 向けの日本語キーボードです。ローマ字 QWERTY とかな 12 キーの 2 種類の配列に対応し、ひらがな・カタカナ・英字をいつでも切り替えられます。かな漢字変換は [azooKey](https://github.com/azooKey/AzooKeyKanaKanjiConverter) の辞書エンジンをベースに、端末上の小さな Core ML 言語モデルで候補を並べ替え、確定後には次の単語を予測します。変換・誤入力補正・学習・予測はすべて端末内で処理され、入力内容が送信されることはありません。
 
@@ -117,4 +117,4 @@ python3 Scripts/validate_app_resources.py
 
 ## ライセンスと謝辞
 
-Vime は [GPL-2.0](LICENSE) ライセンスで公開しています。かな漢字変換には [AzooKeyKanaKanjiConverter](https://github.com/azooKey/AzooKeyKanaKanjiConverter)、トークナイズには [SentencePiece](https://github.com/google/sentencepiece) を使用しています。サードパーティのコードとデータのライセンス、謝辞、出典は [ThirdPartyNotices.txt](Shared/Resources/ThirdPartyNotices.txt)、[SentencePiece LICENSE](Dependencies/VimeSentencePiece/LICENSE)、[言語リソースの出典一覧](Shared/Resources/LanguageResourceSources.json) にまとめています。アプリ内の「設定 → Vime について → オープンソースとライセンス」でも全文を確認できます。
+Vime は [GPL-3.0-or-later](LICENSE) で公開しており、GPLv3 第 7 条に基づく追加許可として、対応するソースコードを提供することを条件に App Store などのアプリストアでの配布を認めています（[LICENSE-EXCEPTION](LICENSE-EXCEPTION)）。2026-10-22 より前のバージョンは GPL-2.0-only です。同梱の日本語モデル [VimeML](https://github.com/Voltline/VimeML) も同じライセンスで、学習データの帰属表示はサードパーティ通知に記載しています。かな漢字変換には [AzooKeyKanaKanjiConverter](https://github.com/azooKey/AzooKeyKanaKanjiConverter)、トークナイズには [SentencePiece](https://github.com/google/sentencepiece) を使用しています。サードパーティのコードとデータのライセンス、謝辞、出典は [ThirdPartyNotices.txt](Shared/Resources/ThirdPartyNotices.txt)、[SentencePiece LICENSE](Dependencies/VimeSentencePiece/LICENSE)、[言語リソースの出典一覧](Shared/Resources/LanguageResourceSources.json) にまとめています。アプリ内の「設定 → Vime について → オープンソースとライセンス」でも全文を確認できます。
