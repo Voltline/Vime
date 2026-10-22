@@ -58,10 +58,12 @@ extension KeyboardView {
         }
         updateTouchBounds(metrics: metrics)
         if let key = rows.flatMap({ $0 }).first(where: { $0.0.repeats })?.0 {
-            let promptWidth = 112 * scale
-            let h = metrics.keyHeight + 10 * scale
-            deletePrompt.frame = CGRect(x: max(0, key.frame.maxX - promptWidth),
-                y: max(metrics.headerHeight, key.frame.minY - h - 6 * scale), width: promptWidth, height: h)
+            // The track covers the key and reaches one key height above it,
+            // into the toolbar when the key sits on the top row.
+            let top = max(4 * scale, key.frame.minY - metrics.keyHeight - 8 * scale)
+            let left = max(0, key.frame.maxX - 240 * scale)
+            deletePrompt.keySize = key.frame.size
+            deletePrompt.frame = CGRect(x: left, y: top, width: key.frame.maxX - left, height: key.frame.maxY - top)
         }
     }
 
@@ -317,8 +319,7 @@ extension KeyboardView {
             self.capsLocked = false
             self.rebuildKeys()
         }
-        language.0.setImage(KeyboardGlyphs.language(primary: session.inputTraits.language.glyph,
-                                                 secondary: session.inputTraits.alternateLanguage.glyph), for: .normal)
+        language.0.setImage(KeyboardGlyphs.language(active: session.inputTraits.language, other: session.inputTraits.alternateLanguage), for: .normal)
         languageKey = language.0
         language.0.accessibilityLabel = session.inputTraits.languageSwitchAccessibilityLabel
         language.0.accessibilityIdentifier = "vime.key.language"

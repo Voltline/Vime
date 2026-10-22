@@ -3,7 +3,7 @@ import Foundation
 nonisolated enum KeyboardInputLanguage: String, Sendable {
     case japanese, chinese, english
     var glyph: String {
-        switch self { case .japanese: "日"; case .chinese: "中"; case .english: "英" }
+        switch self { case .japanese: "あ"; case .chinese: "中"; case .english: "A" }
     }
     var accessibilityName: String {
         switch self { case .japanese: String(localized: "日语"); case .chinese: String(localized: "中文"); case .english: String(localized: "英文") }

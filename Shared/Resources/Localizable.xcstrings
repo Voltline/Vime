@@ -458,6 +458,28 @@
         }
       }
     },
+    "Vime 的全部功能都已包含在应用中。赞助完全自愿，不会解锁任何功能、皮肤或其他内容。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Every Vime feature is already included in the app. Tips are entirely optional and unlock no features, skins or other content."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vime のすべての機能はすでに App に含まれています。チップは任意で、機能やきせかえなどが追加されることはありません。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vime 的全部功能都已包含在 App 中。贊助完全自願，不會解鎖任何功能、外觀或其他內容。"
+          }
+        }
+      }
+    },
     "Vime 筛选词语与口语条目、提取假名表记偏好；衍生语言数据与 App 代码分别展示许可": {
       "extractionState": "manual",
       "localizations": {
@@ -1098,6 +1120,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "從照片選擇圖片"
+          }
+        }
+      }
+    },
+    "付款由 Apple 处理，Vime 不会收到你的付款信息，也不保存购买记录。每次赞助都是一次性购买，无需恢复购买。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple handles the payment. Vime never receives your payment details and keeps no purchase records. Each tip is a one-time purchase, so there is nothing to restore."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "支払いは Apple が処理します。Vime が支払い情報を受け取ることはなく、購入記録も保存しません。チップは都度の購入のため、復元する必要はありません。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "付款由 Apple 處理，Vime 不會收到你的付款資訊，也不儲存購買記錄。每次贊助都是一次性購買，無需回復購買。"
           }
         }
       }
@@ -4441,6 +4485,28 @@
         }
       }
     },
+    "感谢你的支持！": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thank you for your support!"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "応援ありがとうございます！"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "感謝你的支持！"
+          }
+        }
+      }
+    },
     "我的皮肤": {
       "localizations": {
         "en": {
@@ -5036,6 +5102,28 @@
         }
       }
     },
+    "支持 Vime 的开发": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Support Vime's Development"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vime の開発を応援"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "支持 Vime 的開發"
+          }
+        }
+      }
+    },
     "收起剪贴板提示": {
       "localizations": {
         "en": {
@@ -5347,6 +5435,28 @@
         }
       }
     },
+    "无法验证这笔交易": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This transaction could not be verified"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この取引を確認できませんでした"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法驗證這筆交易"
+          }
+        }
+      }
+    },
     "日 / 英": {
       "localizations": {
         "en": {
@@ -5541,6 +5651,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "尚無剪貼簿歷史記錄\n開啟功能後，近期拷貝的文字會保留在這裡"
+          }
+        }
+      }
+    },
+    "暂时无法连接 App Store，请稍后再试。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Can't reach the App Store right now. Please try again later."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "現在 App Store に接続できません。しばらくしてからもう一度お試しください。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "暫時無法連線 App Store，請稍後再試。"
           }
         }
       }
@@ -8750,6 +8882,28 @@
         }
       }
     },
+    "说明": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "About Tips"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ご注意"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "說明"
+          }
+        }
+      }
+    },
     "请允许键盘完全访问后查看": {
       "localizations": {
         "en": {
@@ -8900,6 +9054,72 @@
           "stringUnit": {
             "state": "translated",
             "value": "讀音，例如 とうきょう / toukyou"
+          }
+        }
+      }
+    },
+    "购买未完成：%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Purchase not completed: %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "購入は完了しませんでした：%@"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "購買未完成：%@"
+          }
+        }
+      }
+    },
+    "购买正在等待批准，批准后会自动完成。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The purchase is waiting for approval and will finish automatically once approved."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "購入は承認待ちです。承認されると自動的に完了します。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "購買正在等待核准，核准後會自動完成。"
+          }
+        }
+      }
+    },
+    "赞助开发": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip the Developer"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開発を応援"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "贊助開發"
           }
         }
       }
@@ -9700,6 +9920,7 @@
       }
     },
     "问题诊断": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {

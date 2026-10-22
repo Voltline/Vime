@@ -12,26 +12,34 @@ enum KeyboardGlyphs {
         }.withRenderingMode(.alwaysOriginal)
     }
 
-    static func language(english: Bool = false) -> UIImage {
-        language(primary: english ? "英" : "日", secondary: english ? "日" : "英")
-    }
-
-    static func language(primary: String, secondary: String) -> UIImage {
-        UIGraphicsImageRenderer(size: CGSize(width: 32, height: 32)).image { _ in
-            (primary as NSString).draw(at: CGPoint(x: 3, y: 1), withAttributes: [.font: UIFont.systemFont(ofSize: 13, weight: .semibold), .foregroundColor: UIColor.label])
-            (secondary as NSString).draw(at: CGPoint(x: 17, y: 15), withAttributes: [.font: UIFont.systemFont(ofSize: 11, weight: .semibold), .foregroundColor: UIColor(white: 0.66, alpha: 1)])
-            let arrows = UIBezierPath()
-            arrows.move(to: CGPoint(x: 19, y: 7))
-            arrows.addLine(to: CGPoint(x: 22, y: 7))
-            arrows.addQuadCurve(to: CGPoint(x: 26, y: 11), controlPoint: CGPoint(x: 26, y: 7))
-            arrows.addLine(to: CGPoint(x: 26, y: 14))
-            arrows.move(to: CGPoint(x: 12, y: 25))
-            arrows.addLine(to: CGPoint(x: 9, y: 25))
-            arrows.addQuadCurve(to: CGPoint(x: 5, y: 21), controlPoint: CGPoint(x: 5, y: 25))
-            arrows.addLine(to: CGPoint(x: 5, y: 18))
-            arrows.lineWidth = 1.5
-            UIColor(white: 0.7, alpha: 1).setStroke()
-            arrows.stroke()
+    /// Two-segment pill: the input language on the left, English on the right,
+    /// with the active side filled.
+    static func language(active: KeyboardInputLanguage, other: KeyboardInputLanguage) -> UIImage {
+        let size = CGSize(width: 38, height: 22)
+        return UIGraphicsImageRenderer(size: size).image { _ in
+            let outline = UIBezierPath(roundedRect: CGRect(origin: .zero, size: size).insetBy(dx: 0.75, dy: 0.75),
+                                       cornerRadius: size.height / 2)
+            outline.lineWidth = 1.2
+            UIColor.label.withAlphaComponent(0.35).setStroke()
+            outline.stroke()
+            let segments = active == .english ? [other, active] : [active, other]
+            for (index, language) in segments.enumerated() {
+                let half = CGRect(x: CGFloat(index) * size.width / 2, y: 0, width: size.width / 2, height: size.height)
+                let isActive = language == active
+                if isActive {
+                    let fill = half.insetBy(dx: 2.5, dy: 2.5)
+                    UIColor.label.setFill()
+                    UIBezierPath(roundedRect: fill, cornerRadius: fill.height / 2).fill()
+                }
+                let text = language.glyph as NSString
+                let attributes: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.systemFont(ofSize: 12, weight: .semibold),
+                    .foregroundColor: isActive ? UIColor.systemBackground : UIColor.label.withAlphaComponent(0.45),
+                ]
+                let textSize = text.size(withAttributes: attributes)
+                text.draw(at: CGPoint(x: half.midX - textSize.width / 2, y: half.midY - textSize.height / 2),
+                          withAttributes: attributes)
+            }
         }.withRenderingMode(.alwaysOriginal)
     }
 

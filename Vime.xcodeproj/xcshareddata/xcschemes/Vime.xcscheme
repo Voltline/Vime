@@ -14,6 +14,7 @@
     <BuildableProductRunnable runnableDebuggingMode="0">
       <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="B2ED4C073071EF7600C73DB0" BuildableName="Vime.app" BlueprintName="Vime" ReferencedContainer="container:Vime.xcodeproj"/>
     </BuildableProductRunnable>
+    <StoreKitConfigurationFileReference identifier="../../Configuration/VimeTips.storekit"/>
   </LaunchAction>
   <ProfileAction buildConfiguration="Release" shouldUseLaunchSchemeArgsEnv="YES" savedToolIdentifier="" useCustomWorkingDirectory="NO" debugDocumentVersioning="YES">
     <BuildableProductRunnable runnableDebuggingMode="0">

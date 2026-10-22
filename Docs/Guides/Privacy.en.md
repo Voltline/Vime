@@ -1,8 +1,8 @@
 # Vime Privacy Policy
 
-Updated: 2026-10-20
+Updated: 2026-10-22
 
-Effective: 2026-10-20
+Effective: 2026-10-22
 
 This policy applies to the Vime app (the “app”) and its iOS keyboard extension (the “keyboard”), together “Vime”.
 
@@ -79,6 +79,8 @@ Vime is a Japanese keyboard provided by the developer Voltline (“we”). We ta
 4.2 **Transfers you start**. Text you confirm or paste with the keyboard is received by the app you are using; when you export or share files or send feedback, the content goes to the recipient you choose. Their privacy policies apply.
 
 4.3 **System and external services**. When you open external links or use system backups, Universal Clipboard and similar features, those services are provided by Apple or other providers under their own privacy terms. Vime offers no cloud sync of its own.
+
+4.4 **Optional tips**. You can tip the developer through App Store in-app purchases in Settings › Tip the Developer in the main app. Apple processes the payment under its own privacy terms; we do not receive your payment information and do not store or link purchase records. Tips unlock no features.
 
 ## 5. How We Protect Your Information
 

@@ -1,0 +1,113 @@
+{
+  "identifier" : "6C0E5C7A-3E0B-4C61-9F57-2D7C4E1A9B10",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+    {
+      "displayPrice" : "0.99",
+      "familyShareable" : false,
+      "internalID" : "6747000001",
+      "localizations" : [
+        {
+          "description" : "A small thank-you. Unlocks no features.",
+          "displayName" : "A Cup of Tea",
+          "locale" : "en_US"
+        },
+        {
+          "description" : "ささやかなお礼です。機能は追加されません。",
+          "displayName" : "お茶一杯",
+          "locale" : "ja"
+        },
+        {
+          "description" : "一点小小的心意，不解锁任何功能。",
+          "displayName" : "一杯茶",
+          "locale" : "zh_Hans"
+        },
+        {
+          "description" : "一點小小的心意，不解鎖任何功能。",
+          "displayName" : "一杯茶",
+          "locale" : "zh_Hant"
+        }
+      ],
+      "productID" : "com.Voltline.Vime.tip.small",
+      "referenceName" : "Tip Small",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "2.99",
+      "familyShareable" : false,
+      "internalID" : "6747000002",
+      "localizations" : [
+        {
+          "description" : "Keeps the developer going. Unlocks no features.",
+          "displayName" : "A Cup of Coffee",
+          "locale" : "en_US"
+        },
+        {
+          "description" : "開発の励みになります。機能は追加されません。",
+          "displayName" : "コーヒー一杯",
+          "locale" : "ja"
+        },
+        {
+          "description" : "给开发者续一杯，不解锁任何功能。",
+          "displayName" : "一杯咖啡",
+          "locale" : "zh_Hans"
+        },
+        {
+          "description" : "給開發者續一杯，不解鎖任何功能。",
+          "displayName" : "一杯咖啡",
+          "locale" : "zh_Hant"
+        }
+      ],
+      "productID" : "com.Voltline.Vime.tip.medium",
+      "referenceName" : "Tip Medium",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "9.99",
+      "familyShareable" : false,
+      "internalID" : "6747000003",
+      "localizations" : [
+        {
+          "description" : "A generous boost for future updates. Unlocks no features.",
+          "displayName" : "A Nice Meal",
+          "locale" : "en_US"
+        },
+        {
+          "description" : "今後のアップデートへの大きな応援です。機能は追加されません。",
+          "displayName" : "ごちそう一食",
+          "locale" : "ja"
+        },
+        {
+          "description" : "为后续更新加油，不解锁任何功能。",
+          "displayName" : "一顿大餐",
+          "locale" : "zh_Hans"
+        },
+        {
+          "description" : "為後續更新加油，不解鎖任何功能。",
+          "displayName" : "一頓大餐",
+          "locale" : "zh_Hant"
+        }
+      ],
+      "productID" : "com.Voltline.Vime.tip.large",
+      "referenceName" : "Tip Large",
+      "type" : "Consumable"
+    }
+  ],
+  "settings" : {
+    "_failTransactionsEnabled" : false,
+    "_locale" : "en_US",
+    "_storefront" : "USA",
+    "_storeKitErrors" : [
+
+    ]
+  },
+  "subscriptionGroups" : [
+
+  ],
+  "version" : {
+    "major" : 4,
+    "minor" : 0
+  }
+}
