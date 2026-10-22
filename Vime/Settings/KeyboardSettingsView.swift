@@ -62,6 +62,13 @@ struct KeyboardSettingsView: View {
         .onAppear { reload() }
         .onChange(of: scenePhase) { _, phase in if phase == .active { reload() } }
         .task(id: refresh) { if !fixed { counts = await KeyboardSettingsCounts.load() } }
+        .task {
+            // The keyboard may first report while this page is open.
+            while !fixed && !Task.isCancelled && summary.status?.fullAccess != true {
+                try? await Task.sleep(for: .seconds(1))
+                summary = .load()
+            }
+        }
     }
 
     /// Returning from a sub-page or from iOS Settings may change any value.
@@ -83,6 +90,8 @@ struct KeyboardSettingsSummary: Equatable {
     var symbolCount: Int
     var clipboard: Bool
     var appVersion: String
+    /// Listed in iOS's added keyboards; it may not have run since.
+    var added = false
 
     static func load(preferences: KeyboardPreferences = KeyboardPreferences(),
                      status: KeyboardExtensionStatus? = KeyboardExtensionStatus.load()) -> Self {
@@ -90,7 +99,8 @@ struct KeyboardSettingsSummary: Equatable {
              hapticIntensity: preferences.hapticIntensity, nineKeyNumbers: preferences.nineKeyNumbers,
              autoPairBrackets: preferences.autoPairBrackets, symbolCount: preferences.numberSymbols.count,
              clipboard: preferences.clipboardSuggestions,
-             appVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0")
+             appVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0",
+             added: KeyboardSetupProgress.load(status: status).added)
     }
 
     var feelDetail: String {
@@ -150,10 +160,17 @@ private struct KeyboardStatusCard: View {
                 if typeSize.isAccessibilitySize { VStack(spacing: 8) { stats } }
                 else { HStack(alignment: .top, spacing: 8) { stats } }
             } else {
-                let added = summary.status != nil
-                header(symbol: "exclamationmark.triangle", title: added ? "完全访问未开启" : "还没检测到键盘",
-                       detail: added ? String(localized: "声音、振动、共享词典与学习需要完全访问")
-                           : String(localized: "添加 Vime 并开启完全访问后，这里会显示状态"))
+                if summary.status != nil {
+                    header(symbol: "exclamationmark.triangle", title: "完全访问未开启",
+                           detail: String(localized: "声音、振动、共享词典与学习需要完全访问"))
+                } else if summary.added {
+                    // Full access is unknown until the keyboard runs and reports.
+                    header(symbol: "keyboard", title: "正在等待完全访问…",
+                           detail: String(localized: "在任意输入框切换到 Vime 打一个字"))
+                } else {
+                    header(symbol: "exclamationmark.triangle", title: "还没检测到键盘",
+                           detail: String(localized: "添加 Vime 并开启完全访问后，这里会显示状态"))
+                }
                 VStack(alignment: .leading, spacing: 8) {
                     step(1, "设置 › 通用 › 键盘 › 添加新键盘 › Vime")
                     step(2, "点 Vime，打开「允许完全访问」")

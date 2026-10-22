@@ -29,9 +29,9 @@ final class AppPresentationTests: XCTestCase {
     }
     static let reportedStatus = Vime.KeyboardExtensionStatus(lastSeen: Date(), fullAccess: true,
         modelVersion: "4.2-epoch20-step1081942-int8-b32-v1")
-    static func settingsSummary(status: Vime.KeyboardExtensionStatus?) -> Vime.KeyboardSettingsSummary {
+    static func settingsSummary(status: Vime.KeyboardExtensionStatus?, added: Bool = false) -> Vime.KeyboardSettingsSummary {
         Vime.KeyboardSettingsSummary(status: status, ranking: .languageModel, suggestions: true, hapticIntensity: 0.6,
-            nineKeyNumbers: true, autoPairBrackets: true, symbolCount: 12, clipboard: false, appVersion: "1.0")
+            nineKeyNumbers: true, autoPairBrackets: true, symbolCount: 12, clipboard: false, appVersion: "1.0", added: added)
     }
 
     func testExtensionStatusRoundTripsOnlyFromTheExtensionProcess() throws {
@@ -243,7 +243,9 @@ final class AppPresentationTests: XCTestCase {
                              ("试打", AnyView(Vime.KeyboardHomeView(keyboardReady: true))),
                              ("试打-大字", AnyView(Vime.KeyboardHomeView(keyboardReady: false).environment(\.dynamicTypeSize, .accessibility1))),
                              ("试打-深色", AnyView(Vime.KeyboardHomeView(keyboardReady: true).environment(\.colorScheme, .dark))),
+                             ("试打-等待完全访问", AnyView(Vime.KeyboardHomeView(progress: .init(added: true, fullAccess: false)))),
                              ("设置-未检测", AnyView(Vime.KeyboardSettingsView(summary: Self.settingsSummary(status: nil)))),
+                             ("设置-等待完全访问", AnyView(Vime.KeyboardSettingsView(summary: Self.settingsSummary(status: nil, added: true)))),
                              ("设置-运行正常", AnyView(Vime.KeyboardSettingsView(summary: Self.settingsSummary(status: Self.reportedStatus),
                                  counts: .init(dictionary: 24, learned: 312)))),
                              ("设置-运行正常-深色", AnyView(Vime.KeyboardSettingsView(summary: Self.settingsSummary(status: Self.reportedStatus),

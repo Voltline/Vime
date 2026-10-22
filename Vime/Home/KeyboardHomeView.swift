@@ -7,24 +7,22 @@ struct KeyboardHomeView: View {
     @State private var composition = ""
     @State private var focusRequest = 0
     @State private var clearRequest = 0
-    @State private var keyboardReady: Bool
+    @State private var progress: KeyboardSetupProgress
     @State private var practiceIndex = 0
     /// Onboarding covers this page while the keyboard first reports in.
     @AppStorage("vime.onboarding.completed") private var onboardingCompleted = false
     /// Fixed state for rendering tests; the live page rereads the status record.
     private let fixed: Bool
 
-    init(keyboardReady: Bool? = nil) {
-        _keyboardReady = State(initialValue: keyboardReady ?? Self.keyboardReported())
-        fixed = keyboardReady != nil
+    init(keyboardReady: Bool? = nil, progress: KeyboardSetupProgress? = nil) {
+        let fixedProgress = progress ?? keyboardReady.map { .init(added: $0, fullAccess: $0) }
+        _progress = State(initialValue: fixedProgress ?? .load())
+        fixed = fixedProgress != nil
     }
-
-    /// Same signal as the settings status card: a report proves full access.
-    private static func keyboardReported() -> Bool { KeyboardExtensionStatus.load()?.fullAccess == true }
 
     var body: some View {
         AppDashboardPage {
-            if !keyboardReady { setupBanner }
+            if !progress.fullAccess { setupBanner }
             editorCard
             practiceCard
             VStack(alignment: .leading, spacing: 10) {
@@ -47,23 +45,37 @@ struct KeyboardHomeView: View {
         .onAppear(perform: reload)
         .onChange(of: scenePhase) { _, phase in if phase == .active { reload() } }
         .onChange(of: onboardingCompleted) { reload() }
+        .task {
+            // Full access is known only once the keyboard runs, which may be in
+            // the editor on this page, so keep checking until it reports.
+            while !fixed && !Task.isCancelled && !progress.fullAccess {
+                try? await Task.sleep(for: .seconds(1))
+                reload()
+            }
+        }
     }
 
     private func reload() {
         guard !fixed else { return }
-        keyboardReady = Self.keyboardReported()
+        progress = .load()
     }
 
     private var setupBanner: some View {
         NavigationLink { KeyboardSetupGuide() } label: {
             HStack(spacing: 12) {
-                Image(systemName: "exclamationmark.triangle").font(.body.weight(.semibold))
+                Image(systemName: progress.added ? "keyboard" : "exclamationmark.triangle").font(.body.weight(.semibold))
                     .frame(width: 36, height: 36)
                     .background(.white.opacity(0.18), in: RoundedRectangle(cornerRadius: 10))
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("还没检测到 Vime").font(.subheadline.weight(.semibold))
-                    Text("添加键盘并开启完全访问后再来试打").font(.footnote).foregroundStyle(.white.opacity(0.85))
+                    // Added but not yet run: iOS shows full access to the app
+                    // only through the keyboard's own report.
+                    Group {
+                        if progress.added { Text("正在等待完全访问…") } else { Text("还没检测到 Vime") }
+                    }.font(.subheadline.weight(.semibold))
+                    Group {
+                        if progress.added { Text("长按地球键切到 Vime，输入 nihongo") } else { Text("添加键盘并开启完全访问后再来试打") }
+                    }.font(.footnote).foregroundStyle(.white.opacity(0.85))
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 8)
