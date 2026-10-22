@@ -68,6 +68,7 @@ final class KeyboardSymbolPanel: UIView, UICollectionViewDataSource, UICollectio
         }, for: .valueChanged)
         close.setTitle(String(localized: "返回键盘"), for: .normal)
         close.titleLabel?.font = .systemFont(ofSize: 14, weight: .medium)
+        close.titleLabel?.adjustsFontSizeToFitWidth = true; close.titleLabel?.minimumScaleFactor = 0.7
         close.accessibilityIdentifier = "vime.symbols.close"
         close.addAction(UIAction { [weak self] _ in
             guard let self else { return }
@@ -125,8 +126,10 @@ final class KeyboardSymbolPanel: UIView, UICollectionViewDataSource, UICollectio
         let oldSize = collection.bounds.size
         let top = KeyboardMetrics.toolbarTopInset
         let metrics = KeyboardMetrics(width: bounds.width, compact: compact, showsFooter: false)
-        close.frame = CGRect(x: 6, y: top, width: 82, height: 34)
-        modes.frame = CGRect(x: 96, y: top + 2, width: max(0, bounds.width - 104), height: 30)
+        // Localized titles vary widely in length; fit the text rather than truncate it.
+        let closeWidth = min(max(82, Self.textWidth(String(localized: "返回键盘"), font: close.titleLabel?.font) + 8), bounds.width * 0.4)
+        close.frame = CGRect(x: 6, y: top, width: closeWidth, height: 34)
+        modes.frame = CGRect(x: close.frame.maxX + 8, y: top + 2, width: max(0, bounds.width - close.frame.maxX - 16), height: 30)
         categories.frame = CGRect(x: 0, y: top + 32, width: bounds.width, height: 28)
         close.setTitle(compact ? nil : String(localized: "返回键盘"), for: .normal)
         close.accessibilityLabel = String(localized: "返回键盘")
@@ -163,12 +166,27 @@ final class KeyboardSymbolPanel: UIView, UICollectionViewDataSource, UICollectio
         syncHeaderToScrolling()
         prepareAhead()
     }
+    /// Tabs keep a 52pt minimum and grow to fit longer localized titles.
     private func layoutCategories() {
         headerProgress = nil
-        for (index, button) in categoryButtons.enumerated() {
-            button.frame = CGRect(x: (compact ? 0 : 8) + CGFloat(index) * 56, y: 0, width: 52, height: 28)
+        var x: CGFloat = compact ? 0 : 8
+        for button in categoryButtons {
+            let width = max(52, Self.textWidth(button.title(for: .normal) ?? "", font: button.titleLabel?.font) + 16)
+            button.frame = CGRect(x: x, y: 0, width: width, height: 28)
+            x += width + 4
         }
-        categories.contentSize = CGSize(width: CGFloat(categoryButtons.count) * 56 + (compact ? 0 : 8), height: 28)
+        categories.contentSize = CGSize(width: x - 4 + (compact ? 0 : 8), height: 28)
+    }
+    private static func textWidth(_ text: String, font: UIFont?) -> CGFloat {
+        ceil((text as NSString).size(withAttributes: [.font: font ?? .systemFont(ofSize: 14)]).width)
+    }
+    /// The indicator slides between neighbouring tab frames as `progress` crosses a boundary.
+    private func indicatorFrame(at progress: CGFloat) -> CGRect {
+        guard let last = categoryButtons.indices.last else { return .zero }
+        let lower = max(0, min(last, Int(progress.rounded(.down)))), upper = min(last, lower + 1)
+        let fraction = progress - CGFloat(lower), from = categoryButtons[lower].frame, to = categoryButtons[upper].frame
+        return CGRect(x: from.minX + (to.minX - from.minX) * fraction, y: 0,
+            width: from.width + (to.width - from.width) * fraction, height: 28)
     }
     private func rebuildCategories(for mode: Mode) {
         displayedMode = mode
@@ -215,7 +233,7 @@ final class KeyboardSymbolPanel: UIView, UICollectionViewDataSource, UICollectio
         guard headerProgress != progress else { return }
         headerProgress = progress
         categoryIndicator.backgroundColor = KeyboardPalette.utility
-        categoryIndicator.frame = CGRect(x: (compact ? 0 : 8) + progress * 56, y: 0, width: 52, height: 28)
+        categoryIndicator.frame = indicatorFrame(at: progress)
         let maximum = max(0, categories.contentSize.width - categories.bounds.width)
         categories.setContentOffset(CGPoint(x: max(0, min(maximum, categoryIndicator.frame.midX - categories.bounds.width / 2)), y: 0), animated: false)
     }

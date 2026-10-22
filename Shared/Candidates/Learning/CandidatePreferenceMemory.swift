@@ -603,6 +603,6 @@ nonisolated struct NextWordSuggestion: Sendable {
     var presentation: CandidatePresentation {
         let replacementAnnotation = nativePrediction.flatMap { $0.isReplacement ? String(localized: "替换「\($0.replacedText)」") : nil }
         return .init(text: text, source: source, consumedInputCount: 0, correction: nil,
-            detailAnnotation: replacementAnnotation ?? (source == .emoji ? "表情" : nil))
+            detailAnnotation: replacementAnnotation ?? (source == .emoji ? String(localized: "表情") : nil))
     }
 }

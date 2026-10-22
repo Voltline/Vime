@@ -88,16 +88,27 @@ final class AppPresentationTests: XCTestCase {
 
     func testEveryLanguageBundleResolvesAppAndKeyboardStrings() throws {
         let expected: [String: [String: String]] = [
-            "zh-Hant": ["设置": "設定", "剪贴板": "剪貼簿", "符号与括号": "符號與括號", "%lld 条": "%lld 條"],
-            "ja": ["设置": "設定", "剪贴板": "クリップボード", "符号与括号": "記号と括弧", "%lld 条": "%lld 件"],
-            "en": ["设置": "Settings", "剪贴板": "Clipboard", "符号与括号": "Symbols & Brackets", "%lld 条": "%lld entries"],
-            "ko": ["设置": "설정", "剪贴板": "클립보드", "符号与括号": "기호 및 괄호", "%lld 条": "%lld개 항목"],
+            "zh-Hant": ["设置": "設定", "剪贴板": "剪貼簿", "符号与括号": "符號與括號"],
+            "ja": ["设置": "設定", "剪贴板": "クリップボード", "符号与括号": "記号と括弧"],
+            "en": ["设置": "Settings", "剪贴板": "Clipboard", "符号与括号": "Symbols & Brackets"],
+            "ko": ["设置": "설정", "剪贴板": "클립보드", "符号与括号": "기호 및 괄호"],
+        ]
+        // Counts resolve plural forms, so check the formatted text for one and two.
+        let counts: [String: [String: [String]]] = [
+            "zh-Hant": ["%lld 条": ["1 條", "2 條"], "%lld 个": ["1 個", "2 個"]],
+            "ja": ["%lld 条": ["1 件", "2 件"], "%lld 个": ["1 語", "2 語"]],
+            "en": ["%lld 条": ["1 entry", "2 entries"], "%lld 个": ["1 word", "2 words"]],
+            "ko": ["%lld 条": ["1개 항목", "2개 항목"], "%lld 个": ["1개", "2개"]],
         ]
         for (language, values) in expected {
             let path = try XCTUnwrap(Bundle.main.path(forResource: language, ofType: "lproj"), language)
             let bundle = try XCTUnwrap(Bundle(path: path))
             for (key, value) in values {
                 XCTAssertEqual(bundle.localizedString(forKey: key, value: nil, table: nil), value, "\(language): \(key)")
+            }
+            for (key, forms) in counts[language] ?? [:] {
+                let format = bundle.localizedString(forKey: key, value: nil, table: nil)
+                XCTAssertEqual([1, 2].map { String(format: format, locale: Locale(identifier: language), Int64($0)) }, forms, "\(language): \(key)")
             }
             // Runtime keys (symbol categories, license fields) are catalog entries too.
             XCTAssertNotEqual(bundle.localizedString(forKey: "箭头", value: nil, table: nil), "箭头", language)
