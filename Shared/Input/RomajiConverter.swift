@@ -5,7 +5,15 @@ import KanaKanjiConverterModuleWithDefaultDictionary
 /// candidate queries only and must never alter the live preedit.
 nonisolated enum RomajiConverter {
     static func insert(_ text: String, into composing: inout ComposingText) {
-        composing.insertAtCursorPosition(text, inputStyle: .roman2kana)
+        // n' ends ん before a vowel, as in other IMEs: kan'i → かんい. The
+        // apostrophe becomes the second n, so deleting ん removes both.
+        for (index, part) in text.split(separator: "'", omittingEmptySubsequences: false).enumerated() {
+            if index > 0 {
+                let beforeCursor = composing.convertTarget.prefix(composing.convertTargetCursorPosition)
+                composing.insertAtCursorPosition(beforeCursor.hasSuffix("n") ? "n" : "'", inputStyle: .roman2kana)
+            }
+            if !part.isEmpty { composing.insertAtCursorPosition(String(part), inputStyle: .roman2kana) }
+        }
     }
 
     static func nReadingAlternatives(for composing: ComposingText) -> [ComposingText] {

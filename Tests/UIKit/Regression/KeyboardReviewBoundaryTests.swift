@@ -21,7 +21,7 @@ final class KeyboardReviewBoundaryTests: XCTestCase {
         let request = session.revision
         _ = session.space(); _ = session.space()
         XCTAssertEqual(session.revision, request)
-        XCTAssertEqual(session.candidateRequestCount, 2, "One normal query and one boundary query")
+        XCTAssertEqual(session.candidateRequestCount, 1, "The per-key query already reads the trailing n as ん")
         XCTAssertEqual(session.raw, "kan")
         XCTAssertEqual(session.composition, "かn", "The query boundary must not rewrite live input")
         await fulfillment(of: [result], timeout: 10)

@@ -64,6 +64,8 @@ protocol KeyboardInputSession: AnyObject {
     var hostEpoch: Int { get }
     var isComposing: Bool { get }
     var composition: String { get }
+    /// The keys typed for the composition, before kana conversion.
+    var raw: String { get }
     var markedText: KeyboardPreedit? { get }
     var candidatePresentations: [CandidatePresentation] { get }
     var candidateCount: Int { get }
@@ -86,6 +88,8 @@ protocol KeyboardInputSession: AnyObject {
     func enter() -> [KeyboardEdit]
     func confirm() -> [KeyboardEdit]
     func confirmAll() -> [KeyboardEdit]
+    /// Hides next-word suggestions without committing anything.
+    func dismissSuggestions()
     func insertLiteral(_ text: String) -> [KeyboardEdit]
     /// Kana layouts edit the last composed character in place (repeated taps,
     /// dakuten and small kana). nil: nothing to edit; type a new character.
@@ -109,6 +113,7 @@ protocol KeyboardInputSession: AnyObject {
 
 extension KeyboardInputSession {
     func retryLanguageModel(requestID: String) {}
+    var raw: String { "" }
     func prepareForInput() {}
     func setCandidatePresentationPreparation(_ prepare: @escaping @Sendable (CandidatePresentation, Bool) -> Void) {}
     var candidateInitialRequestStartedAt: TimeInterval? { nil }

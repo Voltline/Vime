@@ -134,7 +134,7 @@ final class KeyboardCorrectionTests: XCTestCase {
         let baseline = engine.candidates(for: incomplete, revision: 2, includeCorrections: false)
         XCTAssertEqual(engine.addingCorrections(to: baseline, for: incomplete, katakana: false, revision: 2).map(\.presentation),
                        baseline.map(\.presentation))
-        incomplete = query(String(repeating: "nihongo", count: 7))
+        incomplete = query(String(repeating: "nihongo", count: 10))
         XCTAssertTrue(KeyboardCorrectionVariants.generate(for: incomplete).isEmpty)
         let report: [String: Any] = ["positiveCount": positives.count, "recallCount": recalled,
             "negativeCount": negatives.count, "falseSuggestionCount": falseSuggestions,

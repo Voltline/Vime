@@ -62,7 +62,8 @@ final class KeyboardWidthCandidateTests: XCTestCase {
         session.setExpandedCandidates(true)
         XCTAssertEqual(session.preedit, "べーとーべn")
         XCTAssertEqual(session.raw, raw)
-        XCTAssertFalse(session.candidateSnapshots.contains { $0.widthVariant == .halfWidthKatakana })
+        // The trailing n reads as ん, so no half-width form keeps a bare n.
+        XCTAssertFalse(session.candidateSnapshots.contains { $0.widthVariant == .halfWidthKatakana && $0.text.contains("n") })
         XCTAssertEqual(session.space(), [])
         let index = try XCTUnwrap(session.candidateSnapshots.firstIndex { $0.text == "ﾍﾞｰﾄｰﾍﾞﾝ" })
         XCTAssertEqual(session.choose(index), [.insert("ﾍﾞｰﾄｰﾍﾞﾝ")])

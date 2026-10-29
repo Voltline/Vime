@@ -24,6 +24,8 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     var onHeightChange: (() -> Void)?
     var onReplaceText: ((KeyboardTextReplacement) -> Bool)?
     var deletionAvailabilityProvider: (() -> Bool)?
+    /// The host's selected text, offered for reconversion.
+    var selectedTextProvider: (() -> String?)?
     var heightFactor: CGFloat = 1 {
         didSet {
             guard oldValue != heightFactor else { return }
@@ -107,6 +109,11 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     let clipboard: KeyboardClipboard
     var clipboardTimer: Timer?
     var clipboardActive = true
+    /// The header arrow closes next-word suggestions or emoji search instead
+    /// of the keyboard.
+    var showsNextWordClose = false
+    /// Typed readings search emoji; results replace the toolbar's candidates.
+    var emojiSearchActive = false
     var clipboardHistoryPanel: ClipboardHistoryPanel?
     var historyRequest = 0
     var stripButtons: [KeyboardCandidateButton] = []
@@ -538,6 +545,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     func prepareForInput() { session.prepareForInput() }
 
     func resetComposition() {
+        emojiSearchActive = false
         session.reset()
         if panel == .candidates { panel = .keyboard }
         onPreeditChange?(nil)

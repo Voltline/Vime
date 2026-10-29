@@ -19,12 +19,13 @@ extension KeyboardView {
         let hidesDivider: Bool
         let hidesPanelTitle: Bool
         let hidesRangeControls: Bool
-        /// Next-word suggestions after a commit, shown beside the brand.
+        /// Next-word suggestions after a commit take the whole row, with a
+        /// close button where the dismiss-keyboard button was.
         let showsNextWords: Bool
 
         init(panel: Panel, page: Page, composing: Bool, sessionStrip: Bool, quickAvailable: Bool,
              clipboardOffered: Bool, neuralPaused: Bool, canUndo: Bool, supportsPrimaryVariant: Bool,
-             hasConversionRange: Bool) {
+             hasConversionRange: Bool, emojiSearch: Bool = false) {
             let keyboard = panel == .keyboard
             // Composition candidates and LM suggestions share the strip.
             showsQuick = quickAvailable
@@ -35,8 +36,8 @@ extension KeyboardView {
             hidesHeader = panel == .symbols || panel == .clipboardHistory
             hidesUndo = !canUndo || strip || !keyboard
             showsNextWords = keyboard && sessionStrip && !composing && !showsQuick && !showsClipboard
-            let idleToolbar = (showsQuick || showsClipboard || showsNextWords) && !composing
-            hidesBrand = (keyboard && (page != .letters || (strip && !idleToolbar)))
+            let idleToolbar = (showsQuick || showsClipboard) && !composing
+            hidesBrand = (keyboard && (page != .letters || (strip && !idleToolbar) || emojiSearch))
                 || (panel == .candidates || panel == .symbols || panel == .clipboardHistory)
             hidesMode = strip || page != .letters || !keyboard || !supportsPrimaryVariant
             hidesCandidateScroll = !strip || showsQuick || showsClipboard || !keyboard
@@ -82,7 +83,8 @@ extension KeyboardView {
             quickAvailable: !quick.isEmpty,
             clipboardOffered: clipboard.text != nil && preferences.clipboardSuggestions && hasFullAccess && clipboardActive,
             neuralPaused: neuralPaused, canUndo: canUndoLineDeletion,
-            supportsPrimaryVariant: traits.supportsPrimaryVariant, hasConversionRange: rangeDescription != nil)
+            supportsPrimaryVariant: traits.supportsPrimaryVariant, hasConversionRange: rangeDescription != nil,
+            emojiSearch: emojiSearchActive)
         quickCandidates.present(quick)
         quickCandidates.isHidden = state.hidesQuick
         clipboardSuggestion.present(state.showsClipboard ? clipboard.text : nil)
@@ -96,6 +98,7 @@ extension KeyboardView {
         modeButton.accessibilityLabel = traits.primaryVariantAccessibilityLabel
         candidateScroll.isHidden = state.hidesCandidateScroll
         expandButton.isHidden = state.showsClipboard
+        showsNextWordClose = state.showsNextWords || (emojiSearchActive && panel == .keyboard)
         modeButton.setTitle(traits.modeLabel, for: .normal)
         accessibilityValue = composing ? String(localized: "输入中：\(session.markedText?.text ?? "")") : traits.modeLabel
         expandButton.backgroundColor = composing ? KeyboardTouchBacking.color : KeyboardPalette.key
@@ -150,10 +153,16 @@ extension KeyboardView {
 
     func refreshPanels(composing: Bool) {
         let panelOpen = panel != .keyboard
-        let chevron = panelOpen ? Self.chevronUp : Self.chevronDown
-        if expandButton.image(for: .normal) !== chevron { expandButton.setImage(chevron, for: .normal) }
-        expandButton.accessibilityLabel = panelOpen ? String(localized: "返回键盘") : composing ? String(localized: "展开候选词") : String(localized: "收起键盘")
-        expandButton.accessibilityIdentifier = panelOpen ? "vime.panel.close" : "vime.candidates.expand"
+        let glyph = showsNextWordClose ? Self.closeMark : panelOpen ? Self.chevronUp : Self.chevronDown
+        if expandButton.image(for: .normal) !== glyph { expandButton.setImage(glyph, for: .normal) }
+        // The close mark matches the clipboard preview's: no key backing.
+        if showsNextWordClose { expandButton.backgroundColor = .clear }
+        expandButton.accessibilityLabel = showsNextWordClose
+            ? (emojiSearchActive ? String(localized: "关闭表情搜索") : String(localized: "关闭联想"))
+            : panelOpen ? String(localized: "返回键盘") : composing ? String(localized: "展开候选词") : String(localized: "收起键盘")
+        expandButton.accessibilityIdentifier = showsNextWordClose
+            ? (emojiSearchActive ? "vime.emojiSearch.close" : "vime.suggestions.close")
+            : panelOpen ? "vime.panel.close" : "vime.candidates.expand"
         numberSymbolRail?.isHidden = panelOpen || !usesNumberPad
         if panelOpen { keysContainer.cancelAllPresses() }
         keysContainer.isHidden = panelOpen
@@ -184,4 +193,5 @@ extension KeyboardView {
 
     static let chevronUp = UIImage(systemName: "chevron.up")
     static let chevronDown = UIImage(systemName: "chevron.down")
+    static let closeMark = UIImage(systemName: "xmark", withConfiguration: UIImage.SymbolConfiguration(pointSize: 11, weight: .medium))
 }

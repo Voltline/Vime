@@ -31,6 +31,17 @@ nonisolated struct CandidateRankingWeights: Sendable {
 /// Admission is independent of presentation: a correction needs a meaningful
 /// dictionary gain after paying for the edit. Shared by classic/topology/LM.
 nonisolated enum CandidateCorrectionPolicy {
+    /// Places choices that only the correction search found at their positions
+    /// in `corrected`, keeping the relative order of `ordered` (which may be a
+    /// model refinement of the list the search started from).
+    static func inserting(_ corrected: [CandidateSnapshot], into ordered: [CandidateSnapshot]) -> [CandidateSnapshot] {
+        let known = Set(ordered.map(CandidateIdentity.init))
+        var result = ordered
+        for (index, value) in corrected.enumerated() where !known.contains(CandidateIdentity(value)) {
+            result.insert(value, at: min(index, result.count))
+        }
+        return result
+    }
     static let channelWeight = 3.6
     static let minimumQuality = -5.0
     static let shortReadingMargin = 4.0 // Two kana have many accidental homophones.
@@ -38,9 +49,16 @@ nonisolated enum CandidateCorrectionPolicy {
     static let additionalSoundEditMargin = 2.0 // Per extra sound edit, before reading-length normalization.
     static let wholeWordPriorityBonus = 3.0 // Verify an attested full reading before speculative phrase repairs.
     static let maximumAdmittedReadings = 2 // One useful single edit must not hide a stronger paired interpretation.
+    /// Readings verified after the first admission. A stronger reading ranked
+    /// just below it still competes (いきまる, then いきます); the rest of the
+    /// list would only spend the time the first display is waiting for.
+    static let queriesAfterAdmission = 3
     static let maximumPresentedCorrections = 4 // Two readings, each with lexical spelling and kana.
     static let minimumProminence: Float = 0.1
     static let maximumCachedReadings = 96
+    static let windowedReadingThreshold = 8 // Longer readings are verified around the edit only.
+    static let windowCandidatesPerReading = 2
+    static let correctionDisplayRank = 1 // Best admitted correction is never below the second slot.
 }
 
 nonisolated struct CandidateScoreFeatures: Codable, Sendable {
@@ -89,7 +107,8 @@ nonisolated struct CandidateReranker {
             if value.source == .scriptVariant {
                 f.engine = 0
                 f.script = weights.scriptAvailability
-                if value.queryReading.unicodeScalars.contains(where: { $0.isASCII }) {
+                // Digits and symbols such as 12:30 are already final text.
+                if value.queryReading.unicodeScalars.contains(where: { $0.isASCII && $0.properties.isAlphabetic }) {
                     f.script -= weights.unresolvedScriptPenalty
                 }
             }

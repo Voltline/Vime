@@ -56,6 +56,11 @@ extension KeyboardView {
     }
 
     func quickCandidateItems() -> [KeyboardQuickCandidate] {
+        if emojiSearchActive && panel == .keyboard { return emojiSearchItems() }
+        if panel == .keyboard, !session.isComposing, !session.inputTraits.isEnglish,
+           let selection = selectedTextProvider?(), KeyboardReconversion.reading(for: selection) != nil {
+            return [.init(title: String(localized: "重新转换「\(selection)」"), action: .reconvert(selection))]
+        }
         guard page == .numbers else { return [] }
         // A word being converted keeps its full candidate strip. Pure numeric
         // input gets shortcuts immediately, including when digits are marked.
@@ -82,6 +87,19 @@ extension KeyboardView {
         switch item.action {
         case .symbol(let text):
             insertSymbol(text)
+        case .emoji(let text):
+            // Inserting over the marked reading replaces it, as a candidate does.
+            preferences.recordEmoji(text)
+            emojiSearchActive = false
+            session.invalidateLearningFeedback()
+            session.reset(preservingContext: true)
+            apply([.insert(text)])
+        case .prompt:
+            break
+        case .reconvert(let selection):
+            // Marked text replaces the host's selection.
+            guard selectedTextProvider?() == selection, let reading = KeyboardReconversion.reading(for: selection) else { refresh(); return }
+            apply(session.type(reading))
         case .replacement(let replacement):
             guard learningContextProvider?() == replacement.anchor,
                   session.markedText?.text == replacement.markedText,

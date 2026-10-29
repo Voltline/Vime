@@ -3,6 +3,12 @@ import UIKit
 nonisolated struct KeyboardQuickCandidate: Equatable {
     enum Action: Equatable {
         case symbol(String), replacement(KeyboardTextReplacement)
+        /// An emoji search result; replaces the reading being typed.
+        case emoji(String)
+        /// Explanatory text in the strip; not selectable.
+        case prompt
+        /// Turns the selected text back into its reading for conversion.
+        case reconvert(String)
     }
     let title: String
     let action: Action
@@ -42,6 +48,7 @@ final class KeyboardQuickCandidateStrip: UIScrollView {
             button.titleLabel?.font = .systemFont(ofSize: 18, weight: index == 0 ? .medium : .regular)
             button.titleLabel?.lineBreakMode = .byTruncatingTail
             button.accessibilityLabel = items[index].title
+            button.isEnabled = items[index].action != .prompt
             switch items[index].action {
             case .replacement:
                 button.primaryResult = index == 0
@@ -51,6 +58,18 @@ final class KeyboardQuickCandidateStrip: UIScrollView {
                 button.primaryResult = false
                 button.accessibilityIdentifier = "vime.quickSymbol.\(items[index].title)"
                 button.accessibilityHint = String(localized: "输入符号")
+            case .emoji:
+                button.primaryResult = false
+                button.accessibilityIdentifier = "vime.emojiResult.\(items[index].title)"
+                button.accessibilityHint = String(localized: "输入符号")
+            case .prompt:
+                button.primaryResult = false
+                button.accessibilityIdentifier = "vime.emojiSearch.prompt"
+                button.accessibilityHint = nil
+            case .reconvert:
+                button.primaryResult = false
+                button.accessibilityIdentifier = "vime.reconvert"
+                button.accessibilityHint = nil
             }
         }
         applyTheme()
@@ -78,6 +97,7 @@ final class KeyboardQuickCandidateStrip: UIScrollView {
     func applyTheme() {
         for button in buttons {
             button.setTitleColor(button.primaryResult ? KeyboardPalette.accent : KeyboardPalette.text, for: .normal)
+            button.setTitleColor(.secondaryLabel, for: .disabled)
             button.underline.backgroundColor = KeyboardPalette.accent
         }
     }
