@@ -1,0 +1,117 @@
+name: Weekly App Store release
+
+# Saturday 10:00 Asia/Shanghai. Submits this week's TestFlight build for
+# review, then moves main to beta and tags the version.
+on:
+  schedule:
+    - cron: "0 2 * * 6"
+  workflow_dispatch:
+    inputs:
+      submit:
+        description: Submit the build for App Store review
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-branches
+  cancel-in-progress: false
+
+env:
+  APP_IDENTIFIER: com.Voltline.Vime
+  # Release automatically once the review is approved.
+  AUTOMATIC_RELEASE: "true"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: beta
+          fetch-depth: 0
+
+      - name: Check for changes
+        id: changes
+        run: |
+          git fetch --tags origin main
+          count=$(git rev-list --count origin/main..HEAD)
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+          version=$(python3 Scripts/release_version.py current)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          [ "$count" -gt 0 ] || echo "beta has no changes since the last release."
+          # Changes merged into beta after this version was submitted move to
+          # main without a new submission and ship with the next version.
+          if git rev-parse -q --verify "refs/tags/v$version" >/dev/null; then
+            echo "submitted=true" >> "$GITHUB_OUTPUT"
+            echo "v$version was already submitted."
+          fi
+
+      - name: Collect the release notes
+        if: steps.changes.outputs.count != '0' && steps.changes.outputs.submitted != 'true' && (github.event_name == 'schedule' || inputs.submit)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: v${{ steps.changes.outputs.version }}
+        run: |
+          gh release view "$TAG" --json body --jq .body > notes.md
+          python3 - notes.md metadata <<'PY'
+          import re, sys
+          from pathlib import Path
+          locales = ["zh-Hans", "zh-Hant", "ja", "en-US", "ko"]
+          body = Path(sys.argv[1]).read_text().split("\n---", 1)[0]
+          body = re.sub(r"<!--.*?-->", "", body, flags=re.S)
+          sections = dict(re.findall(r"^## (\S+)[ \t]*\n(.*?)(?=^## |\Z)", body, flags=re.M | re.S))
+          missing = [locale for locale in locales if not sections.get(locale, "").strip()]
+          if missing:
+              sys.exit(f"::error::Release notes are missing for {', '.join(missing)}; fill them in the draft release.")
+          for locale in locales:
+              path = Path(sys.argv[2], locale, "release_notes.txt")
+              path.parent.mkdir(parents=True)
+              path.write_text(sections[locale].strip() + "\n")
+          PY
+
+      - name: Submit for review
+        if: steps.changes.outputs.count != '0' && steps.changes.outputs.submitted != 'true' && (github.event_name == 'schedule' || inputs.submit)
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+          VERSION: ${{ steps.changes.outputs.version }}
+        run: |
+          if [ -z "$ASC_KEY_ID" ] || [ -z "$ASC_ISSUER_ID" ] || [ -z "$ASC_PRIVATE_KEY" ]; then
+            echo "::error::Add the ASC_KEY_ID, ASC_ISSUER_ID and ASC_PRIVATE_KEY secrets, or run with submit off."
+            exit 1
+          fi
+          gem install fastlane --no-document --quiet
+          python3 -c 'import json, os; print(json.dumps({"key_id": os.environ["ASC_KEY_ID"], "issuer_id": os.environ["ASC_ISSUER_ID"], "key": os.environ["ASC_PRIVATE_KEY"], "in_house": False}))' > "$RUNNER_TEMP/asc_key.json"
+          # Without a build number, deliver picks the newest processed build of
+          # this version: Wednesday's, or a later one from a direct beta merge.
+          fastlane deliver \
+            --api_key_path "$RUNNER_TEMP/asc_key.json" \
+            --app_identifier "$APP_IDENTIFIER" \
+            --platform ios \
+            --app_version "$VERSION" \
+            --metadata_path metadata \
+            --skip_binary_upload true \
+            --skip_screenshots true \
+            --run_precheck_before_submit false \
+            --submit_for_review true \
+            --automatic_release "$AUTOMATIC_RELEASE" \
+            --submission_information '{"add_id_info_uses_idfa": false, "export_compliance_uses_encryption": false}' \
+            --force true
+
+      - name: Fast-forward main and tag the version
+        if: steps.changes.outputs.count != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: v${{ steps.changes.outputs.version }}
+        run: |
+          git push origin HEAD:main
+          [ "${{ steps.changes.outputs.submitted }}" != true ] || exit 0
+          git tag "$TAG"
+          git push origin "$TAG"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --draft=false --tag "$TAG"
+          fi

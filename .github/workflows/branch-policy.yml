@@ -1,0 +1,28 @@
+name: Branch policy
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions: {}
+
+jobs:
+  branch-policy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check base and head branches
+        env:
+          BASE: ${{ github.base_ref }}
+          HEAD: ${{ github.head_ref }}
+        run: |
+          case "$BASE" in
+            dev) pattern='^(feat|fix|docs|chore|build)/' ;;
+            beta) pattern='^(docs|chore|build)/' ;;
+            *)
+              echo "::error::Pull requests merge into dev, or into beta for docs/, chore/ and build/ branches; main is advanced by the weekly release."
+              exit 1 ;;
+          esac
+          if ! printf '%s' "$HEAD" | grep -Eq "${pattern}[a-z0-9][a-z0-9._-]*\$"; then
+            echo "::error::Branch '$HEAD' cannot merge into $BASE. Use feat/, fix/, docs/, chore/ or build/ for dev, and docs/, chore/ or build/ for beta, followed by lowercase letters, digits, '.', '_' or '-'."
+            exit 1
+          fi
