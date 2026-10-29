@@ -106,8 +106,8 @@ App Store 每次提交更新都要求各语言的「此版本的新增内容」�
 以下设置在仓库或 App Store Connect 中完成，不由脚本修改：
 
 - **分支**：从 `main` 创建 `dev` 与 `beta`，把仓库默认分支设为 `dev`。定时 workflow 只从默认分支读取，因此 `.github/workflows` 必须先合入 `dev`。在 `main` 的 `fed1eb3`（1.0 的提交）上打 `v1.0`，作为第一个基准标签。
-- **分支规则（Rulesets）**：三个分支都禁止强推和删除。`dev` 与 `beta` 要求 PR 与 `branch-policy` 检查通过；`main` 禁止直接更新。GitHub Actions 加入绕过名单，以便写入版本号、合回 `beta` 和快进分支。
-- **Secrets**：`ASC_KEY_ID`、`ASC_ISSUER_ID`、`ASC_PRIVATE_KEY`（App Store Connect API 密钥，App Manager 角色，私钥填 `.p8` 文件全文），仅供周六提交审核使用。
+- **分支规则（Rulesets）**：三个分支都禁止强推和删除。`dev` 与 `beta` 要求 PR（只允许 merge commit）与 `branch-policy` 检查通过；`main` 禁止直接更新。个人仓库不能把 GitHub Actions 加入绕过名单，因此绕过名单是部署密钥（Deploy keys）：周任务用有写权限的 `vime-release` 部署密钥推送，用于写入版本号、合回 `beta` 和快进分支。仓库中不要添加其他部署密钥，否则它们同样可以绕过规则。
+- **Secrets**：`RELEASE_DEPLOY_KEY`（上述部署密钥的私钥），以及 `ASC_KEY_ID`、`ASC_ISSUER_ID`、`ASC_PRIVATE_KEY`（App Store Connect API 密钥，App Manager 角色，私钥填 `.p8` 文件全文，仅供周六提交审核使用）。
 - **Xcode Cloud**：TestFlight workflow 的启动条件设为 `beta` 分支变化，并在文件条件中忽略 `Docs/`、`.github/` 与 `*.md`，避免纯文档合并触发构建；archive 后分发到 TestFlight。停用基于 `main` 的定时构建。
 
 ### 审核异常

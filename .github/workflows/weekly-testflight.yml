@@ -18,10 +18,13 @@ jobs:
   cut:
     runs-on: ubuntu-latest
     steps:
+      # Branch rulesets let only the release deploy key update dev, beta and
+      # main directly, so the checkout pushes over SSH with that key.
       - uses: actions/checkout@v4
         with:
           ref: dev
           fetch-depth: 0
+          ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }}
 
       - name: Check for changes
         id: changes
