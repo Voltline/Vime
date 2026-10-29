@@ -1,0 +1,91 @@
+name: Weekly TestFlight cut
+
+# Wednesday 03:00 Asia/Shanghai. Moving beta starts the Xcode Cloud
+# workflow that archives the branch and uploads it to TestFlight.
+on:
+  schedule:
+    - cron: "0 19 * * 2"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-branches
+  cancel-in-progress: false
+
+jobs:
+  cut:
+    runs-on: ubuntu-latest
+    steps:
+      # Branch rulesets let only the release deploy key update dev, beta and
+      # main directly, so the checkout pushes over SSH with that key.
+      - uses: actions/checkout@v4
+        with:
+          ref: dev
+          fetch-depth: 0
+          ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }}
+
+      - name: Check for changes
+        id: changes
+        run: |
+          git fetch --tags origin main beta
+          count=$(git rev-list --count --no-merges origin/beta..origin/dev)
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+          [ "$count" -gt 0 ] || echo "dev has no changes since the last cut."
+
+      # docs/, chore/ and build/ pull requests may merge into beta directly.
+      # Bring them back to dev so beta can fast-forward again.
+      - name: Merge beta back into dev
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ "$(git rev-list --count HEAD..origin/beta)" -gt 0 ]; then
+            git merge --no-ff --no-edit -m "Merge branch 'beta' into dev" origin/beta
+            git push origin HEAD:dev
+          fi
+
+      - name: Set the marketing version on dev
+        id: version
+        if: steps.changes.outputs.count != '0'
+        run: |
+          version=$(python3 Scripts/release_version.py next --base-ref origin/main --write)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if ! git diff --quiet; then
+            git commit -am "chore: set version to $version"
+            git push origin HEAD:dev
+          fi
+
+      - name: Fast-forward beta to dev
+        if: steps.changes.outputs.count != '0'
+        run: git push origin HEAD:beta
+
+      - name: Prepare the draft release notes
+        if: steps.changes.outputs.count != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          tag="v$VERSION"
+          previous=$(git tag --merged origin/main --list 'v*' --sort=-v:refname | head -n 1)
+          changes=$(gh api "repos/$GITHUB_REPOSITORY/releases/generate-notes" \
+            -f tag_name="$tag" -f target_commitish="$(git rev-parse HEAD)" \
+            ${previous:+-f previous_tag_name="$previous"} --jq .body)
+          # Drafts left from an earlier, unreleased cut are replaced.
+          gh release list --json tagName,isDraft --jq '.[] | select(.isDraft) | .tagName' |
+            while read -r draft; do
+              [ "$draft" = "$tag" ] || gh release delete "$draft" --yes
+            done
+          if gh release view "$tag" >/dev/null 2>&1; then
+            existing=$(gh release view "$tag" --json body --jq .body | sed '/^---$/,$d')
+            printf '%s\n---\n\n%s\n' "$existing" "$changes" > notes.md
+            gh release edit "$tag" --target "$(git rev-parse HEAD)" --notes-file notes.md
+          else
+            {
+              echo "<!-- App Store「此版本的新增内容」。周六提交审核前在各语言标题下填写，--- 以下仅供参考，不会提交。 -->"
+              for locale in zh-Hans zh-Hant ja en-US ko; do printf '## %s\n\n\n' "$locale"; done
+              printf -- '---\n\n%s\n' "$changes"
+            } > notes.md
+            gh release create "$tag" --draft --title "Vime $VERSION" \
+              --target "$(git rev-parse HEAD)" --notes-file notes.md
+          fi
