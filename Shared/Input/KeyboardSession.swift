@@ -235,9 +235,9 @@ final class KeyboardSession: KeyboardInputSession {
 
     func space() -> [KeyboardEdit] {
         guard isComposing else { finishLearningFeedback(); clearSuggestions(); return [.insert(" ")] }
-        // Only an explicit conversion boundary resolves ambiguous n. Normal
-        // per-key requests never add a separator or mutate the live composition.
-        if composing.convertTarget.hasSuffix("n"), selectedIndex == nil, !boundaryRequested {
+        // A trailing n already reads as ん in per-key requests; this covers a
+        // request issued before that rule, such as one made by deletion.
+        if PreeditPresentation.endsWithPendingN(composing), selectedIndex == nil, !boundaryRequested {
             refresh(boundary: true)
         }
         if candidatesPending {
@@ -572,6 +572,10 @@ final class KeyboardSession: KeyboardInputSession {
         candidateRequestStartedAt = startedAt ?? KeyboardPerformance.start()
         revision += 1
         pendingSpaces = 0
+        // A trailing n reads as ん, as in other Japanese IMEs: the query gets a
+        // boundary, while the live composition keeps the n so a following
+        // vowel still makes な-row kana.
+        let boundary = boundary || PreeditPresentation.endsWithPendingN(composing)
         boundaryRequested = boundary
         selectedIndex = nil
         // Partial confirmation requests its remainder before the host applies the
