@@ -74,7 +74,7 @@ bash Scripts/verify_review.sh all
 ```mermaid
 flowchart LR
     work["feat/* · fix/*"] -- PR --> dev
-    misc["docs/* · chore/* · build/*"] -- PR --> dev
+    misc["docs/*<br/>chore/*<br/>build/*"] -- PR --> dev
     misc -. "PR，赶本周构建" .-> beta
     dev -- "周三 03:00<br/>写入版本号并快进" --> beta
     beta -. "周三 先合回直接合并" .-> dev
