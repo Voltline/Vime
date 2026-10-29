@@ -6,16 +6,25 @@ nonisolated extension JapaneseCandidateEngine {
     typealias CorrectionMatch = (candidate: Candidate, variant: KeyboardCorrectionVariants.Variant, score: Double)
 
     func addingCorrections(to base: [CandidateSnapshot], for query: ComposingText, katakana: Bool,
-                           revision: Int, cancelled: () -> Bool = { false },
+                           revision: Int, cancelled: () -> Bool = { false }, deadline limit: TimeInterval? = nil,
                            now: () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }) -> [CandidateSnapshot] {
         let started = now()
-        let deadline = started + Self.correctionBudgetSeconds
+        let deadline = min(started + Self.correctionBudgetSeconds, limit ?? .infinity)
         lastCorrectionMetrics = .init()
         correctionQueryDiagnostics = []
         defer { lastCorrectionMetrics.elapsedMs = (now() - started) * 1000 }
         func stopSearch() -> Bool {
             if cancelled() { lastCorrectionMetrics.cancelled = true; return true }
             if now() >= deadline { lastCorrectionMetrics.budgetExhausted = true; return true }
+            return false
+        }
+        // The first query always runs: it is usually the right reading, and it
+        // keeps the estimate current after a slow cold query.
+        func stopQueries() -> Bool {
+            if stopSearch() { return true }
+            if lastCorrectionMetrics.queries > 0, now() + typicalCorrectionQuerySeconds >= deadline {
+                lastCorrectionMetrics.budgetExhausted = true; return true
+            }
             return false
         }
         guard !stopSearch() else { return base }
@@ -32,8 +41,9 @@ nonisolated extension JapaneseCandidateEngine {
         var correctionOptions = options
         correctionOptions.N_best = 2
         correctionOptions.requireJapanesePrediction = .disabled
-        var matches = readingCorrections(variants, for: query, originalQuality: originalQuality,
-                                         options: correctionOptions, stopSearch: stopSearch)
+        let evidence = literalEvidence(in: base, literalReading: literalReading)
+        var matches = readingCorrections(variants, for: query, evidence: evidence, originalQuality: originalQuality,
+                                         options: correctionOptions, stopSearch: stopQueries)
         if matches.isEmpty {
             matches = classicTypoCorrections(for: query, literalReading: literalReading, originalQuality: originalQuality,
                                              options: correctionOptions, stopSearch: stopSearch)
@@ -53,11 +63,11 @@ nonisolated extension JapaneseCandidateEngine {
                                   stopSearch: () -> Bool) -> [KeyboardCorrectionVariants.Variant]? {
         let generated = KeyboardCorrectionVariants.generate(for: query, cancelled: stopSearch)
         guard !stopSearch() else { return nil }
-        let evidence = base.first { $0.remainingComposition.isEmpty && $0.candidate.data.map(\.ruby).joined() == literalReading }
+        let evidence = literalEvidence(in: base, literalReading: literalReading)
         var fallbackRanges: [Range<Int>] = []
         var segments: [Range<Int>] = []
         var offset = 0
-        for element in evidence?.candidate.data ?? [] {
+        for element in evidence?.data ?? [] {
             let end = offset + element.ruby.count
             if end > offset { segments.append(offset..<end) }
             if Self.isKanaFallback(element) || element.ruby.unicodeScalars.contains(where: { $0.isASCII }) {
@@ -66,7 +76,7 @@ nonisolated extension JapaneseCandidateEngine {
             offset = end
         }
         let originalCharacters = Array(query.convertTarget)
-        let originalData = evidence?.candidate.data ?? []
+        let originalData = evidence?.data ?? []
         func localGain(_ entry: CorrectionReadingIndex.Entry, start: Int, end: Int) -> Double {
             let left = start > 0 ? originalData[start - 1].rcid : CIDData.BOS.cid
             let right = end + 1 < originalData.count ? originalData[end + 1].lcid : CIDData.EOS.cid
@@ -133,21 +143,34 @@ nonisolated extension JapaneseCandidateEngine {
     /// Converts each ranked reading and admits words that beat the literal
     /// reading by a length-normalized margin.
     func readingCorrections(_ variants: [KeyboardCorrectionVariants.Variant], for query: ComposingText,
-                            originalQuality: Double, options correctionOptions: ConvertRequestOptions,
+                            evidence: Candidate? = nil, originalQuality: Double, options correctionOptions: ConvertRequestOptions,
                             stopSearch: () -> Bool) -> [CorrectionMatch] {
         var matches: [CorrectionMatch] = []
         var admittedReadings = Set<String>()
+        var remainingAfterAdmission = CandidateCorrectionPolicy.queriesAfterAdmission
         for variant in variants {
             if stopSearch() { break }
             if admittedReadings.count >= CandidateCorrectionPolicy.maximumAdmittedReadings { break }
-            // Preserve the existing first useful single-edit reading, while
-            // allowing a paired sound reading to compete rather than being cut
-            // off by an unrelated single-edit word found earlier.
-            if !matches.isEmpty && variant.suggestion.editCount == 1 { continue }
+            // A first admitted reading must not hide a better one ranked just
+            // below it (いきまる before いきます). Both pass the same gate; the
+            // final ranking decides their order.
+            if !admittedReadings.isEmpty {
+                if remainingAfterAdmission == 0 { break }
+                remainingAfterAdmission -= 1
+            }
             if lastCorrectionMetrics.queries >= Self.maximumCorrectionQueries {
                 lastCorrectionMetrics.budgetExhausted = true; break
             }
-            let candidates = verifiedCorrectionCandidates(for: variant, options: correctionOptions)
+            let queries = lastCorrectionMetrics.queries
+            let queryStarted = ProcessInfo.processInfo.systemUptime
+            let candidates = windowedCorrectionCandidates(for: variant, original: query.convertTarget, evidence: evidence,
+                                                          options: correctionOptions)
+                ?? verifiedCorrectionCandidates(for: variant.reading, options: correctionOptions)
+            if lastCorrectionMetrics.queries > queries {
+                // A cold dictionary page-in must not dominate the estimate.
+                let elapsed = min(ProcessInfo.processInfo.systemUptime - queryStarted, Self.correctionBudgetSeconds / 4)
+                typicalCorrectionQuerySeconds = typicalCorrectionQuerySeconds * 0.75 + elapsed * 0.25
+            }
             for candidate in candidates {
                 // Lattice scores include lexical and word-connection costs.
                 // Normalize by reading length before comparing edits of unequal
@@ -171,24 +194,22 @@ nonisolated extension JapaneseCandidateEngine {
                 correctionQueryDiagnostics.append(.init(reading: variant.reading, editCount: variant.suggestion.editCount,
                     quality: nil, adjustedQuality: nil, requiredQuality: nil, admitted: false))
             }
-            // Admission and query counts stay bounded; after one reading only
-            // paired hypotheses are considered, never more unrelated single edits.
         }
         return matches
     }
 
     /// Dictionary words that consume exactly this reading, cached across
     /// requests until the dictionary or learning state changes.
-    func verifiedCorrectionCandidates(for variant: KeyboardCorrectionVariants.Variant,
+    func verifiedCorrectionCandidates(for hiragana: String,
                                       options correctionOptions: ConvertRequestOptions) -> [Candidate] {
-        let reading = RomajiConverter.katakana(variant.reading)
+        let reading = RomajiConverter.katakana(hiragana)
         if let cached = correctionCache[reading] {
             lastCorrectionMetrics.cacheHits += 1
             return cached
         }
         lastCorrectionMetrics.queries += 1
         var corrected = ComposingText()
-        corrected.insertAtCursorPosition(variant.reading, inputStyle: .direct)
+        corrected.insertAtCursorPosition(hiragana, inputStyle: .direct)
         let session = correctionSession ?? converter.createSession()
         correctionSession = session
         let result = try? converter.withSession(session) {
@@ -208,6 +229,58 @@ nonisolated extension JapaneseCandidateEngine {
             correctionCache.removeValue(forKey: correctionCacheOrder.removeFirst())
         }
         return candidates
+    }
+
+    /// The best literal conversion that consumes the whole reading; its
+    /// segmentation locates edits and supplies the unchanged words.
+    func literalEvidence(in base: [CandidateSnapshot], literalReading: String) -> Candidate? {
+        base.first { $0.remainingComposition.isEmpty && $0.candidate.data.map(\.ruby).joined() == literalReading }?.candidate
+    }
+
+    /// Long readings are verified locally: the words touched by the edit plus
+    /// one neighbour on each side are converted again, and the literal words
+    /// outside that window are kept. Converting a whole sentence for every
+    /// hypothesis costs more than the idle budget. Nil means use the whole
+    /// reading (short input, or the window would cover it anyway).
+    func windowedCorrectionCandidates(for variant: KeyboardCorrectionVariants.Variant, original: String, evidence: Candidate?,
+                                      options correctionOptions: ConvertRequestOptions) -> [Candidate]? {
+        guard let evidence, original.count > CandidateCorrectionPolicy.windowedReadingThreshold else { return nil }
+        let data = evidence.data
+        var segments: [Range<Int>] = []
+        var offset = 0
+        for element in data {
+            segments.append(offset..<offset + element.ruby.count)
+            offset += element.ruby.count
+        }
+        let corrected = Array(variant.reading)
+        let changed = Self.changedRange(Array(original), corrected)
+        guard let first = segments.firstIndex(where: { $0.upperBound > changed.lowerBound }),
+              let last = segments.lastIndex(where: { $0.lowerBound < changed.upperBound }) else { return nil }
+        let lower = max(0, min(first, last) - 1), upper = min(data.count - 1, max(first, last) + 1)
+        guard lower > 0 || upper < data.count - 1 else { return nil }
+        let start = segments[lower].lowerBound
+        let end = segments[upper].upperBound + corrected.count - original.count
+        guard start < end, end <= corrected.count else { return nil }
+        let left = lower > 0 ? data[lower - 1].rcid : CIDData.BOS.cid
+        let right = upper + 1 < data.count ? data[upper + 1].lcid : CIDData.EOS.cid
+        func cost(_ elements: some Sequence<DicdataElement>) -> Double {
+            var total = 0.0, previous = left
+            for element in elements {
+                total += Double(element.value() + dictionary.getCCValue(previous, element.lcid))
+                previous = element.rcid
+            }
+            return total + Double(dictionary.getCCValue(previous, right))
+        }
+        let replaced = cost(data[lower...upper])
+        return verifiedCorrectionCandidates(for: String(corrected[start..<end]), options: correctionOptions)
+            .prefix(CandidateCorrectionPolicy.windowCandidatesPerReading).map { window in
+                let combined = Array(data[..<lower]) + window.data + Array(data[(upper + 1)...])
+                return Candidate(text: combined.map(\.word).joined(),
+                                 value: evidence.value + PValue(cost(window.data) - replaced),
+                                 composingCount: .surfaceCount(corrected.count),
+                                 lastMid: upper + 1 < data.count ? evidence.lastMid : window.lastMid,
+                                 data: combined, isLearningTarget: evidence.isLearningTarget && window.isLearningTarget)
+            }
     }
 
     func classicTypoCorrections(for query: ComposingText, literalReading: String, originalQuality: Double,
@@ -326,7 +399,15 @@ nonisolated extension JapaneseCandidateEngine {
             }
             return item.element
         } + additions
-        return rank(pool, query: query, katakana: katakana)
+        var ranked = rank(pool, query: query, katakana: katakana)
+        // Literal words with a strong lattice score (島津) can push an admitted
+        // correction past the visible strip. Keep the best one in view, still
+        // after the literal top candidate.
+        if let index = ranked.firstIndex(where: { $0.source == .typoCorrection }),
+           index > CandidateCorrectionPolicy.correctionDisplayRank {
+            ranked.insert(ranked.remove(at: index), at: CandidateCorrectionPolicy.correctionDisplayRank)
+        }
+        return ranked
     }
 
     /// Pinned classic Roman channels, not a word list. Bound the non-cancellable

@@ -42,7 +42,7 @@ final class KeyboardIntelligentCandidateTests: XCTestCase {
             .contains { $0.reading == "かぞく" })
         XCTAssertTrue(KeyboardCorrectionVariants.phoneticPairs(for: query("gazogu"), priority: { _ in 0 }, cancelled: { true }).isEmpty)
         XCTAssertTrue(KeyboardCorrectionVariants.phoneticPairs(for: query("gazog"), priority: { _ in 0 }).isEmpty)
-        XCTAssertTrue(KeyboardCorrectionVariants.phoneticPairs(for: query(String(repeating: "ga", count: 25)), priority: { _ in 0 }).isEmpty)
+        XCTAssertTrue(KeyboardCorrectionVariants.phoneticPairs(for: query(String(repeating: "ga", count: 41)), priority: { _ in 0 }).isEmpty)
     }
 
     func testMixedSoundDictionaryCandidatesAndLiteralConfirmation() throws {

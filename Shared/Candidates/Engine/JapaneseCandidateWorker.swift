@@ -13,6 +13,9 @@ final class JapaneseCandidateWorker {
     // first publication still freezes order for the current composition revision.
     nonisolated static let initialRankingWindow: TimeInterval = 0.060
     nonisolated static let initialRankingCandidateLimit = 8
+    /// Early corrections must leave time to reach the main queue before the
+    /// first display's deadline.
+    nonisolated static let correctionPublicationMargin: TimeInterval = 0.008
 
     nonisolated struct ResourceState: Equatable, Sendable {
         let engineLoaded: Bool
@@ -159,6 +162,10 @@ final class JapaneseCandidateWorker {
         private var cancelled = false
         private var initiallyPublished = false
         private var refinement: [CandidateSnapshot]?
+        private var correction: [CandidateSnapshot]?
+        private var modelPending = false
+        private var correctionPending = false
+        private var correctionSettled = false
         private let startedAt: TimeInterval?
         private let trace: CandidatePipelineTrace?
         init(startedAt: TimeInterval? = nil, trace: CandidatePipelineTrace? = nil) {
@@ -167,7 +174,7 @@ final class JapaneseCandidateWorker {
         func cancel() {
             lock.lock()
             let unpublished = !cancelled && !initiallyPublished
-            cancelled = true; refinement = nil
+            cancelled = true; refinement = nil; correction = nil
             lock.unlock()
             if unpublished {
                 trace?.cancelBeforePublication()
@@ -181,6 +188,26 @@ final class JapaneseCandidateWorker {
             refinement = values
             trace?.record(.publicationReady, values: values)
         }
+        /// The first display waits for both the model and the correction search,
+        /// never past its deadline.
+        func expectEarlyWork(model: Bool, correction: Bool) {
+            lock.lock(); modelPending = model; correctionPending = correction; lock.unlock()
+        }
+        /// True when nothing else holds the first display.
+        func finishModel() -> Bool {
+            lock.lock(); defer { lock.unlock() }
+            modelPending = false
+            return !correctionPending
+        }
+        func finishCorrection(_ values: [CandidateSnapshot]?, settled: Bool, before deadline: TimeInterval) -> Bool {
+            lock.lock(); defer { lock.unlock() }
+            correctionPending = false
+            guard !cancelled, !initiallyPublished, ProcessInfo.processInfo.systemUptime < deadline else { return false }
+            correction = values; correctionSettled = settled
+            return !modelPending
+        }
+        /// The first display already holds a complete correction search.
+        var correctionsSettled: Bool { lock.lock(); defer { lock.unlock() }; return initiallyPublished && correctionSettled }
         func claimInitialPublication(fallback: [CandidateSnapshot], deadline: TimeInterval) -> [CandidateSnapshot]? {
             lock.lock(); defer { lock.unlock() }
             guard !cancelled, !initiallyPublished else { return nil }
@@ -192,7 +219,9 @@ final class JapaneseCandidateWorker {
                     KeyboardPerformance.record(.candidateModelOrderChanged, since: startedAt)
                 }
             }
-            let result = refinement ?? fallback
+            defer { correction = nil }
+            var result = refinement ?? fallback
+            if let correction { result = CandidateCorrectionPolicy.inserting(correction, into: result) }
             if refinement == nil, ProcessInfo.processInfo.systemUptime >= deadline { trace?.expireModelWindow() }
             trace?.published(result, modelUsed: refinement != nil)
             return result
@@ -211,6 +240,11 @@ final class JapaneseCandidateWorker {
     /// The view supplies immutable presentation work, keeping UIKit/font policy
     /// out of the converter. Invoked off-main before publishing a first screen.
     var prepareCandidatePresentation: (@Sendable (CandidatePresentation, Bool) -> Void)?
+
+    /// A Roman letter followed by kana: unconverted residue, not a pending syllable.
+    nonisolated static func hasStrayLetter(_ reading: String) -> Bool {
+        reading.reversed().drop { $0.isASCII }.contains { $0.isASCII && $0.isLetter }
+    }
 
     private nonisolated static func preparePresentations(_ values: [CandidatePresentation], request: Request,
         prepare: @Sendable (CandidatePresentation, Bool) -> Void) -> Bool {
@@ -344,7 +378,7 @@ final class JapaneseCandidateWorker {
                             }
                         }
                     }
-                    guard conversionLength == nil else { return }
+                    guard conversionLength == nil, !request.correctionsSettled else { return }
                     let correctionStartedAt = KeyboardPerformance.start()
                     let corrected = engine.addingCorrections(to: enriched, for: composing, katakana: katakana,
                         revision: revision, cancelled: { request.isCancelled })
@@ -361,7 +395,11 @@ final class JapaneseCandidateWorker {
                     }
                 }
             }
-            if waitForRanking {
+            // A stray letter inside the reading (らlめん) cannot be what the
+            // user meant, so its correction may hold the first display too.
+            let correctEarly = conversionLength == nil && (waitForRanking || Self.hasStrayLetter(composing.convertTarget))
+            if waitForRanking || correctEarly {
+                request.expectEarlyWork(model: waitForRanking, correction: correctEarly)
                 let remaining = max(0, initialDeadline - ProcessInfo.processInfo.systemUptime)
                 DispatchQueue.main.asyncAfter(deadline: .now() + remaining) { publishInitial(readyAt) }
             } else {
@@ -398,8 +436,24 @@ final class JapaneseCandidateWorker {
                                 || ProcessInfo.processInfo.systemUptime >= initialDeadline
                         }) ?? values
                     let rankedReadyAt = KeyboardPerformance.start()
-                    DispatchQueue.main.async { publishInitial(rankedReadyAt) }
+                    if request.finishModel() { DispatchQueue.main.async { publishInitial(rankedReadyAt) } }
                 }
+            }
+            // The first display already waits for the model. Spend that wait on
+            // the correction search, so a confident correction is ranked among
+            // the literal choices instead of appended after them once visible.
+            guard correctEarly else { return }
+            let correctionStartedAt = KeyboardPerformance.start()
+            let corrected = engine.addingCorrections(to: values, for: composing, katakana: katakana, revision: revision,
+                cancelled: { request.isCancelled }, deadline: initialDeadline - Self.correctionPublicationMargin)
+            KeyboardPerformance.record(.correctionCompute, since: correctionStartedAt)
+            let metrics = engine.lastCorrectionMetrics
+            let changed = corrected.map(\.presentation) != values.map(\.presentation)
+            guard !request.isCancelled, !changed || prepare(corrected) else { return }
+            if request.finishCorrection(changed ? corrected : nil, settled: !metrics.budgetExhausted && !metrics.cancelled,
+                                        before: initialDeadline) {
+                let correctedReadyAt = KeyboardPerformance.start()
+                DispatchQueue.main.async { publishInitial(correctedReadyAt) }
             }
         }
     }

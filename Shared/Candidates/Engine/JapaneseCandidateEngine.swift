@@ -141,6 +141,9 @@ nonisolated final class JapaneseCandidateEngine {
     static let maximumCorrectionQueries = 24
     static let correctionBudgetSeconds: TimeInterval = 0.060
     var lastCorrectionMetrics = CorrectionSearchMetrics()
+    /// Running estimate of one uncached correction query, so a search never
+    /// starts a query it cannot finish before its deadline.
+    var typicalCorrectionQuerySeconds: TimeInterval = 0.004
     func candidates(for composing: ComposingText, katakana: Bool = false, revision: Int,
                     includeCorrections: Bool = true, conversionLength: Int? = nil,
                     trace: CandidatePipelineTrace? = nil,
