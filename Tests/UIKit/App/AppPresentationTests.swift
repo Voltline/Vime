@@ -22,7 +22,9 @@ final class AppPresentationTests: XCTestCase {
             await Task.yield()
             controller.view.layoutIfNeeded()
             let origin = marker.convert(CGPoint.zero, to: controller.view)
-            XCTAssertEqual(origin.x, 20, accuracy: 1)
+            // A regular-width iPad window centers the readable column instead.
+            let centered = UIDevice.current.userInterfaceIdiom == .pad && controller.traitCollection.horizontalSizeClass == .regular
+            XCTAssertEqual(origin.x, centered ? max(20, (width - 680) / 2) : 20, accuracy: 1)
             XCTAssertLessThan(origin.y, controller.view.safeAreaInsets.top + 24)
             window.isHidden = true
         }

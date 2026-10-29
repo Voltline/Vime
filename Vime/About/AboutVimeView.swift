@@ -74,6 +74,7 @@ struct LicenseListView: View {
                 Section { NavigationLink("完整许可汇总") { FullLicenseNoticesView() } }
             }
         }
+        .appReadableList()
         .navigationTitle("开源组件与许可").navigationBarTitleDisplayMode(.inline)
         .searchable(text: $search, prompt: "搜索组件或许可")
         .task { do { catalog = try LicenseCatalog() } catch { self.error = error.localizedDescription } }
@@ -117,11 +118,13 @@ struct LicenseDetailView: View {
 }
 
 private struct FullLicenseNoticesView: View {
+    @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var text = ""
     var body: some View {
         ScrollView {
             Text(text).font(.footnote).textSelection(.enabled)
-                .frame(maxWidth: .infinity, alignment: .leading).padding(20)
+                .frame(maxWidth: AppReadableColumn.centers(sizeClass) ? AppReadableColumn.width : .infinity, alignment: .leading)
+                .padding(20).frame(maxWidth: .infinity)
         }
         .navigationTitle("完整许可汇总").navigationBarTitleDisplayMode(.inline)
         .task {

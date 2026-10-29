@@ -42,6 +42,7 @@ struct PrivacyPolicy: Decodable {
 }
 
 struct PrivacyPolicyView: View {
+    @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var policy: PrivacyPolicy?
     @State private var error: String?
     var body: some View {
@@ -61,7 +62,7 @@ struct PrivacyPolicyView: View {
                 }
                 .textSelection(.enabled)
                 .frame(maxWidth: 720, alignment: .leading)
-                .padding(24).frame(maxWidth: .infinity, alignment: .topLeading)
+                .padding(24).frame(maxWidth: .infinity, alignment: AppReadableColumn.centers(sizeClass) ? .top : .topLeading)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

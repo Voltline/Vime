@@ -68,8 +68,11 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     var needsGlobe = false { didSet { if oldValue != needsGlobe { configureGlobe() } } }
     var showsFooter = true { didSet { if oldValue != showsFooter { setNeedsLayout(); invalidateIntrinsicContentSize(); onHeightChange?() } } }
     var compact = false { didSet { if oldValue != compact { setNeedsLayout(); invalidateIntrinsicContentSize(); onHeightChange?() } } }
+    /// Running on an iPad; a docked, full-width keyboard uses the iPad layout.
+    var pad = false { didSet { if oldValue != pad { setNeedsLayout(); invalidateIntrinsicContentSize(); onHeightChange?() } } }
     func preferredHeight(for width: CGFloat) -> CGFloat {
-        KeyboardMetrics(width: width > 0 ? width : 440, compact: compact, showsFooter: showsFooter, heightFactor: heightFactor).height
+        KeyboardMetrics(width: width > 0 ? width : 440, compact: compact, showsFooter: showsFooter, heightFactor: heightFactor,
+            pad: pad).height
     }
     var returnKeyType: UIReturnKeyType = .default { didSet { if oldValue != returnKeyType { refresh() } } }
     var keyboardType: UIKeyboardType = .default {
@@ -149,6 +152,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     struct KeyGridLayout: Equatable {
         let size: CGSize
         let compact: Bool
+        let pad: Bool
         let showsFooter: Bool
         let heightFactor: CGFloat
         let page: Page
@@ -226,7 +230,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         brandButton.addTarget(self, action: #selector(toggleSettings), for: .touchUpInside)
         addSubview(globeButton)
         globeButton.tintColor = .label
-        globeButton.setImage(UIImage(systemName: "globe", withConfiguration: UIImage.SymbolConfiguration(pointSize: 27, weight: .regular)), for: .normal)
+        globeButton.setImage(Self.footerGlobe, for: .normal)
         globeButton.accessibilityLabel = String(localized: "切换系统键盘")
         globeButton.addTarget(self, action: #selector(switchKeyboard), for: .touchUpInside)
         header.addSubview(modeButton)
@@ -377,7 +381,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         if !header.isHidden, header.frame.contains(point) {
             // Visual circles stay small. Resolve their larger targets here so
             // neighboring controls never compete, and a miss cannot type a key.
-            let controls = [brandButton, undoButton, modeButton, expandButton, shortenRange, lengthenRange, wholeRange]
+            let controls = [globeButton, brandButton, undoButton, modeButton, expandButton, shortenRange, lengthenRange, wholeRange]
             let target = controls.filter { !$0.isHidden && $0.isEnabled && $0.alpha >= 0.01 }
                 .filter { button in
                     let frame = button.convert(button.bounds, to: self)
@@ -410,14 +414,16 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         let width = bounds.width
         guard width > 0 else { return }
         let metrics = KeyboardMetrics(width: width, compact: compact, showsFooter: showsFooter,
-            heightFactor: heightFactor, availableHeight: bounds.height)
+            heightFactor: heightFactor, availableHeight: bounds.height, pad: pad)
         let scale = metrics.scale
         let xScale = width / 440
+        let aligned = metrics.alignsToolbarToKeys
+        let toolbarLeft = aligned ? metrics.contentLeft : 12 * xScale
         let headerHeight = metrics.headerHeight
         header.frame = CGRect(x: 0, y: 0, width: width, height: headerHeight)
         let diameter = metrics.toolbarButtonDiameter
         let centerY = max(22, KeyboardMetrics.toolbarTopInset + diameter / 2)
-        brandButton.frame = CGRect(x: compact ? metrics.contentLeft : 12 * xScale,
+        brandButton.frame = CGRect(x: metrics.showsToolbarGlobe ? metrics.leadingToolbarFrame(index: 1).minX : toolbarLeft,
             y: centerY - diameter / 2, width: diameter, height: diameter)
         brandArtwork.frame = brandButton.bounds.insetBy(dx: 2, dy: 2)
         brandButton.imageView?.isHidden = brandArtwork.image != nil
@@ -427,8 +433,10 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
             width: max(0, undoButton.frame.minX - brandButton.frame.maxX - 16), height: diameter)
         expandButton.frame = metrics.trailingToolbarFrame(index: 0)
         for button in [undoButton, modeButton, expandButton] { button.layer.cornerRadius = diameter / 2 }
-        candidateScroll.frame = CGRect(x: compact ? metrics.contentLeft : 4 * xScale,
-            y: 3, width: expandButton.frame.midX - 22 - (compact ? metrics.contentLeft : 4 * xScale),
+        // The iPad globe keeps its place beside every toolbar state.
+        let stripLeft = metrics.showsToolbarGlobe ? metrics.leadingToolbarFrame(index: 0).midX + 22 + 2
+            : aligned ? metrics.contentLeft : 4 * xScale
+        candidateScroll.frame = CGRect(x: stripLeft, y: 3, width: expandButton.frame.midX - 22 - stripLeft,
             height: headerHeight - 6)
         if !candidateScroll.isHidden || !quickCandidates.isHidden {
             var left = candidateScroll.frame.minX
@@ -438,7 +446,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
                 width: max(0, right - left), height: candidateScroll.frame.height)
         }
         let previewLeft = (brandButton.isHidden ? brandButton.frame.minX : brandButton.frame.maxX) + 8
-        let previewRight = compact ? metrics.contentRight : width - 12 * xScale
+        let previewRight = aligned ? metrics.contentRight : width - 12 * xScale
         clipboardSuggestion.frame = CGRect(x: previewLeft, y: brandButton.frame.minY,
             width: max(0, previewRight - previewLeft), height: diameter)
         quickCandidates.frame = candidateScroll.frame
@@ -452,7 +460,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
             control.frame = CGRect(x: rangeRight - 8 - width, y: centerY - 22, width: width, height: 44)
             rangeRight = control.frame.minX
         }
-        let titleLeft = compact ? metrics.contentLeft : 12 * xScale
+        let titleLeft = metrics.showsToolbarGlobe ? metrics.leadingToolbarFrame(index: 0).maxX + 12 : toolbarLeft
         let titleRight = shortenRange.isHidden ? expandButton.frame.midX - 22 : shortenRange.frame.minX
         panelTitle.frame = CGRect(x: titleLeft, y: centerY - diameter / 2,
             width: max(0, titleRight - 8 - titleLeft), height: diameter)
@@ -466,36 +474,50 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         gestureHint.frame = body
         panelScroll.frame = body
         symbolPanel?.compact = compact
+        symbolPanel?.regular = metrics.regular
         symbolPanel?.frame = bounds
         previewOverlay.frame = bounds
         settingsPanel?.frame = body
+        // Lists keep a readable width on an iPad rather than spanning the screen.
+        let listInset = metrics.regular ? max(metrics.contentLeft, (width - Self.padListWidth) / 2) : nil
         clipboardHistoryPanel?.headerHeight = headerHeight
-        clipboardHistoryPanel?.contentMargins = UIEdgeInsets(top: 0, left: compact ? metrics.contentLeft : 12,
-            bottom: 0, right: compact ? width - metrics.contentRight : 12)
+        clipboardHistoryPanel?.contentMargins = UIEdgeInsets(top: 0, left: listInset ?? (compact ? metrics.contentLeft : 12),
+            bottom: 0, right: listInset ?? (compact ? width - metrics.contentRight : 12))
         clipboardHistoryPanel?.frame = CGRect(x: 0, y: 0, width: width, height: metrics.contentHeight)
-        settingsPanel?.setContentMargins(left: compact ? metrics.contentLeft : 12,
-            right: compact ? width - metrics.contentRight : 12)
-        let keyGrid = KeyGridLayout(size: bounds.size, compact: compact, showsFooter: showsFooter,
+        settingsPanel?.setContentMargins(left: listInset ?? (compact ? metrics.contentLeft : 12),
+            right: listInset ?? (compact ? width - metrics.contentRight : 12))
+        let keyGrid = KeyGridLayout(size: bounds.size, compact: compact, pad: pad, showsFooter: showsFooter,
             heightFactor: heightFactor, page: page, numberPad: usesNumberPad, kana: kanaLayoutActive,
             generation: keyGridGeneration)
         if keyGrid != laidOutKeyGrid {
             laidOutKeyGrid = keyGrid
             layoutKeyGrid(metrics: metrics)
         }
-        globeButton.isHidden = !showsFooter || panel == .symbols
-        globeButton.frame = CGRect(x: 22 * xScale, y: metrics.contentHeight + (compact ? 0 : 17 * scale), width: 40 * scale, height: compact ? 34 : 40 * scale)
+        globeButton.isHidden = !showsFooter || panel == .symbols || (metrics.showsToolbarGlobe && header.isHidden)
+        if metrics.showsToolbarGlobe {
+            globeButton.frame = metrics.leadingToolbarFrame(index: 0)
+            globeButton.layer.cornerRadius = diameter / 2
+        } else {
+            globeButton.frame = CGRect(x: 22 * xScale, y: metrics.contentHeight + (compact ? 0 : 17 * scale), width: 40 * scale, height: compact ? 34 : 40 * scale)
+            globeButton.layer.cornerRadius = 0
+        }
+        globeButton.backgroundColor = metrics.showsToolbarGlobe ? KeyboardPalette.key : .clear
+        let globe = metrics.showsToolbarGlobe ? Self.toolbarGlobe : Self.footerGlobe
+        if globeButton.image(for: .normal) !== globe { globeButton.setImage(globe, for: .normal) }
+        globeButton.tintColor = metrics.showsToolbarGlobe ? .secondaryLabel : .label
         bringSubviewToFront(header)
+        if metrics.showsToolbarGlobe { bringSubviewToFront(globeButton) }
         if !deletePrompt.isHidden { bringSubviewToFront(deletePrompt) }
         // Candidate refreshes and layout changes must never raise a sibling
         // above held key previews. This overlay also stays transparent to input.
         bringSubviewToFront(previewOverlay)
-        let columns = width > 600 ? 5 : 3
-        let panelLeft: CGFloat = compact ? metrics.contentLeft : 8
-        let panelWidth: CGFloat = compact ? metrics.contentWidth : width - 20
-        let cellWidth = compact ? (panelWidth + 8) / CGFloat(columns) : panelWidth / CGFloat(columns)
+        let panelLeft: CGFloat = aligned ? metrics.contentLeft : 8
+        let panelWidth: CGFloat = aligned ? metrics.contentWidth : width - 20
+        let columns = metrics.regular ? max(5, Int(panelWidth / 150)) : width > 600 ? 5 : 3
+        let cellWidth = aligned ? (panelWidth + 8) / CGFloat(columns) : panelWidth / CGFloat(columns)
         for (index, button) in panelCandidates.enumerated() {
             button.frame = CGRect(x: panelLeft + CGFloat(index % columns) * cellWidth, y: CGFloat(index / columns) * 46,
-                width: cellWidth - (compact ? 8 : 5), height: 41)
+                width: cellWidth - (aligned ? 8 : 5), height: 41)
         }
         panelScroll.contentSize = CGSize(width: width, height: CGFloat((panelCandidates.count + columns - 1) / columns) * 46)
         if let timing = pendingCandidateTiming {
@@ -506,6 +528,11 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
             }
         }
     }
+
+    static let footerGlobe = UIImage(systemName: "globe", withConfiguration: UIImage.SymbolConfiguration(pointSize: 27, weight: .regular))
+    static let toolbarGlobe = UIImage(systemName: "globe", withConfiguration: UIImage.SymbolConfiguration(pointSize: 17, weight: .regular))
+    /// Settings and clipboard history stay this wide on an iPad.
+    static let padListWidth: CGFloat = 640
 
     func apply(_ edits: [KeyboardEdit]) {
         if !edits.isEmpty, let onEditsAndPreeditChange {

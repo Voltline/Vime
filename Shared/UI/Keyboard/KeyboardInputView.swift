@@ -16,7 +16,8 @@ final class KeyboardInputView: UIView, UIInputViewAudioFeedback {
 
     init(keyboard: KeyboardView) {
         sizing = KeyboardMetrics(width: keyboard.bounds.width > 0 ? keyboard.bounds.width : 440,
-            compact: keyboard.compact, showsFooter: keyboard.showsFooter, heightFactor: keyboard.heightFactor)
+            compact: keyboard.compact, showsFooter: keyboard.showsFooter, heightFactor: keyboard.heightFactor,
+            pad: keyboard.pad)
         super.init(frame: CGRect(origin: .zero, size: CGSize(width: sizing.width, height: sizing.height)))
         let height = heightAnchor.constraint(equalToConstant: sizing.height)
         height.identifier = "vime.keyboard.height"
@@ -69,7 +70,7 @@ final class KeyboardInputView: UIView, UIInputViewAudioFeedback {
         let width = proposedWidth.isFinite && proposedWidth > 0 ? proposedWidth : sizing.width
         return KeyboardMetrics(width: width, compact: keyboard?.compact ?? sizing.compact,
             showsFooter: keyboard?.showsFooter ?? sizing.showsFooter,
-            heightFactor: keyboard?.heightFactor ?? sizing.heightFactor)
+            heightFactor: keyboard?.heightFactor ?? sizing.heightFactor, pad: keyboard?.pad ?? sizing.pad)
     }
 
     override var intrinsicContentSize: CGSize {

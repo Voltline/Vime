@@ -2,18 +2,45 @@ import SwiftUI
 
 /// Reading content lives on the page; only controls and destinations use cards.
 struct AppSettingsPage<Content: View>: View {
+    @Environment(\.horizontalSizeClass) private var sizeClass
     private let content: Content
     init(@ViewBuilder content: () -> Content) { self.content = content() }
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) { content }
-                .frame(maxWidth: 680, alignment: .leading)
-                .padding(20).frame(maxWidth: .infinity, alignment: .topLeading)
+                .frame(maxWidth: AppReadableColumn.width, alignment: .leading)
+                .padding(20).frame(maxWidth: .infinity, alignment: AppReadableColumn.centers(sizeClass) ? .top : .topLeading)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .multilineTextAlignment(.leading)
         .background(Color(uiColor: .systemGroupedBackground))
     }
+}
+
+/// On a full-width iPad page, reading pages and lists sit in a centered column
+/// as wide as the dashboards. iPhone pages keep the leading margin, even in
+/// landscape.
+enum AppReadableColumn {
+    static let width: CGFloat = 680
+    static func centers(_ sizeClass: UserInterfaceSizeClass?) -> Bool {
+        UIDevice.current.userInterfaceIdiom == .pad && sizeClass == .regular
+    }
+}
+
+private struct AppReadableListMargins: ViewModifier {
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    @State private var width: CGFloat = 0
+    func body(content: Content) -> some View {
+        content
+            .contentMargins(.horizontal, AppReadableColumn.centers(sizeClass)
+                ? max(20, (width - AppReadableColumn.width) / 2) : nil, for: .scrollContent)
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
+    }
+}
+
+extension View {
+    /// Keeps List and Form rows in the readable column on iPad.
+    func appReadableList() -> some View { modifier(AppReadableListMargins()) }
 }
 
 struct AppSettingsActionGroup<Content: View>: View {

@@ -45,6 +45,7 @@ struct KeyboardNumberSymbolsView: View {
         }
         .navigationTitle("符号与括号").navigationBarTitleDisplayMode(.inline)
         .listStyle(.insetGrouped)
+        .appReadableList()
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
                 EditButton().accessibilityIdentifier("vime.numberSymbols.reorder")

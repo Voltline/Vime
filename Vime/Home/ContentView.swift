@@ -38,7 +38,8 @@ struct ContentView: View {
         .sheet(item: $router.sheet, onDismiss: router.sheetDismissed) { sheet in
             switch sheet {
             case .skin(let document): KeyboardSkinEditor(document: document, store: KeyboardSkinStore())
-            case .height: KeyboardHeightEditor()
+            // On iPad the page-sized sheet is wide enough to preview the docked keyboard.
+            case .height: KeyboardHeightEditor().presentationSizing(.page)
             }
         }
         .alert("皮肤导入失败", isPresented: Binding(get: { router.error != nil }, set: { if !$0 { router.acknowledgeError() } })) {
