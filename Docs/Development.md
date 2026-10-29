@@ -71,6 +71,22 @@ bash Scripts/verify_review.sh all
 
 ## 分支与发布
 
+```mermaid
+flowchart LR
+    work["feat/* · fix/*"] -- PR --> dev
+    misc["docs/* · chore/* · build/*"] -- PR --> dev
+    misc -. "PR，赶本周构建" .-> beta
+    dev -- "周三 03:00<br/>写入版本号并快进" --> beta
+    beta -. "周三 先合回直接合并" .-> dev
+    beta -- "每次变化" --> testflight(["Xcode Cloud → TestFlight"])
+    beta -- "周六 10:00<br/>提交审核" --> review(["App Store 审核"])
+    beta -- "周六 提交成功后<br/>快进并打 v 标签" --> main
+    classDef branch fill:#eef4ff,stroke:#3b6fd8,stroke-width:2px
+    class dev,beta,main branch
+```
+
+实线是每周的常规路径，虚线只在 `docs/` `chore/` `build/` 直接合入 `beta` 时出现。
+
 | 分支 | 用途 | 更新方式 |
 | --- | --- | --- |
 | `feat/<名称>` / `fix/<名称>` | 功能或修复 | 从 `dev` 切出，开 PR 合入 `dev` |
