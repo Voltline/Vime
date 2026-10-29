@@ -133,6 +133,9 @@ class KeyboardViewController: UIInputViewController {
     private func updateKeyboardGeometry() {
         let landscape = view.window?.windowScene?.interfaceOrientation.isLandscape ?? false
         keyboard.compact = traitCollection.userInterfaceIdiom == .phone && landscape
+        // The floating iPad keyboard is narrower than KeyboardMetrics.padMinimumWidth
+        // and falls back to the iPhone layout by itself.
+        keyboard.pad = traitCollection.userInterfaceIdiom == .pad
         keyboard.showsFooter = needsInputModeSwitchKey
         keyboard.needsGlobe = needsInputModeSwitchKey
         (view as? KeyboardInputView)?.refreshSizing()

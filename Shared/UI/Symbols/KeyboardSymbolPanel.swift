@@ -26,6 +26,8 @@ final class KeyboardSymbolPanel: UIView, UICollectionViewDataSource, UICollectio
         }
     }
     var compact = false { didSet { if oldValue != compact { setNeedsLayout() } } }
+    /// The docked iPad keyboard: more rows, larger cells.
+    var regular = false { didSet { if oldValue != regular { setNeedsLayout() } } }
     private let modes = UISegmentedControl(items: ["Emoji", String(localized: "颜文字"), String(localized: "符号")])
     private let close = UIButton(type: .system)
     private let search = UIButton(type: .system)
@@ -196,8 +198,9 @@ final class KeyboardSymbolPanel: UIView, UICollectionViewDataSource, UICollectio
             width: compact ? metrics.contentWidth : bounds.width, height: max(0, bounds.height - gridTop))
         collection.frame = viewport.bounds
         loading.center = CGPoint(x: viewport.bounds.midX, y: viewport.bounds.midY)
-        if oldSize != collection.bounds.size {
+        if oldSize != collection.bounds.size || layout.regular != regular {
             layout.compact = compact
+            layout.regular = regular
             layout.itemWidths = itemWidths()
             layout.invalidateLayout(); collection.layoutIfNeeded()
             let offset = anchor.map { layout.offset(for: $0) } ?? layout.start(of: selectedSection)
@@ -210,7 +213,7 @@ final class KeyboardSymbolPanel: UIView, UICollectionViewDataSource, UICollectio
     private func itemWidths() -> [CGFloat] {
         locations.map { location in
             let width = collection.bounds.width
-            let spacing: CGFloat = location.mode == .emoji ? 42 : 48
+            let spacing: CGFloat = (location.mode == .emoji ? 42 : 48) * (regular ? 1.3 : 1)
             let columns = location.mode == .kaomoji ? max(2, Int(width / 145)) : max(5, Int((width - 8) / spacing))
             return max(1, floor((width - 12 - CGFloat(columns - 1) * 4) / CGFloat(columns)))
         }
@@ -426,6 +429,7 @@ final class KeyboardSymbolPanel: UIView, UICollectionViewDataSource, UICollectio
         struct Anchor { let path: IndexPath; let fraction: CGFloat }
         var itemWidths = [CGFloat]()
         var compact = false
+        var regular = false
         private(set) var sections = [Section]()
         private var rows = 1
         private var rowStride: CGFloat = 44
@@ -435,8 +439,8 @@ final class KeyboardSymbolPanel: UIView, UICollectionViewDataSource, UICollectio
         override func prepare() {
             guard let collectionView, itemWidths.count == collectionView.numberOfSections else { return }
             let height = collectionView.bounds.height
-            rows = compact ? max(1, Int((height - 4) / 44)) : 5
-            cellHeight = min(40, max(1, (height - 4) / CGFloat(rows)))
+            rows = compact ? max(1, Int((height - 4) / 44)) : regular ? max(5, Int((height - 4) / 54)) : 5
+            cellHeight = min(regular ? 48 : 40, max(1, (height - 4) / CGFloat(rows)))
             topInset = min(2, max(0, (height - cellHeight) / 2))
             rowStride = rows > 1 ? max(0, (height - 2 * topInset - cellHeight) / CGFloat(rows - 1)) : 0
             var x: CGFloat = 0

@@ -61,6 +61,7 @@ struct KeyboardUserDictionaryView: View {
             }
         }
         .listStyle(.insetGrouped)
+        .appReadableList()
         .navigationTitle("用户词典").navigationBarTitleDisplayMode(.inline)
         .searchable(text: $search, prompt: "搜索词语或读音")
         .toolbar { ToolbarItem(placement: .primaryAction) {

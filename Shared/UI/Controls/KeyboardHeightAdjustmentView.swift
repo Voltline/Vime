@@ -12,6 +12,8 @@ final class KeyboardHeightAdjustmentView: UIView {
     override init(frame: CGRect) {
         super.init(frame: frame)
         keyboard.isUserInteractionEnabled = false; keyboard.hasFullAccess = false
+        // Preview the geometry the docked keyboard uses on this device.
+        keyboard.pad = UIDevice.current.userInterfaceIdiom == .pad
         addSubview(keyboard)
         grip.backgroundColor = .tertiarySystemFill; grip.layer.cornerRadius = 10
         line.backgroundColor = .secondaryLabel; line.layer.cornerRadius = 3
@@ -30,7 +32,7 @@ final class KeyboardHeightAdjustmentView: UIView {
     }
     func beginAdjustment() { startingFactor = factor }
     func adjust(translationY: CGFloat) {
-        let metrics = KeyboardMetrics(width: max(1, bounds.width), compact: false, showsFooter: true)
+        let metrics = KeyboardMetrics(width: max(1, bounds.width), compact: false, showsFooter: true, pad: keyboard.pad)
         let keyPlane = metrics.rowStep * 3 + metrics.keyHeight
         let range = KeyboardPreferences.heightRange
         factor = min(CGFloat(range.upperBound), max(CGFloat(range.lowerBound), startingFactor - translationY / keyPlane))

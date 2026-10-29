@@ -401,6 +401,7 @@ struct KeyboardInputSettingsView: View {
                 }
             }
         }
+        .appReadableList()
         .navigationTitle("转换与联想").navigationBarTitleDisplayMode(.inline)
     }
 }
@@ -461,6 +462,7 @@ struct KeyboardFeedbackSettingsView: View {
                 Text("假名九宫格：点按输入あ段，上下左右滑动输入其他段；连续点按同一键依次切换\n声音、振动和数字布局也可在键盘左上角快速调整\n修改后重新打开键盘即可读取更新")
             }
         }
+        .appReadableList()
         .navigationTitle("手感与布局").navigationBarTitleDisplayMode(.inline)
     }
 }
