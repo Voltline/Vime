@@ -105,4 +105,65 @@ final class KeyboardPredictionTests: XCTestCase {
             }, "Full conversion must have the correct reading: \(raw)")
         }
     }
+
+    func testMalformedDictionarySurfacesAreDropped() {
+        for text in ["ン゙", "ぁ゚", "くァ", "クぁ", "自ゃ", "一00%", "1零0%", "12:三0", "1二"] {
+            XCTAssertTrue(JapaneseCandidateEngine.isMalformedSurface(text, reading: "ン"), text)
+        }
+        for text in ["ヴァイオリン", "ちゃ", "ジャ", "行って", "1万", "3月十四日", "十二:30", "２０２６年", "Aぇ!", "3ヶ月"] {
+            XCTAssertFalse(JapaneseCandidateEngine.isMalformedSurface(text, reading: "ン"), text)
+        }
+        XCTAssertFalse(JapaneseCandidateEngine.isMalformedSurface("ン゙", reading: "ン゙"), "Typed marks stay")
+        for raw in ["nn", "la", "kwa", "jya", "100%"] {
+            let session = KeyboardSession(memoryDirectoryURL: isolatedLearningDirectory())
+            _ = session.type(raw)
+            let shown = session.candidates
+            XCTAssertFalse(shown.isEmpty, raw)
+            XCTAssertFalse(shown.contains { JapaneseCandidateEngine.isMalformedSurface($0, reading: "") }, "\(raw): \(shown.prefix(8))")
+        }
+    }
+
+    func testDigitsAndSymbolsKeepTheTypedFormFirst() {
+        for raw in ["12:30", "100%"] {
+            let session = KeyboardSession(memoryDirectoryURL: isolatedLearningDirectory())
+            _ = session.type(raw)
+            XCTAssertEqual(session.candidates.first, raw, "\(session.candidates.prefix(5))")
+        }
+    }
+
+    func testTypedLettersAreOfferedWithoutDisplacingWords() {
+        for raw in ["iphone", "orz", "sns"] {
+            let session = KeyboardSession(memoryDirectoryURL: isolatedLearningDirectory())
+            _ = session.type(raw)
+            XCTAssertEqual(session.candidates.first, raw, "\(session.candidates.prefix(5))")
+            XCTAssertTrue(session.candidates.prefix(3).contains(raw.prefix(1).uppercased() + raw.dropFirst()))
+            XCTAssertEqual(session.choose(0), [.insert(raw)])
+        }
+        for (raw, minimum) in [("kore", 5), ("nihongo", 5), ("nanim", 3), ("kyous", 3)] {
+            let session = KeyboardSession(memoryDirectoryURL: isolatedLearningDirectory())
+            _ = session.type(raw)
+            let index = try? XCTUnwrap(session.candidates.firstIndex(of: raw))
+            XCTAssertGreaterThanOrEqual(index ?? 0, minimum, "Words romaji can spell come first: \(session.candidates.prefix(8))")
+        }
+    }
+
+    func testDateAndTimeReadingsOfferFormattedValues() {
+        let gregorian = Calendar(identifier: .gregorian)
+        for (raw, offset) in [("kyou", 0), ("ashita", 1), ("kinou", -1)] {
+            let session = KeyboardSession(memoryDirectoryURL: isolatedLearningDirectory())
+            _ = session.type(raw)
+            let day = gregorian.date(byAdding: .day, value: offset, to: Date())!
+            let shown = session.candidates
+            XCTAssertTrue(shown.contains(JapaneseCandidateEngine.format(day, "yyyy/MM/dd", calendar: gregorian)), "\(raw): \(shown.prefix(10))")
+            XCTAssertTrue(shown.contains(JapaneseCandidateEngine.format(day, "yyyy年M月d日", calendar: gregorian)))
+            XCTAssertTrue(shown.contains { $0.hasPrefix("令和") })
+            let word = ["kyou": "今日", "ashita": "明日", "kinou": "昨日"][raw]!
+            XCTAssertEqual(shown.first, word, "The word stays first")
+            XCTAssertLessThan(shown.firstIndex { $0.contains("/") } ?? 99, 6, "Dates stay near the front")
+        }
+        let session = KeyboardSession(memoryDirectoryURL: isolatedLearningDirectory())
+        _ = session.type("ima")
+        XCTAssertTrue(session.candidates.contains { $0.contains(":") && $0.allSatisfy { $0.isNumber || $0 == ":" } }, "\(session.candidates.prefix(8))")
+        XCTAssertEqual(session.candidates.first, "今")
+    }
 }

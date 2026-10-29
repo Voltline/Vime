@@ -73,6 +73,7 @@ extension KeyboardView {
         }
         // The logo sits directly on the toolbar; only the trailing controls get a backing.
         for button in [undoButton, modeButton, expandButton] { button.backgroundColor = KeyboardPalette.key }
+        if showsNextWordClose { expandButton.backgroundColor = .clear }
         clipboardSuggestion.applyTheme()
         quickCandidates.applyTheme()
         numberSymbolRail?.applyTheme()

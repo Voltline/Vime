@@ -17,7 +17,9 @@ extension KeyboardView {
     @objc func headerArrow() {
         if panel != .keyboard {
             panel = .keyboard; refresh()
-        } else if session.isComposing { toggleExpanded() }
+        } else if emojiSearchActive { endEmojiSearch() }
+        else if showsNextWordClose { session.dismissSuggestions(); refresh() }
+        else if session.isComposing { toggleExpanded() }
         else { onDismiss?() }
     }
 
@@ -26,11 +28,37 @@ extension KeyboardView {
     }
 
     func openSymbolPanel(mode: KeyboardSymbolPanel.Mode) {
+        emojiSearchActive = false
         apply(session.confirm())
         panel = .symbols
         panelScroll.setContentOffset(.zero, animated: false)
         refresh()
+        symbolPanel?.recents = preferences.emojiRecents
         symbolPanel?.selectMode(mode)
+    }
+
+    /// Typing searches emoji by reading until a result is chosen or the
+    /// search is closed. The reading stays marked text until then.
+    func beginEmojiSearch() {
+        emojiSearchActive = true
+        panel = .keyboard
+        refresh()
+    }
+
+    /// Closing keeps any typed reading as ordinary composition.
+    func endEmojiSearch() {
+        emojiSearchActive = false
+        refresh()
+    }
+
+    func emojiSearchItems() -> [KeyboardQuickCandidate] {
+        guard session.isComposing else {
+            return [.init(title: String(localized: "输入读音搜索表情"), action: .prompt)]
+                + preferences.emojiRecents.map { .init(title: $0, action: .emoji($0)) }
+        }
+        let results = KeyboardEmojiSearch.results(reading: session.composition, typed: session.raw)
+        return results.isEmpty ? [.init(title: String(localized: "没有找到表情"), action: .prompt)]
+            : results.map { .init(title: $0, action: .emoji($0)) }
     }
 
     func showSymbolPanel() {
@@ -44,6 +72,8 @@ extension KeyboardView {
                 if composes { self.apply(self.session.type(text)) } else { self.insertSymbol(text) }
             }
             panel.onClose = { [weak self] in self?.headerArrow() }
+            panel.onEmojiUse = { [weak self] in self?.preferences.recordEmoji($0) }
+            panel.onSearch = { [weak self] in self?.beginEmojiSearch() }
             addSubview(panel); symbolPanel = panel
             panel.applyTheme()
         }

@@ -152,6 +152,7 @@ private final class BoundarySession: KeyboardInputSession {
     func enter() -> [KeyboardEdit] { [] }
     func confirm() -> [KeyboardEdit] { [] }
     func confirmAll() -> [KeyboardEdit] { [] }
+    func dismissSuggestions() {}
     func insertLiteral(_ text: String) -> [KeyboardEdit] { [.insert(text)] }
     func activateEnglish() -> [KeyboardEdit] { [] }
     func toggleEnglish() -> [KeyboardEdit] { [] }

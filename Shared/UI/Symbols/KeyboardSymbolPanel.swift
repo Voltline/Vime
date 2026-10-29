@@ -6,9 +6,29 @@ final class KeyboardSymbolPanel: UIView, UICollectionViewDataSource, UICollectio
     var onSelect: ((String) -> Void)?
     var onClose: (() -> Void)?
     var onFeedback: (() -> Void)?
+    /// An emoji was inserted; the keyboard records it for the recent category.
+    var onEmojiUse: ((String) -> Void)?
+    var onSearch: (() -> Void)?
+    /// Recently used emoji, shown as the first emoji category when not empty.
+    var recents: [String] = [] {
+        didSet {
+            guard recents != oldValue else { return }
+            let current = locations[selectedSection]
+            recentItems = recents.map { KeyboardSymbolCatalog.Item(text: $0, name: KeyboardSymbolCatalog.emojiNames[$0] ?? $0) }
+            cancelPrefetches()
+            locations = Self.locations(hasRecents: !recents.isEmpty)
+            selectedSection = locations.firstIndex { $0.mode == current.mode && $0.group == current.group } ?? 0
+            headerSelection = nil
+            rebuildCategories(for: displayedMode)
+            layout.itemWidths = itemWidths()
+            collection.reloadData(); layout.invalidateLayout()
+            if collection.bounds.width > 0 { showSection(selectedSection, feedback: false) }
+        }
+    }
     var compact = false { didSet { if oldValue != compact { setNeedsLayout() } } }
     private let modes = UISegmentedControl(items: ["Emoji", String(localized: "颜文字"), String(localized: "符号")])
     private let close = UIButton(type: .system)
+    private let search = UIButton(type: .system)
     private let categories = UIScrollView()
     private let categoryIndicator = UIView()
     private let viewport = UIView()
@@ -29,6 +49,8 @@ final class KeyboardSymbolPanel: UIView, UICollectionViewDataSource, UICollectio
     private var headerProgress: CGFloat?
     private var headerSelection: Int?
     private var emojiItems: [Int: [KeyboardSymbolCatalog.Item]] = [:]
+    private var recentItems: [KeyboardSymbolCatalog.Item] = []
+    /// Group -1 is the recent emoji category.
     private struct Location { let mode: Mode; let group: Int }
     private static func groups(for mode: Mode) -> [KeyboardSymbolCatalog.Group] {
         switch mode {
@@ -37,12 +59,20 @@ final class KeyboardSymbolPanel: UIView, UICollectionViewDataSource, UICollectio
         case .symbols: KeyboardSymbolCatalog.symbols
         }
     }
-    private let locations = Mode.allCases.flatMap { mode in
-        groups(for: mode).indices.map { Location(mode: mode, group: $0) }
+    private var locations = locations(hasRecents: false)
+    private static func locations(hasRecents: Bool) -> [Location] {
+        (hasRecents ? [Location(mode: .emoji, group: -1)] : []) + Mode.allCases.flatMap { mode in
+            groups(for: mode).indices.map { Location(mode: mode, group: $0) }
+        }
     }
     private func items(in section: Int) -> [KeyboardSymbolCatalog.Item] {
         let location = locations[section]
+        if location.group < 0 { return recentItems }
         return location.mode == .emoji ? emojiItems[location.group] ?? [] : Self.groups(for: location.mode)[location.group].items
+    }
+    /// Category tabs follow the sections of one mode, recent emoji first.
+    private func tabIndex(of location: Location) -> Int {
+        location.group + (location.mode == .emoji && !recentItems.isEmpty ? 1 : 0)
     }
 
     override init(frame: CGRect) {
@@ -64,12 +94,20 @@ final class KeyboardSymbolPanel: UIView, UICollectionViewDataSource, UICollectio
         modes.selectedSegmentIndex = 0
         modes.addAction(UIAction { [weak self] _ in
             guard let self, let mode = Mode(rawValue: self.modes.selectedSegmentIndex) else { return }
-            self.showSection(self.section(for: mode, group: 0))
+            self.showSection(self.firstSection(of: mode))
         }, for: .valueChanged)
         close.setTitle(String(localized: "返回键盘"), for: .normal)
         close.titleLabel?.font = .systemFont(ofSize: 14, weight: .medium)
         close.titleLabel?.adjustsFontSizeToFitWidth = true; close.titleLabel?.minimumScaleFactor = 0.7
         close.accessibilityIdentifier = "vime.symbols.close"
+        search.setImage(UIImage(systemName: "magnifyingglass", withConfiguration: UIImage.SymbolConfiguration(pointSize: 15, weight: .medium)), for: .normal)
+        search.accessibilityLabel = String(localized: "搜索表情")
+        search.accessibilityIdentifier = "vime.symbols.search"
+        search.addAction(UIAction { [weak self] _ in
+            guard let self else { return }
+            self.collection.setContentOffset(self.collection.contentOffset, animated: false)
+            self.onFeedback?(); self.onSearch?()
+        }, for: .touchUpInside)
         close.addAction(UIAction { [weak self] _ in
             guard let self else { return }
             self.collection.setContentOffset(self.collection.contentOffset, animated: false)
@@ -82,7 +120,7 @@ final class KeyboardSymbolPanel: UIView, UICollectionViewDataSource, UICollectio
         categoryIndicator.isUserInteractionEnabled = false
         categoryIndicator.layer.cornerRadius = 8
         categories.addSubview(categoryIndicator)
-        for view in [modes, close, categories, viewport] { addSubview(view) }
+        for view in [modes, close, search, categories, viewport] { addSubview(view) }
         viewport.addSubview(collection); viewport.addSubview(loading)
         loading.hidesWhenStopped = true; loading.startAnimating()
         rebuildCategories(for: .emoji)
@@ -116,8 +154,11 @@ final class KeyboardSymbolPanel: UIView, UICollectionViewDataSource, UICollectio
     private func section(for mode: Mode, group: Int) -> Int {
         locations.firstIndex { $0.mode == mode && $0.group == group }!
     }
+    private func firstSection(of mode: Mode) -> Int {
+        locations.firstIndex { $0.mode == mode }!
+    }
     func selectMode(_ mode: Mode) {
-        if locations[selectedSection].mode != mode { showSection(section(for: mode, group: 0)) }
+        if locations[selectedSection].mode != mode { showSection(firstSection(of: mode)) }
     }
 
     override func layoutSubviews() {
@@ -129,18 +170,23 @@ final class KeyboardSymbolPanel: UIView, UICollectionViewDataSource, UICollectio
         // Localized titles vary widely in length; fit the text rather than truncate it.
         let closeWidth = min(max(82, Self.textWidth(String(localized: "返回键盘"), font: close.titleLabel?.font) + 8), bounds.width * 0.4)
         close.frame = CGRect(x: 6, y: top, width: closeWidth, height: 34)
-        modes.frame = CGRect(x: close.frame.maxX + 8, y: top + 2, width: max(0, bounds.width - close.frame.maxX - 16), height: 30)
+        search.frame = CGRect(x: bounds.width - 40, y: top, width: 34, height: 34)
+        modes.frame = CGRect(x: close.frame.maxX + 8, y: top + 2, width: max(0, search.frame.minX - close.frame.maxX - 14), height: 30)
         categories.frame = CGRect(x: 0, y: top + 32, width: bounds.width, height: 28)
         close.setTitle(compact ? nil : String(localized: "返回键盘"), for: .normal)
         close.accessibilityLabel = String(localized: "返回键盘")
         close.setImage(compact ? UIImage(systemName: "chevron.up") : nil, for: .normal)
         close.backgroundColor = compact ? KeyboardPalette.key : .clear
         close.tintColor = compact ? .secondaryLabel : KeyboardPalette.accent
+        search.backgroundColor = close.backgroundColor
+        search.tintColor = compact ? .secondaryLabel : KeyboardPalette.text
         close.layer.cornerRadius = compact ? metrics.toolbarButtonDiameter / 2 : 0
+        search.layer.cornerRadius = close.layer.cornerRadius
         if compact {
             close.frame = metrics.trailingToolbarFrame(index: 0)
+            search.frame = metrics.trailingToolbarFrame(index: 1)
             modes.frame = CGRect(x: metrics.contentLeft, y: top,
-                width: min(320, close.frame.minX - KeyboardMetrics.toolbarGap - metrics.contentLeft), height: metrics.toolbarButtonDiameter)
+                width: min(320, search.frame.minX - KeyboardMetrics.toolbarGap - metrics.contentLeft), height: metrics.toolbarButtonDiameter)
             categories.frame = CGRect(x: metrics.contentLeft, y: metrics.headerHeight, width: metrics.contentWidth, height: 28)
         }
         layoutCategories()
@@ -152,12 +198,7 @@ final class KeyboardSymbolPanel: UIView, UICollectionViewDataSource, UICollectio
         loading.center = CGPoint(x: viewport.bounds.midX, y: viewport.bounds.midY)
         if oldSize != collection.bounds.size {
             layout.compact = compact
-            layout.itemWidths = locations.map { location in
-                let width = collection.bounds.width
-                let spacing: CGFloat = location.mode == .emoji ? 42 : 48
-                let columns = location.mode == .kaomoji ? max(2, Int(width / 145)) : max(5, Int((width - 8) / spacing))
-                return max(1, floor((width - 12 - CGFloat(columns - 1) * 4) / CGFloat(columns)))
-            }
+            layout.itemWidths = itemWidths()
             layout.invalidateLayout(); collection.layoutIfNeeded()
             let offset = anchor.map { layout.offset(for: $0) } ?? layout.start(of: selectedSection)
             collection.setContentOffset(CGPoint(x: offset, y: 0), animated: false)
@@ -165,6 +206,14 @@ final class KeyboardSymbolPanel: UIView, UICollectionViewDataSource, UICollectio
         layingOut = false
         syncHeaderToScrolling()
         prepareAhead()
+    }
+    private func itemWidths() -> [CGFloat] {
+        locations.map { location in
+            let width = collection.bounds.width
+            let spacing: CGFloat = location.mode == .emoji ? 42 : 48
+            let columns = location.mode == .kaomoji ? max(2, Int(width / 145)) : max(5, Int((width - 8) / spacing))
+            return max(1, floor((width - 12 - CGFloat(columns - 1) * 4) / CGFloat(columns)))
+        }
     }
     /// Tabs keep a 52pt minimum and grow to fit longer localized titles.
     private func layoutCategories() {
@@ -191,11 +240,13 @@ final class KeyboardSymbolPanel: UIView, UICollectionViewDataSource, UICollectio
     private func rebuildCategories(for mode: Mode) {
         displayedMode = mode
         categoryButtons.forEach { $0.removeFromSuperview() }
-        categoryButtons = Self.groups(for: mode).enumerated().map { index, group in
+        let recent = mode == .emoji && !recentItems.isEmpty ? [(-1, String(localized: "最近"))] : []
+        let titles = recent + Self.groups(for: mode).enumerated().map { ($0, KeyboardSymbolCatalog.title(for: $1.name)) }
+        categoryButtons = titles.map { index, title in
             let button = UIButton(type: .system)
-            button.setTitle(KeyboardSymbolCatalog.title(for: group.name), for: .normal)
+            button.setTitle(title, for: .normal)
             button.titleLabel?.font = .systemFont(ofSize: 14)
-            button.accessibilityIdentifier = "vime.symbols.category.\(index)"
+            button.accessibilityIdentifier = index < 0 ? "vime.symbols.category.recent" : "vime.symbols.category.\(index)"
             button.addAction(UIAction { [weak self] _ in
                 guard let self else { return }
                 self.showSection(self.section(for: mode, group: index))
@@ -220,11 +271,11 @@ final class KeyboardSymbolPanel: UIView, UICollectionViewDataSource, UICollectio
         if displayedMode != preview.mode { rebuildCategories(for: preview.mode) }
         if modes.selectedSegmentIndex != preview.mode.rawValue { modes.selectedSegmentIndex = preview.mode.rawValue }
         let progress = locations[lower].mode == locations[upper].mode
-            ? CGFloat(locations[lower].group) + fraction : CGFloat(preview.group)
+            ? CGFloat(tabIndex(of: locations[lower])) + fraction : CGFloat(tabIndex(of: preview))
         if headerSelection != previewSection {
             headerSelection = previewSection
             for (index, button) in categoryButtons.enumerated() {
-                let selected = index == preview.group
+                let selected = index == tabIndex(of: preview)
                 button.backgroundColor = .clear
                 button.setTitleColor(selected ? KeyboardPalette.accent : KeyboardPalette.text, for: .normal)
                 button.accessibilityTraits = selected ? [.button, .selected] : [.button]
@@ -362,7 +413,9 @@ final class KeyboardSymbolPanel: UIView, UICollectionViewDataSource, UICollectio
     }
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         guard !collection.isDragging, !collection.isDecelerating else { return }
-        onSelect?(items(in: indexPath.section)[indexPath.item].text)
+        let text = items(in: indexPath.section)[indexPath.item].text
+        onSelect?(text)
+        if locations[indexPath.section].mode == .emoji { onEmojiUse?(text) }
         collectionView.deselectItem(at: indexPath, animated: false)
     }
 

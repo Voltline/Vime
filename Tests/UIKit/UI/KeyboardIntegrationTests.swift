@@ -208,10 +208,13 @@ final class KeyboardIntegrationTests: XCTestCase {
         XCTAssertNil(host.markedText)
         keyboard.layoutIfNeeded()
         let settings = try XCTUnwrap(descendants(keyboard).first { $0.accessibilityLabel == "键盘设置" })
-        XCTAssertFalse(settings.isHidden, "Suggestions sit beside the brand, as the idle toolbar does")
+        XCTAssertTrue(settings.isHidden, "Suggestions use the whole row")
         let strip = try XCTUnwrap(descendants(keyboard).first { $0.accessibilityIdentifier == "vime.candidates" } as? UIScrollView)
         XCTAssertFalse(strip.isHidden)
-        XCTAssertGreaterThanOrEqual(strip.frame.minX, settings.frame.maxX)
+        XCTAssertLessThan(strip.frame.minX, settings.frame.maxX)
+        let close = try XCTUnwrap(descendants(keyboard).first { $0.accessibilityIdentifier == "vime.suggestions.close" } as? UIButton)
+        XCTAssertFalse(close.isHidden)
+        XCTAssertEqual(close.accessibilityLabel, "关闭联想")
         let suggestions = descendants(strip).compactMap { $0 as? KeyboardCandidateButton }.filter { !$0.isHidden }
         XCTAssertFalse(suggestions.isEmpty, "Actual suggestions, not merely the settings button")
         for suggestion in suggestions {
@@ -219,6 +222,102 @@ final class KeyboardIntegrationTests: XCTestCase {
             XCTAssertEqual(suggestion.contentHorizontalAlignment, .center)
             XCTAssertGreaterThanOrEqual(suggestion.frame.width, KeyboardCandidateButton.suggestionMinimumWidth)
         }
+        var dismissed = false
+        keyboard.onDismiss = { dismissed = true }
+        close.sendActions(for: .touchUpInside)
+        keyboard.layoutIfNeeded()
+        XCTAssertFalse(dismissed, "Closing suggestions keeps the keyboard open")
+        XCTAssertTrue(strip.isHidden)
+        XCTAssertFalse(settings.isHidden, "The idle toolbar returns")
+        XCTAssertEqual(close.accessibilityIdentifier, "vime.candidates.expand")
+        XCTAssertEqual(view.text, "駅に", "Closing commits nothing")
+    }
+
+    func testReconversionReadings() {
+        for (text, reading) in ["漢字": "かんじ", "電車": "でんしゃ", "食べる": "たべる", "カタカナ": "かたかな", "ひらがな": "ひらがな"] {
+            XCTAssertEqual(KeyboardReconversion.reading(for: text), reading, text)
+        }
+        for text in ["hello", "漢字abc", "😀", "", "。", String(repeating: "漢", count: 25)] {
+            XCTAssertNil(KeyboardReconversion.reading(for: text), text)
+        }
+    }
+
+    func testSelectedTextIsReconvertedThroughItsReading() throws {
+        let keyboard = makeKeyboard()
+        let view = UITextView()
+        _ = connect(keyboard, to: view)
+        view.text = "漢字を書く"
+        view.selectedRange = NSRange(location: 0, length: 2)
+        keyboard.selectedTextProvider = { view.selectedRange.length > 0 ? (view.text as NSString).substring(with: view.selectedRange) : nil }
+        keyboard.hostContextDidChange(); keyboard.layoutIfNeeded()
+        let reconvert = try button("vime.reconvert", in: keyboard)
+        XCTAssertEqual(reconvert.title(for: .normal), "重新转换「漢字」")
+        reconvert.sendActions(for: .touchDown); reconvert.sendActions(for: .touchUpInside)
+        XCTAssertEqual(view.text, "かんじを書く", "The reading replaces the selection as marked text")
+        XCTAssertNotNil(view.markedTextRange)
+        XCTAssertNil(descendants(keyboard).first { $0.accessibilityIdentifier == "vime.reconvert" && !($0.superview?.isHidden ?? true) })
+        let candidate = try XCTUnwrap(descendants(keyboard).first { $0.accessibilityLabel == "候选词：漢字" } as? UIButton)
+        candidate.sendActions(for: .touchUpInside)
+        XCTAssertEqual(view.text, "漢字を書く")
+        XCTAssertNil(view.markedTextRange)
+
+        view.text = "hello"
+        view.selectedRange = NSRange(location: 0, length: 5)
+        keyboard.hostContextDidChange(); keyboard.layoutIfNeeded()
+        XCTAssertNil(descendants(keyboard).first { $0.accessibilityIdentifier == "vime.reconvert" && !($0.superview?.isHidden ?? true) })
+    }
+
+    func testEmojiSearchReplacesTheReadingAndFillsRecents() throws {
+        let keyboard = makeKeyboard()
+        let view = UITextView()
+        _ = connect(keyboard, to: view)
+        func openEmoji() throws -> (KeyboardSymbolPanel, UICollectionView) {
+            let emoji = try XCTUnwrap(descendants(keyboard).first { $0.accessibilityLabel == "表情" } as? UIButton)
+            emoji.sendActions(for: .touchUpInside); keyboard.layoutIfNeeded()
+            let panel = try XCTUnwrap(descendants(keyboard).compactMap { $0 as? KeyboardSymbolPanel }.first)
+            panel.layoutIfNeeded()
+            return (panel, try XCTUnwrap(descendants(panel).compactMap { $0 as? UICollectionView }.first))
+        }
+        var (panel, grid) = try openEmoji()
+        XCTAssertNil(descendants(panel).first { $0.accessibilityIdentifier == "vime.symbols.category.recent" }, "No recent category before any use")
+        try button("vime.symbols.search", in: keyboard).sendActions(for: .touchUpInside); keyboard.layoutIfNeeded()
+        XCTAssertTrue(panel.isHidden)
+        XCTAssertFalse(try button("vime.emojiSearch.prompt", in: keyboard).isEnabled)
+        XCTAssertTrue(keyboard.brandButton.isHidden, "Search uses the whole row")
+        XCTAssertEqual(try button("vime.emojiSearch.close", in: keyboard).accessibilityLabel, "关闭表情搜索")
+
+        for character in "neko" { try button("vime.key." + String(character), in: keyboard).sendActions(for: .touchUpInside) }
+        XCTAssertEqual(view.text, "ねこ")
+        XCTAssertTrue(KeyboardEmojiSearch.results(reading: "ねこ", typed: "neko").contains("🐱"))
+        try button("vime.emojiResult.🐱", in: keyboard).sendActions(for: .touchUpInside)
+        XCTAssertEqual(view.text, "🐱", "The emoji replaces the reading")
+        XCTAssertNil(view.markedTextRange)
+        XCTAssertFalse(keyboard.emojiSearchActive)
+        XCTAssertEqual(keyboard.preferences.emojiRecents, ["🐱"])
+
+        (panel, grid) = try openEmoji()
+        XCTAssertEqual(try button("vime.symbols.category.recent", in: keyboard).title(for: .normal), "最近")
+        XCTAssertEqual(grid.numberOfItems(inSection: 0), 1)
+        let smileys = try XCTUnwrap(KeyboardSymbolCatalog.emoji.groups.first?.items.first?.text)
+        // Emoji availability loads in the background; the panel publishes it whole.
+        let deadline = Date().addingTimeInterval(5)
+        while panel.collectionView(grid, numberOfItemsInSection: 1) == 0 && Date() < deadline {
+            RunLoop.main.run(until: Date().addingTimeInterval(0.01))
+        }
+        panel.collectionView(grid, didSelectItemAt: IndexPath(item: 0, section: 1))
+        XCTAssertEqual(keyboard.preferences.emojiRecents, [smileys, "🐱"], "Most recent first")
+        let kaomoji = 1 + KeyboardSymbolCatalog.emoji.groups.count
+        panel.collectionView(grid, didSelectItemAt: IndexPath(item: 0, section: kaomoji))
+        XCTAssertEqual(keyboard.preferences.emojiRecents.count, 2, "Only emoji are recorded")
+        XCTAssertEqual(view.text, "🐱" + smileys + KeyboardSymbolCatalog.kaomoji[0].items[0].text)
+
+        try button("vime.symbols.search", in: keyboard).sendActions(for: .touchUpInside); keyboard.layoutIfNeeded()
+        XCTAssertNotNil(descendants(keyboard).first { $0.accessibilityIdentifier == "vime.emojiResult.🐱" }, "Idle search offers recents")
+        for character in "inu" { try button("vime.key." + String(character), in: keyboard).sendActions(for: .touchUpInside) }
+        try button("vime.emojiSearch.close", in: keyboard).sendActions(for: .touchUpInside); keyboard.layoutIfNeeded()
+        XCTAssertFalse(keyboard.emojiSearchActive)
+        XCTAssertNotNil(view.markedTextRange, "Closing keeps the reading as ordinary input")
+        XCTAssertEqual(descendants(keyboard).first { $0.accessibilityIdentifier == "vime.quickCandidates" }?.isHidden, true)
     }
 
     func testMarkedTextDeletionCancellationModeAndCaretChanges() throws {

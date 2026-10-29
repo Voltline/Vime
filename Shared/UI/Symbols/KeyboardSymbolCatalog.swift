@@ -10,6 +10,7 @@ enum KeyboardSymbolCatalog {
         else { return Catalog(version: "", groups: []) }
         return catalog
     }()
+    static let emojiNames = Dictionary(emoji.groups.flatMap(\.items).map { ($0.text, $0.name) }, uniquingKeysWith: { first, _ in first })
     /// Group names stay stable Chinese IDs; the catalog localizes them for display.
     static func title(for name: String) -> String {
         let key = ["Smileys & Emotion": "表情", "People & Body": "人物", "Component": "组件",

@@ -98,6 +98,61 @@ nonisolated extension JapaneseCandidateEngine {
         }
     }
 
+    static let relativeDays: [String: Int] = ["きょう": 0, "ほんじつ": 0, "あした": 1, "あす": 1, "みょうにち": 1,
+                                              "あさって": 2, "きのう": -1, "さくじつ": -1, "おととい": -2]
+
+    /// Today's date for きょう (and nearby days), the time for いま. Below the
+    /// word itself, beside its kana.
+    func dateCandidates(builder: SnapshotBuilder, now: Date = Date()) -> [CandidateSnapshot] {
+        let texts: [String]
+        if let offset = Self.relativeDays[builder.kana] {
+            let gregorian = Calendar(identifier: .gregorian)
+            guard let day = gregorian.date(byAdding: .day, value: offset, to: now) else { return [] }
+            texts = ["yyyy/MM/dd", "yyyy年M月d日", "M月d日(E)"].map { Self.format(day, $0, calendar: gregorian) }
+                + [Self.format(day, "GGGGy年M月d日", calendar: Calendar(identifier: .japanese))]
+        } else if builder.kana == "いま" {
+            texts = ["H:mm", "H時m分"].map { Self.format(now, $0, calendar: Calendar(identifier: .gregorian)) }
+        } else { return [] }
+        return texts.enumerated().map { offset, text in
+            builder.snapshot(builder.wholeQuery(text), source: .specialConversion, engineRank: 1 + offset)
+        }
+    }
+
+    static func format(_ date: Date, _ pattern: String, calendar: Calendar) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ja_JP")
+        formatter.calendar = calendar
+        formatter.dateFormat = pattern
+        return formatter.string(from: date)
+    }
+
+    /// The letters as typed (iphone, Iphone) for words romaji cannot spell.
+    /// They lead only while the kana still holds bare letters (いpほね).
+    func typedLetterCandidates(for query: ComposingText, builder: SnapshotBuilder) -> [CandidateSnapshot] {
+        let typed = Self.rawInput(query)
+        guard typed.count >= 2, typed.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber) }),
+              typed.contains(where: \.isLetter) else { return [] }
+        // While a consonant is pending the user is most likely still typing.
+        let pending = builder.kana.last.map { $0.isASCII && $0.isLetter } ?? false
+        let rank = Self.romajiCannotSpell(builder.kana) ? 0 : pending ? 40 : 8
+        let capitalized = typed.prefix(1).uppercased() + typed.dropFirst()
+        return [typed, capitalized].enumerated().map { offset, text in
+            builder.snapshot(builder.wholeQuery(text), source: .specialConversion, engineRank: rank + offset)
+        }
+    }
+
+    /// Letters left inside the kana (いpほね), or a trailing run no romaji
+    /// continues (おrz). A pending consonant (なにm, きょうs) is still typing.
+    static func romajiCannotSpell(_ kana: String) -> Bool {
+        let tail = String(kana.reversed().prefix { $0.isASCII && $0.isLetter }.reversed())
+        if kana.dropLast(tail.count).contains(where: { $0.isASCII && $0.isLetter }) { return true }
+        switch tail.count {
+        case 0, 1: return false
+        case 2: return !("yhw".contains(tail.last!) || ["ts", "xt", "lt"].contains(tail))
+        default: return true
+        }
+    }
+
     /// Dictionary words reachable only through another reading of an
     /// ambiguous n, scored against the literal reading's best conversion.
     func readingAlternatives(for query: ComposingText, literalScore: Double?, builder: SnapshotBuilder,
@@ -220,6 +275,34 @@ nonisolated extension JapaneseCandidateEngine {
             variants.append(variant)
         }
         return variants
+    }
+
+    /// Dictionary artifacts no one types on purpose: combining voiced marks
+    /// (ン゙), a small kana after a kanji or the other script (自ゃ, くァ), and a
+    /// number with only some digits converted (一00%, 1零0). Units such as
+    /// 1万 stay. A mark the reading itself contains is kept.
+    static func isMalformedSurface(_ text: String, reading: String) -> Bool {
+        let combining: Set<Unicode.Scalar> = ["\u{3099}", "\u{309A}"]
+        if text.unicodeScalars.contains(where: combining.contains),
+           !reading.unicodeScalars.contains(where: combining.contains) { return true }
+        let smallHiragana = Set("ぁぃぅぇぉゃゅょゎ"), smallKatakana = Set("ァィゥェォャュョヮ")
+        func isHiragana(_ c: Character) -> Bool { ("ぁ"..."ゖ").contains(c) }
+        func isKatakana(_ c: Character) -> Bool { ("ァ"..."ヺ").contains(c) }
+        func isKanji(_ c: Character) -> Bool { c.unicodeScalars.allSatisfy { (0x4E00...0x9FFF).contains($0.value) || $0 == "々" } }
+        let characters = Array(text)
+        for (index, c) in characters.enumerated().dropFirst() where smallHiragana.contains(c) || smallKatakana.contains(c) {
+            let previous = characters[index - 1]
+            if isKanji(previous) { return true }
+            if smallHiragana.contains(c) ? isKatakana(previous) : isHiragana(previous) { return true }
+        }
+        let kanjiDigits = Set("〇零一二三四五六七八九")
+        var run: [Character] = []
+        for c in characters + [" "] {
+            if c.isNumber || kanjiDigits.contains(c) { run.append(c); continue }
+            if run.contains(where: kanjiDigits.contains), run.contains(where: { $0.isASCII || ("０"..."９").contains($0) }) { return true }
+            run = []
+        }
+        return false
     }
 
     func rememberedConversions(builder: SnapshotBuilder) -> [CandidateSnapshot] {

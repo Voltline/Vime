@@ -107,7 +107,8 @@ nonisolated struct CandidateReranker {
             if value.source == .scriptVariant {
                 f.engine = 0
                 f.script = weights.scriptAvailability
-                if value.queryReading.unicodeScalars.contains(where: { $0.isASCII }) {
+                // Digits and symbols such as 12:30 are already final text.
+                if value.queryReading.unicodeScalars.contains(where: { $0.isASCII && $0.properties.isAlphabetic }) {
                     f.script -= weights.unresolvedScriptPenalty
                 }
             }

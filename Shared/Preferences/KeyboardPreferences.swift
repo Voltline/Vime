@@ -91,6 +91,13 @@ struct KeyboardPreferences {
         get { KeyboardNumberSymbols.normalized(defaults.stringArray(forKey: "vime.numberSymbols") ?? KeyboardNumberSymbols.defaults) }
         nonmutating set { defaults.set(KeyboardNumberSymbols.normalized(newValue), forKey: "vime.numberSymbols") }
     }
+    static let emojiRecentLimit = 30
+    /// Most recent first; shown as the first emoji category.
+    var emojiRecents: [String] { Array((defaults.stringArray(forKey: "vime.emojiRecents") ?? []).prefix(Self.emojiRecentLimit)) }
+    func recordEmoji(_ text: String) {
+        let values = [text] + emojiRecents.filter { $0 != text }
+        defaults.set(Array(values.prefix(Self.emojiRecentLimit)), forKey: "vime.emojiRecents")
+    }
     var prolongedKey: Bool {
         get { defaults.object(forKey: "vime.prolongedKey") as? Bool ?? true }
         nonmutating set { defaults.set(newValue, forKey: "vime.prolongedKey") }

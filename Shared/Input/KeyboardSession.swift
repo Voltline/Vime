@@ -514,6 +514,11 @@ final class KeyboardSession: KeyboardInputSession {
         worker?.resolveFeedback(pending.event.id, accepted: false)
     }
 
+    func dismissSuggestions() {
+        guard !isComposing, !suggestionSnapshots.isEmpty else { return }
+        clearSuggestions()
+    }
+
     private func clearSuggestions() {
         worker?.cancelPending()
         suggestionGeneration += 1

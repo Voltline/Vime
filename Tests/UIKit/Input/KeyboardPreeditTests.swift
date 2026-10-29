@@ -41,6 +41,22 @@ final class KeyboardPreeditTests: XCTestCase {
         XCTAssertEqual(session.preedit, "かにゃ", "Trailing single n remains editable")
     }
 
+    func testApostropheEndsNBeforeAVowel() {
+        for (raw, preedit, word) in [("kan'i", "かんい", "簡易"), ("shin'you", "しんよう", "信用"), ("gen'in", "げんいn", "原因")] {
+            let session = KeyboardSession(memoryDirectoryURL: isolatedLearningDirectory())
+            for c in raw { _ = session.type(String(c)) }
+            XCTAssertEqual(session.preedit, preedit)
+            XCTAssertTrue(session.candidates.prefix(5).contains(word), "\(raw): \(session.candidates.prefix(5))")
+        }
+        let session = KeyboardSession(memoryDirectoryURL: isolatedLearningDirectory())
+        _ = session.type("kan"); _ = session.type("'")
+        XCTAssertEqual(session.preedit, "かん")
+        _ = session.backspace()
+        XCTAssertEqual(session.preedit, "か", "Deleting ん removes the n and its apostrophe")
+        session.reset(); _ = session.type("ka'")
+        XCTAssertEqual(session.preedit, "か'", "An apostrophe after other kana stays literal")
+    }
+
     func testTrailingNReadsAsNWhileTyping() {
         for (raw, word) in [("nihon", "日本"), ("hon", "本"), ("ten", "天"), ("jikan", "時間"),
                             ("watashinohon", "私の本"), ("gohan", "ご飯")] {

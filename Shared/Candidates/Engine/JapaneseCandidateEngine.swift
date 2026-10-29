@@ -170,6 +170,7 @@ nonisolated final class JapaneseCandidateEngine {
         }
         guard let native = nativeCandidates(from: result, builder: builder, cancelled: cancelled) else { return [] }
         let special = specialCandidates(for: query, options: requestOptions, builder: builder)
+            + (conversionLength == nil ? typedLetterCandidates(for: query, builder: builder) + dateCandidates(builder: builder) : [])
         let emoji = textReplacer.getSearchResult(query: builder.kana, target: [.emoji], ignoreNonBaseEmoji: true).prefix(6).map {
             builder.snapshot(builder.wholeQuery($0.text, value: -3, lastMid: MIDData.一般.mid), source: .emoji)
         }
@@ -186,6 +187,7 @@ nonisolated final class JapaneseCandidateEngine {
         }
         guard let variants = spellingVariants(of: currentPool, cancelled: cancelled) else { return [] }
         currentPool += variants
+        currentPool.removeAll { Self.isMalformedSurface($0.text, reading: $0.queryReading) }
         currentPool += rememberedConversions(builder: builder)
         trace?.record(.pooled, values: currentPool)
         if diagnosticsEnabled {

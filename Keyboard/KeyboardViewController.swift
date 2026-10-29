@@ -58,6 +58,7 @@ class KeyboardViewController: UIInputViewController {
                 before: self.keyboard.leftContextProvider?(), after: proxy.documentContextAfterInput,
                 hasSelection: proxy.selectedText?.isEmpty == false)
         }
+        keyboard.selectedTextProvider = { [weak self] in self?.textDocumentProxy.selectedText }
         keyboard.deletionAvailabilityProvider = { [weak self] in
             guard let self else { return false }
             let proxy = self.textDocumentProxy

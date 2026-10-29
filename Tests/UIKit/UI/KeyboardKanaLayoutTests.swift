@@ -150,7 +150,7 @@ final class KeyboardKanaLayoutTests: XCTestCase {
         }
     }
 
-    func testNextWordSuggestionsKeepTheBrandAndYieldToComposition() {
+    func testNextWordSuggestionsTakeTheWholeRowAndYieldToComposition() {
         func chrome(composing: Bool, quick: Bool = false, page: KeyboardView.Page = .letters) -> KeyboardView.ChromeState {
             KeyboardView.ChromeState(panel: .keyboard, page: page, composing: composing, sessionStrip: true,
                                      quickAvailable: quick, clipboardOffered: false, neuralPaused: false, canUndo: false,
@@ -158,7 +158,7 @@ final class KeyboardKanaLayoutTests: XCTestCase {
         }
         let idle = chrome(composing: false)
         XCTAssertTrue(idle.showsNextWords)
-        XCTAssertFalse(idle.hidesBrand, "The brand stays beside the suggestions")
+        XCTAssertTrue(idle.hidesBrand, "Suggestions use the whole row")
         let composing = chrome(composing: true)
         XCTAssertFalse(composing.showsNextWords)
         XCTAssertTrue(composing.hidesBrand)

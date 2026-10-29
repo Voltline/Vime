@@ -49,7 +49,8 @@ final class ClipboardSuggestionView: UIView {
         configuration.titleLineBreakMode = .byTruncatingTail
         configuration.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { attributes in
             var attributes = attributes
-            attributes.font = UIFont.systemFont(ofSize: 16)
+            // Same size as candidate and next-word text; long text truncates.
+            attributes.font = UIFont.systemFont(ofSize: 18)
             return attributes
         }
         paste.configuration = configuration
