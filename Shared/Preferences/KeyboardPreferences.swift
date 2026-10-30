@@ -26,7 +26,7 @@ struct KeyboardPreferences {
         FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroup) != nil ? UserDefaults(suiteName: appGroup) : nil
     }
     private static let sharedKeys = ["vime.sound", "vime.hapticLevel", "vime.hapticIntensity", "vime.nineKeyNumbers", "vime.kanaLayout",
-        "vime.prolongedKey", "vime.previews", "vime.theme", "vime.candidateRanking", "vime.phraseSuggestions", "vime.clipboardSuggestions", "vime.autoPairBrackets", "vime.autoCapitalize", "vime.doubleSpacePeriod", "vime.undoConversionOnBackspace", "vime.textReplacements", "vime.customSkinID", "vime.skinRevision", "vime.numberSymbols"]
+        "vime.prolongedKey", "vime.previews", "vime.theme", "vime.candidateRanking", "vime.phraseSuggestions", "vime.clipboardSuggestions", "vime.autoPairBrackets", "vime.autoCapitalize", "vime.doubleSpacePeriod", "vime.undoConversionOnBackspace", "vime.textReplacements", "vime.englishCompletion", "vime.customSkinID", "vime.skinRevision", "vime.numberSymbols"]
     var store: UserDefaults { defaults }
     struct Snapshot: Equatable {
         let heightFactor: Double
@@ -47,6 +47,7 @@ struct KeyboardPreferences {
         let doubleSpacePeriod: Bool
         let undoConversionOnBackspace: Bool
         let textReplacements: Bool
+        let englishCompletion: Bool
         let numberSymbols: [String]
         let neuralRetryID: String?
         let learningResetID: String?
@@ -57,7 +58,8 @@ struct KeyboardPreferences {
             theme: theme, customSkinID: customSkinID, skinRevision: skinRevision, candidateRanking: candidateRanking, phraseSuggestions: phraseSuggestions,
             clipboardSuggestions: clipboardSuggestions, autoPairBrackets: autoPairBrackets,
             autoCapitalize: autoCapitalize, doubleSpacePeriod: doubleSpacePeriod,
-            undoConversionOnBackspace: undoConversionOnBackspace, textReplacements: textReplacements, numberSymbols: numberSymbols,
+            undoConversionOnBackspace: undoConversionOnBackspace, textReplacements: textReplacements,
+            englishCompletion: englishCompletion, numberSymbols: numberSymbols,
             neuralRetryID: neuralRetryID, learningResetID: learningResetRequests.requestID)
     }
     var heightFactor: Double {
@@ -172,6 +174,11 @@ struct KeyboardPreferences {
     var textReplacements: Bool {
         get { defaults.object(forKey: "vime.textReplacements") as? Bool ?? true }
         nonmutating set { defaults.set(newValue, forKey: "vime.textReplacements") }
+    }
+    /// English mode only; spelling completions in the candidate bar.
+    var englishCompletion: Bool {
+        get { defaults.object(forKey: "vime.englishCompletion") as? Bool ?? true }
+        nonmutating set { defaults.set(newValue, forKey: "vime.englishCompletion") }
     }
 }
 
