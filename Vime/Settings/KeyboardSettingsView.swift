@@ -372,10 +372,14 @@ struct KeyboardInputSettingsView: View {
     @State private var retryRequested = false
     @AppStorage private var ranking: CandidateRankingMode
     @AppStorage private var suggestions: Bool
+    @AppStorage private var autoCapitalize: Bool
+    @AppStorage private var doubleSpacePeriod: Bool
     init() {
         let prefs = KeyboardPreferences()
         _ranking = AppStorage(wrappedValue: prefs.candidateRanking, "vime.candidateRanking", store: prefs.store)
         _suggestions = AppStorage(wrappedValue: prefs.phraseSuggestions, "vime.phraseSuggestions", store: prefs.store)
+        _autoCapitalize = AppStorage(wrappedValue: prefs.autoCapitalize, "vime.autoCapitalize", store: prefs.store)
+        _doubleSpacePeriod = AppStorage(wrappedValue: prefs.doubleSpacePeriod, "vime.doubleSpacePeriod", store: prefs.store)
     }
     var body: some View {
         Form {
@@ -399,6 +403,14 @@ struct KeyboardInputSettingsView: View {
                 } footer: {
                     Text(retryRequested ? "已发送重试请求，下次打开键盘时生效。" : "内存紧张后智能排序可能暂停。重试后，后续输入将重新尝试使用本地模型。")
                 }
+            }
+            Section {
+                Toggle("自动大写", isOn: $autoCapitalize)
+                    .accessibilityIdentifier("vime.settings.autoCapitalize")
+                Toggle("连按两下空格输入句号", isOn: $doubleSpacePeriod)
+                    .accessibilityIdentifier("vime.settings.doubleSpacePeriod")
+            } header: { Text("英文输入") } footer: {
+                Text("自动大写按输入框的要求在句首或词首切换为大写\n连按两下空格会在单词后输入句号和空格")
             }
         }
         .appReadableList()

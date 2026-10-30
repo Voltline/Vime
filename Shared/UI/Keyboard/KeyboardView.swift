@@ -53,6 +53,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
             rebuildKeys()
         }
         if next.numberSymbols != previous?.numberSymbols { numberSymbolRail?.present(next.numberSymbols) }
+        if next.autoCapitalize != previous?.autoCapitalize { updateAutoCapitalization() }
         if next.previews != previous?.previews {
             for key in letterKeys { key.showsPreview = next.previews }
         }
@@ -94,6 +95,10 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     var shifted = false
     var capsLocked = false
     var lastShiftTap: TimeInterval = 0
+    var lastSpaceTap: TimeInterval = 0
+    var autocapitalizationType: UITextAutocapitalizationType = .sentences {
+        didSet { if oldValue != autocapitalizationType { updateAutoCapitalization() } }
+    }
     enum Panel { case keyboard, candidates, settings, symbols, clipboardHistory }
     var panel: Panel = .keyboard {
         didSet {
@@ -551,6 +556,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         if !edits.isEmpty { session.didApplyEdits(edits) }
         KeyboardPerformance.record(.typeToMarked, since: session.takeInputTiming())
         refresh()
+        if !edits.isEmpty { updateAutoCapitalization() }
     }
 
     func publishPreedit() {
@@ -567,7 +573,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         set { session.learningContextProvider = newValue }
     }
 
-    func hostContextDidChange() { session.didApplyEdits([]); refresh() }
+    func hostContextDidChange() { session.didApplyEdits([]); refresh(); updateAutoCapitalization() }
     func finishLearningFeedback() { session.finishLearningFeedback() }
     func prepareForInput() { session.prepareForInput() }
 
