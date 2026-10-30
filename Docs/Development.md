@@ -54,6 +54,8 @@ bash Scripts/test.sh --extension                       # 真实键盘扩展的 U
 
 结束时按结果包汇总通过、失败和跳过的数量，并列出失败用例；完整输出在构建目录的 `Results/` 下。需要留存证据时改用下文的 `verify_review.sh`。
 
+`--` 之后的参数原样交给 xcodebuild。合并到 dev 或 beta 的 PR 由 [Unit tests](../.github/workflows/unit-tests.yml) 工作流在 GitHub 的 `xcode-27` runner 上跑同样的单元测试：跳过尚未达到的模型预期 `testOrthographyAndSupplementalDictionaryAreSelectable`，失败的用例重试一次；只改文档的 PR 不跑。扩展 UI 测试需要在系统设置里启用键盘，只在本机跑。
+
 ## 可复现检查
 
 [verify_review.sh](../Scripts/verify_review.sh) 支持 `focused`、`full`、`extension`、`all`。显式指定模拟器和已经解析好的依赖缓存，例如：

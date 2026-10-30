@@ -6,6 +6,8 @@
 #                                            only these classes or methods
 #   Scripts/test.sh --failed                 only what failed in the last run
 #   Scripts/test.sh --extension [names]      extension UI tests (VimeExtensionUITests)
+#   Scripts/test.sh [names] -- -retry-tests-on-failure -test-iterations 2
+#                                            arguments after -- go to xcodebuild as is
 #
 # VIME_SIMULATOR picks the simulator by name or UDID; otherwise the booted
 # one, else the first available iPhone. VIME_DERIVED_DATA overrides the
@@ -40,9 +42,12 @@ selectors=()
 if [ "${1:-}" = --failed ]; then
     [ -s "$results/failed-$target.txt" ] || { echo "No failures recorded for $target" >&2; exit 0; }
     while read -r test; do selectors+=("-only-testing:$test"); done < "$results/failed-$target.txt"
-else
-    for name in "$@"; do selectors+=("-only-testing:$target/$name"); done
+    shift
 fi
+while [ $# -gt 0 ]; do
+    if [ "$1" = -- ]; then shift; selectors+=("$@"); break; fi
+    selectors+=("-only-testing:$target/$1"); shift
+done
 
 bundle=$results/$target.xcresult
 rm -rf "$bundle"
