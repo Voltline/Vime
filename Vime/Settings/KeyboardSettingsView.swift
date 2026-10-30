@@ -374,6 +374,7 @@ struct KeyboardInputSettingsView: View {
     @AppStorage private var suggestions: Bool
     @AppStorage private var undoConversion: Bool
     @AppStorage private var fullWidthSpace: Bool
+    @AppStorage private var liveConversion: Bool
     @AppStorage private var autoCapitalize: Bool
     @AppStorage private var doubleSpacePeriod: Bool
     @AppStorage private var englishCompletion: Bool
@@ -383,6 +384,7 @@ struct KeyboardInputSettingsView: View {
         _suggestions = AppStorage(wrappedValue: prefs.phraseSuggestions, "vime.phraseSuggestions", store: prefs.store)
         _undoConversion = AppStorage(wrappedValue: prefs.undoConversionOnBackspace, "vime.undoConversionOnBackspace", store: prefs.store)
         _fullWidthSpace = AppStorage(wrappedValue: prefs.fullWidthSpace, "vime.fullWidthSpace", store: prefs.store)
+        _liveConversion = AppStorage(wrappedValue: prefs.liveConversion, "vime.liveConversion", store: prefs.store)
         _autoCapitalize = AppStorage(wrappedValue: prefs.autoCapitalize, "vime.autoCapitalize", store: prefs.store)
         _doubleSpacePeriod = AppStorage(wrappedValue: prefs.doubleSpacePeriod, "vime.doubleSpacePeriod", store: prefs.store)
         _englishCompletion = AppStorage(wrappedValue: prefs.englishCompletion, "vime.englishCompletion", store: prefs.store)
@@ -397,10 +399,12 @@ struct KeyboardInputSettingsView: View {
                     ForEach(CandidateRankingMode.allCases, id: \.self) { Text($0.title).tag($0) }
                 }
                 Toggle("下一词联想", isOn: $suggestions)
+                Toggle("实时转换", isOn: $liveConversion)
+                    .accessibilityIdentifier("vime.settings.liveConversion")
                 Toggle("退格撤销转换", isOn: $undoConversion)
                     .accessibilityIdentifier("vime.settings.undoConversion")
             } footer: {
-                Text("智能排序使用本地模型调整候选顺序\n下一词联想在确认文字后提供建议\n转换后，候选栏开头的 ↩ 可回到读音重新选择；打开「退格撤销转换」后，立即按退格也会回到读音\n关闭智能排序或联想不会清除已有学习数据")
+                Text("智能排序使用本地模型调整候选顺序\n下一词联想在确认文字后提供建议\n实时转换在输入假名时直接显示转换结果，回车确认显示的文字\n转换后，候选栏开头的 ↩ 可回到读音重新选择；打开「退格撤销转换」后，立即按退格也会回到读音\n关闭智能排序或联想不会清除已有学习数据")
             }
             if ranking == .languageModel {
                 Section {

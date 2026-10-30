@@ -969,6 +969,20 @@ final class KeyboardFeatureTests: XCTestCase {
         XCTAssertEqual(text.text, " ", "English keeps a half-width space")
     }
 
+    func testLiveConversionFollowsTheSetting() throws {
+        let session = KeyboardSession()
+        let (keyboard, _, _, window) = try fixture(session: session)
+        defer { keyboard.stopInteractions(); window.isHidden = true }
+        let preferences = keyboard.preferences
+        let old = preferences.liveConversion
+        defer { preferences.liveConversion = old; keyboard.reloadPreferences() }
+        XCTAssertFalse(KeyboardPreferences(defaults: UserDefaults(suiteName: UUID().uuidString)!).liveConversion, "Off by default")
+        preferences.liveConversion = true; keyboard.reloadPreferences()
+        XCTAssertTrue(session.liveConversion)
+        preferences.liveConversion = false; keyboard.reloadPreferences()
+        XCTAssertFalse(session.liveConversion)
+    }
+
     func testTextReplacementsReplaceLatinWordsAndFeedKanaReadings() throws {
         let (keyboard, _, text, window) = try fixture()
         let preferences = keyboard.preferences

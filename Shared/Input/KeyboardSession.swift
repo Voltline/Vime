@@ -54,6 +54,19 @@ final class KeyboardSession: KeyboardInputSession {
     func setFullWidthSpace(_ enabled: Bool) {
         fullWidthSpace = enabled
     }
+    /// Live conversion (ライブ変換): the hiragana preedit shows the best
+    /// conversion, and confirming commits exactly the text it shows.
+    private(set) var liveConversion = false
+    func setLiveConversion(_ enabled: Bool) {
+        guard enabled != liveConversion else { return }
+        liveConversion = enabled
+        liveSurfaces = [:]
+        if isComposing { refresh(); onCandidatesChange?() }
+    }
+    private var convertsLive: Bool { liveConversion && mode == .hiragana }
+    /// Live text by reading, for this composition only. While a result is
+    /// pending, the longest known prefix keeps its conversion on screen.
+    private var liveSurfaces: [String: String] = [:]
     var reconvertibleCommit: (text: String, reading: String)? {
         guard !isComposing, let commit = undoableCommit else { return nil }
         return (commit.text, PreeditPresentation.kana(for: commit.reading, mode: mode))
@@ -157,12 +170,57 @@ final class KeyboardSession: KeyboardInputSession {
     var isComposing: Bool { !composing.isEmpty }
     var composition: String { PreeditPresentation.kana(for: composing, mode: mode) }
     var preedit: String? {
+        if let live = livePreedit { return live }
         let selection = selectedIndex.map {
             candidateSnapshots[$0].text + PreeditPresentation.kana(for: candidateSnapshots[$0].remainingComposition, mode: mode)
         }
         return PreeditPresentation.text(for: composing, mode: mode, selected: selection)
     }
     var selectedText: String? { selectedIndex.map { candidateSnapshots[$0].text } }
+
+    /// A whole-reading conversion the preedit may show before any selection.
+    /// Predictions, corrections and formats wait until the user picks them.
+    static func isLiveCandidate(_ value: CandidateSnapshot) -> Bool {
+        !value.isPrediction && value.correction == nil && value.widthVariant == nil
+            && value.exactReading && value.fullConsumption
+            && ![.specialConversion, .emoji, .typoCorrection].contains(value.source)
+    }
+
+    /// The first entry of this revision's list, when it is a live candidate.
+    /// Publication moves the best one there, so the strip matches the preedit.
+    private var liveCandidate: CandidateSnapshot? {
+        guard convertsLive, conversionLength == nil, selectedIndex == nil, candidatesAreCurrent,
+              let first = candidateSnapshots.first, first.revision == revision, Self.isLiveCandidate(first) else { return nil }
+        return first
+    }
+
+    private var livePreedit: String? {
+        guard convertsLive, selectedIndex == nil, isComposing else { return nil }
+        if conversionLength != nil {
+            // The range controls confirm the first candidate for that unit.
+            guard candidatesAreCurrent, let first = candidateSnapshots.first, first.revision == revision else { return nil }
+            return first.text + PreeditPresentation.kana(for: first.remainingComposition, mode: mode)
+        }
+        if let live = liveCandidate { return live.text }
+        let reading = composing.convertTarget
+        guard let known = liveSurfaces.keys.filter({ reading.hasPrefix($0) }).max(by: { $0.count < $1.count }),
+              let surface = liveSurfaces[known] else { return nil }
+        return surface + reading.dropFirst(known.count)
+    }
+
+    private func liveOrdered(_ values: [CandidateSnapshot]) -> [CandidateSnapshot] {
+        guard convertsLive, conversionLength == nil,
+              let index = values.firstIndex(where: Self.isLiveCandidate), index > 0 else { return values }
+        var values = values
+        values.insert(values.remove(at: index), at: 0)
+        return values
+    }
+
+    private func rememberLiveSurface() {
+        guard let live = liveCandidate else { return }
+        if liveSurfaces.count >= 128 { liveSurfaces = [:] }
+        liveSurfaces[composing.convertTarget] = live.text
+    }
     var markedText: KeyboardPreedit? { preedit.map { KeyboardPreedit(text: $0) } }
     var inputTraits: KeyboardInputTraits {
         var symbols: Set<String> = ["'", "-", "ー", "@"]
@@ -206,6 +264,7 @@ final class KeyboardSession: KeyboardInputSession {
     func forgetCandidate(_ token: CandidateSelectionToken) {
         guard let snapshot = learnedSnapshot(token) else { return }
         engine?.forget(snapshot); worker?.forget(snapshot)
+        liveSurfaces = [:]
         refresh(); onCandidatesChange?()
     }
 
@@ -290,7 +349,9 @@ final class KeyboardSession: KeyboardInputSession {
             return []
         }
         guard !candidateSnapshots.isEmpty else { return confirm() }
-        selectedIndex = selectedIndex.map { ($0 + 1) % candidateSnapshots.count } ?? 0
+        // The preedit already shows a live first candidate; Space moves on.
+        let first = liveCandidate != nil && candidateSnapshots.count > 1 ? 1 : 0
+        selectedIndex = selectedIndex.map { ($0 + 1) % candidateSnapshots.count } ?? first
         worker?.cancelPending()
         return []
     }
@@ -324,6 +385,7 @@ final class KeyboardSession: KeyboardInputSession {
         }
         committedLeftContext = String((committedLeftContext + snapshot.text).suffix(96))
         conversionLength = nil
+        liveSurfaces = [:]
         composing = snapshot.remainingComposition
         if composing.isEmpty { reset(preservingContext: true); requestSuggestions() }
         else { refresh(leftContextOverride: committedLeftContext) }
@@ -393,6 +455,8 @@ final class KeyboardSession: KeyboardInputSession {
         clearSuggestions()
         committedLeftContext = String(committedLeftContext.dropLast(commit.text.count))
         composing = commit.reading
+        // The restored reading shows its conversion until the new list arrives.
+        if convertsLive { liveSurfaces = [commit.reading.convertTarget: commit.text] }
         refresh(leftContextOverride: committedLeftContext)
         return Array(repeating: .deleteBackward, count: commit.text.count)
     }
@@ -400,6 +464,7 @@ final class KeyboardSession: KeyboardInputSession {
     func confirm() -> [KeyboardEdit] {
         guard isComposing else { return [] }
         if let selectedIndex { return choose(selectedIndex, feedbackKind: .conversionConfirmation) }
+        if liveCandidate != nil { return choose(0, feedbackKind: .conversionConfirmation) }
         if let length = conversionLength {
             // The range controls select a conversion unit, even before Space
             // establishes selectedIndex. Confirm its highlighted candidate;
@@ -419,13 +484,17 @@ final class KeyboardSession: KeyboardInputSession {
             worker?.reset(preservingContext: true)
             committedLeftContext = String((committedLeftContext + text).suffix(96))
             conversionLength = nil
+            liveSurfaces = [:]
             composing = remainder
             if composing.isEmpty { reset(preservingContext: true); requestSuggestions() }
             else { refresh(leftContextOverride: committedLeftContext) }
             return [.insert(text)]
         }
         finishLearningFeedback()
-        let text = selectedText ?? PreeditPresentation.kana(for: PreeditPresentation.finalized(composing), mode: mode)
+        // A live preedit still waiting for its result commits what it shows,
+        // with a trailing n read as ん like the kana fallback.
+        let live = livePreedit.map { PreeditPresentation.endsWithPendingN(composing) && $0.hasSuffix("n") ? String($0.dropLast()) + "ん" : $0 }
+        let text = selectedText ?? live ?? PreeditPresentation.kana(for: PreeditPresentation.finalized(composing), mode: mode)
         committedLeftContext = String((committedLeftContext + text).suffix(96))
         reset(preservingContext: true)
         requestSuggestions()
@@ -485,6 +554,7 @@ final class KeyboardSession: KeyboardInputSession {
         boundaryRequested = false
         conversionLength = nil
         expandedCandidates = false
+        liveSurfaces = [:]
         composing = ComposingText()
         if !preservingContext { committedLeftContext = "" }
         engine?.reset(preservingContext: preservingContext)
@@ -659,6 +729,7 @@ final class KeyboardSession: KeyboardInputSession {
         else if let provider = leftContextProvider { leftContext = provider() }
         else { leftContext = committedLeftContext }
         committedLeftContext = String((leftContext ?? "").suffix(96))
+        if !isComposing { liveSurfaces = [:] }
         guard let worker else {
             engine?.reconcileContext(leftContext)
             if isComposing { candidateRequestCount += 1 }
@@ -673,7 +744,9 @@ final class KeyboardSession: KeyboardInputSession {
                 candidateSnapshots = engine?.addingPrefixCandidates(to: candidateSnapshots, for: composing,
                     katakana: mode == .katakana, revision: revision) ?? candidateSnapshots
             }
+            candidateSnapshots = liveOrdered(candidateSnapshots)
             candidateListGeneration += 1
+            rememberLiveSurface()
             return
         }
         guard isComposing else {
@@ -725,11 +798,15 @@ final class KeyboardSession: KeyboardInputSession {
             // remain valid because existing text/consumption/index cannot change.
             guard candidateSnapshots.map(\.presentation) != oldPresentations else { return }
         } else {
-            candidateSnapshots = values
+            candidateSnapshots = liveOrdered(values)
             candidateListGeneration += 1
+            rememberLiveSurface()
         }
         if !supplementary {
-            if pendingSpaces > 0, !values.isEmpty { selectedIndex = (pendingSpaces - 1) % values.count }
+            if pendingSpaces > 0, !values.isEmpty {
+                let first = liveCandidate != nil && values.count > 1 ? 1 : 0
+                selectedIndex = (pendingSpaces - 1 + first) % values.count
+            }
             pendingSpaces = 0
         }
         onCandidatesChange?()

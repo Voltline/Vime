@@ -4748,6 +4748,34 @@
         }
       }
     },
+    "实时转换": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Live Conversion"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ライブ変換"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "라이브 변환"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "即時轉換"
+          }
+        }
+      }
+    },
     "害羞": {
       "extractionState": "manual",
       "localizations": {
@@ -7587,30 +7615,30 @@
         }
       }
     },
-    "智能排序使用本地模型调整候选顺序\n下一词联想在确认文字后提供建议\n转换后，候选栏开头的 ↩ 可回到读音重新选择；打开「退格撤销转换」后，立即按退格也会回到读音\n关闭智能排序或联想不会清除已有学习数据": {
+    "智能排序使用本地模型调整候选顺序\n下一词联想在确认文字后提供建议\n实时转换在输入假名时直接显示转换结果，回车确认显示的文字\n转换后，候选栏开头的 ↩ 可回到读音重新选择；打开「退格撤销转换」后，立即按退格也会回到读音\n关闭智能排序或联想不会清除已有学习数据": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Smart ranking uses an on-device model to order candidates\nNext-word suggestions appear after you confirm text\nAfter a conversion, ↩ at the start of the candidate bar returns to its reading so you can choose again; with Backspace Undoes Conversion on, pressing Backspace right away does the same\nTurning either off keeps existing learning data"
+            "value": "Smart ranking uses an on-device model to order candidates\nNext-word suggestions appear after you confirm text\nLive Conversion shows the converted text while you type kana; Return confirms the text shown\nAfter a conversion, ↩ at the start of the candidate bar returns to its reading so you can choose again; with Backspace Undoes Conversion on, pressing Backspace right away does the same\nTurning either off keeps existing learning data"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "スマート並べ替えは端末内モデルで候補の順序を調整します\n次の語の予測は確定後に候補を表示します\n変換の後、候補バー先頭の ↩ で読みに戻って選び直せます。「削除キーで変換を取り消す」をオンにすると、直後に削除キーを押しても読みに戻ります\nどちらをオフにしても学習データは消えません"
+            "value": "スマート並べ替えは端末内モデルで候補の順序を調整します\n次の語の予測は確定後に候補を表示します\nライブ変換は、かなを入力すると変換結果をそのまま表示し、改行キーで表示中の文字を確定します\n変換の後、候補バー先頭の ↩ で読みに戻って選び直せます。「削除キーで変換を取り消す」をオンにすると、直後に削除キーを押しても読みに戻ります\nどちらをオフにしても学習データは消えません"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "스마트 순위는 기기 내 모델을 사용하여 후보 순서를 정합니다\n다음 단어 제안은 텍스트를 확정한 후 표시됩니다\n변환 후 후보 표시줄 맨 앞의 ↩를 누르면 읽기로 돌아가 다시 고를 수 있습니다. '백스페이스로 변환 취소'를 켜면 변환 직후 백스페이스를 눌러도 읽기로 돌아갑니다\n어느 쪽을 꺼도 기존 학습 데이터는 유지됩니다"
+            "value": "스마트 순위는 기기 내 모델을 사용하여 후보 순서를 정합니다\n다음 단어 제안은 텍스트를 확정한 후 표시됩니다\n라이브 변환은 가나를 입력하는 동안 변환 결과를 바로 표시하며, 리턴 키로 표시된 텍스트를 확정합니다\n변환 후 후보 표시줄 맨 앞의 ↩를 누르면 읽기로 돌아가 다시 고를 수 있습니다. '백스페이스로 변환 취소'를 켜면 변환 직후 백스페이스를 눌러도 읽기로 돌아갑니다\n어느 쪽을 꺼도 기존 학습 데이터는 유지됩니다"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "智慧排序使用本機模型調整候選順序\n下一詞聯想在確認文字後提供建議\n轉換後，候選列開頭的 ↩ 可回到讀音重新選擇；開啟「退格撤銷轉換」後，立即按退格也會回到讀音\n關閉智慧排序或聯想不會清除已有學習資料"
+            "value": "智慧排序使用本機模型調整候選順序\n下一詞聯想在確認文字後提供建議\n即時轉換在輸入假名時直接顯示轉換結果，Return 確認顯示的文字\n轉換後，候選列開頭的 ↩ 可回到讀音重新選擇；開啟「退格撤銷轉換」後，立即按退格也會回到讀音\n關閉智慧排序或聯想不會清除已有學習資料"
           }
         }
       }
