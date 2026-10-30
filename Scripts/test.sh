@@ -51,10 +51,22 @@ done
 
 bundle=$results/$target.xcresult
 rm -rf "$bundle"
+run_tests() {
+    xcodebuild test -project Vime.xcodeproj -scheme "$scheme" -destination "$destination" \
+        -derivedDataPath "$derived" -parallel-testing-enabled NO -collect-test-diagnostics never \
+        -resultBundlePath "$bundle" ${selectors[@]+"${selectors[@]}"}
+}
 status=0
-xcodebuild test -project Vime.xcodeproj -scheme "$scheme" -destination "$destination" \
-    -derivedDataPath "$derived" -parallel-testing-enabled NO -collect-test-diagnostics never \
-    -resultBundlePath "$bundle" ${selectors[@]+"${selectors[@]}"} > "$results/$target.log" 2>&1 || status=$?
+if [ -n "${CI:-}" ]; then
+    # CI also prints progress, so a run that times out shows where it stopped.
+    set +e +o pipefail
+    run_tests 2>&1 | tee "$results/$target.log" | grep --line-buffered -E \
+        "^Test Case .*(passed|failed)|Testing started|error:|\*\* .* \*\*"
+    status=${PIPESTATUS[0]}
+    set -e -o pipefail
+else
+    run_tests > "$results/$target.log" 2>&1 || status=$?
+fi
 
 # Summarize from the result bundle; the log keeps the full output.
 if [ -d "$bundle" ]; then
@@ -80,6 +92,8 @@ for name in failed:
     print("  failed:", name)
 ' "$target" "$results/failed-$target.txt"
 fi
+# KeyboardBudgetTests prints one line per latency or memory budget.
+grep -h "^VIME_BUDGET " "$results/$target.log" | sed 's/^VIME_BUDGET /  budget: /' || true
 if [ "$status" != 0 ]; then
     grep -E "error:|\*\* (TEST|BUILD) .*FAILED" "$results/$target.log" | head -20 >&2
     echo "Log: $results/$target.log" >&2

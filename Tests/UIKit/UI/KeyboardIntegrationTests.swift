@@ -236,7 +236,7 @@ final class KeyboardIntegrationTests: XCTestCase {
     }
 
     func testReconversionReadings() {
-        for (text, reading) in ["漢字": "かんじ", "電車": "でんしゃ", "食べる": "たべる", "カタカナ": "かたかな", "ひらがな": "ひらがな"] {
+        for (text, reading) in ["漢字": "かんじ", "電車": "でんしゃ", "食べる": "たべる", "カタカナ": "かたかな", "ひらがな": "ひらがな", "コーヒー": "こーひー", "ビームを": "びーむを"] {
             XCTAssertEqual(KeyboardReconversion.reading(for: text), reading, text)
         }
         for text in ["hello", "漢字abc", "😀", "", "。", String(repeating: "漢", count: 25)] {

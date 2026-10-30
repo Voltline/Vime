@@ -18,8 +18,8 @@ nonisolated final class JapaneseUserDictionaryStore {
             switch self {
             case .invalidReading: String(localized: "读音需为 1–64 个假名，可先输入完整罗马字。")
             case .invalidSurface: String(localized: "词语或短语需为 1–128 个字符，不能包含控制字符。")
-            case .tooLarge: String(localized: "词典最多支持 1,024 条，导入文件不能超过 1 MB。")
-            case .invalidArchive: String(localized: "无法读取词典，请使用 Vime 导出的 JSON 格式。")
+            case .tooLarge: String(localized: "词典最多支持 1,024 条，导入文件不能超过 4 MB。")
+            case .invalidArchive: String(localized: "无法读取词典。支持 Vime JSON、Google 日本語入力 / Microsoft IME / ATOK 导出的文本，以及 macOS 用户词典 plist。")
             }
         }
     }
@@ -102,6 +102,14 @@ nonisolated final class JapaneseUserDictionaryStore {
         cached = values; cachedNative = nil; revision = token; loaded = true
     }
     func importData(_ data: Data) throws { try save(try entries() + Self.decode(data)) }
+    /// Any format `JapaneseUserDictionaryInterchange` reads. Entries Vime cannot
+    /// use are skipped one by one; the merge itself is all or nothing.
+    func importFile(_ data: Data) throws -> (added: Int, skipped: Int) {
+        let parsed = try JapaneseUserDictionaryInterchange.parse(data)
+        let before = try entries().count
+        try save(try entries() + parsed.entries)
+        return (try entries().count - before, parsed.skipped)
+    }
     func exportData() throws -> Data {
         let encoder = JSONEncoder(); encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         let archive = Archive(entries: try entries())
