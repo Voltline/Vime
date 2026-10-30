@@ -1,0 +1,122 @@
+{
+  "name": "简体中文",
+  "nav": {"home": "首页", "privacy": "隐私政策", "changelog": "更新日志", "language": "语言", "source": "源代码"},
+  "home": {
+    "title": "Vime：离线日语输入法",
+    "description": "Vime 是一款完全离线的 iOS 日语输入法，支持罗马字和假名九宫格，转换、纠错和联想都在本机完成。",
+    "tagline": "完全离线的 iOS 日语输入法",
+    "intro": "罗马字 QWERTY 与假名九宫格两种布局，平假名、片假名和英文随时切换。假名汉字转换基于 [azooKey](https://github.com/azooKey/AzooKeyKanaKanjiConverter) 词典引擎，再由设备上的小型 Core ML 语言模型重新排序候选，并在确认文字后给出下一词联想。",
+    "appstore": "在 App Store 下载",
+    "source": "查看源代码",
+    "versions": "版本状态",
+    "points": [
+      {"title": "输入内容不离开设备", "text": "转换、纠错、学习和联想都在本机完成，Vime 不包含联网代码。"},
+      {"title": "两种日语布局", "text": "罗马字全键盘，或支持滑动与连打的假名九宫格。"},
+      {"title": "更懂上下文的候选", "text": "本地语言模型结合上文给候选排序，确认后接着联想下一词。"}
+    ],
+    "features_title": "功能",
+    "groups": [
+      {"title": "输入", "items": [
+        "**两种日语布局**：罗马字全键盘；或假名九宫格，点按输入あ段、上下左右滑动输入其他段，连续点按同一键依次切换（トグル入力）。",
+        "**即时假名草稿**：输入时立即显示假名，未凑成假名的辅音保留为罗马字；转换和预测在后台更新，不打断输入。",
+        "**英文直输**与日英一键切换；数字页可选九宫格或全键盘。",
+        "长按空格拖动、或在按键区横向滑动都能移动光标；字母键上滑输入符号。"
+      ]},
+      {"title": "转换与候选", "items": [
+        "**整句与分段转换**：展开候选后用 `−` / `+` 调整前段范围，确认前段后继续转换后段。",
+        "**智能排序**：azooKey 生成候选，再由本地语言模型（INT8、仅 CPU）结合上文重新打分；也可改用纯词典排序。",
+        "**下一词联想**：确认文字后，空闲的候选栏会显示后续词，点击即可接着输入。",
+        "**纠错候选**：邻键误触、近音和有限的多音错误以候选形式出现，只有你选中时才会采用。",
+        "**格式候选**：半角片假名（ｶﾞｯｺｳ）和全角英数字（ａｂｃ１２３）。"
+      ]},
+      {"title": "效率工具", "items": [
+        "**用户词典与短语快捷输入**，支持 JSON 导入导出（最多 1,024 条）。",
+        "**剪贴板建议**（默认关闭）：新复制的文字会出现在候选栏；另保留最近 24 小时的历史，只存在本机。",
+        "**数字页计算**：输入 `1+1` 时候选给出 `2` 和 `1+1=2`。",
+        "**自动补全括号**：支持 `()`、`（）`、`「」` 等，光标放在括号中间。",
+        "分类符号、Emoji 和颜文字面板；数字页左侧栏的符号可以自定义。"
+      ]},
+      {"title": "个性化", "items": [
+        "内置多种外观，可自建皮肤：背景、按键图片和配色均可设置，以 `.vimeskin` 文件导入导出。",
+        "键盘高度可拖动调节，按键声音和连续可调的振动强度。",
+        "在本机学习你的选词习惯，可随时一键清空。"
+      ]},
+      {"title": "主 App", "items": [
+        "**三步启用引导**：添加键盘、开启完全访问、切换到 Vime，完成后自动进入试打。",
+        "**跟打练习**：照着例句输入，打对的部分逐字标蓝。",
+        "设置页的状态卡会显示键盘是否在正常工作、已加载的模型版本和学习统计。",
+        "界面支持简体中文、繁體中文、日本語、English 和 한국어。"
+      ]}
+    ],
+    "setup_title": "开始使用",
+    "setup": [
+      "安装 Vime 后打开主 App，按首页引导操作；也可以在「设置 → 通用 → 键盘 → 键盘 → 添加新键盘」中手动添加 Vime。",
+      "在任意输入框长按地球键，选择「Vime 日本語」。",
+      "基本的离线输入不需要「允许完全访问」。按键声音和振动、App 与键盘共享设置、自定义皮肤、用户词典同步以及剪贴板建议需要开启完全访问。"
+    ],
+    "requirements": "需要 iOS 18 或更高版本。",
+    "privacy_title": "隐私",
+    "privacy": [
+      "转换、纠错、排序、联想和学习都在设备上完成，没有网络请求，不上传输入内容或剪贴板。",
+      "学习数据、用户词典和皮肤保存在 App Group 共享容器中；剪贴板历史不纳入系统备份。",
+      "无账号、无广告、无跟踪。"
+    ],
+    "privacy_link": "阅读隐私政策",
+    "open_title": "开源",
+    "open_text": "Vime 以 GPL-3.0-or-later 许可发布，源代码、问题反馈和开发文档都在 GitHub 上。假名汉字转换使用 [AzooKeyKanaKanjiConverter](https://github.com/azooKey/AzooKeyKanaKanjiConverter)，分词使用 [SentencePiece](https://github.com/google/sentencepiece)，随附的日语模型是 [VimeML](https://github.com/Voltline/VimeML)。"
+  },
+  "privacy": {
+    "title": "隐私政策",
+    "note": "本页内容与已发布的 Vime 版本一致。"
+  },
+  "changelog": {
+    "title": "更新日志",
+    "description": "Vime 的版本状态、发布节奏与各版本更新内容。",
+    "releases": "已发布版本",
+    "empty": "还没有已发布的版本。",
+    "missing": "此版本没有简体中文说明，以下为英文内容。",
+    "github": "在 GitHub 上查看"
+  },
+  "status": {
+    "title": "版本状态",
+    "appstore": "App Store",
+    "appstore_none": "尚未上架",
+    "appstore_link": "打开 App Store",
+    "review": "审核中",
+    "review_none": "暂无审核中的版本",
+    "testflight": "TestFlight",
+    "build": "构建",
+    "next": "开发中",
+    "next_note": "dev 分支上的下一个版本",
+    "released": "发布于 {date}",
+    "submitted": "提交于 {date}",
+    "uploaded": "上传于 {date}",
+    "rhythm_title": "每周节奏",
+    "rhythm": [
+      "周一至周二，改动合入开发分支。",
+      "**周三 03:00**（北京时间）：开发分支上的新改动进入本周测试版，上传 TestFlight。",
+      "周三至周五：在 TestFlight 构建上验收，填写更新说明。",
+      "**周六 10:00**（北京时间）：提交 App Store 审核，审核通过后自动上架。"
+    ],
+    "next_cut": "下次 TestFlight 构建：{date}",
+    "next_submit": "下次提交审核：{date}",
+    "updated": "数据更新于 {date}",
+    "weekdays": ["周一", "周二", "周三", "周四", "周五", "周六", "周日"],
+    "states": {
+      "WAITING_FOR_REVIEW": "等待审核",
+      "READY_FOR_REVIEW": "等待审核",
+      "IN_REVIEW": "正在审核",
+      "PENDING_APPLE_RELEASE": "已通过，等待上架",
+      "PENDING_DEVELOPER_RELEASE": "已通过，等待上架",
+      "ACCEPTED": "已通过，等待上架",
+      "PROCESSING_FOR_APP_STORE": "正在处理",
+      "PROCESSING_FOR_DISTRIBUTION": "正在处理",
+      "WAITING_FOR_EXPORT_COMPLIANCE": "等待出口合规"
+    }
+  },
+  "footer": {
+    "license": "以 GPL-3.0-or-later 许可发布。",
+    "notrack": "本网站不使用 Cookie、统计或跟踪。"
+  },
+  "notfound": "找不到这个页面。"
+}

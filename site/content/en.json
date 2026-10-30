@@ -1,0 +1,122 @@
+{
+  "name": "English",
+  "nav": {"home": "Home", "privacy": "Privacy", "changelog": "Changelog", "language": "Language", "source": "Source"},
+  "home": {
+    "title": "Vime: an offline Japanese keyboard",
+    "description": "Vime is a fully offline Japanese keyboard for iOS with romaji and 12-key kana layouts. Conversion, correction and suggestions all run on your device.",
+    "tagline": "A fully offline Japanese keyboard for iOS",
+    "intro": "Type with a romaji QWERTY layout or a 12-key kana pad, and switch between hiragana, katakana and English at any time. Kana-kanji conversion is built on the [azooKey](https://github.com/azooKey/AzooKeyKanaKanjiConverter) dictionary engine; a small on-device Core ML language model reranks the candidates and suggests the next word after you commit text.",
+    "appstore": "Download on the App Store",
+    "source": "View the source",
+    "versions": "Version status",
+    "points": [
+      {"title": "Your typing stays on your device", "text": "Conversion, correction, learning and suggestions all run locally. Vime contains no networking code."},
+      {"title": "Two Japanese layouts", "text": "Full romaji QWERTY, or a 12-key kana pad with flick and toggle input."},
+      {"title": "Candidates that read the context", "text": "A local language model ranks candidates using the preceding text, then suggests the next word."}
+    ],
+    "features_title": "Features",
+    "groups": [
+      {"title": "Input", "items": [
+        "**Two Japanese layouts**: full romaji QWERTY, or a 12-key kana pad. On the pad, tap for the あ-column kana and flick left, up, right or down for the others; tapping the same key repeatedly cycles through its kana (toggle input).",
+        "**Instant kana draft**: kana appear as you type, and unfinished consonants stay as romaji. Conversion and predictions update in the background without blocking input.",
+        "**Direct English input** with a one-tap Japanese/English switch; the number page can be a 3×3 pad or a full row layout.",
+        "Move the cursor by dragging after a long press on the space bar, or by swiping across the keys; swipe up on a letter to enter its symbol."
+      ]},
+      {"title": "Conversion and candidates", "items": [
+        "**Whole-sentence and segmented conversion**: expand the candidates and use `−` / `+` to resize the first segment. After you confirm it, the rest keeps converting.",
+        "**Smart ranking**: azooKey generates the candidates, and a local language model (INT8, CPU only) rescores them using the preceding text. Plain dictionary ranking is also available.",
+        "**Next-word suggestions**: after you commit text, the idle candidate bar shows likely next words; tap one to keep going.",
+        "**Correction candidates**: neighboring-key slips, similar sounds and a limited set of misreadings appear as candidates and are only applied when you pick them.",
+        "**Format candidates**: half-width katakana (ｶﾞｯｺｳ) and full-width alphanumerics (ａｂｃ１２３)."
+      ]},
+      {"title": "Productivity", "items": [
+        "**User dictionary and phrase shortcuts**, with JSON import and export (up to 1,024 entries).",
+        "**Clipboard suggestions** (off by default): newly copied text appears in the candidate bar, and the last 24 hours of history stay on the device only.",
+        "**Calculator on the number page**: typing `1+1` offers `2` and `1+1=2`.",
+        "**Auto-paired brackets**: `()`, `（）`, `「」` and more, with the cursor placed between them.",
+        "Categorized symbols, emoji and kaomoji; the symbol column on the number page is customizable."
+      ]},
+      {"title": "Personalization", "items": [
+        "Built-in themes plus custom skins with your own background, key images and colors, shared as `.vimeskin` files.",
+        "Drag to resize the keyboard; key sounds and continuously adjustable haptic strength.",
+        "Learns your word choices on the device, and the learning can be cleared at any time."
+      ]},
+      {"title": "Companion app", "items": [
+        "**Three-step setup**: add the keyboard, allow full access and switch to Vime; once done, the app opens the typing practice.",
+        "**Typing practice**: type a sample sentence, and correct characters turn blue as you go.",
+        "A status card in Settings shows whether the keyboard is working, which model version is loaded and how much it has learned.",
+        "The interface is available in Simplified Chinese, Traditional Chinese, Japanese, English and Korean."
+      ]}
+    ],
+    "setup_title": "Getting started",
+    "setup": [
+      "Install Vime, open the app and follow the setup on the home screen, or add Vime manually under Settings → General → Keyboard → Keyboards → Add New Keyboard.",
+      "In any text field, long-press the globe key and choose “Vime 日本語”.",
+      "Basic offline typing works without Allow Full Access. Key sounds and haptics, settings shared between the app and keyboard, custom skins, user dictionary sync and clipboard suggestions require it."
+    ],
+    "requirements": "Requires iOS 18 or later.",
+    "privacy_title": "Privacy",
+    "privacy": [
+      "Conversion, correction, ranking, suggestions and learning all happen on the device. Vime contains no networking code and never uploads what you type or copy.",
+      "Learning data, the user dictionary and skins live in the shared App Group container; clipboard history is excluded from system backups.",
+      "No account, no ads, no tracking."
+    ],
+    "privacy_link": "Read the privacy policy",
+    "open_title": "Open source",
+    "open_text": "Vime is released under GPL-3.0-or-later. The source code, issue tracker and development docs are on GitHub. Kana-kanji conversion uses [AzooKeyKanaKanjiConverter](https://github.com/azooKey/AzooKeyKanaKanjiConverter), tokenization uses [SentencePiece](https://github.com/google/sentencepiece), and the bundled Japanese model is [VimeML](https://github.com/Voltline/VimeML)."
+  },
+  "privacy": {
+    "title": "Privacy Policy",
+    "note": "This page matches the released version of Vime."
+  },
+  "changelog": {
+    "title": "Changelog",
+    "description": "Vime's version status, release rhythm and what changed in each version.",
+    "releases": "Released versions",
+    "empty": "No versions have been released yet.",
+    "missing": "",
+    "github": "View on GitHub"
+  },
+  "status": {
+    "title": "Version status",
+    "appstore": "App Store",
+    "appstore_none": "Not available yet",
+    "appstore_link": "Open the App Store",
+    "review": "In review",
+    "review_none": "No version is in review",
+    "testflight": "TestFlight",
+    "build": "build",
+    "next": "In development",
+    "next_note": "Next version on the dev branch",
+    "released": "Released {date}",
+    "submitted": "Submitted {date}",
+    "uploaded": "Uploaded {date}",
+    "rhythm_title": "Weekly rhythm",
+    "rhythm": [
+      "Monday to Tuesday: changes are merged into the development branch.",
+      "**Tuesday 19:00 UTC** (Wednesday 03:00 in Beijing): new changes on the development branch become this week's beta and are uploaded to TestFlight.",
+      "Wednesday to Friday: the TestFlight build is checked and the release notes are written.",
+      "**Saturday 02:00 UTC** (10:00 in Beijing): the build is submitted for App Store review and released automatically once approved."
+    ],
+    "next_cut": "Next TestFlight build: {date}",
+    "next_submit": "Next submission: {date}",
+    "updated": "Updated {date}",
+    "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+    "states": {
+      "WAITING_FOR_REVIEW": "Waiting for review",
+      "READY_FOR_REVIEW": "Waiting for review",
+      "IN_REVIEW": "In review",
+      "PENDING_APPLE_RELEASE": "Approved, pending release",
+      "PENDING_DEVELOPER_RELEASE": "Approved, pending release",
+      "ACCEPTED": "Approved, pending release",
+      "PROCESSING_FOR_APP_STORE": "Processing",
+      "PROCESSING_FOR_DISTRIBUTION": "Processing",
+      "WAITING_FOR_EXPORT_COMPLIANCE": "Waiting for export compliance"
+    }
+  },
+  "footer": {
+    "license": "Released under GPL-3.0-or-later.",
+    "notrack": "This site uses no cookies, analytics or tracking."
+  },
+  "notfound": "This page could not be found."
+}

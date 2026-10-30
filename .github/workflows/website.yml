@@ -1,0 +1,67 @@
+name: Website
+
+# Builds site/ from dev and deploys it to GitHub Pages. The privacy policy
+# comes from main (the released app). The version status is refreshed after
+# the weekly workflows and every morning, after Xcode Cloud has uploaded
+# Wednesday's TestFlight build.
+on:
+  push:
+    branches: [dev, main]
+    paths:
+      - site/**
+      - .github/workflows/website.yml
+      - .github/scripts/app_store.py
+      - Docs/Guides/Privacy*.md
+      - Scripts/release_version.py
+      - Vime.xcodeproj/project.pbxproj
+  workflow_run:
+    workflows: [Weekly TestFlight cut, Weekly App Store release]
+    types: [completed]
+  schedule:
+    # 05:00 Asia/Shanghai.
+    - cron: "0 21 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev
+
+      - name: Fetch main
+        run: git fetch --depth=1 origin +refs/heads/main:refs/remotes/origin/main
+
+      # Without the App Store Connect keys, or when the API fails, the site
+      # shows the public App Store version and the dev version only.
+      - name: Build the site
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+        run: python3 site/build.py --out _site --privacy-ref origin/main
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
