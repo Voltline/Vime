@@ -105,6 +105,9 @@ protocol KeyboardInputSession: AnyObject {
     var reconvertibleCommit: (text: String, reading: String)? { get }
     /// Deletes that conversion and restores its reading.
     func reconvertCommit() -> [KeyboardEdit]
+    /// The text of a candidate whose learning a long press can remove.
+    func forgettableCandidate(_ token: CandidateSelectionToken) -> String?
+    func forgetCandidate(_ token: CandidateSelectionToken)
     func retryLanguageModel(requestID: String)
     func prepareForInput()
     func setCandidatePresentationPreparation(_ prepare: @escaping @Sendable (CandidatePresentation, Bool) -> Void)
@@ -122,6 +125,8 @@ extension KeyboardInputSession {
     func setUndoesCommitOnBackspace(_ enabled: Bool) {}
     var reconvertibleCommit: (text: String, reading: String)? { nil }
     func reconvertCommit() -> [KeyboardEdit] { [] }
+    func forgettableCandidate(_ token: CandidateSelectionToken) -> String? { nil }
+    func forgetCandidate(_ token: CandidateSelectionToken) {}
     var raw: String { "" }
     func prepareForInput() {}
     func setCandidatePresentationPreparation(_ prepare: @escaping @Sendable (CandidatePresentation, Bool) -> Void) {}

@@ -81,6 +81,8 @@ extension KeyboardView {
         clipboardHistoryPanel?.applyTheme()
         undoButton.tintColor = KeyboardPalette.accent
         deletePrompt.applyTheme()
+        forgetPrompt?.applyTheme()
+        forgetPrompt?.backgroundColor = backgroundColor
         panelTitle.textColor = KeyboardPalette.text
         gestureHint.textColor = KeyboardPalette.text
         settingsPanel?.applyTheme()

@@ -81,6 +81,8 @@ nonisolated final class CandidatePreferenceMemory {
     // turn a bounded learning store into an unbounded event log.
     private var pendingEvents: [String: Entry] = [:]
     private var pendingClear = false
+    /// Reading/surface pairs the user removed, applied to the archive at the next flush.
+    private var pendingForgets: Set<String> = []
     private struct Revision: Equatable {
         let device: dev_t
         let inode: ino_t
@@ -166,10 +168,10 @@ nonisolated final class CandidatePreferenceMemory {
         do {
             let latest = try readArchive()
             if latest.epoch != epoch {
-                pendingEvents = [:]; recent = []; dirty = false
+                pendingEvents = [:]; pendingForgets = []; recent = []; dirty = false
             }
             epoch = latest.epoch
-            entries = latest.entries
+            entries = latest.entries.filter { !forgotten($0.value) }
             for event in pendingEvents.values { apply(event, to: &entries) }
             prune(); rebuildIndex(); persistenceError = nil
         } catch { persistenceError = String(describing: error) }
@@ -560,7 +562,7 @@ nonisolated final class CandidatePreferenceMemory {
                 // pending feedback instead of resurrecting data the user removed.
                 entries = latest.entries; epoch = latest.epoch; recent = []
             } else {
-                var merged = latest.entries
+                var merged = latest.entries.filter { !forgotten($0.value) }
                 for event in pendingEvents.values { apply(event, to: &merged) }
                 let previous = entries
                 entries = merged; prune()
@@ -572,12 +574,27 @@ nonisolated final class CandidatePreferenceMemory {
                     loadedRevision = stat(url.path, &metadata) == 0 ? Revision(metadata) : nil
                 } catch { entries = previous; loadedRevision = nil; throw error }
             }
-            pendingEvents = [:]; pendingClear = false; dirty = false
+            pendingEvents = [:]; pendingForgets = []; pendingClear = false; dirty = false
             rebuildIndex(); persistenceError = nil
         } catch { persistenceError = String(describing: error) }
     }
+    /// Drops every preference for these reading/surface pairs, in any scope
+    /// or context, and writes the removal through to the shared archive.
+    func forget(_ pairs: [(reading: String, surface: String)]) {
+        let keys = Set(pairs.filter { !$0.reading.isEmpty }.map { forgetKey($0.reading, $0.surface) })
+        guard !keys.isEmpty else { return }
+        pendingForgets.formUnion(keys)
+        entries = entries.filter { !forgotten($0.value) }
+        pendingEvents = pendingEvents.filter { !forgotten($0.value) }
+        recent.removeAll { keys.contains(forgetKey($0.reading, $0.surface)) }
+        rebuildIndex(); dirty = true; flush()
+    }
+    private func forgetKey(_ reading: String, _ surface: String) -> String { reading + "\0" + surface }
+    private func forgotten(_ e: Entry) -> Bool {
+        !pendingForgets.isEmpty && pendingForgets.contains(forgetKey(e.reading, e.surface))
+    }
     func clear() {
-        entries = [:]; populations = [:]; recent = []; pendingEvents = [:]
+        entries = [:]; populations = [:]; recent = []; pendingEvents = [:]; pendingForgets = []
         epoch = UUID(); pendingClear = true; dirty = true; flush()
     }
 }

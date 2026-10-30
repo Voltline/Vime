@@ -136,6 +136,8 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     var spareCandidateButtons: [KeyboardCandidateButton] = []
     /// Leads the next-word row after a conversion and returns it to its reading.
     var reconvertChip: UIButton?
+    /// Shown after a long press on a learned candidate.
+    var forgetPrompt: KeyboardForgetPrompt?
     var displayedReconversion: String?
     var displayedLanguage: KeyboardInputLanguage?
     var displayedAlternateLanguage: KeyboardInputLanguage?
@@ -475,6 +477,8 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         clipboardSuggestion.frame = CGRect(x: previewLeft, y: brandButton.frame.minY,
             width: max(0, previewRight - previewLeft), height: diameter)
         quickCandidates.frame = candidateScroll.frame
+        forgetPrompt?.frame = CGRect(x: toolbarLeft, y: 0, width: max(0, (aligned ? metrics.contentRight : width - 12 * xScale) - toolbarLeft),
+            height: headerHeight)
         layoutCandidateStrip()
         // Range controls use full targets too; their clear backgrounds keep
         // the existing compact appearance while avoiding overlapping actions.

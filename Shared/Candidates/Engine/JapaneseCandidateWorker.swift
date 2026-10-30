@@ -607,6 +607,12 @@ final class JapaneseCandidateWorker {
         queue.async { storage.releaseInactiveResources() }
     }
 
+    func forget(_ snapshot: CandidateSnapshot) {
+        cancelPending()
+        let storage = self.storage
+        queue.async { storage.engine.forget(snapshot) }
+    }
+
     func clearLearning() {
         cancelPending()
         let storage = self.storage

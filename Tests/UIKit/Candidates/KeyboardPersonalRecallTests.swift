@@ -102,6 +102,42 @@ final class KeyboardPersonalRecallTests: XCTestCase {
         XCTAssertEqual(session.candidates.first, surface)
     }
 
+    func testForgettingACandidateSurvivesAnInstanceThatLoadedItEarlier() throws {
+        let url = try directory(); seed(url)
+        let stale = CandidatePreferenceMemory(directory: url)
+        let memory = CandidatePreferenceMemory(directory: url)
+        memory.record(reading: "ハシ", surface: "箸", scope: "choice")
+        memory.forget([(reading, surface)])
+        XCTAssertEqual(memory.score(reading: reading, surface: surface, scope: "choice"), 0)
+        stale.record(reading: "ハシ", surface: "橋", scope: "choice"); stale.flush()
+        XCTAssertEqual(Set(try rows(url).compactMap { $0["surface"] as? String }), ["箸", "橋"])
+    }
+
+    func testLongPressForgetsARecalledCandidateOnlyAfterConfirmation() throws {
+        let url = try directory(); seed(url)
+        let session = KeyboardSession(memoryDirectoryURL: url)
+        let keyboard = KeyboardView(frame: CGRect(x: 0, y: 0, width: 440, height: 350), session: session)
+        defer { keyboard.stopInteractions() }
+        func views(_ view: UIView) -> [UIView] { [view] + view.subviews.flatMap(views) }
+        _ = session.type("hoshineko"); keyboard.refresh(); keyboard.layoutIfNeeded()
+        let button = try XCTUnwrap(views(keyboard).compactMap { $0 as? KeyboardCandidateButton }
+            .first { $0.accessibilityLabel?.contains(surface) == true })
+        let token = try XCTUnwrap(button.selectionToken)
+        keyboard.promptForget(button)
+        let prompt = try XCTUnwrap(keyboard.forgetPrompt)
+        XCTAssertFalse(prompt.isHidden)
+        prompt.cancel.sendActions(for: .touchUpInside)
+        XCTAssertTrue(prompt.isHidden)
+        XCTAssertTrue(try rows(url).contains { $0["surface"] as? String == surface })
+        keyboard.promptForget(button)
+        prompt.confirm.sendActions(for: .touchUpInside)
+        XCTAssertTrue(prompt.isHidden)
+        XCTAssertFalse(try rows(url).contains { $0["surface"] as? String == surface })
+        XCTAssertFalse(session.candidates.contains(surface))
+        XCTAssertTrue(session.isComposing, "Forgetting keeps the reading being typed")
+        XCTAssertNil(session.forgettableCandidate(token), "A stale list cannot be forgotten from")
+    }
+
     func testScopedRecallConsumesOnlyRequestedPrefixAndPreservesRemainder() throws {
         let url = try directory(); seed(url)
         let engine = JapaneseCandidateEngine(memoryDirectoryURL: url, learningEnabled: true)
