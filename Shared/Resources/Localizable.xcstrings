@@ -10538,6 +10538,62 @@
         }
       }
     },
+    "自动大写": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auto-Capitalization"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自動大文字"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "자동 대문자"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自動大寫"
+          }
+        }
+      }
+    },
+    "自动大写按输入框的要求在句首或词首切换为大写\n连按两下空格会在单词后输入句号和空格": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auto-Capitalization turns on Shift at the start of a sentence or word, as the text field asks\nDouble-tapping Space after a word types a period and a space"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自動大文字は入力欄の設定に従い、文頭や語頭で大文字に切り替えます\nスペースを2回押すと、単語の後にピリオドとスペースを入力します"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "자동 대문자는 입력란 설정에 따라 문장이나 단어 첫머리에서 대문자로 바꿉니다\n단어 뒤에서 스페이스를 두 번 누르면 마침표와 공백을 입력합니다"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自動大寫按輸入框的要求在句首或詞首切換為大寫\n連按兩下空格會在單字後輸入句號和空格"
+          }
+        }
+      }
+    },
     "自动补全括号": {
       "localizations": {
         "en": {
@@ -10787,6 +10843,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "英文"
+          }
+        }
+      }
+    },
+    "英文输入": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "English Input"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "英語入力"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "영어 입력"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "英文輸入"
           }
         }
       }
@@ -12446,6 +12530,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "進入「設定 → 一般 → 鍵盤 → 鍵盤 → Vime 日本語」，開啟「允許完整取用」。"
+          }
+        }
+      }
+    },
+    "连按两下空格输入句号": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Double-Space for Period"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "スペースを2回押してピリオド"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "스페이스 두 번으로 마침표"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "連按兩下空格輸入句號"
           }
         }
       }

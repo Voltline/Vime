@@ -26,7 +26,7 @@ struct KeyboardPreferences {
         FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroup) != nil ? UserDefaults(suiteName: appGroup) : nil
     }
     private static let sharedKeys = ["vime.sound", "vime.hapticLevel", "vime.hapticIntensity", "vime.nineKeyNumbers", "vime.kanaLayout",
-        "vime.prolongedKey", "vime.previews", "vime.theme", "vime.candidateRanking", "vime.phraseSuggestions", "vime.clipboardSuggestions", "vime.autoPairBrackets", "vime.customSkinID", "vime.skinRevision", "vime.numberSymbols"]
+        "vime.prolongedKey", "vime.previews", "vime.theme", "vime.candidateRanking", "vime.phraseSuggestions", "vime.clipboardSuggestions", "vime.autoPairBrackets", "vime.autoCapitalize", "vime.doubleSpacePeriod", "vime.customSkinID", "vime.skinRevision", "vime.numberSymbols"]
     var store: UserDefaults { defaults }
     struct Snapshot: Equatable {
         let heightFactor: Double
@@ -43,6 +43,8 @@ struct KeyboardPreferences {
         let phraseSuggestions: Bool
         let clipboardSuggestions: Bool
         let autoPairBrackets: Bool
+        let autoCapitalize: Bool
+        let doubleSpacePeriod: Bool
         let numberSymbols: [String]
         let neuralRetryID: String?
         let learningResetID: String?
@@ -51,7 +53,8 @@ struct KeyboardPreferences {
         Snapshot(heightFactor: heightFactor, sound: sound, hapticIntensity: hapticIntensity,
             nineKeyNumbers: nineKeyNumbers, kanaLayout: kanaLayout, prolongedKey: prolongedKey, previews: previews,
             theme: theme, customSkinID: customSkinID, skinRevision: skinRevision, candidateRanking: candidateRanking, phraseSuggestions: phraseSuggestions,
-            clipboardSuggestions: clipboardSuggestions, autoPairBrackets: autoPairBrackets, numberSymbols: numberSymbols,
+            clipboardSuggestions: clipboardSuggestions, autoPairBrackets: autoPairBrackets,
+            autoCapitalize: autoCapitalize, doubleSpacePeriod: doubleSpacePeriod, numberSymbols: numberSymbols,
             neuralRetryID: neuralRetryID, learningResetID: learningResetRequests.requestID)
     }
     var heightFactor: Double {
@@ -147,6 +150,16 @@ struct KeyboardPreferences {
     var autoPairBrackets: Bool {
         get { defaults.object(forKey: "vime.autoPairBrackets") as? Bool ?? true }
         nonmutating set { defaults.set(newValue, forKey: "vime.autoPairBrackets") }
+    }
+    /// English mode only; capitalizes as the field asks.
+    var autoCapitalize: Bool {
+        get { defaults.object(forKey: "vime.autoCapitalize") as? Bool ?? false }
+        nonmutating set { defaults.set(newValue, forKey: "vime.autoCapitalize") }
+    }
+    /// English mode only; two quick spaces after a word insert ". ".
+    var doubleSpacePeriod: Bool {
+        get { defaults.object(forKey: "vime.doubleSpacePeriod") as? Bool ?? false }
+        nonmutating set { defaults.set(newValue, forKey: "vime.doubleSpacePeriod") }
     }
 }
 

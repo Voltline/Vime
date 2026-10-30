@@ -214,6 +214,7 @@ class KeyboardViewController: UIInputViewController {
         keyboard.hasFullAccess = hasFullAccess
         keyboard.returnKeyType = textDocumentProxy.returnKeyType ?? .default
         keyboard.keyboardType = textDocumentProxy.keyboardType ?? .default
+        keyboard.autocapitalizationType = textDocumentProxy.autocapitalizationType ?? .sentences
     }
 
     private func rememberContext() {

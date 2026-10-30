@@ -173,8 +173,10 @@ extension KeyboardView {
                         guard let self else { return }
                         KeyboardPerformance.record(.touchUpToType, since: self.keysContainer.releaseStartedAt)
                         self.lastShiftTap = 0
-                        self.apply(self.session.type(self.shifted && self.session.inputTraits.isEnglish ? value.uppercased() : value))
+                        let upper = self.shifted && self.session.inputTraits.isEnglish
+                        // Consume Shift first, so auto-capitalization decides the next letter.
                         if self.shifted && !self.capsLocked { self.shifted = false; self.updateKeyLabels() }
+                        self.apply(self.session.type(upper ? value.uppercased() : value))
                     }
                     item.0.showsPreview = previewsEnabled
                     item.0.accessibilityIdentifier = "vime.key." + value
@@ -306,10 +308,7 @@ extension KeyboardView {
             self.apply(self.session.insertLiteral(self.session.inputTraits.period))
         }
         bottom.append(comma)
-        let space = key("", weight: 1) { [weak self] in
-            guard let self else { return }
-            self.apply(self.session.space())
-        }
+        let space = key("", weight: 1) { [weak self] in self?.space() }
         space.0.accessibilityLabel = String(localized: "空格，转换候选")
         space.0.accessibilityIdentifier = "vime.key.space"
         spaceKey = space.0
@@ -320,6 +319,7 @@ extension KeyboardView {
             self.shifted = false
             self.capsLocked = false
             self.rebuildKeys()
+            self.updateAutoCapitalization()
         }
         language.0.setImage(KeyboardGlyphs.language(active: session.inputTraits.language, other: session.inputTraits.alternateLanguage), for: .normal)
         languageKey = language.0

@@ -903,4 +903,41 @@ final class KeyboardFeatureTests: XCTestCase {
         keyboard.shift(at: 200); keyboard.shift(at: 200.6)
         XCTAssertFalse(keyboard.capsLocked || keyboard.shifted)
     }
+
+    func testEnglishAutoCapitalizationAndDoubleSpacePeriodAreOptIn() throws {
+        let (keyboard, _, text, window) = try fixture()
+        defer { keyboard.stopInteractions(); window.isHidden = true }
+        let preferences = keyboard.preferences
+        let old = (preferences.autoCapitalize, preferences.doubleSpacePeriod)
+        defer { preferences.autoCapitalize = old.0; preferences.doubleSpacePeriod = old.1; keyboard.reloadPreferences() }
+        keyboard.leftContextProvider = { text.text }
+        func tap(_ id: String) throws { try button(id, in: keyboard).sendActions(for: .touchUpInside) }
+        preferences.autoCapitalize = false; preferences.doubleSpacePeriod = false
+        keyboard.reloadPreferences()
+        try tap("vime.key.language")
+        try tap("vime.key.a")
+        keyboard.space(at: 10); keyboard.space(at: 10.2)
+        XCTAssertEqual(text.text, "a  ", "Both options stay off by default")
+
+        text.text = ""
+        preferences.autoCapitalize = true; preferences.doubleSpacePeriod = true
+        keyboard.reloadPreferences()
+        keyboard.hostContextDidChange()
+        XCTAssertTrue(keyboard.shifted, "An empty field starts a sentence")
+        try tap("vime.key.h"); try tap("vime.key.i")
+        keyboard.space(at: 20); keyboard.space(at: 20.3)
+        XCTAssertEqual(text.text, "Hi. ")
+        XCTAssertTrue(keyboard.shifted, "The period starts a new sentence")
+        try tap("vime.key.o"); try tap("vime.key.k")
+        keyboard.space(at: 30); keyboard.space(at: 31)
+        XCTAssertEqual(text.text, "Hi. Ok  ", "Slow spaces stay spaces")
+
+        keyboard.autocapitalizationType = .none
+        text.text = ""; keyboard.hostContextDidChange()
+        XCTAssertFalse(keyboard.shifted, "Fields without capitalization stay lowercase")
+        XCTAssertTrue(KeyboardView.capitalizes(after: "one ", type: .words))
+        XCTAssertFalse(KeyboardView.capitalizes(after: "one", type: .words))
+        XCTAssertTrue(KeyboardView.capitalizes(after: "Done!\n", type: .sentences))
+        XCTAssertFalse(KeyboardView.capitalizes(after: "e.g, ", type: .sentences))
+    }
 }
