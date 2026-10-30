@@ -1,6 +1,6 @@
 # Vime
 
-**简体中文** | [English](README.en.md) | [日本語](README.ja.md)
+**简体中文** | [English](README.en.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
 ![Platform](https://img.shields.io/badge/platform-iOS%2018%2B-blue) ![Swift](https://img.shields.io/badge/Swift-UIKit%20%2B%20SwiftUI-orange) ![License](https://img.shields.io/badge/license-GPL--3.0--or--later-green)
 
@@ -104,7 +104,7 @@ python3 Scripts/validate_model_resources.py
 python3 Scripts/validate_app_resources.py
 ```
 
-前者校验模型 manifest、分词器和 SHA256，后者校验许可声明、隐私政策和本地化目录是否完整。界面文字统一放在 `Shared/Resources/Localizable.xcstrings`，新增文字需要补全四种语言。完整测试流程（`Scripts/verify_review.sh`）、真实键盘扩展的验证方法和排查办法见 [开发与验证](Docs/Development.md)。
+前者校验模型 manifest、分词器和 SHA256，后者校验许可声明、隐私政策和本地化目录是否完整。界面文字统一放在 `Shared/Resources/Localizable.xcstrings`，新增文字需要补全五种语言。完整测试流程（`Scripts/verify_review.sh`）、真实键盘扩展的验证方法和排查办法见 [开发与验证](Docs/Development.md)。
 
 ## 文档
 
