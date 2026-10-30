@@ -140,7 +140,9 @@ final class KeyboardFeatureTests: XCTestCase {
         surface.beginPress(id: 10, at: center)
         let prompt = try XCTUnwrap(descendants(keyboard).first { $0.accessibilityIdentifier == "vime.delete.prompt" })
         XCTAssertTrue(prompt.isHidden, "Ordinary backspace must not show a floating prompt")
-        XCTAssertLessThanOrEqual(prompt.frame.maxY, region.body.minY)
+        // The track rises out of the delete key: it covers the key and reaches above it.
+        XCTAssertGreaterThan(prompt.frame.maxY, region.body.midY)
+        XCTAssertLessThan(prompt.frame.minY, region.body.minY)
         surface.movePress(id: 10, to: up); keyboard.layoutIfNeeded()
         XCTAssertFalse(prompt.isHidden, "Show the prompt only after an upward deletion gesture")
         attachAppearance(keyboard, name: "delete-swipe-callout")

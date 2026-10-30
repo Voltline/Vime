@@ -41,6 +41,19 @@ App 与键盘支持简体中文（源语言）、繁体中文、日语、英语�
 
 分段输入应验证整个过程：点击前段后，正文只增加已选文字，后段仍保持 marked text；继续选后段、退格、移光标和切换字段时，检查正文中没有重复插入或意外确认尾部。候选栏和完整候选菜单都要覆盖。
 
+## 日常测试
+
+开发时用 [test.sh](../Scripts/test.sh)。它固定使用一个构建目录做增量构建，模拟器默认取已启动的那台，没有就取第一台 iPhone，也可以用 `VIME_SIMULATOR` 指定名称或 UDID：
+
+```sh
+bash Scripts/test.sh                                   # 全部单元测试
+bash Scripts/test.sh KeyboardFeatureTests KeyboardCoreTests/testRomajiAndVisibleKanaDeletion
+bash Scripts/test.sh --failed                          # 只重跑上次失败的用例
+bash Scripts/test.sh --extension                       # 真实键盘扩展的 UI 测试
+```
+
+结束时按结果包汇总通过、失败和跳过的数量，并列出失败用例；完整输出在构建目录的 `Results/` 下。需要留存证据时改用下文的 `verify_review.sh`。
+
 ## 可复现检查
 
 [verify_review.sh](../Scripts/verify_review.sh) 支持 `focused`、`full`、`extension`、`all`。显式指定模拟器和已经解析好的依赖缓存，例如：

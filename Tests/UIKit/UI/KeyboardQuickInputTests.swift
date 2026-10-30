@@ -591,7 +591,10 @@ final class KeyboardQuickInputTests: XCTestCase {
                     XCTAssertLessThanOrEqual(rect.maxX, settings.bounds.width)
                     XCTAssertGreaterThan(rect.width, 30)
                 }
-                XCTAssertLessThan(historyFrame.maxY, appSettings.convert(appSettings.bounds, to: settings).midY)
+                // Both destinations share the top row, history first.
+                let appSettingsFrame = appSettings.convert(appSettings.bounds, to: settings)
+                XCTAssertEqual(historyFrame.minY, appSettingsFrame.minY, accuracy: 0.5)
+                XCTAssertLessThan(historyFrame.maxX, appSettingsFrame.minX)
                 XCTAssertLessThan(appSettings.convert(appSettings.bounds, to: settings).maxY,
                     sound.convert(sound.bounds, to: settings).midY)
                 XCTAssertLessThanOrEqual(appSettings.convert(appSettings.bounds, to: settings).maxY, settings.bounds.height,
