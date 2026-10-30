@@ -1,6 +1,6 @@
 # Vime
 
-[简体中文](README.md) | **English** | [日本語](README.ja.md)
+[简体中文](README.md) | **English** | [日本語](README.ja.md) | [한국어](README.ko.md)
 
 ![Platform](https://img.shields.io/badge/platform-iOS%2018%2B-blue) ![Swift](https://img.shields.io/badge/Swift-UIKit%20%2B%20SwiftUI-orange) ![License](https://img.shields.io/badge/license-GPL--3.0--or--later-green)
 
@@ -104,7 +104,7 @@ python3 Scripts/validate_model_resources.py
 python3 Scripts/validate_app_resources.py
 ```
 
-The first validates model manifests, tokenizers and SHA256 checksums. The second checks license notices, privacy policies and that the localization catalog is complete. UI strings live in `Shared/Resources/Localizable.xcstrings`, and new strings need all four languages. The full test workflow (`Scripts/verify_review.sh`), how to verify the real keyboard extension and troubleshooting tips are in the [development guide](Docs/Development.md).
+The first validates model manifests, tokenizers and SHA256 checksums. The second checks license notices, privacy policies and that the localization catalog is complete. UI strings live in `Shared/Resources/Localizable.xcstrings`, and new strings need all five languages. The full test workflow (`Scripts/verify_review.sh`), how to verify the real keyboard extension and troubleshooting tips are in the [development guide](Docs/Development.md).
 
 ## Documentation
 

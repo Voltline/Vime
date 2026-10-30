@@ -1,6 +1,6 @@
 # Vime
 
-[简体中文](README.md) | [English](README.en.md) | **日本語**
+[简体中文](README.md) | [English](README.en.md) | **日本語** | [한국어](README.ko.md)
 
 ![Platform](https://img.shields.io/badge/platform-iOS%2018%2B-blue) ![Swift](https://img.shields.io/badge/Swift-UIKit%20%2B%20SwiftUI-orange) ![License](https://img.shields.io/badge/license-GPL--3.0--or--later-green)
 
@@ -104,7 +104,7 @@ python3 Scripts/validate_model_resources.py
 python3 Scripts/validate_app_resources.py
 ```
 
-前者はモデルの manifest、トークナイザ、SHA256 を、後者はライセンス表記、プライバシーポリシー、ローカライズカタログが揃っているかを検証します。UI の文字列は `Shared/Resources/Localizable.xcstrings` にまとめており、新しい文字列には 4 言語すべての翻訳が必要です。テスト全体の手順（`Scripts/verify_review.sh`）、実際のキーボード拡張での確認方法、トラブルシューティングは[開発ガイド](Docs/Development.md)にあります。
+前者はモデルの manifest、トークナイザ、SHA256 を、後者はライセンス表記、プライバシーポリシー、ローカライズカタログが揃っているかを検証します。UI の文字列は `Shared/Resources/Localizable.xcstrings` にまとめており、新しい文字列には 5 言語すべての翻訳が必要です。テスト全体の手順（`Scripts/verify_review.sh`）、実際のキーボード拡張での確認方法、トラブルシューティングは[開発ガイド](Docs/Development.md)にあります。
 
 ## ドキュメント
 
