@@ -1,0 +1,27 @@
+name: Resource check
+
+# Runs Scripts/validate_app_resources.py for pull requests: component license
+# notices, privacy policies in every language and their public Markdown, and
+# string translations. Documentation changes run it too, since the public
+# privacy policies live under Docs.
+on:
+  pull_request:
+    branches: [dev, beta]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: resource-check-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  resource-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate App resources
+        run: python3 Scripts/validate_app_resources.py
