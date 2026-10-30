@@ -59,6 +59,8 @@ extension KeyboardView {
         refreshToolbar(traits, composing: composing)
         refreshCandidateStrip()
         refreshPanels(composing: composing)
+        // The question is about one list; typing or a new list closes it.
+        if let token = forgetPrompt?.token, session.forgettableCandidate(token) == nil { dismissForgetPrompt() }
         refreshActionKeys(traits, composing: composing)
         setNeedsLayout()
     }

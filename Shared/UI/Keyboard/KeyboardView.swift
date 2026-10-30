@@ -136,6 +136,8 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     var spareCandidateButtons: [KeyboardCandidateButton] = []
     /// Leads the next-word row after a conversion and returns it to its reading.
     var reconvertChip: UIButton?
+    /// Shown after a long press on a learned candidate.
+    var forgetPrompt: KeyboardForgetPrompt?
     var displayedReconversion: String?
     var displayedLanguage: KeyboardInputLanguage?
     var displayedAlternateLanguage: KeyboardInputLanguage?
@@ -403,6 +405,10 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         // A layout switch can be followed by another touch before the next
         // display frame. Resolve against the new keys, never removed objects.
         layoutIfNeeded()
+        // The forget bubble takes every touch until it is answered or dismissed.
+        if let forgetPrompt, !forgetPrompt.isHidden {
+            return forgetPrompt.hitTest(convert(point, to: forgetPrompt), with: event)
+        }
         if !header.isHidden, header.frame.contains(point) {
             // Visual circles stay small. Resolve their larger targets here so
             // neighboring controls never compete, and a miss cannot type a key.
@@ -475,6 +481,8 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         clipboardSuggestion.frame = CGRect(x: previewLeft, y: brandButton.frame.minY,
             width: max(0, previewRight - previewLeft), height: diameter)
         quickCandidates.frame = candidateScroll.frame
+        // The bubble points at a candidate frame from before a resize.
+        if let forgetPrompt, forgetPrompt.frame != bounds { dismissForgetPrompt() }
         layoutCandidateStrip()
         // Range controls use full targets too; their clear backgrounds keep
         // the existing compact appearance while avoiding overlapping actions.

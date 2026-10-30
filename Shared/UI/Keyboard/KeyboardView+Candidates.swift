@@ -23,6 +23,7 @@ extension KeyboardView {
         let button = KeyboardCandidateButton(frame: .zero)
         presentCandidate(button, presentation: presentation, index: index)
         button.addTarget(self, action: #selector(selectCandidate(_:)), for: .touchUpInside)
+        button.addGestureRecognizer(UILongPressGestureRecognizer(target: self, action: #selector(longPressCandidate(_:))))
         return button
     }
 
@@ -36,6 +37,40 @@ extension KeyboardView {
         guard let token = (sender as? KeyboardCandidateButton)?.takeSelectionToken() else { return }
         playFeedback()
         apply(session.chooseCandidate(token))
+    }
+
+    /// A long press on a candidate that past choices taught offers to forget them.
+    @objc func longPressCandidate(_ recognizer: UILongPressGestureRecognizer) {
+        guard recognizer.state == .began, let button = recognizer.view as? KeyboardCandidateButton else { return }
+        promptForget(button)
+    }
+
+    func promptForget(_ button: KeyboardCandidateButton) {
+        guard let token = button.selectionToken, let text = session.forgettableCandidate(token) else { return }
+        playFeedback()
+        let prompt = forgetPrompt ?? {
+            let prompt = KeyboardForgetPrompt()
+            prompt.confirm.addTarget(self, action: #selector(confirmForget), for: .touchUpInside)
+            prompt.addTarget(self, action: #selector(dismissForgetPrompt), for: .touchDown)
+            addSubview(prompt)
+            forgetPrompt = prompt
+            return prompt
+        }()
+        prompt.frame = bounds
+        bringSubviewToFront(prompt)
+        prompt.present(text, token: token, anchor: button.convert(button.bounds, to: self))
+    }
+
+    @objc func confirmForget() {
+        guard let token = forgetPrompt?.token else { return }
+        dismissForgetPrompt()
+        playFeedback()
+        session.forgetCandidate(token)
+    }
+
+    @objc func dismissForgetPrompt() {
+        forgetPrompt?.isHidden = true
+        forgetPrompt?.token = nil
     }
 
     func presentReconvertChip(_ commit: (text: String, reading: String)?) {
