@@ -252,6 +252,58 @@ def privacy_policy(ref, name):
                           check=True, capture_output=True, text=True).stdout
 
 
+# Home page illustrations. Their text is Japanese input, so it is the same in
+# every language. They are decorative; the headings next to them carry the meaning.
+
+def keys(labels, wide=()):
+    return "".join(f'<span class="{"fn" if label in wide else ""}">{label}</span>' for label in labels)
+
+
+def keyboard_rows():
+    return (f'<div class="kb-row ten">{keys("qwertyuiop")}</div>'
+            f'<div class="kb-row ten">{keys(list("asdfghjkl") + ["ー"])}</div>'
+            f'<div class="kb-row third">{keys(["⇧", *"zxcvbnm", "⌫"], wide=("⇧", "⌫"))}</div>'
+            f'<div class="kb-row bottom">{keys(["123", "☺︎", "、", "変換", "あ A", "確定"], wide=("123", "☺︎", "あ A", "確定"))}</div>')
+
+
+HERO_ART = f"""<div class="device" aria-hidden="true">
+<div class="field"><span class="marked">きょうはいいてんきですね</span><i class="caret"></i></div>
+<div class="kb">
+<div class="kb-bar"><span class="pick">今日はいい天気ですね</span><span>今日は良い天気ですね</span><span>京はいい天気ですね</span></div>
+{keyboard_rows()}
+</div>
+</div>"""
+
+FEATURE_ART = [
+    # Offline: the device does the work, the cloud is crossed out.
+    """<svg class="art-offline" viewBox="0 0 240 150" aria-hidden="true">
+<rect class="body" x="62" y="8" width="96" height="134" rx="20"/>
+<rect class="screen" x="70" y="16" width="80" height="118" rx="13"/>
+<rect class="line accent" x="78" y="30" width="46" height="7" rx="3.5"/>
+<rect class="line" x="78" y="43" width="30" height="7" rx="3.5"/>
+<g class="keys">
+<rect x="74" y="88" width="13" height="10" rx="3"/><rect x="90" y="88" width="13" height="10" rx="3"/><rect x="106" y="88" width="13" height="10" rx="3"/><rect x="122" y="88" width="13" height="10" rx="3"/><rect x="138" y="88" width="8" height="10" rx="3"/>
+<rect x="74" y="102" width="13" height="10" rx="3"/><rect x="90" y="102" width="13" height="10" rx="3"/><rect x="106" y="102" width="13" height="10" rx="3"/><rect x="122" y="102" width="13" height="10" rx="3"/><rect x="138" y="102" width="8" height="10" rx="3"/>
+<rect x="74" y="116" width="20" height="10" rx="3"/><rect x="98" y="116" width="32" height="10" rx="3"/><rect x="134" y="116" width="12" height="10" rx="3"/>
+</g>
+<path class="cloud" d="M183 58h34a12 12 0 0 0 0-24 18 18 0 0 0-34-4 14 14 0 0 0 0 28z"/>
+<path class="slash" d="M176 66 226 18"/>
+<path class="dash" d="M164 70 178 62"/>
+</svg>""",
+    # Two layouts: romaji and kana, with a flick on な.
+    """<div class="layouts" aria-hidden="true">
+<div class="segmented"><span>ローマ字</span><span class="on">かな</span></div>
+<div class="pad"><span>あ</span><span>か</span><span>さ</span><span>た</span><span class="flick"><b>な</b><i class="l">に</i><i class="u">ぬ</i><i class="r">ね</i><i class="d">の</i></span><span>は</span><span>ま</span><span>や</span><span>ら</span><span class="fn">゛゜小</span><span>わ</span><span class="fn">、。?!</span></div>
+</div>""",
+    # Context: after 東京に, the bar suggests the next words.
+    """<div class="next" aria-hidden="true">
+<div class="field">東京に<i class="caret"></i></div>
+<div class="kb-bar"><span class="pick">行きます</span><span>住んでいます</span><span>着いた</span></div>
+<div class="kb-row ten faded"><span>q</span><span>w</span><span>e</span><span>r</span><span>t</span><span>y</span><span>u</span><span>i</span><span>o</span><span>p</span></div>
+</div>""",
+]
+
+
 # Rendering.
 
 class Site:
@@ -350,8 +402,7 @@ class Site:
 """
 
     def home(self, code):
-        text = self.content[code]
-        home = text["home"]
+        home = self.content[code]["home"]
         live = self.data["live"]
         buttons = []
         if live:
@@ -359,46 +410,30 @@ class Site:
                            f'{html.escape(home["appstore"])}</a>')
         buttons.append(f'<a class="button" href="https://github.com/{REPOSITORY}" rel="noopener">'
                        f'{html.escape(home["source"])}</a>')
-        points = "".join(f'<div class="point"><h3>{html.escape(point["title"])}</h3>'
-                         f'<p>{inline(point["text"])}</p></div>' for point in home["points"])
-        groups = "".join(f'<section class="card"><h3>{html.escape(group["title"])}</h3><ul>'
-                         + "".join(f"<li>{inline(item)}</li>" for item in group["items"]) + "</ul></section>"
-                         for group in home["groups"])
-        setup = "".join(f"<li>{inline(step)}</li>" for step in home["setup"])
-        privacy = "".join(f"<li>{inline(item)}</li>" for item in home["privacy"])
+        features = "".join(f'<article class="feature"><div class="art">{art}</div>'
+                           f'<h3>{html.escape(point["title"])}</h3><p>{inline(point["text"])}</p></article>'
+                           for point, art in zip(home["points"], FEATURE_ART))
         main = f"""
 <section class="hero">
-<div class="wrap">
-<img class="hero-logo" src="{self.url('logo.svg')}" alt="" width="104" height="104">
+<div class="wrap hero-grid">
+<div class="hero-text">
+<img class="hero-logo" src="{self.url('logo.svg')}" alt="" width="76" height="76">
 <h1>Vime</h1>
 <p class="tagline">{html.escape(home['tagline'])}</p>
 <p class="intro">{inline(home['intro'])}</p>
 <div class="buttons">{''.join(buttons)}</div>
+<p class="requirements">{inline(home['requirements'])}</p>
 {self.chips(code)}
 </div>
-</section>
-<section class="wrap points">{points}</section>
-<section class="wrap section">
-<h2>{html.escape(home['features_title'])}</h2>
-<div class="grid">{groups}</div>
-</section>
-<section class="wrap section split">
-<div class="card">
-<h2>{html.escape(home['setup_title'])}</h2>
-<ol class="steps">{setup}</ol>
-<p class="muted">{inline(home['requirements'])}</p>
+<div class="hero-art">{HERO_ART}</div>
 </div>
-<div class="card">
+</section>
+<section class="wrap features">{features}</section>
+<section class="wrap section">
+<div class="privacy-band">
 <h2>{html.escape(home['privacy_title'])}</h2>
-<ul class="checks">{privacy}</ul>
-<p><a class="more" href="{self.url(f'{code}/privacy/')}">{html.escape(home['privacy_link'])} →</a></p>
-</div>
-</section>
-<section class="wrap section">
-<div class="card wide">
-<h2>{html.escape(home['open_title'])}</h2>
-<p>{inline(home['open_text'])}</p>
-<p><a class="more" href="https://github.com/{REPOSITORY}" rel="noopener">github.com/{REPOSITORY} →</a></p>
+<p>{inline(home['privacy_text'])}</p>
+<a class="more" href="{self.url(f'{code}/privacy/')}">{html.escape(home['privacy_link'])} →</a>
 </div>
 </section>
 """
