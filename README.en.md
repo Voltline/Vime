@@ -21,7 +21,7 @@ The companion app handles setup, typing practice, appearance and settings. The k
 ### Conversion and candidates
 
 - **Whole-sentence and segmented conversion**: expand the candidates and use `−` / `+` to resize the first segment. After you confirm it, the rest keeps converting, and only confirmed text is written to the document.
-- **Undo a conversion with backspace**: press backspace right after confirming a conversion to return to its reading and choose again.
+- **Undo a conversion**: right after confirming a conversion, tap ↩ at the start of the candidate bar to return to its reading and choose again; a setting makes backspace do the same.
 - **Smart ranking**: azooKey generates the candidates, and a local language model (INT8, CPU only) rescores them using the preceding text. Plain dictionary ranking is also available.
 - **Next-word suggestions**: after you commit text, the idle candidate bar shows likely next words; tap one to keep going.
 - **Correction candidates**: neighboring-key slips, similar sounds and a limited set of misreadings appear as candidates and are only applied when you pick them.

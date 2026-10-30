@@ -168,7 +168,7 @@ struct KeyboardPreferences {
         nonmutating set { defaults.set(newValue, forKey: "vime.doubleSpacePeriod") }
     }
     var undoConversionOnBackspace: Bool {
-        get { defaults.object(forKey: "vime.undoConversionOnBackspace") as? Bool ?? true }
+        get { defaults.object(forKey: "vime.undoConversionOnBackspace") as? Bool ?? false }
         nonmutating set { defaults.set(newValue, forKey: "vime.undoConversionOnBackspace") }
     }
     /// Offers the iOS text replacements the keyboard can read as candidates.

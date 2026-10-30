@@ -400,6 +400,31 @@ final class KeyboardSegmentedConversionTests: XCTestCase {
             return text
         }
 
+        XCTAssertFalse(session.undoesCommitOnBackspace, "Backspace undo is opt-in")
+        let plain = try convert()
+        XCTAssertEqual(session.reconvertibleCommit?.text, plain)
+        XCTAssertEqual(session.reconvertibleCommit?.reading, "にほんご")
+        XCTAssertTrue(session.showsStrip, "The reconvert chip keeps the toolbar row")
+        run(session.backspace())
+        XCTAssertEqual(host, String(plain.dropLast()), "Backspace deletes normally while undo is off")
+        XCTAssertNil(session.reconvertibleCommit, "Backspace forgets the conversion")
+        session.reset(); host = ""
+
+        let chip = try convert()
+        XCTAssertEqual(host, chip)
+        run(session.reconvertCommit())
+        XCTAssertEqual(host, "")
+        XCTAssertEqual(session.preedit, "にほんご", "The chip returns the conversion to its reading")
+        XCTAssertNil(session.reconvertibleCommit)
+        session.reset(); host = ""
+
+        let dismissed = try convert()
+        session.dismissSuggestions()
+        XCTAssertNil(session.reconvertibleCommit, "Closing the next-word row drops the chip")
+        XCTAssertEqual(host, dismissed)
+        session.reset(); host = ""
+
+        session.setUndoesCommitOnBackspace(true)
         _ = try convert()
         run(session.backspace())
         XCTAssertEqual(host, "")

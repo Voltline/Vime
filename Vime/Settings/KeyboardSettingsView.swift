@@ -398,7 +398,7 @@ struct KeyboardInputSettingsView: View {
                 Toggle("退格撤销转换", isOn: $undoConversion)
                     .accessibilityIdentifier("vime.settings.undoConversion")
             } footer: {
-                Text("智能排序使用本地模型调整候选顺序\n下一词联想在确认文字后提供建议\n退格撤销转换：转换后立即按退格，回到读音重新选择\n关闭智能排序或联想不会清除已有学习数据")
+                Text("智能排序使用本地模型调整候选顺序\n下一词联想在确认文字后提供建议\n转换后，候选栏开头的 ↩ 可回到读音重新选择；打开「退格撤销转换」后，立即按退格也会回到读音\n关闭智能排序或联想不会清除已有学习数据")
             }
             if ranking == .languageModel {
                 Section {

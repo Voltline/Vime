@@ -76,6 +76,7 @@ extension KeyboardView {
         if showsNextWordClose { expandButton.backgroundColor = .clear }
         clipboardSuggestion.applyTheme()
         quickCandidates.applyTheme()
+        reconvertChip?.configuration?.baseForegroundColor = KeyboardPalette.accent
         numberSymbolRail?.applyTheme()
         clipboardHistoryPanel?.applyTheme()
         undoButton.tintColor = KeyboardPalette.accent

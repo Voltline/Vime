@@ -134,6 +134,9 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     var historyRequest = 0
     var stripButtons: [KeyboardCandidateButton] = []
     var spareCandidateButtons: [KeyboardCandidateButton] = []
+    /// Leads the next-word row after a conversion and returns it to its reading.
+    var reconvertChip: UIButton?
+    var displayedReconversion: String?
     var displayedLanguage: KeyboardInputLanguage?
     var displayedAlternateLanguage: KeyboardInputLanguage?
     let brandButton = KeyboardToolbarButton(type: .custom)
