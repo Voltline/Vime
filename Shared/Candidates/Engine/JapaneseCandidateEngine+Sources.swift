@@ -9,7 +9,8 @@ nonisolated extension JapaneseCandidateEngine {
     func installDynamicDictionary(for query: ComposingText) -> (words: [DicdataElement], shortcuts: [DicdataElement]) {
         let started = KeyboardPerformance.start()
         defer { KeyboardPerformance.record(.lexiconLookup, since: started) }
-        let registered = userDictionary.nativeEntries()
+        let stored = userDictionary.nativeEntries()
+        let registered = (words: stored.words, shortcuts: stored.shortcuts + JapaneseSystemShortcuts.entries)
         let matching = JapaneseLanguageResources.shared.matchingWords(RomajiConverter.katakana(query.convertTarget)) + registered.words
         if matching != installedWords || registered.shortcuts != installedShortcuts {
             converter.importDynamicUserDictionary(matching, shortcuts: registered.shortcuts)

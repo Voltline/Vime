@@ -18,6 +18,12 @@ struct KeyboardUserDictionaryView: View {
     @State private var exporting = false
     @State private var exportDocument = UserDictionaryDocument()
     @State private var errorMessage: String?
+    @AppStorage private var textReplacements: Bool
+
+    init() {
+        let preferences = KeyboardPreferences()
+        _textReplacements = AppStorage(wrappedValue: preferences.textReplacements, "vime.textReplacements", store: preferences.store)
+    }
     private var visibleEntries: [JapaneseUserDictionaryEntry] {
         let query = search.trimmingCharacters(in: .whitespacesAndNewlines)
         let readingQuery = RomajiConverter.katakana(query)
@@ -53,6 +59,11 @@ struct KeyboardUserDictionaryView: View {
                 Button("导入词典", systemImage: "square.and.arrow.down") { importing = true }
                 Button("导出词典", systemImage: "square.and.arrow.up") { perform { exportDocument = UserDictionaryDocument(data: try store.exportData()); exporting = true } }
             } footer: { Text("词典只保存在本机。导入会与已有词条合并。") }
+            Section {
+                Toggle("使用 iOS 文本替换", isOn: $textReplacements).accessibilityIdentifier("vime.settings.textReplacements")
+            } footer: {
+                Text("在“设置 > 通用 > 键盘 > 文本替换”中添加的短语会出现在候选中：假名输入码在日语转换时出现，英文输入码在英文输入时出现。系统短语只在键盘中读取，不会保存到 Vime 词典。")
+            }
             Section {
                 DisclosureGroup("词典使用说明") {
                     Text("词语可参与分段转换和预测；短语仅在完整读音匹配时出现。\n\n读音支持假名或完整罗马字。开启键盘完全访问后，词典会共享到其他 App；重新打开键盘或继续输入即可读取更新。\n\n导入与导出使用 JSON 文件，最多保留 1,024 条。")
