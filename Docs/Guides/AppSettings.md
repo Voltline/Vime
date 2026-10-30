@@ -96,6 +96,6 @@
 
 隐私政策位于「设置 → 学习与隐私」及「关于 Vime」，公开文本见 [隐私政策](Privacy.md)。正文只维护 App 内 `PrivacyPolicy.json`，修改后运行 `python3 Scripts/validate_app_resources.py --write-policy` 生成公开文本，校验会拒绝两者不一致
 
-在键盘里长按候选并点「删除」，只清除这个词的原生转换学习与 Vime 偏好，正在输入的读音保留。「设置 → 学习与隐私 → 清空学习记录」在下次打开键盘时清除原生转换学习与 Vime 偏好；关闭智能排序或联想不会删除已保存的学习数据
+在键盘里长按学过的候选，在弹出的气泡里点「删除学习记录」，只清除这个词的原生转换学习与 Vime 偏好，正在输入的读音保留。「设置 → 学习与隐私 → 清空学习记录」在下次打开键盘时清除原生转换学习与 Vime 偏好；关闭智能排序或联想不会删除已保存的学习数据
 
 隐私政策的结构参考 [Apple App Review Guidelines 5.1.1](https://developer.apple.com/app-store/review/guidelines/#data-collection-and-storage)，内容根据当前代码的数据处理行为撰写；App Store Connect 需要另外填写公开隐私政策链接

@@ -193,7 +193,7 @@ final class KeyboardSession: KeyboardInputSession {
               candidateSnapshots.indices.contains(token.index) else { return nil }
         let snapshot = candidateSnapshots[token.index]
         guard snapshot.revision == revision,
-              snapshot.preferenceScope != nil || snapshot.source == .rememberedConversion else { return nil }
+              snapshot.preferenceScope != nil, snapshot.hasPersonalLearning else { return nil }
         return snapshot
     }
 

@@ -123,10 +123,15 @@ final class KeyboardPersonalRecallTests: XCTestCase {
         let button = try XCTUnwrap(views(keyboard).compactMap { $0 as? KeyboardCandidateButton }
             .first { $0.accessibilityLabel?.contains(surface) == true })
         let token = try XCTUnwrap(button.selectionToken)
-        keyboard.promptForget(button)
+        keyboard.promptForget(button); keyboard.layoutIfNeeded()
         let prompt = try XCTUnwrap(keyboard.forgetPrompt)
         XCTAssertFalse(prompt.isHidden)
-        prompt.cancel.sendActions(for: .touchUpInside)
+        // The bubble hangs under the candidate, and the keys behind it cannot type.
+        let bubble = prompt.confirm.convert(prompt.confirm.bounds, to: keyboard)
+        XCTAssertGreaterThan(bubble.minY, button.convert(button.bounds, to: keyboard).maxY)
+        XCTAssertTrue(keyboard.hitTest(CGPoint(x: bubble.midX, y: bubble.midY), with: nil) === prompt.confirm)
+        XCTAssertTrue(keyboard.hitTest(CGPoint(x: 20, y: 330), with: nil) === prompt)
+        prompt.sendActions(for: .touchDown)
         XCTAssertTrue(prompt.isHidden)
         XCTAssertTrue(try rows(url).contains { $0["surface"] as? String == surface })
         keyboard.promptForget(button)
@@ -136,6 +141,19 @@ final class KeyboardPersonalRecallTests: XCTestCase {
         XCTAssertFalse(session.candidates.contains(surface))
         XCTAssertTrue(session.isComposing, "Forgetting keeps the reading being typed")
         XCTAssertNil(session.forgettableCandidate(token), "A stale list cannot be forgotten from")
+    }
+
+    func testLongPressOffersNothingForCandidatesNoChoiceTaught() throws {
+        let session = KeyboardSession(memoryDirectoryURL: try directory())
+        let keyboard = KeyboardView(frame: CGRect(x: 0, y: 0, width: 440, height: 350), session: session)
+        defer { keyboard.stopInteractions() }
+        func views(_ view: UIView) -> [UIView] { [view] + view.subviews.flatMap(views) }
+        _ = session.type("hashi"); keyboard.refresh(); keyboard.layoutIfNeeded()
+        let tokens = views(keyboard).compactMap { ($0 as? KeyboardCandidateButton)?.selectionToken }
+        XCTAssertFalse(tokens.isEmpty)
+        XCTAssertTrue(tokens.allSatisfy { session.forgettableCandidate($0) == nil })
+        keyboard.promptForget(try XCTUnwrap(views(keyboard).compactMap { $0 as? KeyboardCandidateButton }.first))
+        XCTAssertNil(keyboard.forgetPrompt)
     }
 
     func testScopedRecallConsumesOnlyRequestedPrefixAndPreservesRemainder() throws {

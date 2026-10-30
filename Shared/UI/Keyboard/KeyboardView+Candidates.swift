@@ -51,15 +51,14 @@ extension KeyboardView {
         let prompt = forgetPrompt ?? {
             let prompt = KeyboardForgetPrompt()
             prompt.confirm.addTarget(self, action: #selector(confirmForget), for: .touchUpInside)
-            prompt.cancel.addTarget(self, action: #selector(dismissForgetPrompt), for: .touchUpInside)
-            header.addSubview(prompt)
+            prompt.addTarget(self, action: #selector(dismissForgetPrompt), for: .touchDown)
+            addSubview(prompt)
             forgetPrompt = prompt
             return prompt
         }()
-        prompt.backgroundColor = backgroundColor
-        header.bringSubviewToFront(prompt)
-        prompt.present(text, token: token)
-        setNeedsLayout()
+        prompt.frame = bounds
+        bringSubviewToFront(prompt)
+        prompt.present(text, token: token, anchor: button.convert(button.bounds, to: self))
     }
 
     @objc func confirmForget() {
