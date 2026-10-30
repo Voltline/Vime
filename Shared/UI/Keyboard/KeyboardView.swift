@@ -40,6 +40,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         appliedPreferences = next
         heightFactor = CGFloat(next.heightFactor)
         session.updateIntelligence(ranking: next.candidateRanking, suggestionsEnabled: next.phraseSuggestions)
+        session.setUndoesCommitOnBackspace(next.undoConversionOnBackspace)
         applyNeuralRetry()
         if next.learningResetID != previous?.learningResetID {
             session.reset()

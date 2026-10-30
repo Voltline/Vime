@@ -367,4 +367,57 @@ final class KeyboardSegmentedConversionTests: XCTestCase {
         XCTAssertGreaterThan(final[rank].userPreferenceScore, 0)
         XCTAssertTrue(final[rank].hasLearningEvidence)
     }
+
+    func testBackspaceRightAfterConversionRestoresItsReading() throws {
+        let session = KeyboardSession()
+        var host = ""
+        session.leftContextProvider = { host }
+        func run(_ edits: [KeyboardEdit]) {
+            for edit in edits {
+                switch edit {
+                case .insert(let text): host += text
+                case .deleteBackward: if !host.isEmpty { host.removeLast() }
+                default: XCTFail("Unexpected \(edit)")
+                }
+            }
+        }
+        func convert() throws -> String {
+            run(session.type("nihongo"))
+            let index = try XCTUnwrap(session.candidateSnapshots.firstIndex { $0.fullConsumption && $0.text != "にほんご" })
+            let text = session.candidateSnapshots[index].text
+            run(session.choose(index))
+            XCTAssertFalse(session.isComposing)
+            return text
+        }
+
+        _ = try convert()
+        run(session.backspace())
+        XCTAssertEqual(host, "")
+        XCTAssertEqual(session.preedit, "にほんご", "One backspace returns the conversion to its reading")
+
+        run(session.backspace())
+        XCTAssertTrue(session.isComposing, "Later backspaces edit the reading")
+        session.reset(); host = ""
+
+        let second = try convert()
+        run(session.space()); run(session.backspace())
+        XCTAssertEqual(host, second, "Any other action forgets the conversion")
+        run(session.backspace())
+        XCTAssertEqual(host, String(second.dropLast()))
+        XCTAssertFalse(session.isComposing)
+        session.reset(); host = ""
+
+        let changed = try convert()
+        host += "x"
+        run(session.backspace())
+        XCTAssertEqual(host, changed, "A changed host is never rewritten")
+        XCTAssertFalse(session.isComposing)
+        session.reset(); host = ""
+
+        session.setUndoesCommitOnBackspace(false)
+        let third = try convert()
+        run(session.backspace())
+        XCTAssertEqual(host, String(third.dropLast()))
+        XCTAssertFalse(session.isComposing)
+    }
 }

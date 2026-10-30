@@ -372,12 +372,14 @@ struct KeyboardInputSettingsView: View {
     @State private var retryRequested = false
     @AppStorage private var ranking: CandidateRankingMode
     @AppStorage private var suggestions: Bool
+    @AppStorage private var undoConversion: Bool
     @AppStorage private var autoCapitalize: Bool
     @AppStorage private var doubleSpacePeriod: Bool
     init() {
         let prefs = KeyboardPreferences()
         _ranking = AppStorage(wrappedValue: prefs.candidateRanking, "vime.candidateRanking", store: prefs.store)
         _suggestions = AppStorage(wrappedValue: prefs.phraseSuggestions, "vime.phraseSuggestions", store: prefs.store)
+        _undoConversion = AppStorage(wrappedValue: prefs.undoConversionOnBackspace, "vime.undoConversionOnBackspace", store: prefs.store)
         _autoCapitalize = AppStorage(wrappedValue: prefs.autoCapitalize, "vime.autoCapitalize", store: prefs.store)
         _doubleSpacePeriod = AppStorage(wrappedValue: prefs.doubleSpacePeriod, "vime.doubleSpacePeriod", store: prefs.store)
     }
@@ -391,8 +393,10 @@ struct KeyboardInputSettingsView: View {
                     ForEach(CandidateRankingMode.allCases, id: \.self) { Text($0.title).tag($0) }
                 }
                 Toggle("下一词联想", isOn: $suggestions)
+                Toggle("退格撤销转换", isOn: $undoConversion)
+                    .accessibilityIdentifier("vime.settings.undoConversion")
             } footer: {
-                Text("智能排序使用本地模型调整候选顺序\n下一词联想在确认文字后提供建议\n关闭智能排序或联想不会清除已有学习数据")
+                Text("智能排序使用本地模型调整候选顺序\n下一词联想在确认文字后提供建议\n退格撤销转换：转换后立即按退格，回到读音重新选择\n关闭智能排序或联想不会清除已有学习数据")
             }
             if ranking == .languageModel {
                 Section {

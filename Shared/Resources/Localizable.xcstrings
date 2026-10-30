@@ -7307,30 +7307,30 @@
         }
       }
     },
-    "智能排序使用本地模型调整候选顺序\n下一词联想在确认文字后提供建议\n关闭智能排序或联想不会清除已有学习数据": {
+    "智能排序使用本地模型调整候选顺序\n下一词联想在确认文字后提供建议\n退格撤销转换：转换后立即按退格，回到读音重新选择\n关闭智能排序或联想不会清除已有学习数据": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Smart ranking uses an on-device model to order candidates\nNext-word suggestions appear after you confirm text\nTurning either off keeps existing learning data"
+            "value": "Smart ranking uses an on-device model to order candidates\nNext-word suggestions appear after you confirm text\nBackspace Undoes Conversion: press Backspace right after a conversion to return to its reading and choose again\nTurning either off keeps existing learning data"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "スマート並べ替えは端末内モデルで候補の順序を調整します\n次の語の予測は確定後に候補を表示します\nどちらをオフにしても学習データは消えません"
+            "value": "スマート並べ替えは端末内モデルで候補の順序を調整します\n次の語の予測は確定後に候補を表示します\n削除キーで変換を取り消す：変換の直後に削除キーを押すと、読みに戻って選び直せます\nどちらをオフにしても学習データは消えません"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "스마트 순위는 기기 내 모델을 사용하여 후보 순서를 정합니다\n다음 단어 제안은 텍스트를 확정한 후 표시됩니다\n어느 쪽을 꺼도 기존 학습 데이터는 유지됩니다"
+            "value": "스마트 순위는 기기 내 모델을 사용하여 후보 순서를 정합니다\n다음 단어 제안은 텍스트를 확정한 후 표시됩니다\n백스페이스로 변환 취소: 변환 직후 백스페이스를 누르면 읽기로 돌아가 다시 고를 수 있습니다\n어느 쪽을 꺼도 기존 학습 데이터는 유지됩니다"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "智慧排序使用本機模型調整候選順序\n下一詞聯想在確認文字後提供建議\n關閉智慧排序或聯想不會清除已有學習資料"
+            "value": "智慧排序使用本機模型調整候選順序\n下一詞聯想在確認文字後提供建議\n退格撤銷轉換：轉換後立即按退格，回到讀音重新選擇\n關閉智慧排序或聯想不會清除已有學習資料"
           }
         }
       }
@@ -12586,6 +12586,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "退格"
+          }
+        }
+      }
+    },
+    "退格撤销转换": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Backspace Undoes Conversion"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "削除キーで変換を取り消す"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "백스페이스로 변환 취소"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "退格撤銷轉換"
           }
         }
       }
