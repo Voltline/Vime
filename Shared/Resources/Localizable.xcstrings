@@ -11747,30 +11747,30 @@
         }
       }
     },
-    "词典最多支持 1,024 条，导入文件不能超过 1 MB。": {
+    "词典最多支持 1,024 条，导入文件不能超过 4 MB。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The dictionary holds up to 1,024 entries, and imports can't exceed 1 MB."
+            "value": "The dictionary holds up to 1,024 entries, and imports can't exceed 4 MB."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "辞書は 1,024 件まで、読み込むファイルは 1 MB までです。"
+            "value": "辞書は 1,024 件まで、読み込むファイルは 4 MB までです。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "사전에는 최대 1,024개 항목을 저장할 수 있으며, 가져오는 파일은 1MB를 넘을 수 없습니다."
+            "value": "사전에는 최대 1,024개 항목을 저장할 수 있으며, 가져오는 파일은 4MB를 넘을 수 없습니다."
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "辭典最多支援 1,024 條，匯入檔案不能超過 1 MB。"
+            "value": "辭典最多支援 1,024 條，匯入檔案不能超過 4 MB。"
           }
         }
       }
