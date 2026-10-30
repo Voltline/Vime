@@ -4,7 +4,7 @@ name: Website
 # comes from main (the released app). main only moves in the Saturday
 # workflow, so the run after it picks up main's changes; the github-pages
 # environment only accepts deployments from dev. The version status is also
-# refreshed every morning, after Xcode Cloud has uploaded Wednesday's
+# refreshed every morning, after Xcode Cloud has uploaded that day's
 # TestFlight build.
 on:
   push:

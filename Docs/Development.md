@@ -76,10 +76,10 @@ flowchart LR
     work["feat/* · fix/*"] -- PR --> dev
     misc["docs/*<br/>chore/*<br/>build/*"] -- PR --> dev
     misc -. "PR，赶本周构建" .-> beta
-    dev -- "周三 03:00<br/>写入版本号并快进" --> beta
-    beta -. "周三 先合回直接合并" .-> dev
+    dev -- "周三至周五 03:00<br/>写入版本号并快进" --> beta
+    beta -. "出构建前 先合回直接合并" .-> dev
     beta -- "每次变化" --> testflight(["Xcode Cloud → TestFlight"])
-    beta -- "周六 10:00<br/>提交审核" --> review(["App Store 审核"])
+    beta -- "周六 10:00<br/>提交验收过的构建" --> review(["App Store 审核"])
     beta -- "周六 提交成功后<br/>快进并打 v 标签" --> main
     classDef branch fill:#eef4ff,stroke:#3b6fd8,stroke-width:2px
     class dev,beta,main branch
@@ -91,28 +91,28 @@ flowchart LR
 | --- | --- | --- |
 | `feat/<名称>` / `fix/<名称>` | 功能或修复 | 从 `dev` 切出，开 PR 合入 `dev` |
 | `docs/<名称>` / `chore/<名称>` / `build/<名称>` | 文档、维护、构建配置 | 通常合入 `dev`；需要赶上本周构建时可从 `beta` 切出并合入 `beta` |
-| `dev` | 集成分支，GitHub 默认分支 | 上述 PR；周三的版本号提交与 `beta` 回合由流程写入 |
-| `beta` | 本周 TestFlight 构建 | 周三由流程快进到 `dev`；平时只接受 `docs/` `chore/` `build/` PR |
+| `dev` | 集成分支，GitHub 默认分支 | 上述 PR；版本号提交与 `beta` 回合由周三至周五的流程写入 |
+| `beta` | 本周 TestFlight 构建 | 周三至周五由流程快进到 `dev`；平时只接受 `docs/` `chore/` `build/` PR |
 | `main` | 已提交审核的版本 | 周六由流程快进到 `beta`，并打 `v<版本>` 标签 |
 
 前缀之后只用小写字母、数字及 `.` `_` `-`，例如 `feat/emoji-search`、`fix/long-input-correction`。PR 由 [Branch policy](../.github/workflows/branch-policy.yml) 检查目标分支与命名，`main` 不接受 PR。合并使用 merge commit，合并后删除源分支。提交说明沿用 `feat: …` / `fix: …` 等前缀，版本号据此计算。
 
-`main` 始终是 `beta` 的祖先，`main` 与 `beta` 只做快进。直接合入 `beta` 的提交由周三流程合回 `dev`，之后 `beta` 才能再次快进；合回出现冲突时任务失败，开 `chore/sync-beta` PR 把 `beta` 合入 `dev` 解决后重新运行。
+`main` 始终是 `beta` 的祖先，`main` 与 `beta` 只做快进。直接合入 `beta` 的提交由下一次出构建的流程合回 `dev`，之后 `beta` 才能再次快进；合回出现冲突时任务失败，开 `chore/sync-beta` PR 把 `beta` 合入 `dev` 解决后重新运行。
 
 ### 每周节奏（北京时间）
 
-1. **周一至周二**：改动合入 `dev`。要进入本周 TestFlight 的改动在周二结束前合并。
-2. **周三 03:00**：[Weekly TestFlight cut](../.github/workflows/weekly-testflight.yml) 先把 `beta` 上的直接合并合回 `dev`，再检查 `dev` 是否有 `beta` 之外的提交（不计合并提交）。有则在 `dev` 写入新营销版本、快进 `beta`，并创建或更新草稿 Release `v<版本>`；没有则本周不出构建。`beta` 的变化触发 Xcode Cloud 的 TestFlight workflow，archive 后上传 TestFlight。
-3. **周三至周五**：在 TestFlight 构建上做真机验收（见「测试层次」），并填写草稿 Release（见下文「更新说明」）。这期间直接合入 `beta` 的 `build/` 等改动会触发新的 TestFlight 构建，同属本周版本。发现阻断问题时删除草稿 Release，周六任务因缺少说明而停止，本周不提交；修复照常走 `fix/` → `dev`，下周三重新出构建。
-4. **周六 10:00**：[Weekly App Store release](../.github/workflows/weekly-release.yml) 在 `beta` 领先 `main` 时，用该版本最新的已处理构建提交审核，提交前先做一次只读检查（见下文「提交前检查」），成功后快进 `main`、打标签并发布 Release。审核通过后自动上架（`AUTOMATIC_RELEASE`）。若该版本已有标签，说明领先的只是提交审核后才合入 `beta` 的改动：此时只快进 `main`，不再提交，这些改动随下一个版本发布。
+1. **随时**：改动合入 `dev`。要进入本周版本的改动在周五 03:00 之前合并；周四 03:00 之后合入的改动只能在周五的构建上验收一天。
+2. **周三至周五 03:00**：[Weekly TestFlight cut](../.github/workflows/weekly-testflight.yml) 每天运行一次。它先把 `beta` 上的直接合并合回 `dev`，再检查 `dev` 是否有 `beta` 之外的提交（不计合并提交）。有则在 `dev` 写入营销版本、快进 `beta`，并创建或更新草稿 Release `v<版本>`；没有则当天不出构建。`beta` 的变化触发 Xcode Cloud 的 TestFlight workflow，archive 后上传 TestFlight。
+3. **周三至周五**：在最新的 TestFlight 构建上做真机验收（见「测试层次」），通过后把它的构建号填在草稿 Release 的「验收构建」后，并填写更新说明（见下文「更新说明」）。出构建的任务每次运行都会清空「验收构建」，需要在新构建上重新验收。这期间直接合入 `beta` 的 `build/` 等改动同样会触发新构建，同属本周版本；它们不改写草稿，但周六的检查只接受最新的构建，所以同样要在新构建上验收后更新「验收构建」。发现阻断问题时不填「验收构建」（或删除草稿 Release），周六任务停止，本周不提交；修复照常走 `fix/` → `dev`，在下一次出构建时带上。
+4. **周六 10:00**：[Weekly App Store release](../.github/workflows/weekly-release.yml) 在 `beta` 领先 `main` 时，提交「验收构建」指定的构建。提交前先做一次只读检查（见下文「提交前检查」）：该构建必须是此版本最新的已处理构建，且上传时间晚于 `beta` 最新提交，否则不提交。检查通过后提交审核，快进 `main`、打标签并发布 Release。审核通过后自动上架（`AUTOMATIC_RELEASE`）。若该版本已有标签，说明领先的只是提交审核后才合入 `beta` 的改动：此时只快进 `main`，不再提交，这些改动随下一个版本发布。
 
-两个周任务都可以在 Actions 页面手动运行，用于计划外的构建或补交。周六任务手动运行时可以关闭 `submit`，只推进 `main` 与标签，例如审核已在 App Store Connect 手动提交时。
+两个任务都可以在 Actions 页面手动运行，用于计划外的构建或补交。周六任务手动运行时可以关闭 `submit`，只推进 `main` 与标签，例如审核已在 App Store Connect 手动提交时。
 
 ### 更新说明
 
-App Store 每次提交更新都要求各语言的「此版本的新增内容」。这些文字不进仓库，写在周三生成的草稿 Release 中：在 `zh-Hans`、`zh-Hant`、`ja`、`en-US`、`ko` 标题下各写一段，`---` 以下是自动生成的 PR 列表，仅供参考，不会提交。周六任务读取这五段，任一缺失则不提交。同一版本再次出构建时，已填写的内容保留，PR 列表更新。
+App Store 每次提交更新都要求各语言的「此版本的新增内容」。这些文字不进仓库，写在本周第一次出构建时生成的草稿 Release 中：在 `zh-Hans`、`zh-Hant`、`ja`、`en-US`、`ko` 标题下各写一段，`---` 以下是自动生成的 PR 列表，仅供参考，不会提交。周六任务读取这五段，任一缺失则不提交。之后每次出构建，已填写的五段都会保留，PR 列表更新，「验收构建」清空。若新合入的功能让版本号从修订号升为次版本（例如 1.1.1 → 1.2），旧版本的草稿会被删除，已填写的内容搬到新版本的草稿中。
 
-草稿只在周三任务运行时更新。周三之后合入 `dev` 的改动属于下周版本，不会出现在本周草稿中；直接合入 `beta` 的改动会触发新的 TestFlight 构建，但不会改写草稿。若这些改动需要用户知道，手动补进对应语言的段落。周六发布 Release 时，`---` 以下的 PR 列表按上一个标签到新标签重新生成，因此会包含这些直接合并。
+草稿只在出构建的任务运行时更新。周五 03:00 之后合入 `dev` 的改动属于下周版本，不会出现在本周草稿中；直接合入 `beta` 的改动会触发新的 TestFlight 构建，但不会改写草稿。若这些改动需要用户知道，手动补进对应语言的段落。周六发布 Release 时，`---` 以下的 PR 列表按上一个标签到新标签重新生成，因此会包含这些直接合并。
 
 ### 提交前检查
 
@@ -121,9 +121,10 @@ App Store 每次提交更新都要求各语言的「此版本的新增内容」�
 - App Store Connect 中各版本的状态，以及是否有其他版本仍在审核或等待上架；
 - 版本的本地化语言是否正好是更新说明的五种语言；
 - 该版本是否有已处理（`VALID`）且未过期的构建；
-- 草稿 Release 中哪些语言的更新说明已经填写。
+- 草稿 Release 中哪些语言的更新说明已经填写；
+- 「验收构建」是否填写，是否就是最新的已处理构建，以及该构建是否在 `beta` 最新提交之后上传。
 
-结果写在运行摘要中。语言不符、没有可用构建或 API 失败时运行失败；其他版本仍在审核、说明未填写只给出警告。周六任务在提交前以严格模式运行同一检查，警告也会阻止提交。检查脚本是 [app_store.py](../.github/scripts/app_store.py)，App Store Connect 中的语言变化时同步修改其中的 `LOCALES`。
+结果写在运行摘要中。语言不符、没有可用构建或 API 失败时运行失败；其他版本仍在审核、说明未填写、验收构建缺失或过时只给出警告。周六任务在提交前以严格模式运行同一检查，警告也会阻止提交。检查脚本是 [app_store.py](../.github/scripts/app_store.py)，App Store Connect 中的语言变化时同步修改其中的 `LOCALES`。
 
 ### 版本号
 
@@ -141,8 +142,8 @@ App Store 每次提交更新都要求各语言的「此版本的新增内容」�
 
 ### 审核异常
 
-- **提交失败**（上周版本仍在审核、缺少更新说明或密钥）：任务失败并由 GitHub 邮件通知，`main` 与标签不动。处理后手动运行周六任务；若下周三先到且没有新功能，版本号保持不变，只换成新构建。
-- **审核被拒**：该版本已打标签。修复走 `fix/` → `dev`，下周三按新的修订号出构建，周六提交时 App Store Connect 中被拒的版本改用新版本号。需要更快重新提交时，手动运行周三任务出构建，再手动运行周六任务。
+- **提交失败**（上周版本仍在审核、缺少更新说明或密钥）：任务失败并由 GitHub 邮件通知，`main` 与标签不动。处理后手动运行周六任务；若下周的构建先出且没有新功能，版本号保持不变，只换成新构建。
+- **审核被拒**：该版本已打标签。修复走 `fix/` → `dev`，下周按新的修订号出构建，周六提交时 App Store Connect 中被拒的版本改用新版本号。需要更快重新提交时，手动运行出构建的任务，验收并填写「验收构建」后再手动运行周六任务。
 
 ## 网站
 
@@ -158,7 +159,7 @@ App Store 每次提交更新都要求各语言的「此版本的新增内容」�
 
 更新日志页顶部的版本状态在构建时读取：App Store 上架版本来自公开的 iTunes lookup；审核中的版本与状态、最新 TestFlight 版本和构建号用 `ASC_*` Secrets 经 [app_store.py](../.github/scripts/app_store.py) 读取 App Store Connect；`dev` 上的下一版本来自 `release_version.py current`；另列出每周节奏和下次构建、提交的时间。页面只包含版本、状态和日期。缺少密钥或 API 失败时只给出警告，网站照常构建，只显示公开部分。
 
-Workflow 总是构建 `dev` 上的 `site/`，在以下情况运行：`dev` 上修改网站的推送；周三、周六任务结束后；每天北京时间 05:00（此时周三的 TestFlight 构建已上传）；以及手动运行。`main` 只由周六任务推进，所以周六任务结束后的构建会带上新的隐私政策。部署环境 `github-pages` 只允许 `dev` 部署，因此 workflow 不在 `main` 的推送上运行。
+Workflow 总是构建 `dev` 上的 `site/`，在以下情况运行：`dev` 上修改网站的推送；出构建和周六任务结束后；每天北京时间 05:00（此时当天的 TestFlight 构建已上传）；以及手动运行。`main` 只由周六任务推进，所以周六任务结束后的构建会带上新的隐私政策。部署环境 `github-pages` 只允许 `dev` 部署，因此 workflow 不在 `main` 的推送上运行。
 
 本地预览：
 
