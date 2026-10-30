@@ -55,6 +55,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         }
         if next.numberSymbols != previous?.numberSymbols { numberSymbolRail?.present(next.numberSymbols) }
         if next.autoCapitalize != previous?.autoCapitalize { updateAutoCapitalization() }
+        if next.textReplacements != previous?.textReplacements { applyTextReplacements() }
         if next.previews != previous?.previews {
             for key in letterKeys { key.showsPreview = next.previews }
         }
@@ -97,6 +98,8 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     var capsLocked = false
     var lastShiftTap: TimeInterval = 0
     var lastSpaceTap: TimeInterval = 0
+    /// Every iOS text replacement the host lexicon supplied, kana or Latin.
+    var systemTextReplacements: [(shortcut: String, phrase: String)] = []
     var autocapitalizationType: UITextAutocapitalizationType = .sentences {
         didSet { if oldValue != autocapitalizationType { updateAutoCapitalization() } }
     }

@@ -30,6 +30,7 @@ final class KeyboardFeatureTests: XCTestCase {
             })
         host.onUndoAvailabilityChange = { [weak keyboard] in keyboard?.canUndoLineDeletion = $0 }
         keyboard.onEdit = { host.apply($0) }; keyboard.onPreeditChange = { host.updatePreedit($0) }
+        keyboard.onReplaceText = { host.replaceText($0) }
         keyboard.deletionAvailabilityProvider = { text.selectedRange.length > 0 || text.selectedRange.location > 0 }
         return (keyboard, try XCTUnwrap(descendants(keyboard).compactMap { $0 as? KeyboardTouchSurface }.first), text, window)
     }
@@ -939,5 +940,35 @@ final class KeyboardFeatureTests: XCTestCase {
         XCTAssertFalse(KeyboardView.capitalizes(after: "one", type: .words))
         XCTAssertTrue(KeyboardView.capitalizes(after: "Done!\n", type: .sentences))
         XCTAssertFalse(KeyboardView.capitalizes(after: "e.g, ", type: .sentences))
+    }
+
+    func testTextReplacementsReplaceLatinWordsAndFeedKanaReadings() throws {
+        let (keyboard, _, text, window) = try fixture()
+        let preferences = keyboard.preferences
+        let old = preferences.textReplacements
+        defer {
+            preferences.textReplacements = old; keyboard.reloadPreferences(); JapaneseSystemShortcuts.update([])
+            keyboard.stopInteractions(); window.isHidden = true
+        }
+        keyboard.leftContextProvider = { text.text }
+        keyboard.learningContextProvider = { KeyboardLearningContext(document: "fixture", before: text.text, after: "") }
+        func tap(_ id: String) throws { try button(id, in: keyboard).sendActions(for: .touchUpInside) }
+        preferences.textReplacements = true; keyboard.reloadPreferences()
+        keyboard.setTextReplacements([("omw", "On my way!"), ("おつ", "お疲れさまです")])
+        XCTAssertEqual(JapaneseSystemShortcuts.entries.map(\.word), ["お疲れさまです"], "Only kana shortcuts join conversion")
+        try tap("vime.key.language")
+        try tap("vime.key.shift")
+        for key in "omw" { try tap("vime.key.\(key)") }
+        XCTAssertEqual(text.text, "Omw")
+        let item = try XCTUnwrap(keyboard.quickCandidateItems().first)
+        XCTAssertEqual(item.title, "On my way!", "Shortcuts match regardless of case")
+        keyboard.selectQuickCandidate(item)
+        XCTAssertEqual(text.text, "On my way! ")
+        XCTAssertTrue(keyboard.quickCandidateItems().isEmpty)
+
+        preferences.textReplacements = false; keyboard.reloadPreferences()
+        XCTAssertTrue(JapaneseSystemShortcuts.entries.isEmpty)
+        for key in "omw" { try tap("vime.key.\(key)") }
+        XCTAssertTrue(keyboard.quickCandidateItems().isEmpty, "The setting turns replacements off")
     }
 }

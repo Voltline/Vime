@@ -1545,6 +1545,34 @@
         }
       }
     },
+    "使用 iOS 文本替换": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use iOS Text Replacements"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iOSのユーザ辞書を使用"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iOS 텍스트 대치 사용"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用 iOS 文字替代"
+          }
+        }
+      }
+    },
     "使用与权限说明": {
       "localizations": {
         "en": {
@@ -3763,6 +3791,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "在 iOS「設定 → 一般 → 鍵盤 → 鍵盤 → Vime」中開啟「允許完整取用」，並允許系統的貼上請求。這是兩項不同的授權。"
+          }
+        }
+      }
+    },
+    "在“设置 > 通用 > 键盘 > 文本替换”中添加的短语会出现在候选中：假名输入码在日语转换时出现，英文输入码在英文输入时出现。系统短语只在键盘中读取，不会保存到 Vime 词典。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Phrases added in Settings > General > Keyboard > Text Replacement appear as candidates: kana shortcuts while converting Japanese, and Latin shortcuts while typing English. Vime reads them only in the keyboard and never saves them to its dictionary."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「設定 > 一般 > キーボード > ユーザ辞書」に追加した語句が候補に表示されます。かなの読みは日本語変換で、英字の読みは英語入力で表示されます。キーボード内で読み取るだけで、Vimeの辞書には保存しません。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "설정 > 일반 > 키보드 > 텍스트 대치에 추가한 문구가 후보로 표시됩니다. 가나 단축키는 일본어 변환 중에, 영문 단축키는 영어 입력 중에 나타납니다. 키보드에서만 읽으며 Vime 사전에는 저장하지 않습니다."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在「設定 > 一般 > 鍵盤 > 替代文字」中加入的短語會出現在候選中：假名輸入碼在日語轉換時出現，英文輸入碼在英文輸入時出現。系統短語只在鍵盤中讀取，不會儲存到 Vime 詞典。"
           }
         }
       }

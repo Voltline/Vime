@@ -303,6 +303,16 @@ final class KeyboardSegmentedConversionTests: XCTestCase {
         XCTAssertTrue(KeyboardCorrectionVariants.generate(for: query("ki")).isEmpty)
     }
 
+    func testSystemTextReplacementsAreConversionCandidates() {
+        defer { JapaneseSystemShortcuts.update([]) }
+        let engine = JapaneseCandidateEngine()
+        JapaneseSystemShortcuts.update([("おつ", "お疲れさまです"), ("ｏｍｗ", "On my way"), ("おつ", "お疲れさまです")])
+        XCTAssertEqual(JapaneseSystemShortcuts.entries.count, 1, "Non-kana and repeated shortcuts are dropped")
+        XCTAssertTrue(engine.candidates(for: query("otsu"), revision: 1, includeCorrections: false).contains { $0.text == "お疲れさまです" })
+        JapaneseSystemShortcuts.update([])
+        XCTAssertFalse(engine.candidates(for: query("otsu"), revision: 2, includeCorrections: false).contains { $0.text == "お疲れさまです" })
+    }
+
     func testOrthographyAndSupplementalDictionaryAreSelectable() throws {
         let engine = JapaneseCandidateEngine()
         let values = engine.candidates(for: query("kega"), revision: 7, includeCorrections: false)

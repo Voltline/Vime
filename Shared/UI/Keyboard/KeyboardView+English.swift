@@ -41,4 +41,38 @@ extension KeyboardView {
         default: return false
         }
     }
+
+    /// Stores the host's text replacements; kana shortcuts join conversion
+    /// while the setting is on, Latin ones are offered as English words.
+    func setTextReplacements(_ pairs: [(shortcut: String, phrase: String)]) {
+        systemTextReplacements = pairs
+        applyTextReplacements()
+    }
+
+    func applyTextReplacements() {
+        JapaneseSystemShortcuts.update(appliedPreferences?.textReplacements == true ? systemTextReplacements : [])
+        refresh()
+    }
+
+    /// The word before the caret, for Latin shortcuts.
+    static func trailingWord(in text: String) -> String {
+        String(text.reversed().prefix { $0.isLetter || $0.isNumber || $0 == "'" }.reversed())
+    }
+
+    /// Suggestions for the English word before the caret. Choosing one
+    /// replaces the word and adds a space.
+    func englishWordItems() -> [KeyboardQuickCandidate] {
+        guard session.inputTraits.isEnglish, page == .letters, panel == .keyboard, !session.isComposing,
+              let preferences = appliedPreferences, preferences.textReplacements,
+              onReplaceText != nil, let anchor = learningContextProvider?(), !anchor.hasSelection,
+              let before = anchor.before else { return [] }
+        let word = Self.trailingWord(in: before)
+        guard !word.isEmpty else { return [] }
+        let titles = systemTextReplacements.filter { $0.shortcut.caseInsensitiveCompare(word) == .orderedSame }.map(\.phrase)
+        var seen: Set<String> = [word]
+        return titles.filter { seen.insert($0).inserted }.prefix(8).map {
+            .init(title: $0, action: .replacement(KeyboardTextReplacement(anchor: anchor, markedText: nil,
+                committedSuffix: word, text: $0 + " ")))
+        }
+    }
 }

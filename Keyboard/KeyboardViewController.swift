@@ -105,6 +105,11 @@ class KeyboardViewController: UIInputViewController {
         super.viewWillAppear(animated)
         keyboard.reloadPreferences()
         (view as? KeyboardInputView)?.attachKeyboard(keyboard)
+        requestSupplementaryLexicon { [weak self] lexicon in
+            // Contacts arrive as entries that type themselves; only real replacements matter.
+            self?.keyboard.setTextReplacements(lexicon.entries.filter { $0.userInput != $0.documentText }
+                .map { ($0.userInput, $0.documentText) })
+        }
         logLifecycle("appearing")
         VimeExtensionAudit.recordLifecycle(event: .viewWillAppear)
         host.abandon()
