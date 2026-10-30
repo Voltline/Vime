@@ -999,6 +999,21 @@ final class KeyboardFeatureTests: XCTestCase {
         XCTAssertTrue(keyboard.quickCandidateItems().isEmpty)
     }
 
+    func testBackspaceUndoSettingAppliesWhenTheKeyboardStarts() throws {
+        let preferences = KeyboardPreferences()
+        let old = preferences.undoConversionOnBackspace
+        defer { preferences.undoConversionOnBackspace = old }
+        preferences.undoConversionOnBackspace = false
+        let session = KeyboardSession()
+        let (keyboard, _, _, _) = try fixture(session: session)
+        XCTAssertFalse(session.undoesCommitOnBackspace, "A keyboard started with the option off never undoes a conversion")
+        keyboard.reloadPreferences()
+        XCTAssertFalse(session.undoesCommitOnBackspace)
+        preferences.undoConversionOnBackspace = true
+        keyboard.reloadPreferences()
+        XCTAssertTrue(session.undoesCommitOnBackspace)
+    }
+
     func testOneHandedModeNarrowsKeysTowardOneSideAndRestores() throws {
         let (keyboard, surface, _, window) = try fixture()
         let preferences = keyboard.preferences

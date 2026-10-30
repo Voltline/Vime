@@ -210,6 +210,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         heightFactor = CGFloat(preferences.heightFactor)
         KeyboardPalette.theme = preferences.theme
         session.updateIntelligence(ranking: preferences.candidateRanking, suggestionsEnabled: preferences.phraseSuggestions)
+        session.setUndoesCommitOnBackspace(preferences.undoConversionOnBackspace)
         applyNeuralRetry()
         appliedPreferences = preferences.snapshot
         session.onCommittedEdits = { [weak self] batch in

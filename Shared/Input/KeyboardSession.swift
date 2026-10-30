@@ -45,7 +45,7 @@ final class KeyboardSession: KeyboardInputSession {
     /// The last whole conversion, while one backspace may return it to its
     /// reading. Any other action, or a host change, forgets it.
     private var undoableCommit: (text: String, reading: ComposingText)?
-    private var undoesCommitOnBackspace = true
+    private(set) var undoesCommitOnBackspace = true
     func setUndoesCommitOnBackspace(_ enabled: Bool) {
         undoesCommitOnBackspace = enabled
         if !enabled { undoableCommit = nil }

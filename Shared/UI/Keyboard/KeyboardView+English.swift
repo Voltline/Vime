@@ -45,6 +45,8 @@ extension KeyboardView {
     /// Stores the host's text replacements; kana shortcuts join conversion
     /// while the setting is on, Latin ones are offered as English words.
     func setTextReplacements(_ pairs: [(shortcut: String, phrase: String)]) {
+        // The lexicon is requested on every appearance and rarely changes.
+        guard !pairs.elementsEqual(systemTextReplacements, by: { $0 == $1 }) else { return }
         systemTextReplacements = pairs
         applyTextReplacements()
     }

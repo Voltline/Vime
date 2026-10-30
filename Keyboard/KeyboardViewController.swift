@@ -107,8 +107,11 @@ class KeyboardViewController: UIInputViewController {
         (view as? KeyboardInputView)?.attachKeyboard(keyboard)
         requestSupplementaryLexicon { [weak self] lexicon in
             // Contacts arrive as entries that type themselves; only real replacements matter.
-            self?.keyboard.setTextReplacements(lexicon.entries.filter { $0.userInput != $0.documentText }
-                .map { ($0.userInput, $0.documentText) })
+            let pairs = lexicon.entries.filter { $0.userInput != $0.documentText }
+                .map { (shortcut: $0.userInput, phrase: $0.documentText) }
+            // The lexicon arrives on a background queue, and the keyboard
+            // lays out views; touching them there aborts the extension.
+            DispatchQueue.main.async { self?.keyboard.setTextReplacements(pairs) }
         }
         logLifecycle("appearing")
         VimeExtensionAudit.recordLifecycle(event: .viewWillAppear)
