@@ -882,7 +882,9 @@ final class KeyboardFeatureTests: XCTestCase {
         try tap("vime.key.language")
         try tap("vime.key.shift"); try tap("vime.key.a"); try tap("vime.key.b")
         XCTAssertEqual(text.text, "Ab", "A single shift capitalizes one letter")
-        try tap("vime.key.shift"); try tap("vime.key.shift")
+        try tap("vime.key.shift")
+        XCTAssertTrue(keyboard.shifted && !keyboard.capsLocked, "A letter between two quick Shift taps does not lock")
+        try tap("vime.key.shift")
         XCTAssertTrue(keyboard.capsLocked)
         XCTAssertEqual(try button("vime.key.shift", in: keyboard).image(for: .normal), UIImage(systemName: "capslock.fill"))
         try tap("vime.key.c"); try tap("vime.key.d")
@@ -893,6 +895,7 @@ final class KeyboardFeatureTests: XCTestCase {
 
         // The second release may come well after the first, as in a relaxed
         // double tap; two separate taps still just toggle.
+        keyboard.lastShiftTap = 0
         keyboard.shift(at: 100); keyboard.shift(at: 100.4)
         XCTAssertTrue(keyboard.capsLocked)
         keyboard.shift(at: 101)
