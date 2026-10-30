@@ -14,7 +14,7 @@ python3 Scripts/validate_model_resources.py
 
 该校验核对 manifest 身份、tokenizer 和完整 compiled model 文件集及 SHA256。Release 构建同样执行模型资源校验；资源缺失时应修复交付包，不能以运行时词典回退代替打包完整性。模型说明见 [日语模型](Models/JapaneseModel.md)。
 
-App 的分组件许可与隐私政策可以用 `python3 Scripts/validate_app_resources.py` 校验，构建产物可传 `--resources <Vime.app>`，以检查声明原文和公开政策的一致性
+App 的分组件许可与隐私政策可以用 `python3 Scripts/validate_app_resources.py` 校验，构建产物可传 `--resources <Vime.app>`，以检查声明原文和公开政策的一致性。合并到 dev 或 beta 的 PR 由 [Resource check](../.github/workflows/resource-check.yml) 工作流运行同一校验，只改文档的 PR 也跑，因为公开隐私政策在 Docs 下
 
 ## 本地化
 
