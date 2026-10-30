@@ -189,6 +189,26 @@ final class KeyboardSession: KeyboardInputSession {
         return chooseStrip(token.index)
     }
 
+    /// The conversion candidate a token names, while it still names it and
+    /// past choices can have taught it.
+    private func learnedSnapshot(_ token: CandidateSelectionToken) -> CandidateSnapshot? {
+        guard token.sessionID == presentationSessionID, token.generation == candidateListGeneration,
+              candidatesAreCurrent, isComposing, token.kind == .composition,
+              candidateSnapshots.indices.contains(token.index) else { return nil }
+        let snapshot = candidateSnapshots[token.index]
+        guard snapshot.revision == revision,
+              snapshot.preferenceScope != nil, snapshot.hasPersonalLearning else { return nil }
+        return snapshot
+    }
+
+    func forgettableCandidate(_ token: CandidateSelectionToken) -> String? { learnedSnapshot(token)?.text }
+
+    func forgetCandidate(_ token: CandidateSelectionToken) {
+        guard let snapshot = learnedSnapshot(token) else { return }
+        engine?.forget(snapshot); worker?.forget(snapshot)
+        refresh(); onCandidatesChange?()
+    }
+
     func activateEnglish() -> [KeyboardEdit] { setMode(.english) }
     func togglePrimaryVariant() -> [KeyboardEdit] { mode == .english ? toggleEnglish() : toggleKana() }
 

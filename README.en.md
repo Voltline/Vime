@@ -39,7 +39,7 @@ The companion app handles setup, typing practice, appearance and settings. The k
 
 - Built-in themes plus custom skins with your own background, key images and colors, shared as `.vimeskin` files.
 - Drag to resize the keyboard; key sounds and continuously adjustable haptic strength.
-- Learns your word choices on the device, and the learning can be cleared at any time.
+- Learns your word choices on the device. Long-press a candidate to forget what was learned for it, or clear all learning at any time.
 
 ### Companion app
 

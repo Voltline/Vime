@@ -1,0 +1,57 @@
+name: Unit tests
+
+# Runs VimeKeyboardTests on an iOS simulator for pull requests. The extension
+# UI tests need the keyboard enabled in Settings, so they stay local.
+on:
+  pull_request:
+    branches: [dev, beta]
+    paths-ignore:
+      - "**/*.md"
+      - Docs/**
+      - site/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: unit-tests-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit-tests:
+    # The project is saved by Xcode 27; this preview image is the one that has it.
+    runs-on: xcode-27
+    timeout-minutes: 60
+    env:
+      VIME_SIMULATOR: iPhone 17
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          xcode=$(ls -d /Applications/Xcode_27*.app | sort -V | tail -1)
+          sudo xcode-select -s "$xcode"
+          xcodebuild -version
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/Library/Developer/Xcode/DerivedData/Vime-tests/SourcePackages
+          key: spm-${{ hashFiles('Vime.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
+
+      # testOrthographyAndSupplementalDictionaryAreSelectable records a model
+      # expectation that the bundled model does not meet yet; it stays in the
+      # local suite. Timing-bound tests get one retry on a shared runner.
+      - name: Run unit tests
+        run: |
+          Scripts/test.sh -- \
+            -skip-testing:VimeKeyboardTests/KeyboardSegmentedConversionTests/testOrthographyAndSupplementalDictionaryAreSelectable \
+            -retry-tests-on-failure -test-iterations 2
+
+      - name: Keep results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-results
+          path: ~/Library/Developer/Xcode/DerivedData/Vime-tests/Results
+          retention-days: 7

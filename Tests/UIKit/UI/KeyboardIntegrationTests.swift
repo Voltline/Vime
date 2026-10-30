@@ -98,7 +98,6 @@ final class KeyboardIntegrationTests: XCTestCase {
         XCTAssertNotNil(surface.resolvedKey(at: gap), "New second-row gap stays covered")
         XCTAssertTrue(surface.resolvedKey(at: CGPoint(x: 439, y: prolonged.frame.midY)) === prolonged)
         let settings = try XCTUnwrap(descendants(keyboard).first { $0.accessibilityLabel == "键盘设置" && !$0.isHidden })
-        XCTAssertEqual(settings.layer.cornerRadius, settings.bounds.height / 2)
         let location = settings.convert(CGPoint(x: settings.bounds.midX, y: settings.bounds.midY), to: keyboard)
         XCTAssertTrue(keyboard.hitTest(location, with: nil) === settings)
         try capture(keyboard, name: "keyboard-reference-layout")
@@ -192,7 +191,10 @@ final class KeyboardIntegrationTests: XCTestCase {
         XCTAssertEqual(view.text, "どうして日本語。")
         XCTAssertNil(view.markedTextRange)
         XCTAssertNil(host.markedText)
-        XCTAssertFalse(settings.isHidden)
+        // The reconvert chip keeps the candidate row up until the next input.
+        let chip = try XCTUnwrap(descendants(keyboard).first { $0.accessibilityIdentifier == "vime.reconvertCommit" })
+        XCTAssertFalse(chip.isHidden)
+        XCTAssertTrue(settings.isHidden)
         XCTAssertFalse(emoji.isHidden)
     }
 

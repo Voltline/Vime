@@ -73,6 +73,8 @@ nonisolated struct CandidateSnapshot: Sendable {
         return learningEligible || source == .rememberedConversion ? "conversion" : nil
     }
     var hasLearningEvidence: Bool { candidate.data.contains { $0.metadata.contains(.isLearned) } }
+    /// Past choices moved this candidate: recalled, natively learned, or scored by preference memory.
+    var hasPersonalLearning: Bool { source == .rememberedConversion || hasLearningEvidence || userPreferenceScore != 0 }
     var presentation: CandidatePresentation {
         .init(text: text, source: source, consumedInputCount: consumedInputCount, correction: correction,
             detailAnnotation: widthVariant.map { fullConsumption ? $0.annotation : String(localized: "\($0.annotation) · 部分转换") }

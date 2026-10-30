@@ -214,6 +214,17 @@ nonisolated extension JapaneseCandidateEngine {
         converter.commitUpdateLearningData(); learningDirty = false
     }
 
+    /// Removes what was learned for one candidate: the native memory of its
+    /// words and Vime's preferences for the reading and each word. The words
+    /// stay in the dictionary; only the boost from past choices goes away.
+    func forget(_ snapshot: CandidateSnapshot) {
+        converter.forgetMemory(snapshot.candidate)
+        preferenceMemory?.forget([(snapshot.reading, snapshot.text)]
+            + snapshot.candidate.data.map { ($0.ruby, $0.word) })
+        invalidateNativeResults()
+        reset(preservingContext: true)
+    }
+
     @discardableResult func clearLearning() -> Bool {
         // This pinned version exposes LearningConfig without a public initializer.
         // A nonempty request applies our existing public request configuration.
