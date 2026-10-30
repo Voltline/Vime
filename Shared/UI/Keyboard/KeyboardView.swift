@@ -53,6 +53,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
             || next.kanaLayout != previous?.kanaLayout {
             rebuildKeys()
         }
+        if next.oneHanded != previous?.oneHanded { setNeedsLayout() }
         if next.numberSymbols != previous?.numberSymbols { numberSymbolRail?.present(next.numberSymbols) }
         if next.autoCapitalize != previous?.autoCapitalize { updateAutoCapitalization() }
         if next.textReplacements != previous?.textReplacements { applyTextReplacements() }
@@ -141,6 +142,8 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     let neuralStatusLabel = UILabel()
     let undoButton = KeyboardToolbarButton(type: .system)
     let expandButton = KeyboardToolbarButton(type: .system)
+    /// Fills the strip beside one-handed keys and restores full width.
+    let oneHandedButton = UIButton(type: .system)
     let divider = UIView()
     let panelTitle = UILabel()
     let shortenRange = KeyboardToolbarButton(type: .system)
@@ -170,6 +173,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         let page: Page
         let numberPad: Bool
         let kana: Bool
+        let oneHanded: KeyboardOneHandedSide
         let generation: Int
     }
     var keyGridGeneration = 0
@@ -297,6 +301,11 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         expandButton.addTarget(self, action: #selector(headerArrow), for: .touchUpInside)
         expandButton.accessibilityLabel = String(localized: "展开候选词")
         addSubview(divider)
+        addSubview(oneHandedButton)
+        oneHandedButton.isHidden = true
+        oneHandedButton.accessibilityIdentifier = "vime.oneHanded.restore"
+        oneHandedButton.accessibilityLabel = String(localized: "恢复全宽键盘")
+        oneHandedButton.addTarget(self, action: #selector(leaveOneHandedMode), for: .touchUpInside)
         panelTitle.font = .systemFont(ofSize: 16, weight: .medium)
         panelTitle.accessibilityIdentifier = "vime.candidates.title"
         panelTitle.isUserInteractionEnabled = false
@@ -500,11 +509,12 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
             right: listInset ?? (compact ? width - metrics.contentRight : 12))
         let keyGrid = KeyGridLayout(size: bounds.size, compact: compact, pad: pad, showsFooter: showsFooter,
             heightFactor: heightFactor, page: page, numberPad: usesNumberPad, kana: kanaLayoutActive,
-            generation: keyGridGeneration)
+            oneHanded: activeOneHandedSide, generation: keyGridGeneration)
         if keyGrid != laidOutKeyGrid {
             laidOutKeyGrid = keyGrid
             layoutKeyGrid(metrics: metrics)
         }
+        layoutOneHandedButton(keysTop: headerHeight, keysBottom: metrics.contentHeight)
         globeButton.isHidden = !showsFooter || panel == .symbols || (metrics.showsToolbarGlobe && header.isHidden)
         if metrics.showsToolbarGlobe {
             globeButton.frame = metrics.leadingToolbarFrame(index: 0)

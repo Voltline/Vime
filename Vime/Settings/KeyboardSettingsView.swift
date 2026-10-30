@@ -435,6 +435,7 @@ struct KeyboardFeedbackSettingsView: View {
     @AppStorage private var kanaLayout: Bool
     @AppStorage private var prolongedKey: Bool
     @AppStorage private var previews: Bool
+    @AppStorage private var oneHanded: KeyboardOneHandedSide
     init() {
         let prefs = KeyboardPreferences(), store = prefs.store
         _sound = AppStorage(wrappedValue: prefs.sound, "vime.sound", store: store)
@@ -443,6 +444,7 @@ struct KeyboardFeedbackSettingsView: View {
         _kanaLayout = AppStorage(wrappedValue: prefs.kanaLayout, "vime.kanaLayout", store: store)
         _prolongedKey = AppStorage(wrappedValue: prefs.prolongedKey, "vime.prolongedKey", store: store)
         _previews = AppStorage(wrappedValue: prefs.previews, "vime.previews", store: store)
+        _oneHanded = AppStorage(wrappedValue: prefs.oneHanded, "vime.oneHanded", store: store)
     }
     var body: some View {
         Form {
@@ -480,6 +482,18 @@ struct KeyboardFeedbackSettingsView: View {
                 Toggle("按键预览", isOn: $previews)
             } header: { Text("布局") } footer: {
                 Text("假名九宫格：点按输入あ段，上下左右滑动输入其他段；连续点按同一键依次切换\n声音、振动和数字布局也可在键盘左上角快速调整\n修改后重新打开键盘即可读取更新")
+            }
+            if UIDevice.current.userInterfaceIdiom == .phone {
+                Section {
+                    Picker("单手模式", selection: $oneHanded) {
+                        Text("关闭").tag(KeyboardOneHandedSide.off)
+                        Text("靠左").tag(KeyboardOneHandedSide.left)
+                        Text("靠右").tag(KeyboardOneHandedSide.right)
+                    }
+                    .accessibilityIdentifier("vime.settings.oneHanded")
+                } footer: {
+                    Text("单手模式仅在竖屏时生效，点按键盘旁的空白条可恢复全宽，也可在键盘左上角快速切换")
+                }
             }
         }
         .appReadableList()

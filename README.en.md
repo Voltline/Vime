@@ -14,12 +14,14 @@ The companion app handles setup, typing practice, appearance and settings. The k
 
 - **Two Japanese layouts**: full romaji QWERTY, or a 12-key kana pad. On the pad, tap for the あ-column kana and flick left, up, right or down for the others; tapping the same key repeatedly cycles through its kana (toggle input). The pad has `↶` (step back), `゛゜小` (voiced / semi-voiced / small) and `→` (end the toggle) keys, plus a two-row 確定 key that is easy to hit.
 - **Instant kana draft**: kana appear as you type, and unfinished consonants stay as romaji. Conversion and predictions update in the background without blocking input.
-- **Direct English input** with a one-tap Japanese/English switch; the number page can be a 3×3 pad or a full row layout.
+- **Direct English input** with a one-tap Japanese/English switch and word completion in the candidate bar; auto-capitalization and the double-space period can be turned on in Settings. The number page can be a 3×3 pad or a full row layout.
 - Move the cursor by dragging after a long press on the space bar, or by swiping across the keys; swipe up on a letter to enter its symbol.
+- Double-tap Shift for caps lock. On an iPhone in portrait, the **one-handed keyboard** moves the keys to the left or right.
 
 ### Conversion and candidates
 
 - **Whole-sentence and segmented conversion**: expand the candidates and use `−` / `+` to resize the first segment. After you confirm it, the rest keeps converting, and only confirmed text is written to the document.
+- **Undo a conversion with backspace**: press backspace right after confirming a conversion to return to its reading and choose again.
 - **Smart ranking**: azooKey generates the candidates, and a local language model (INT8, CPU only) rescores them using the preceding text. Plain dictionary ranking is also available.
 - **Next-word suggestions**: after you commit text, the idle candidate bar shows likely next words; tap one to keep going.
 - **Correction candidates**: neighboring-key slips, similar sounds and a limited set of misreadings appear as candidates and are only applied when you pick them.
@@ -27,7 +29,7 @@ The companion app handles setup, typing practice, appearance and settings. The k
 
 ### Productivity
 
-- **User dictionary and phrase shortcuts**, with JSON import and export (up to 1,024 entries).
+- **User dictionary and phrase shortcuts**, with JSON import and export (up to 1,024 entries); your iOS text replacements work too.
 - **Clipboard suggestions** (off by default): newly copied text appears in the candidate bar, and the last 24 hours of history stay on the device only.
 - **Calculator on the number page**: typing `1+1` offers `2` and `1+1=2`.
 - **Auto-paired brackets**: `()`, `（）`, `「」` and more, with the cursor placed between them.
