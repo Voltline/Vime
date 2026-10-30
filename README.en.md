@@ -29,7 +29,7 @@ The companion app handles setup, typing practice, appearance and settings. The k
 
 ### Productivity
 
-- **User dictionary and phrase shortcuts**, with JSON import and export (up to 1,024 entries); your iOS text replacements work too.
+- **User dictionary and phrase shortcuts**, importing from Google Japanese Input, Microsoft IME, ATOK and macOS, exporting as JSON or Google Japanese Input text (up to 1,024 entries); your iOS text replacements work too.
 - **Clipboard suggestions** (off by default): newly copied text appears in the candidate bar, and the last 24 hours of history stay on the device only.
 - **Calculator on the number page**: typing `1+1` offers `2` and `1+1=2`.
 - **Auto-paired brackets**: `()`, `（）`, `「」` and more, with the cursor placed between them.

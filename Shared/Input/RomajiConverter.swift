@@ -58,4 +58,12 @@ nonisolated enum RomajiConverter {
         }))
     }
 
+    /// The reverse of `katakana`. ICU's Katakana-Hiragana transform spells
+    /// ー as a vowel (ビーム → びいむ), which is not the reading.
+    static func hiragana(_ katakana: String) -> String {
+        String(String.UnicodeScalarView(katakana.unicodeScalars.map { scalar in
+            (0x30A1...0x30F6).contains(scalar.value) ? UnicodeScalar(scalar.value - 0x60)! : scalar
+        }))
+    }
+
 }
