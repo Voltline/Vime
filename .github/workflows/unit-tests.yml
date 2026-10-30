@@ -48,6 +48,18 @@ jobs:
             -skip-testing:VimeKeyboardTests/KeyboardSegmentedConversionTests/testOrthographyAndSupplementalDictionaryAreSelectable \
             -retry-tests-on-failure -test-iterations 2
 
+      # Each run lists the latency and memory budgets on the job summary.
+      - name: Report budgets
+        if: always()
+        run: |
+          log=~/Library/Developer/Xcode/DerivedData/Vime-tests/Results/VimeKeyboardTests.log
+          {
+            echo "### Latency and memory budgets"
+            echo '```'
+            grep -h "^VIME_BUDGET " "$log" 2>/dev/null | sed 's/^VIME_BUDGET //' || echo "no budget lines"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Keep results
         if: failure()
         uses: actions/upload-artifact@v4

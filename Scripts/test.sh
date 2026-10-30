@@ -80,6 +80,8 @@ for name in failed:
     print("  failed:", name)
 ' "$target" "$results/failed-$target.txt"
 fi
+# KeyboardBudgetTests prints one line per latency or memory budget.
+grep -h "^VIME_BUDGET " "$results/$target.log" | sed 's/^VIME_BUDGET /  budget: /' || true
 if [ "$status" != 0 ]; then
     grep -E "error:|\*\* (TEST|BUILD) .*FAILED" "$results/$target.log" | head -20 >&2
     echo "Log: $results/$target.log" >&2
