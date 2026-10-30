@@ -1,0 +1,99 @@
+{
+  "name": "日本語",
+  "nav": {
+    "home": "ホーム",
+    "privacy": "プライバシーポリシー",
+    "changelog": "更新履歴",
+    "language": "言語",
+    "source": "ソースコード"
+  },
+  "home": {
+    "title": "Vime：オフラインの日本語キーボード",
+    "description": "Vime は完全オフラインで動く iOS 向けの日本語キーボードです。ローマ字とかな 12 キーに対応し、変換・補正・予測はすべて端末内で処理されます。",
+    "tagline": "完全オフラインで動く iOS の日本語キーボード",
+    "intro": "ローマ字でも、かな 12 キーでも。変換・補正・予測はすべて端末内で完結します。",
+    "appstore": "App Store でダウンロード",
+    "source": "ソースコードを見る",
+    "versions": "バージョンの状況",
+    "points": [
+      {
+        "title": "入力は端末の外に出ません",
+        "text": "変換・補正・学習・予測はすべて端末内で処理され、Vime には通信を行うコードがありません。"
+      },
+      {
+        "title": "2 種類の日本語配列",
+        "text": "ローマ字のフルキーボードと、フリックとトグル入力に対応したかな 12 キー。"
+      },
+      {
+        "title": "文脈を踏まえた候補",
+        "text": "ローカルの言語モデルが前の文脈から候補を並べ替え、確定後は次の単語を予測します。"
+      }
+    ],
+    "requirements": "iOS 18 以降が必要です。",
+    "privacy_title": "プライバシー",
+    "privacy_text": "アカウント不要。広告もトラッキングもありません。",
+    "privacy_link": "プライバシーポリシーを読む"
+  },
+  "privacy": {
+    "title": "プライバシーポリシー",
+    "note": "このページの内容は、公開中の Vime のバージョンに対応しています。"
+  },
+  "changelog": {
+    "title": "更新履歴",
+    "description": "Vime のバージョンの状況、リリースの周期、各バージョンの変更内容。",
+    "releases": "公開済みのバージョン",
+    "empty": "公開済みのバージョンはまだありません。",
+    "missing": "このバージョンには日本語の説明がないため、英語で表示しています。",
+    "github": "GitHub で見る"
+  },
+  "status": {
+    "title": "バージョンの状況",
+    "appstore": "App Store",
+    "appstore_none": "未公開",
+    "appstore_link": "App Store で開く",
+    "review": "審査中",
+    "review_none": "審査中のバージョンはありません",
+    "testflight": "TestFlight",
+    "build": "ビルド",
+    "next": "開発中",
+    "next_note": "dev ブランチの次のバージョン",
+    "released": "{date} 公開",
+    "submitted": "{date} 提出",
+    "uploaded": "{date} アップロード",
+    "rhythm_title": "毎週のリリース周期",
+    "rhythm": [
+      "月曜〜火曜：変更を開発ブランチに統合します。",
+      "**水曜 04:00**（日本時間）：開発ブランチの新しい変更を今週のベータ版にまとめ、TestFlight にアップロードします。",
+      "水曜〜金曜：TestFlight のビルドで確認し、更新内容を記入します。",
+      "**土曜 11:00**（日本時間）：App Store の審査に提出し、承認されると自動で公開されます。"
+    ],
+    "next_cut": "次の TestFlight ビルド：{date}",
+    "next_submit": "次の審査提出：{date}",
+    "updated": "{date} 時点の情報",
+    "weekdays": [
+      "月",
+      "火",
+      "水",
+      "木",
+      "金",
+      "土",
+      "日"
+    ],
+    "states": {
+      "WAITING_FOR_REVIEW": "審査待ち",
+      "READY_FOR_REVIEW": "審査待ち",
+      "IN_REVIEW": "審査中",
+      "PENDING_APPLE_RELEASE": "承認済み・公開待ち",
+      "PENDING_DEVELOPER_RELEASE": "承認済み・公開待ち",
+      "ACCEPTED": "承認済み・公開待ち",
+      "PROCESSING_FOR_APP_STORE": "処理中",
+      "PROCESSING_FOR_DISTRIBUTION": "処理中",
+      "WAITING_FOR_EXPORT_COMPLIANCE": "輸出コンプライアンス待ち"
+    }
+  },
+  "footer": {
+    "license": "GPL-3.0-or-later で公開しています。",
+    "notrack": "このサイトは Cookie、アクセス解析、トラッキングを使用しません。"
+  },
+  "notfound": "ページが見つかりません。"
+}

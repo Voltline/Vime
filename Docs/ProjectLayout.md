@@ -25,6 +25,7 @@ Vime 使用一个 Xcode 工程构建 iOS 主 App 和系统键盘扩展，共享 
 | `Tests/UIKit` | 引擎、会话、UI 组件测试和固定参考数据 |
 | `Tests/ExtensionUI` | 真正系统键盘扩展的 UI 测试 |
 | `Docs` | 公开使用、开发和架构文档 |
+| `site` | 项目网站（GitHub Pages）的构建脚本、多语言文案和样式 |
 | `Docs/internalDocs` | Git 忽略的本地计划、历史记录和验证产物 |
 
 ## 共享 UI

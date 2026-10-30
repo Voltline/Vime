@@ -1,0 +1,99 @@
+{
+  "name": "繁體中文",
+  "nav": {
+    "home": "首頁",
+    "privacy": "隱私權政策",
+    "changelog": "更新紀錄",
+    "language": "語言",
+    "source": "原始碼"
+  },
+  "home": {
+    "title": "Vime：離線日文輸入法",
+    "description": "Vime 是一款完全離線的 iOS 日文輸入法，支援羅馬字和假名九宮格，轉換、糾錯和聯想都在裝置上完成。",
+    "tagline": "完全離線的 iOS 日文輸入法",
+    "intro": "以羅馬字或假名九宮格輸入，轉換、糾錯和聯想全部在裝置上完成。",
+    "appstore": "在 App Store 下載",
+    "source": "查看原始碼",
+    "versions": "版本狀態",
+    "points": [
+      {
+        "title": "輸入內容不離開裝置",
+        "text": "轉換、糾錯、學習和聯想都在裝置上完成，Vime 不含任何連網程式碼。"
+      },
+      {
+        "title": "兩種日文配置",
+        "text": "羅馬字全鍵盤，或支援滑動與連按的假名九宮格。"
+      },
+      {
+        "title": "更懂上下文的候選字",
+        "text": "本機語言模型依前文為候選字排序，確認後接著聯想下一詞。"
+      }
+    ],
+    "requirements": "需要 iOS 18 或以上版本。",
+    "privacy_title": "隱私",
+    "privacy_text": "不需帳號，沒有廣告，也不做任何追蹤。",
+    "privacy_link": "閱讀隱私權政策"
+  },
+  "privacy": {
+    "title": "隱私權政策",
+    "note": "本頁內容與已發布的 Vime 版本一致。"
+  },
+  "changelog": {
+    "title": "更新紀錄",
+    "description": "Vime 的版本狀態、發布節奏與各版本更新內容。",
+    "releases": "已發布版本",
+    "empty": "目前還沒有已發布的版本。",
+    "missing": "此版本沒有繁體中文說明，以下為英文內容。",
+    "github": "在 GitHub 上查看"
+  },
+  "status": {
+    "title": "版本狀態",
+    "appstore": "App Store",
+    "appstore_none": "尚未上架",
+    "appstore_link": "開啟 App Store",
+    "review": "審查中",
+    "review_none": "目前沒有審查中的版本",
+    "testflight": "TestFlight",
+    "build": "建置版本",
+    "next": "開發中",
+    "next_note": "dev 分支上的下一個版本",
+    "released": "發布於 {date}",
+    "submitted": "提交於 {date}",
+    "uploaded": "上傳於 {date}",
+    "rhythm_title": "每週節奏",
+    "rhythm": [
+      "週一至週二，變更合併至開發分支。",
+      "**週三 03:00**（台北時間）：開發分支上的新變更進入本週測試版，上傳至 TestFlight。",
+      "週三至週五：在 TestFlight 建置版本上驗收，填寫更新說明。",
+      "**週六 10:00**（台北時間）：提交 App Store 審查，通過後自動上架。"
+    ],
+    "next_cut": "下次 TestFlight 建置：{date}",
+    "next_submit": "下次提交審查：{date}",
+    "updated": "資料更新於 {date}",
+    "weekdays": [
+      "週一",
+      "週二",
+      "週三",
+      "週四",
+      "週五",
+      "週六",
+      "週日"
+    ],
+    "states": {
+      "WAITING_FOR_REVIEW": "等待審查",
+      "READY_FOR_REVIEW": "等待審查",
+      "IN_REVIEW": "正在審查",
+      "PENDING_APPLE_RELEASE": "已通過，等待上架",
+      "PENDING_DEVELOPER_RELEASE": "已通過，等待上架",
+      "ACCEPTED": "已通過，等待上架",
+      "PROCESSING_FOR_APP_STORE": "正在處理",
+      "PROCESSING_FOR_DISTRIBUTION": "正在處理",
+      "WAITING_FOR_EXPORT_COMPLIANCE": "等待出口合規"
+    }
+  },
+  "footer": {
+    "license": "以 GPL-3.0-or-later 授權發布。",
+    "notrack": "本網站不使用 Cookie、統計或追蹤。"
+  },
+  "notfound": "找不到這個頁面。"
+}

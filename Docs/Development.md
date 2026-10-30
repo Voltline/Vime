@@ -144,6 +144,34 @@ App Store 每次提交更新都要求各语言的「此版本的新增内容」�
 - **提交失败**（上周版本仍在审核、缺少更新说明或密钥）：任务失败并由 GitHub 邮件通知，`main` 与标签不动。处理后手动运行周六任务；若下周三先到且没有新功能，版本号保持不变，只换成新构建。
 - **审核被拒**：该版本已打标签。修复走 `fix/` → `dev`，下周三按新的修订号出构建，周六提交时 App Store Connect 中被拒的版本改用新版本号。需要更快重新提交时，手动运行周三任务出构建，再手动运行周六任务。
 
+## 网站
+
+项目网站 <https://voltline.github.io/Vime/> 由 [site/build.py](../site/build.py) 生成静态页面，[Website](../.github/workflows/website.yml) workflow 部署到 GitHub Pages（来源为 GitHub Actions），不需要第三方依赖。
+
+| 页面 | 内容来源 |
+| --- | --- |
+| 首页 `/<语言>/` | `site/content/<语言>.json`，文字取自各语言 README；繁体中文按台湾用语改写 |
+| 隐私政策 `/<语言>/privacy/` | `main` 上的 `Docs/Guides/Privacy*.md`，即已发布版本的政策 |
+| 更新日志 `/<语言>/changelog/` | 已发布的 GitHub Release 中对应语言的段落（`---` 以上），跳过草稿；缺少该语言时显示英文 |
+
+语言为 `zh-hans`、`zh-hant`、`ja`、`en`、`ko`。根路径以及 `/privacy/`、`/changelog/` 按浏览器语言或上次选择的语言跳转，可以作为 App Store 的隐私政策和营销网址。
+
+更新日志页顶部的版本状态在构建时读取：App Store 上架版本来自公开的 iTunes lookup；审核中的版本与状态、最新 TestFlight 版本和构建号用 `ASC_*` Secrets 经 [app_store.py](../.github/scripts/app_store.py) 读取 App Store Connect；`dev` 上的下一版本来自 `release_version.py current`；另列出每周节奏和下次构建、提交的时间。页面只包含版本、状态和日期。缺少密钥或 API 失败时只给出警告，网站照常构建，只显示公开部分。
+
+Workflow 总是构建 `dev` 上的 `site/`，在以下情况运行：`dev` 上修改网站的推送；周三、周六任务结束后；每天北京时间 05:00（此时周三的 TestFlight 构建已上传）；以及手动运行。`main` 只由周六任务推进，所以周六任务结束后的构建会带上新的隐私政策。部署环境 `github-pages` 只允许 `dev` 部署，因此 workflow 不在 `main` 的推送上运行。
+
+本地预览：
+
+```bash
+python3 site/build.py --out /tmp/vime-site/Vime --base-url http://localhost:8000/Vime/
+```
+
+```bash
+python3 -m http.server 8000 --directory /tmp/vime-site
+```
+
+修改网站文字时同步修改五种语言的 JSON。
+
 ## 发布检查
 
 - 营销版本与构建号按「分支与发布」自动计算；提交前在 App Store Connect 核对所选构建与 `beta` 提交一致。

@@ -1,0 +1,99 @@
+{
+  "name": "한국어",
+  "nav": {
+    "home": "홈",
+    "privacy": "개인정보 처리방침",
+    "changelog": "업데이트 내역",
+    "language": "언어",
+    "source": "소스 코드"
+  },
+  "home": {
+    "title": "Vime: 오프라인 일본어 키보드",
+    "description": "Vime은 완전히 오프라인으로 동작하는 iOS용 일본어 키보드입니다. 로마자와 가나 12키를 지원하며, 변환·교정·제안은 모두 기기에서 처리됩니다.",
+    "tagline": "완전히 오프라인으로 동작하는 iOS 일본어 키보드",
+    "intro": "로마자나 가나 12키로 입력하세요. 변환, 교정, 제안은 모두 기기에서 처리됩니다.",
+    "appstore": "App Store에서 다운로드",
+    "source": "소스 코드 보기",
+    "versions": "버전 현황",
+    "points": [
+      {
+        "title": "입력 내용은 기기 밖으로 나가지 않습니다",
+        "text": "변환, 교정, 학습, 제안은 모두 기기에서 처리되며, Vime에는 네트워크 통신 코드가 없습니다."
+      },
+      {
+        "title": "두 가지 일본어 배열",
+        "text": "로마자 전체 키보드, 또는 플릭과 토글 입력을 지원하는 가나 12키."
+      },
+      {
+        "title": "문맥을 읽는 후보",
+        "text": "로컬 언어 모델이 앞 문맥을 고려해 후보를 정렬하고, 확정 후에는 다음 단어를 제안합니다."
+      }
+    ],
+    "requirements": "iOS 18 이상이 필요합니다.",
+    "privacy_title": "개인정보",
+    "privacy_text": "계정이 필요 없고, 광고와 추적도 없습니다.",
+    "privacy_link": "개인정보 처리방침 읽기"
+  },
+  "privacy": {
+    "title": "개인정보 처리방침",
+    "note": "이 페이지의 내용은 출시된 Vime 버전과 같습니다."
+  },
+  "changelog": {
+    "title": "업데이트 내역",
+    "description": "Vime의 버전 현황, 출시 주기, 버전별 변경 사항.",
+    "releases": "출시된 버전",
+    "empty": "아직 출시된 버전이 없습니다.",
+    "missing": "이 버전에는 한국어 설명이 없어 영어로 표시합니다.",
+    "github": "GitHub에서 보기"
+  },
+  "status": {
+    "title": "버전 현황",
+    "appstore": "App Store",
+    "appstore_none": "아직 출시되지 않음",
+    "appstore_link": "App Store에서 열기",
+    "review": "심사 중",
+    "review_none": "심사 중인 버전이 없습니다",
+    "testflight": "TestFlight",
+    "build": "빌드",
+    "next": "개발 중",
+    "next_note": "dev 브랜치의 다음 버전",
+    "released": "{date} 출시",
+    "submitted": "{date} 제출",
+    "uploaded": "{date} 업로드",
+    "rhythm_title": "매주 출시 주기",
+    "rhythm": [
+      "월요일~화요일: 변경 사항을 개발 브랜치에 병합합니다.",
+      "**수요일 04:00**(한국 시간): 개발 브랜치의 새 변경 사항으로 이번 주 베타를 만들어 TestFlight에 올립니다.",
+      "수요일~금요일: TestFlight 빌드를 확인하고 업데이트 설명을 작성합니다.",
+      "**토요일 11:00**(한국 시간): App Store 심사에 제출하며, 승인되면 자동으로 출시됩니다."
+    ],
+    "next_cut": "다음 TestFlight 빌드: {date}",
+    "next_submit": "다음 심사 제출: {date}",
+    "updated": "{date} 기준",
+    "weekdays": [
+      "월",
+      "화",
+      "수",
+      "목",
+      "금",
+      "토",
+      "일"
+    ],
+    "states": {
+      "WAITING_FOR_REVIEW": "심사 대기 중",
+      "READY_FOR_REVIEW": "심사 대기 중",
+      "IN_REVIEW": "심사 중",
+      "PENDING_APPLE_RELEASE": "승인됨, 출시 대기 중",
+      "PENDING_DEVELOPER_RELEASE": "승인됨, 출시 대기 중",
+      "ACCEPTED": "승인됨, 출시 대기 중",
+      "PROCESSING_FOR_APP_STORE": "처리 중",
+      "PROCESSING_FOR_DISTRIBUTION": "처리 중",
+      "WAITING_FOR_EXPORT_COMPLIANCE": "수출 규정 확인 대기 중"
+    }
+  },
+  "footer": {
+    "license": "GPL-3.0-or-later로 공개되어 있습니다.",
+    "notrack": "이 사이트는 쿠키, 분석, 추적을 사용하지 않습니다."
+  },
+  "notfound": "페이지를 찾을 수 없습니다."
+}

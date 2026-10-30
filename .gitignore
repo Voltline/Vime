@@ -49,3 +49,6 @@ __pycache__/
 
 # Local plans, collaboration notes, reviews and validation artifacts
 /Docs/internalDocs/
+
+# Website build output
+/_site/

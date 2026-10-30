@@ -1,0 +1,99 @@
+{
+  "name": "English",
+  "nav": {
+    "home": "Home",
+    "privacy": "Privacy",
+    "changelog": "Changelog",
+    "language": "Language",
+    "source": "Source"
+  },
+  "home": {
+    "title": "Vime: an offline Japanese keyboard",
+    "description": "Vime is a fully offline Japanese keyboard for iOS with romaji and 12-key kana layouts. Conversion, correction and suggestions all run on your device.",
+    "tagline": "A fully offline Japanese keyboard for iOS",
+    "intro": "Type in romaji or on a 12-key kana pad. Conversion, correction and suggestions all happen on your device.",
+    "appstore": "Download on the App Store",
+    "source": "View the source",
+    "versions": "Version status",
+    "points": [
+      {
+        "title": "Your typing stays on your device",
+        "text": "Conversion, correction, learning and suggestions all run locally. Vime contains no networking code."
+      },
+      {
+        "title": "Two Japanese layouts",
+        "text": "Full romaji QWERTY, or a 12-key kana pad with flick and toggle input."
+      },
+      {
+        "title": "Candidates that read the context",
+        "text": "A local language model ranks candidates using the preceding text, then suggests the next word."
+      }
+    ],
+    "requirements": "Requires iOS 18 or later.",
+    "privacy_title": "Privacy",
+    "privacy_text": "No account, no ads, no tracking.",
+    "privacy_link": "Read the privacy policy"
+  },
+  "privacy": {
+    "title": "Privacy Policy",
+    "note": "This page matches the released version of Vime."
+  },
+  "changelog": {
+    "title": "Changelog",
+    "description": "Vime's version status, release rhythm and what changed in each version.",
+    "releases": "Released versions",
+    "empty": "No versions have been released yet.",
+    "missing": "",
+    "github": "View on GitHub"
+  },
+  "status": {
+    "title": "Version status",
+    "appstore": "App Store",
+    "appstore_none": "Not available yet",
+    "appstore_link": "Open the App Store",
+    "review": "In review",
+    "review_none": "No version is in review",
+    "testflight": "TestFlight",
+    "build": "build",
+    "next": "In development",
+    "next_note": "Next version on the dev branch",
+    "released": "Released {date}",
+    "submitted": "Submitted {date}",
+    "uploaded": "Uploaded {date}",
+    "rhythm_title": "Weekly rhythm",
+    "rhythm": [
+      "Monday to Tuesday: changes are merged into the development branch.",
+      "**Tuesday 19:00 UTC** (Wednesday 03:00 in Beijing): new changes on the development branch become this week's beta and are uploaded to TestFlight.",
+      "Wednesday to Friday: the TestFlight build is checked and the release notes are written.",
+      "**Saturday 02:00 UTC** (10:00 in Beijing): the build is submitted for App Store review and released automatically once approved."
+    ],
+    "next_cut": "Next TestFlight build: {date}",
+    "next_submit": "Next submission: {date}",
+    "updated": "Updated {date}",
+    "weekdays": [
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat",
+      "Sun"
+    ],
+    "states": {
+      "WAITING_FOR_REVIEW": "Waiting for review",
+      "READY_FOR_REVIEW": "Waiting for review",
+      "IN_REVIEW": "In review",
+      "PENDING_APPLE_RELEASE": "Approved, pending release",
+      "PENDING_DEVELOPER_RELEASE": "Approved, pending release",
+      "ACCEPTED": "Approved, pending release",
+      "PROCESSING_FOR_APP_STORE": "Processing",
+      "PROCESSING_FOR_DISTRIBUTION": "Processing",
+      "WAITING_FOR_EXPORT_COMPLIANCE": "Waiting for export compliance"
+    }
+  },
+  "footer": {
+    "license": "Released under GPL-3.0-or-later.",
+    "notrack": "This site uses no cookies, analytics or tracking."
+  },
+  "notfound": "This page could not be found."
+}
