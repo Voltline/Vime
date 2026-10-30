@@ -1,0 +1,29 @@
+name: App Store check
+
+# Read-only: reports whether the version on beta could be submitted, without
+# changing App Store Connect, branches or releases.
+on:
+  workflow_dispatch:
+
+permissions:
+  # Draft releases are only visible with write access.
+  contents: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: beta
+
+      - name: Check App Store Connect
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+        run: |
+          version=$(python3 Scripts/release_version.py current)
+          gh release view "v$version" --json body --jq .body > notes.md || : > notes.md
+          python3 .github/scripts/app_store.py check --version "$version" --notes notes.md

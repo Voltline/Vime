@@ -104,13 +104,26 @@ flowchart LR
 1. **周一至周二**：改动合入 `dev`。要进入本周 TestFlight 的改动在周二结束前合并。
 2. **周三 03:00**：[Weekly TestFlight cut](../.github/workflows/weekly-testflight.yml) 先把 `beta` 上的直接合并合回 `dev`，再检查 `dev` 是否有 `beta` 之外的提交（不计合并提交）。有则在 `dev` 写入新营销版本、快进 `beta`，并创建或更新草稿 Release `v<版本>`；没有则本周不出构建。`beta` 的变化触发 Xcode Cloud 的 TestFlight workflow，archive 后上传 TestFlight。
 3. **周三至周五**：在 TestFlight 构建上做真机验收（见「测试层次」），并填写草稿 Release（见下文「更新说明」）。这期间直接合入 `beta` 的 `build/` 等改动会触发新的 TestFlight 构建，同属本周版本。发现阻断问题时删除草稿 Release，周六任务因缺少说明而停止，本周不提交；修复照常走 `fix/` → `dev`，下周三重新出构建。
-4. **周六 10:00**：[Weekly App Store release](../.github/workflows/weekly-release.yml) 在 `beta` 领先 `main` 时，用该版本最新的已处理构建提交审核，成功后快进 `main`、打标签并发布 Release。审核通过后自动上架（`AUTOMATIC_RELEASE`）。若该版本已有标签，说明领先的只是提交审核后才合入 `beta` 的改动：此时只快进 `main`，不再提交，这些改动随下一个版本发布。
+4. **周六 10:00**：[Weekly App Store release](../.github/workflows/weekly-release.yml) 在 `beta` 领先 `main` 时，用该版本最新的已处理构建提交审核，提交前先做一次只读检查（见下文「提交前检查」），成功后快进 `main`、打标签并发布 Release。审核通过后自动上架（`AUTOMATIC_RELEASE`）。若该版本已有标签，说明领先的只是提交审核后才合入 `beta` 的改动：此时只快进 `main`，不再提交，这些改动随下一个版本发布。
 
 两个周任务都可以在 Actions 页面手动运行，用于计划外的构建或补交。周六任务手动运行时可以关闭 `submit`，只推进 `main` 与标签，例如审核已在 App Store Connect 手动提交时。
 
 ### 更新说明
 
 App Store 每次提交更新都要求各语言的「此版本的新增内容」。这些文字不进仓库，写在周三生成的草稿 Release 中：在 `zh-Hans`、`zh-Hant`、`ja`、`en-US`、`ko` 标题下各写一段，`---` 以下是自动生成的 PR 列表，仅供参考，不会提交。周六任务读取这五段，任一缺失则不提交。同一版本再次出构建时，已填写的内容保留，PR 列表更新。
+
+草稿只在周三任务运行时更新。周三之后合入 `dev` 的改动属于下周版本，不会出现在本周草稿中；直接合入 `beta` 的改动会触发新的 TestFlight 构建，但不会改写草稿。若这些改动需要用户知道，手动补进对应语言的段落。周六发布 Release 时，`---` 以下的 PR 列表按上一个标签到新标签重新生成，因此会包含这些直接合并。
+
+### 提交前检查
+
+[App Store check](../.github/workflows/app-store-check.yml) 只读取 App Store Connect，不做任何修改，可在 Actions 页面随时手动运行，例如周五确认周六能否提交。它读取 `beta` 的营销版本，报告：
+
+- App Store Connect 中各版本的状态，以及是否有其他版本仍在审核或等待上架；
+- 版本的本地化语言是否正好是更新说明的五种语言；
+- 该版本是否有已处理（`VALID`）且未过期的构建；
+- 草稿 Release 中哪些语言的更新说明已经填写。
+
+结果写在运行摘要中。语言不符、没有可用构建或 API 失败时运行失败；其他版本仍在审核、说明未填写只给出警告。周六任务在提交前以严格模式运行同一检查，警告也会阻止提交。检查脚本是 [app_store.py](../.github/scripts/app_store.py)，App Store Connect 中的语言变化时同步修改其中的 `LOCALES`。
 
 ### 版本号
 

@@ -59,21 +59,7 @@ jobs:
           TAG: v${{ steps.changes.outputs.version }}
         run: |
           gh release view "$TAG" --json body --jq .body > notes.md
-          python3 - notes.md metadata <<'PY'
-          import re, sys
-          from pathlib import Path
-          locales = ["zh-Hans", "zh-Hant", "ja", "en-US", "ko"]
-          body = Path(sys.argv[1]).read_text().split("\n---", 1)[0]
-          body = re.sub(r"<!--.*?-->", "", body, flags=re.S)
-          sections = dict(re.findall(r"^## (\S+)[ \t]*\n(.*?)(?=^## |\Z)", body, flags=re.M | re.S))
-          missing = [locale for locale in locales if not sections.get(locale, "").strip()]
-          if missing:
-              sys.exit(f"::error::Release notes are missing for {', '.join(missing)}; fill them in the draft release.")
-          for locale in locales:
-              path = Path(sys.argv[2], locale, "release_notes.txt")
-              path.parent.mkdir(parents=True)
-              path.write_text(sections[locale].strip() + "\n")
-          PY
+          python3 .github/scripts/app_store.py notes notes.md --metadata metadata
 
       - name: Submit for review
         if: steps.changes.outputs.count != '0' && steps.changes.outputs.submitted != 'true' && (github.event_name == 'schedule' || inputs.submit)
@@ -87,6 +73,9 @@ jobs:
             echo "::error::Add the ASC_KEY_ID, ASC_ISSUER_ID and ASC_PRIVATE_KEY secrets, or run with submit off."
             exit 1
           fi
+          # Stops before submitting when another version is still in review,
+          # the localizations differ or no processed build exists.
+          python3 .github/scripts/app_store.py check --version "$VERSION" --strict
           gem install fastlane --no-document --quiet
           python3 -c 'import json, os; print(json.dumps({"key_id": os.environ["ASC_KEY_ID"], "issuer_id": os.environ["ASC_ISSUER_ID"], "key": os.environ["ASC_PRIVATE_KEY"], "in_house": False}))' > "$RUNNER_TEMP/asc_key.json"
           # Without a build number, deliver picks the newest processed build of
@@ -111,10 +100,17 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: v${{ steps.changes.outputs.version }}
         run: |
+          previous=$(git tag --merged origin/main --list 'v*' --sort=-v:refname | head -n 1)
           git push origin HEAD:main
           [ "${{ steps.changes.outputs.submitted }}" != true ] || exit 0
           git tag "$TAG"
           git push origin "$TAG"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release edit "$TAG" --draft=false --tag "$TAG"
+            # The PR list was generated on Wednesday; regenerate it so direct
+            # beta merges since then are listed too.
+            changes=$(gh api "repos/$GITHUB_REPOSITORY/releases/generate-notes" \
+              -f tag_name="$TAG" ${previous:+-f previous_tag_name="$previous"} --jq .body)
+            localized=$(gh release view "$TAG" --json body --jq .body | sed '/^---$/,$d')
+            printf '%s\n---\n\n%s\n' "$localized" "$changes" > published.md
+            gh release edit "$TAG" --draft=false --tag "$TAG" --notes-file published.md
           fi
