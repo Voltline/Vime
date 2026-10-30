@@ -874,4 +874,30 @@ final class KeyboardFeatureTests: XCTestCase {
         XCTAssertFalse(surface.isHidden)
         attachAppearance(keyboard, name: "midnight-keyboard")
     }
+
+    func testDoubleTapShiftLocksCapitalsUntilTappedAgain() throws {
+        let (keyboard, _, text, window) = try fixture()
+        defer { keyboard.stopInteractions(); window.isHidden = true }
+        func tap(_ id: String) throws { try button(id, in: keyboard).sendActions(for: .touchUpInside) }
+        try tap("vime.key.language")
+        try tap("vime.key.shift"); try tap("vime.key.a"); try tap("vime.key.b")
+        XCTAssertEqual(text.text, "Ab", "A single shift capitalizes one letter")
+        try tap("vime.key.shift"); try tap("vime.key.shift")
+        XCTAssertTrue(keyboard.capsLocked)
+        XCTAssertEqual(try button("vime.key.shift", in: keyboard).image(for: .normal), UIImage(systemName: "capslock.fill"))
+        try tap("vime.key.c"); try tap("vime.key.d")
+        XCTAssertEqual(text.text, "AbCD", "Caps lock keeps capitals after each letter")
+        try tap("vime.key.shift"); try tap("vime.key.e")
+        XCTAssertFalse(keyboard.capsLocked)
+        XCTAssertEqual(text.text, "AbCDe")
+
+        // The second release may come well after the first, as in a relaxed
+        // double tap; two separate taps still just toggle.
+        keyboard.shift(at: 100); keyboard.shift(at: 100.4)
+        XCTAssertTrue(keyboard.capsLocked)
+        keyboard.shift(at: 101)
+        XCTAssertFalse(keyboard.capsLocked || keyboard.shifted)
+        keyboard.shift(at: 200); keyboard.shift(at: 200.6)
+        XCTAssertFalse(keyboard.capsLocked || keyboard.shifted)
+    }
 }

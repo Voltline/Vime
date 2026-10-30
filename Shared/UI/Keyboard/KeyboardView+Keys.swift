@@ -163,6 +163,7 @@ extension KeyboardView {
                 var row: [(KeyboardKey, CGFloat)] = []
                 if letters == "zxcvbnm" {
                     let shift = symbol("shift", label: String(localized: "切换大小写"), weight: 1.35) { [weak self] in self?.shift() }
+                    shift.0.accessibilityIdentifier = "vime.key.shift"
                     shiftKey = shift.0
                     row.append(shift)
                 }
@@ -397,11 +398,14 @@ extension KeyboardView {
         shiftKey?.tintColor = KeyboardPalette.text
     }
 
-    func shift() {
-        let now = Date.timeIntervalSinceReferenceDate
-        if now - lastShiftTap < 0.3 { capsLocked = true; shifted = true }
-        else { shifted.toggle(); capsLocked = false }
-        lastShiftTap = now
+    /// Shift acts on release, so a double tap is measured release to release
+    /// and includes the second press. A tap after locking unlocks.
+    static let capsLockInterval: TimeInterval = 0.45
+
+    func shift(at now: TimeInterval = Date.timeIntervalSinceReferenceDate) {
+        if capsLocked { capsLocked = false; shifted = false; lastShiftTap = 0 }
+        else if now - lastShiftTap < Self.capsLockInterval { capsLocked = true; shifted = true; lastShiftTap = 0 }
+        else { shifted.toggle(); lastShiftTap = now }
         updateKeyLabels()
     }
 
