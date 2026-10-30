@@ -13,9 +13,13 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
+      # The script comes from this workflow's commit; beta only gives the
+      # version, since it can be behind dev.
+      - uses: actions/checkout@v4
       - uses: actions/checkout@v4
         with:
           ref: beta
+          path: beta
 
       - name: Check App Store Connect
         env:
@@ -24,6 +28,6 @@ jobs:
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
         run: |
-          version=$(python3 Scripts/release_version.py current)
+          version=$(cd beta && python3 Scripts/release_version.py current)
           gh release view "v$version" --json body --jq .body > notes.md || : > notes.md
           python3 .github/scripts/app_store.py check --version "$version" --notes notes.md
