@@ -163,6 +163,7 @@ extension KeyboardView {
                 var row: [(KeyboardKey, CGFloat)] = []
                 if letters == "zxcvbnm" {
                     let shift = symbol("shift", label: String(localized: "切换大小写"), weight: 1.35) { [weak self] in self?.shift() }
+                    shift.0.accessibilityIdentifier = "vime.key.shift"
                     shiftKey = shift.0
                     row.append(shift)
                 }
@@ -171,6 +172,7 @@ extension KeyboardView {
                     let item = key(value.uppercased()) { [weak self] in
                         guard let self else { return }
                         KeyboardPerformance.record(.touchUpToType, since: self.keysContainer.releaseStartedAt)
+                        self.lastShiftTap = 0
                         self.apply(self.session.type(self.shifted && self.session.inputTraits.isEnglish ? value.uppercased() : value))
                         if self.shifted && !self.capsLocked { self.shifted = false; self.updateKeyLabels() }
                     }
@@ -397,11 +399,16 @@ extension KeyboardView {
         shiftKey?.tintColor = KeyboardPalette.text
     }
 
-    func shift() {
-        let now = Date.timeIntervalSinceReferenceDate
-        if now - lastShiftTap < 0.3 { capsLocked = true; shifted = true }
-        else { shifted.toggle(); capsLocked = false }
-        lastShiftTap = now
+    /// Shift acts on release, so a double tap is measured release to release
+    /// and includes the second press. A letter between the taps, or a tap
+    /// after locking, starts over.
+    static let capsLockInterval: TimeInterval = 0.45
+
+    func shift(at now: TimeInterval = Date.timeIntervalSinceReferenceDate) {
+        let elapsed = now - lastShiftTap
+        if capsLocked { capsLocked = false; shifted = false; lastShiftTap = 0 }
+        else if elapsed >= 0 && elapsed < Self.capsLockInterval { capsLocked = true; shifted = true; lastShiftTap = 0 }
+        else { shifted.toggle(); lastShiftTap = now }
         updateKeyLabels()
     }
 
