@@ -50,6 +50,10 @@ final class KeyboardSession: KeyboardInputSession {
     func setUndoesCommitOnBackspace(_ enabled: Bool) {
         undoesCommitOnBackspace = enabled
     }
+    private(set) var fullWidthSpace = false
+    func setFullWidthSpace(_ enabled: Bool) {
+        fullWidthSpace = enabled
+    }
     var reconvertibleCommit: (text: String, reading: String)? {
         guard !isComposing, let commit = undoableCommit else { return nil }
         return (commit.text, PreeditPresentation.kana(for: commit.reading, mode: mode))
@@ -269,8 +273,13 @@ final class KeyboardSession: KeyboardInputSession {
         return []
     }
 
-    func space() -> [KeyboardEdit] {
-        guard isComposing else { undoableCommit = nil; finishLearningFeedback(); clearSuggestions(); return [.insert(" ")] }
+    func space() -> [KeyboardEdit] { space(alternateWidth: false) }
+
+    func space(alternateWidth: Bool) -> [KeyboardEdit] {
+        guard isComposing else {
+            undoableCommit = nil; finishLearningFeedback(); clearSuggestions()
+            return [.insert(!inputTraits.isEnglish && fullWidthSpace != alternateWidth ? "\u{3000}" : " ")]
+        }
         // A trailing n already reads as ん in per-key requests; this covers a
         // request issued before that rule, such as one made by deletion.
         if PreeditPresentation.endsWithPendingN(composing), selectedIndex == nil, !boundaryRequested {

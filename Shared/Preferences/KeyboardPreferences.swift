@@ -26,7 +26,7 @@ struct KeyboardPreferences {
         FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroup) != nil ? UserDefaults(suiteName: appGroup) : nil
     }
     private static let sharedKeys = ["vime.sound", "vime.hapticLevel", "vime.hapticIntensity", "vime.nineKeyNumbers", "vime.kanaLayout",
-        "vime.prolongedKey", "vime.previews", "vime.theme", "vime.candidateRanking", "vime.phraseSuggestions", "vime.clipboardSuggestions", "vime.autoPairBrackets", "vime.autoCapitalize", "vime.doubleSpacePeriod", "vime.undoConversionOnBackspace", "vime.textReplacements", "vime.englishCompletion", "vime.oneHanded", "vime.customSkinID", "vime.skinRevision", "vime.numberSymbols"]
+        "vime.prolongedKey", "vime.previews", "vime.theme", "vime.candidateRanking", "vime.phraseSuggestions", "vime.clipboardSuggestions", "vime.autoPairBrackets", "vime.autoCapitalize", "vime.doubleSpacePeriod", "vime.undoConversionOnBackspace", "vime.fullWidthSpace", "vime.textReplacements", "vime.englishCompletion", "vime.oneHanded", "vime.customSkinID", "vime.skinRevision", "vime.numberSymbols"]
     var store: UserDefaults { defaults }
     struct Snapshot: Equatable {
         let heightFactor: Double
@@ -46,6 +46,7 @@ struct KeyboardPreferences {
         let autoCapitalize: Bool
         let doubleSpacePeriod: Bool
         let undoConversionOnBackspace: Bool
+        let fullWidthSpace: Bool
         let textReplacements: Bool
         let englishCompletion: Bool
         let oneHanded: KeyboardOneHandedSide
@@ -59,7 +60,7 @@ struct KeyboardPreferences {
             theme: theme, customSkinID: customSkinID, skinRevision: skinRevision, candidateRanking: candidateRanking, phraseSuggestions: phraseSuggestions,
             clipboardSuggestions: clipboardSuggestions, autoPairBrackets: autoPairBrackets,
             autoCapitalize: autoCapitalize, doubleSpacePeriod: doubleSpacePeriod,
-            undoConversionOnBackspace: undoConversionOnBackspace, textReplacements: textReplacements,
+            undoConversionOnBackspace: undoConversionOnBackspace, fullWidthSpace: fullWidthSpace, textReplacements: textReplacements,
             englishCompletion: englishCompletion, oneHanded: oneHanded, numberSymbols: numberSymbols,
             neuralRetryID: neuralRetryID, learningResetID: learningResetRequests.requestID)
     }
@@ -170,6 +171,11 @@ struct KeyboardPreferences {
     var undoConversionOnBackspace: Bool {
         get { defaults.object(forKey: "vime.undoConversionOnBackspace") as? Bool ?? false }
         nonmutating set { defaults.set(newValue, forKey: "vime.undoConversionOnBackspace") }
+    }
+    /// Japanese mode only; what space inserts when nothing is being composed.
+    var fullWidthSpace: Bool {
+        get { defaults.object(forKey: "vime.fullWidthSpace") as? Bool ?? false }
+        nonmutating set { defaults.set(newValue, forKey: "vime.fullWidthSpace") }
     }
     /// Offers the iOS text replacements the keyboard can read as candidates.
     var textReplacements: Bool {

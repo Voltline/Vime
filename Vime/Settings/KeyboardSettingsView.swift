@@ -373,6 +373,7 @@ struct KeyboardInputSettingsView: View {
     @AppStorage private var ranking: CandidateRankingMode
     @AppStorage private var suggestions: Bool
     @AppStorage private var undoConversion: Bool
+    @AppStorage private var fullWidthSpace: Bool
     @AppStorage private var autoCapitalize: Bool
     @AppStorage private var doubleSpacePeriod: Bool
     @AppStorage private var englishCompletion: Bool
@@ -381,6 +382,7 @@ struct KeyboardInputSettingsView: View {
         _ranking = AppStorage(wrappedValue: prefs.candidateRanking, "vime.candidateRanking", store: prefs.store)
         _suggestions = AppStorage(wrappedValue: prefs.phraseSuggestions, "vime.phraseSuggestions", store: prefs.store)
         _undoConversion = AppStorage(wrappedValue: prefs.undoConversionOnBackspace, "vime.undoConversionOnBackspace", store: prefs.store)
+        _fullWidthSpace = AppStorage(wrappedValue: prefs.fullWidthSpace, "vime.fullWidthSpace", store: prefs.store)
         _autoCapitalize = AppStorage(wrappedValue: prefs.autoCapitalize, "vime.autoCapitalize", store: prefs.store)
         _doubleSpacePeriod = AppStorage(wrappedValue: prefs.doubleSpacePeriod, "vime.doubleSpacePeriod", store: prefs.store)
         _englishCompletion = AppStorage(wrappedValue: prefs.englishCompletion, "vime.englishCompletion", store: prefs.store)
@@ -409,6 +411,14 @@ struct KeyboardInputSettingsView: View {
                 } footer: {
                     Text(retryRequested ? "已发送重试请求，下次打开键盘时生效。" : "内存紧张后智能排序可能暂停。重试后，后续输入将重新尝试使用本地模型。")
                 }
+            }
+            Section {
+                Picker("日语模式的空格", selection: $fullWidthSpace) {
+                    Text("半角").tag(false)
+                    Text("全角").tag(true)
+                }.accessibilityIdentifier("vime.settings.fullWidthSpace")
+            } footer: {
+                Text("没有正在输入的读音时，空格按这里的宽度输入；先按 Shift 再按空格输入另一种宽度")
             }
             Section {
                 Toggle("自动大写", isOn: $autoCapitalize)

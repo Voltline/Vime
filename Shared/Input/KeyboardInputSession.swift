@@ -85,6 +85,8 @@ protocol KeyboardInputSession: AnyObject {
     func type(_ text: String) -> [KeyboardEdit]
     func backspace() -> [KeyboardEdit]
     func space() -> [KeyboardEdit]
+    /// Shift picks the other space width in Japanese mode.
+    func space(alternateWidth: Bool) -> [KeyboardEdit]
     func enter() -> [KeyboardEdit]
     func confirm() -> [KeyboardEdit]
     func confirmAll() -> [KeyboardEdit]
@@ -101,6 +103,8 @@ protocol KeyboardInputSession: AnyObject {
     func updateIntelligence(ranking: CandidateRankingMode, suggestionsEnabled: Bool)
     /// Backspace right after a conversion returns it to its reading.
     func setUndoesCommitOnBackspace(_ enabled: Bool)
+    /// Japanese mode inserts a full-width space outside a composition.
+    func setFullWidthSpace(_ enabled: Bool)
     /// The conversion just committed, which the toolbar offers to reconvert.
     var reconvertibleCommit: (text: String, reading: String)? { get }
     /// Deletes that conversion and restores its reading.
@@ -123,6 +127,8 @@ protocol KeyboardInputSession: AnyObject {
 extension KeyboardInputSession {
     func retryLanguageModel(requestID: String) {}
     func setUndoesCommitOnBackspace(_ enabled: Bool) {}
+    func space(alternateWidth: Bool) -> [KeyboardEdit] { space() }
+    func setFullWidthSpace(_ enabled: Bool) {}
     var reconvertibleCommit: (text: String, reading: String)? { nil }
     func reconvertCommit() -> [KeyboardEdit] { [] }
     func forgettableCandidate(_ token: CandidateSelectionToken) -> String? { nil }
