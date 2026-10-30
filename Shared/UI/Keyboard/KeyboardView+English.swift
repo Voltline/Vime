@@ -54,25 +54,45 @@ extension KeyboardView {
         refresh()
     }
 
-    /// The word before the caret, for Latin shortcuts.
+    /// The word before the caret, for completions and Latin shortcuts.
     static func trailingWord(in text: String) -> String {
         String(text.reversed().prefix { $0.isLetter || $0.isNumber || $0 == "'" }.reversed())
     }
 
-    /// Suggestions for the English word before the caret. Choosing one
-    /// replaces the word and adds a space.
+    /// Suggestions for the English word before the caret: the user's iOS text
+    /// replacements first, then spelling completions. Choosing one replaces
+    /// the word and adds a space.
     func englishWordItems() -> [KeyboardQuickCandidate] {
         guard session.inputTraits.isEnglish, page == .letters, panel == .keyboard, !session.isComposing,
-              let preferences = appliedPreferences, preferences.textReplacements,
+              let preferences = appliedPreferences, preferences.textReplacements || preferences.englishCompletion,
               onReplaceText != nil, let anchor = learningContextProvider?(), !anchor.hasSelection,
               let before = anchor.before else { return [] }
         let word = Self.trailingWord(in: before)
         guard !word.isEmpty else { return [] }
-        let titles = systemTextReplacements.filter { $0.shortcut.caseInsensitiveCompare(word) == .orderedSame }.map(\.phrase)
+        var titles: [String] = []
+        if preferences.textReplacements {
+            titles += systemTextReplacements.filter { $0.shortcut.caseInsensitiveCompare(word) == .orderedSame }.map(\.phrase)
+        }
+        if preferences.englishCompletion { titles += completions(for: word) }
         var seen: Set<String> = [word]
         return titles.filter { seen.insert($0).inserted }.prefix(8).map {
             .init(title: $0, action: .replacement(KeyboardTextReplacement(anchor: anchor, markedText: nil,
                 committedSuffix: word, text: $0 + " ")))
         }
+    }
+
+    /// Up to three spelling completions in the word's own case.
+    func completions(for word: String) -> [String] {
+        guard word.count >= 2, word.allSatisfy({ $0.isLetter || $0 == "'" }), word.allSatisfy(\.isASCII) else { return [] }
+        if let cached = completionCache, cached.word == word { return cached.values }
+        let found = UITextChecker().completions(forPartialWordRange: NSRange(location: 0, length: word.utf16.count),
+            in: word, language: "en_US") ?? []
+        let values = found.prefix(3).map { value -> String in
+            if word.allSatisfy({ !$0.isLetter || $0.isUppercase }) { return value.uppercased() }
+            if word.first?.isUppercase == true { return value.prefix(1).uppercased() + value.dropFirst() }
+            return value
+        }
+        completionCache = (word, values)
+        return values
     }
 }

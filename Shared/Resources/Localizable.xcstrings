@@ -10622,30 +10622,30 @@
         }
       }
     },
-    "自动大写按输入框的要求在句首或词首切换为大写\n连按两下空格会在单词后输入句号和空格": {
+    "自动大写按输入框的要求在句首或词首切换为大写\n连按两下空格会在单词后输入句号和空格\n单词补全在候选栏提供拼写补全，点按即替换当前单词": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Auto-Capitalization turns on Shift at the start of a sentence or word, as the text field asks\nDouble-tapping Space after a word types a period and a space"
+            "value": "Auto-Capitalization turns on Shift at the start of a sentence or word, as the text field asks\nDouble-tapping Space after a word types a period and a space\nWord Completion offers spellings in the candidate bar; tap one to replace the current word"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "自動大文字は入力欄の設定に従い、文頭や語頭で大文字に切り替えます\nスペースを2回押すと、単語の後にピリオドとスペースを入力します"
+            "value": "自動大文字は入力欄の設定に従い、文頭や語頭で大文字に切り替えます\nスペースを2回押すと、単語の後にピリオドとスペースを入力します\n単語の補完は候補バーに綴りを表示し、タップすると入力中の単語を置き換えます"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "자동 대문자는 입력란 설정에 따라 문장이나 단어 첫머리에서 대문자로 바꿉니다\n단어 뒤에서 스페이스를 두 번 누르면 마침표와 공백을 입력합니다"
+            "value": "자동 대문자는 입력란 설정에 따라 문장이나 단어 첫머리에서 대문자로 바꿉니다\n단어 뒤에서 스페이스를 두 번 누르면 마침표와 공백을 입력합니다\n단어 완성은 후보 막대에 철자를 제안하며, 누르면 입력 중인 단어를 바꿉니다"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "自動大寫按輸入框的要求在句首或詞首切換為大寫\n連按兩下空格會在單字後輸入句號和空格"
+            "value": "自動大寫按輸入框的要求在句首或詞首切換為大寫\n連按兩下空格會在單字後輸入句號和空格\n單字補全在候選欄提供拼寫補全，點按即取代目前單字"
           }
         }
       }
@@ -10899,6 +10899,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "英文"
+          }
+        }
+      }
+    },
+    "英文单词补全": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "English Word Completion"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "英単語の補完"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "영어 단어 완성"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "英文單字補全"
           }
         }
       }

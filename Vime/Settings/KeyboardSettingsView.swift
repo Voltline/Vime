@@ -375,6 +375,7 @@ struct KeyboardInputSettingsView: View {
     @AppStorage private var undoConversion: Bool
     @AppStorage private var autoCapitalize: Bool
     @AppStorage private var doubleSpacePeriod: Bool
+    @AppStorage private var englishCompletion: Bool
     init() {
         let prefs = KeyboardPreferences()
         _ranking = AppStorage(wrappedValue: prefs.candidateRanking, "vime.candidateRanking", store: prefs.store)
@@ -382,6 +383,7 @@ struct KeyboardInputSettingsView: View {
         _undoConversion = AppStorage(wrappedValue: prefs.undoConversionOnBackspace, "vime.undoConversionOnBackspace", store: prefs.store)
         _autoCapitalize = AppStorage(wrappedValue: prefs.autoCapitalize, "vime.autoCapitalize", store: prefs.store)
         _doubleSpacePeriod = AppStorage(wrappedValue: prefs.doubleSpacePeriod, "vime.doubleSpacePeriod", store: prefs.store)
+        _englishCompletion = AppStorage(wrappedValue: prefs.englishCompletion, "vime.englishCompletion", store: prefs.store)
     }
     var body: some View {
         Form {
@@ -413,8 +415,10 @@ struct KeyboardInputSettingsView: View {
                     .accessibilityIdentifier("vime.settings.autoCapitalize")
                 Toggle("连按两下空格输入句号", isOn: $doubleSpacePeriod)
                     .accessibilityIdentifier("vime.settings.doubleSpacePeriod")
+                Toggle("英文单词补全", isOn: $englishCompletion)
+                    .accessibilityIdentifier("vime.settings.englishCompletion")
             } header: { Text("英文输入") } footer: {
-                Text("自动大写按输入框的要求在句首或词首切换为大写\n连按两下空格会在单词后输入句号和空格")
+                Text("自动大写按输入框的要求在句首或词首切换为大写\n连按两下空格会在单词后输入句号和空格\n单词补全在候选栏提供拼写补全，点按即替换当前单词")
             }
         }
         .appReadableList()

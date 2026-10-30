@@ -56,6 +56,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         if next.numberSymbols != previous?.numberSymbols { numberSymbolRail?.present(next.numberSymbols) }
         if next.autoCapitalize != previous?.autoCapitalize { updateAutoCapitalization() }
         if next.textReplacements != previous?.textReplacements { applyTextReplacements() }
+        else if next.englishCompletion != previous?.englishCompletion { refresh() }
         if next.previews != previous?.previews {
             for key in letterKeys { key.showsPreview = next.previews }
         }
@@ -100,6 +101,8 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     var lastSpaceTap: TimeInterval = 0
     /// Every iOS text replacement the host lexicon supplied, kana or Latin.
     var systemTextReplacements: [(shortcut: String, phrase: String)] = []
+    /// Refreshes ask several times per key, so the last word's completions are kept.
+    var completionCache: (word: String, values: [String])?
     var autocapitalizationType: UITextAutocapitalizationType = .sentences {
         didSet { if oldValue != autocapitalizationType { updateAutoCapitalization() } }
     }

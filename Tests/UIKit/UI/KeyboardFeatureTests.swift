@@ -945,15 +945,16 @@ final class KeyboardFeatureTests: XCTestCase {
     func testTextReplacementsReplaceLatinWordsAndFeedKanaReadings() throws {
         let (keyboard, _, text, window) = try fixture()
         let preferences = keyboard.preferences
-        let old = preferences.textReplacements
+        let old = (preferences.textReplacements, preferences.englishCompletion)
         defer {
-            preferences.textReplacements = old; keyboard.reloadPreferences(); JapaneseSystemShortcuts.update([])
+            preferences.textReplacements = old.0; preferences.englishCompletion = old.1
+            keyboard.reloadPreferences(); JapaneseSystemShortcuts.update([])
             keyboard.stopInteractions(); window.isHidden = true
         }
         keyboard.leftContextProvider = { text.text }
         keyboard.learningContextProvider = { KeyboardLearningContext(document: "fixture", before: text.text, after: "") }
         func tap(_ id: String) throws { try button(id, in: keyboard).sendActions(for: .touchUpInside) }
-        preferences.textReplacements = true; keyboard.reloadPreferences()
+        preferences.textReplacements = true; preferences.englishCompletion = false; keyboard.reloadPreferences()
         keyboard.setTextReplacements([("omw", "On my way!"), ("おつ", "お疲れさまです")])
         XCTAssertEqual(JapaneseSystemShortcuts.entries.map(\.word), ["お疲れさまです"], "Only kana shortcuts join conversion")
         try tap("vime.key.language")
@@ -970,5 +971,31 @@ final class KeyboardFeatureTests: XCTestCase {
         XCTAssertTrue(JapaneseSystemShortcuts.entries.isEmpty)
         for key in "omw" { try tap("vime.key.\(key)") }
         XCTAssertTrue(keyboard.quickCandidateItems().isEmpty, "The setting turns replacements off")
+    }
+
+    func testEnglishCompletionsKeepTheWordsCaseAndCanBeTurnedOff() throws {
+        let (keyboard, _, text, window) = try fixture()
+        let preferences = keyboard.preferences
+        let old = preferences.englishCompletion
+        defer { preferences.englishCompletion = old; keyboard.reloadPreferences(); keyboard.stopInteractions(); window.isHidden = true }
+        keyboard.leftContextProvider = { text.text }
+        keyboard.learningContextProvider = { KeyboardLearningContext(document: "fixture", before: text.text, after: "") }
+        func tap(_ id: String) throws { try button(id, in: keyboard).sendActions(for: .touchUpInside) }
+        preferences.englishCompletion = true; keyboard.reloadPreferences()
+        try tap("vime.key.language")
+        try tap("vime.key.shift")
+        for key in "hel" { try tap("vime.key.\(key)") }
+        let items = keyboard.quickCandidateItems()
+        XCTAssertFalse(items.isEmpty)
+        XCTAssertTrue(items.allSatisfy { $0.title.hasPrefix("Hel") && $0.title != "Hel" }, "\(items.map(\.title))")
+        keyboard.selectQuickCandidate(items[0])
+        XCTAssertEqual(text.text, items[0].title + " ")
+        XCTAssertTrue(keyboard.quickCandidateItems().isEmpty, "A finished word has nothing to complete")
+        XCTAssertTrue(keyboard.completions(for: "HEL").allSatisfy { $0 == $0.uppercased() })
+        XCTAssertTrue(keyboard.completions(for: "h").isEmpty, "One letter is too little to guess from")
+
+        preferences.englishCompletion = false; keyboard.reloadPreferences()
+        for key in "hel" { try tap("vime.key.\(key)") }
+        XCTAssertTrue(keyboard.quickCandidateItems().isEmpty)
     }
 }
