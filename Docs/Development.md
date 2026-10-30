@@ -54,7 +54,7 @@ bash Scripts/test.sh --extension                       # 真实键盘扩展的 U
 
 结束时按结果包汇总通过、失败和跳过的数量，并列出失败用例；完整输出在构建目录的 `Results/` 下。需要留存证据时改用下文的 `verify_review.sh`。
 
-`--` 之后的参数原样交给 xcodebuild。合并到 dev 或 beta 的 PR 由 [Unit tests](../.github/workflows/unit-tests.yml) 工作流在 GitHub 的 `xcode-27` runner 上跑同样的单元测试：跳过尚未达到的模型预期 `testOrthographyAndSupplementalDictionaryAreSelectable`、四个按真机设定时间预算的用例（三核 runner 达不到，性能改由 `KeyboardBudgetTests` 把关）以及在 runner 上不会返回的 StoreKitTest 购买用例，这些仍在本机运行；失败的用例重试一次；只改文档的 PR 不跑。CI 上 `test.sh` 会实时打印每个用例的结果，单个用例超过 5 分钟按失败处理，失败或超时都会上传 `Results/`，依赖缓存在失败时也会保存。扩展 UI 测试需要在系统设置里启用键盘，只在本机跑。
+`--` 之后的参数原样交给 xcodebuild。合并到 dev 或 beta 的 PR 由 [Unit tests](../.github/workflows/unit-tests.yml) 工作流在 GitHub 的 `xcode-27` runner 上跑同样的单元测试：跳过尚未达到的模型预期 `testOrthographyAndSupplementalDictionaryAreSelectable`、四个按真机设定时间预算的用例（三核 runner 达不到，性能改由 `KeyboardBudgetTests` 把关）以及在 runner 上不会返回的 StoreKitTest 购买用例，这些仍在本机运行；失败的用例重试一次；`unit-tests` 是合入 dev 的必需检查，只改文档的 PR 会跳过测试，跳过算作通过。CI 上 `test.sh` 会实时打印每个用例的结果，单个用例超过 5 分钟按失败处理，失败或超时都会上传 `Results/`，依赖缓存在失败时也会保存。扩展 UI 测试需要在系统设置里启用键盘，只在本机跑。
 
 [KeyboardBudgetTests](../Tests/UIKit/Diagnostics/KeyboardBudgetTests.swift) 随单元测试每次运行，检查热状态下按键到候选的 p50/p95、按键在主线程的耗时、连续 120 次输入并确认后的内存增长，以及 1,024 条词典的导入导出耗时。上限约为本机 Debug 模拟器实测的四倍，只拦截明显变慢或内存持续增长的改动；数值逐项打印为 `VIME_BUDGET` 行，`test.sh` 在汇总后列出，CI 写入任务摘要，便于对比趋势。模拟器数字不能代替真机扩展的内存与性能验收。确有理由放宽上限时，在同一提交里写明新的实测值。
 
