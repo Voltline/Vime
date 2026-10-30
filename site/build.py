@@ -38,8 +38,8 @@ LANGUAGES = {
     "ko": ("ko", "ko", "Privacy.ko.md", "Asia/Seoul", "{date} ({weekday}) {time}"),
 }
 PAGES = {"home": "", "privacy": "privacy/", "changelog": "changelog/"}
-# Weekly TestFlight cut and App Store submission, in Beijing time (weekday, hour).
-SCHEDULE = {"next_cut": (2, 3), "next_submit": (5, 10)}
+# TestFlight cuts and the App Store submission, in Beijing time (weekdays, hour).
+SCHEDULE = {"next_cut": ((2, 3, 4), 3), "next_submit": ((5,), 10)}
 BEIJING = ZoneInfo("Asia/Shanghai")
 # App Store versions shown as "in review": submitted and not yet on sale.
 REVIEW_STATES = {"WAITING_FOR_REVIEW", "READY_FOR_REVIEW", "IN_REVIEW", "PENDING_APPLE_RELEASE",
@@ -625,11 +625,12 @@ class Site:
         self.write("404.html", self.chooser("", status="404"))
 
 
-def upcoming(now, weekday, hour):
-    """The next weekly slot in Beijing time after now."""
+def upcoming(now, weekdays, hour):
+    """The next slot on one of the weekdays in Beijing time after now."""
     local = now.astimezone(BEIJING)
-    slot = local.replace(hour=hour, minute=0, second=0, microsecond=0) + timedelta(days=(weekday - local.weekday()) % 7)
-    return slot if slot > local else slot + timedelta(days=7)
+    today = local.replace(hour=hour, minute=0, second=0, microsecond=0)
+    slots = [today + timedelta(days=(weekday - local.weekday()) % 7) for weekday in weekdays]
+    return min(slot if slot > local else slot + timedelta(days=7) for slot in slots)
 
 
 def main():

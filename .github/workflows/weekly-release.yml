@@ -1,7 +1,7 @@
 name: Weekly App Store release
 
-# Saturday 10:00 Asia/Shanghai. Submits this week's TestFlight build for
-# review, then moves main to beta and tags the version.
+# Saturday 10:00 Asia/Shanghai. Submits this week's accepted TestFlight build
+# for review, then moves main to beta and tags the version.
 on:
   schedule:
     - cron: "0 2 * * 6"
@@ -68,7 +68,8 @@ jobs:
           gh release view "$TAG" --json body --jq .body > notes.md
           python3 tools/.github/scripts/app_store.py notes notes.md --metadata metadata
 
-      - name: Submit for review
+      - name: Check the submission
+        id: check
         if: steps.changes.outputs.count != '0' && steps.changes.outputs.submitted != 'true' && (github.event_name == 'schedule' || inputs.submit)
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
@@ -81,17 +82,29 @@ jobs:
             exit 1
           fi
           # Stops before submitting when another version is still in review,
-          # the localizations differ or no processed build exists.
-          python3 tools/.github/scripts/app_store.py check --version "$VERSION" --strict
+          # the localizations differ, or the newest processed build is not the
+          # one entered after 验收构建 or was built before beta last changed.
+          python3 tools/.github/scripts/app_store.py check --version "$VERSION" --strict \
+            --notes notes.md --head-time "$(git log -1 --format=%cI HEAD)"
+
+      - name: Submit for review
+        if: steps.changes.outputs.count != '0' && steps.changes.outputs.submitted != 'true' && (github.event_name == 'schedule' || inputs.submit)
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+          VERSION: ${{ steps.changes.outputs.version }}
+          BUILD: ${{ steps.check.outputs.build }}
+        run: |
+          [ -n "$BUILD" ] || { echo "::error::The check did not report an accepted build."; exit 1; }
           gem install fastlane --no-document --quiet
           python3 -c 'import json, os; print(json.dumps({"key_id": os.environ["ASC_KEY_ID"], "issuer_id": os.environ["ASC_ISSUER_ID"], "key": os.environ["ASC_PRIVATE_KEY"], "in_house": False}))' > "$RUNNER_TEMP/asc_key.json"
-          # Without a build number, deliver picks the newest processed build of
-          # this version: Wednesday's, or a later one from a direct beta merge.
           fastlane deliver \
             --api_key_path "$RUNNER_TEMP/asc_key.json" \
             --app_identifier "$APP_IDENTIFIER" \
             --platform ios \
             --app_version "$VERSION" \
+            --build_number "$BUILD" \
             --metadata_path metadata \
             --skip_binary_upload true \
             --skip_screenshots true \
@@ -113,8 +126,8 @@ jobs:
           git tag "$TAG"
           git push origin "$TAG"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            # The PR list was generated on Wednesday; regenerate it so direct
-            # beta merges since then are listed too.
+            # The PR list was generated at the last cut; regenerate it so
+            # direct beta merges since then are listed too.
             changes=$(gh api "repos/$GITHUB_REPOSITORY/releases/generate-notes" \
               -f tag_name="$TAG" ${previous:+-f previous_tag_name="$previous"} --jq .body)
             localized=$(gh release view "$TAG" --json body --jq .body | sed '/^---$/,$d')

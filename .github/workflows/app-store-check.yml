@@ -30,4 +30,5 @@ jobs:
         run: |
           version=$(cd beta && python3 Scripts/release_version.py current)
           gh release view "v$version" --json body --jq .body > notes.md || : > notes.md
-          python3 .github/scripts/app_store.py check --version "$version" --notes notes.md
+          python3 .github/scripts/app_store.py check --version "$version" --notes notes.md \
+            --head-time "$(git -C beta log -1 --format=%cI)"

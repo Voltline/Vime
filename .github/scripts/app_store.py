@@ -4,11 +4,13 @@
 `notes` reads the localized "What's New" sections from a draft release body
 and can write them as fastlane metadata. `check` asks App Store Connect
 whether the version can be submitted: the app's localizations, the builds of
-the version and any other version still in review. It changes nothing.
+the version, the build accepted in the draft and any other version still in
+review. It changes nothing.
 """
 
 import argparse
 import base64
+from datetime import datetime
 import json
 import os
 import re
@@ -34,6 +36,13 @@ def release_notes(path):
     body = re.sub(r"<!--.*?-->", "", body, flags=re.S)
     sections = re.findall(r"^## (\S+)[ \t]*\n(.*?)(?=^## |\Z)", body, flags=re.M | re.S)
     return {locale: text.strip() for locale, text in sections if text.strip()}
+
+
+def accepted_build(path):
+    """The build number after 验收构建 in a draft release body, if one is entered."""
+    body = Path(path).read_text() if Path(path).exists() else ""
+    match = re.search(r"^验收构建[:：][ \t]*(\d+)", body, flags=re.M)
+    return match.group(1) if match else None
 
 
 def b64url(data):
@@ -131,7 +140,9 @@ def check(arguments):
         attributes = build["attributes"]
         lines.append(f"Build {arguments.version} ({attributes['version']}): {attributes['processingState']}, "
                      f"uploaded {attributes['uploadedDate']}" + (", expired" if attributes.get("expired") else ""))
-    if not any(build["attributes"]["processingState"] == "VALID" and not build["attributes"].get("expired") for build in builds):
+    usable = [build for build in builds
+              if build["attributes"]["processingState"] == "VALID" and not build["attributes"].get("expired")]
+    if not usable:
         errors.append(f"No processed build of {arguments.version} is available.")
 
     if arguments.notes:
@@ -140,6 +151,24 @@ def check(arguments):
         lines.append(f"Release notes filled: {', '.join(locale for locale in LOCALES if locale in notes) or 'none'}")
         if missing:
             warnings.append(f"Release notes are still empty for {', '.join(missing)}.")
+        # Only the newest build, built from the head of beta, is submitted, and
+        # only once it has been tested and entered after 验收构建.
+        accepted = accepted_build(arguments.notes)
+        newest = usable[0]["attributes"] if usable else None
+        lines.append(f"Accepted build: {accepted or 'none'}")
+        if newest and not accepted:
+            warnings.append(f"No build is accepted yet; test build {newest['version']} on a device and "
+                            f"enter it after 验收构建 in the draft release.")
+        elif newest and accepted != newest["version"]:
+            warnings.append(f"Build {accepted} is accepted, but the newest processed build is {newest['version']}; "
+                            f"test it and update 验收构建 in the draft release.")
+        elif newest and arguments.head_time and \
+                datetime.fromisoformat(newest["uploadedDate"]) < datetime.fromisoformat(arguments.head_time):
+            warnings.append(f"beta changed after build {newest['version']} was uploaded; wait for Xcode Cloud "
+                            f"to upload the new build, then test it and update 验收构建.")
+        elif newest and os.environ.get("GITHUB_OUTPUT"):
+            with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+                output.write(f"build={accepted}\n")
 
     blocking = errors + (warnings if arguments.strict else [])
     report = lines + [f"Warning: {warning}" for warning in warnings] + [f"Error: {error}" for error in errors]
@@ -177,6 +206,7 @@ def main():
     check_parser.add_argument("--version", required=True)
     check_parser.add_argument("--bundle-id", default="com.Voltline.Vime")
     check_parser.add_argument("--notes", help="draft release body to report on")
+    check_parser.add_argument("--head-time", help="commit time of the head of beta, in ISO 8601")
     check_parser.add_argument("--strict", action="store_true", help="fail on warnings too")
     arguments = parser.parse_args()
     {"notes": notes, "check": check}[arguments.command](arguments)
