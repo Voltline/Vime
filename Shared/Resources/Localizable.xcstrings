@@ -7307,30 +7307,30 @@
         }
       }
     },
-    "无法读取词典，请使用 Vime 导出的 JSON 格式。": {
+    "无法读取词典。支持 Vime JSON、Google 日本語入力 / Microsoft IME / ATOK 导出的文本，以及 macOS 用户词典 plist。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The dictionary can't be read. Use a JSON file exported by Vime."
+            "value": "The dictionary can't be read. Use Vime JSON, text exported by Google Japanese Input, Microsoft IME or ATOK, or a macOS user dictionary plist."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "辞書を読み込めません。Vime で書き出した JSON 形式を使ってください。"
+            "value": "辞書を読み込めません。Vime JSON、Google 日本語入力 / Microsoft IME / ATOK で書き出したテキスト、macOS のユーザ辞書 plist に対応しています。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "사전을 읽을 수 없습니다. Vime에서 내보낸 JSON 파일을 사용하세요."
+            "value": "사전을 읽을 수 없습니다. Vime JSON, Google 일본어 입력 / Microsoft IME / ATOK에서 내보낸 텍스트, macOS 사용자 사전 plist를 사용할 수 있습니다."
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "無法讀取辭典，請使用 Vime 匯出的 JSON 格式。"
+            "value": "無法讀取辭典。支援 Vime JSON、Google 日本語入力 / Microsoft IME / ATOK 匯出的文字，以及 macOS 使用者辭典 plist。"
           }
         }
       }
@@ -11663,30 +11663,30 @@
         }
       }
     },
-    "词典只保存在本机。导入会与已有词条合并。": {
+    "词典只保存在本机。导入会与已有词条合并，可读取 Vime JSON、Google 日本語入力 / Microsoft IME / ATOK 导出的文本和 macOS 用户词典。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The dictionary stays on this device. Imports merge with existing entries."
+            "value": "The dictionary stays on this device. Imports merge with existing entries and accept Vime JSON, text exported by Google Japanese Input, Microsoft IME or ATOK, and macOS user dictionaries."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "辞書は端末内にのみ保存されます。読み込むと既存の項目と統合されます。"
+            "value": "辞書は端末内にのみ保存されます。読み込むと既存の項目と統合されます。Vime JSON、Google 日本語入力 / Microsoft IME / ATOK で書き出したテキスト、macOS のユーザ辞書を読み込めます。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "사전은 이 기기에 저장됩니다. 가져온 항목은 기존 항목과 병합됩니다."
+            "value": "사전은 이 기기에 저장됩니다. 가져온 항목은 기존 항목과 병합되며, Vime JSON, Google 일본어 입력 / Microsoft IME / ATOK에서 내보낸 텍스트, macOS 사용자 사전을 읽을 수 있습니다."
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "辭典只儲存在本機。匯入會與已有詞條合併。"
+            "value": "辭典只儲存在本機。匯入會與已有詞條合併，可讀取 Vime JSON、Google 日本語入力 / Microsoft IME / ATOK 匯出的文字和 macOS 使用者辭典。"
           }
         }
       }
@@ -11747,30 +11747,30 @@
         }
       }
     },
-    "词典最多支持 1,024 条，导入文件不能超过 1 MB。": {
+    "词典最多支持 1,024 条，导入文件不能超过 4 MB。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The dictionary holds up to 1,024 entries, and imports can't exceed 1 MB."
+            "value": "The dictionary holds up to 1,024 entries, and imports can't exceed 4 MB."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "辞書は 1,024 件まで、読み込むファイルは 1 MB までです。"
+            "value": "辞書は 1,024 件まで、読み込むファイルは 4 MB までです。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "사전에는 최대 1,024개 항목을 저장할 수 있으며, 가져오는 파일은 1MB를 넘을 수 없습니다."
+            "value": "사전에는 최대 1,024개 항목을 저장할 수 있으며, 가져오는 파일은 4MB를 넘을 수 없습니다."
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "辭典最多支援 1,024 條，匯入檔案不能超過 1 MB。"
+            "value": "辭典最多支援 1,024 條，匯入檔案不能超過 4 MB。"
           }
         }
       }
@@ -11831,30 +11831,30 @@
         }
       }
     },
-    "词语可参与分段转换和预测；短语仅在完整读音匹配时出现。\n\n读音支持假名或完整罗马字。开启键盘完全访问后，词典会共享到其他 App；重新打开键盘或继续输入即可读取更新。\n\n导入与导出使用 JSON 文件，最多保留 1,024 条。": {
+    "词语可参与分段转换和预测；短语仅在完整读音匹配时出现。\n\n读音支持假名或完整罗马字。开启键盘完全访问后，词典会共享到其他 App；重新打开键盘或继续输入即可读取更新。\n\n导出为 Vime JSON 可完整还原；导出的文本可导入 Google 日本語入力。最多保留 1,024 条。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Words take part in segmented conversion and prediction; phrases appear only when the full reading matches.\n\nReadings accept kana or full romaji. With Full Access on, the dictionary is shared with other apps; reopen the keyboard or keep typing to load updates.\n\nImport and export use JSON files, up to 1,024 entries."
+            "value": "Words take part in segmented conversion and prediction; phrases appear only when the full reading matches.\n\nReadings accept kana or full romaji. With Full Access on, the dictionary is shared with other apps; reopen the keyboard or keep typing to load updates.\n\nExport as Vime JSON to restore everything; exported text can be imported into Google Japanese Input. Up to 1,024 entries."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "単語は文節変換や予測に使われます。定型文は読みが完全に一致したときだけ表示されます。\n\n読みはかなか完全なローマ字で入力できます。キーボードのフルアクセスを許可すると、辞書がほかの App でも使えます。キーボードを開き直すか入力を続けると更新されます。\n\n読み込みと書き出しには JSON ファイルを使い、最大 1,024 件まで保存できます。"
+            "value": "単語は文節変換や予測に使われます。定型文は読みが完全に一致したときだけ表示されます。\n\n読みはかなか完全なローマ字で入力できます。キーボードのフルアクセスを許可すると、辞書がほかの App でも使えます。キーボードを開き直すか入力を続けると更新されます。\n\nVime JSON で書き出すとすべて復元できます。テキストで書き出すと Google 日本語入力に読み込めます。最大 1,024 件まで保存できます。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "단어는 분절 변환과 예측에 사용되며, 문구는 읽기 전체가 일치할 때만 표시됩니다.\n\n읽기는 가나나 완전한 로마자로 입력할 수 있습니다. 전체 접근 허용이 켜져 있으면 사전이 다른 앱과 공유되며, 키보드를 다시 열거나 계속 입력하면 업데이트가 반영됩니다.\n\n가져오기와 내보내기는 JSON 파일을 사용하며, 최대 1,024개 항목입니다."
+            "value": "단어는 분절 변환과 예측에 사용되며, 문구는 읽기 전체가 일치할 때만 표시됩니다.\n\n읽기는 가나나 완전한 로마자로 입력할 수 있습니다. 전체 접근 허용이 켜져 있으면 사전이 다른 앱과 공유되며, 키보드를 다시 열거나 계속 입력하면 업데이트가 반영됩니다.\n\nVime JSON으로 내보내면 모두 복원할 수 있고, 텍스트로 내보내면 Google 일본어 입력에서 가져올 수 있습니다. 최대 1,024개 항목입니다."
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "詞語可參與分段轉換和預測；短語僅在完整讀音相符時出現。\n\n讀音支援假名或完整羅馬字。允許鍵盤完整取用後，辭典會共用到其他 App；重新打開鍵盤或繼續輸入即可讀取更新。\n\n匯入與匯出使用 JSON 檔案，最多保留 1,024 條。"
+            "value": "詞語可參與分段轉換和預測；短語僅在完整讀音相符時出現。\n\n讀音支援假名或完整羅馬字。允許鍵盤完整取用後，辭典會共用到其他 App；重新打開鍵盤或繼續輸入即可讀取更新。\n\n匯出為 Vime JSON 可完整還原；匯出的文字可匯入 Google 日本語入力。最多保留 1,024 條。"
           }
         }
       }
@@ -13875,6 +13875,146 @@
           "stringUnit": {
             "state": "translated",
             "value": "飲食"
+          }
+        }
+      }
+    },
+    "导出为 Vime JSON": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export as Vime JSON"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vime JSON で書き出す"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vime JSON으로 내보내기"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "匯出為 Vime JSON"
+          }
+        }
+      }
+    },
+    "导出为 Google 日本語入力 文本": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export as Google Japanese Input Text"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Google 日本語入力 用テキストで書き出す"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Google 일본어 입력 텍스트로 내보내기"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "匯出為 Google 日本語入力 文字"
+          }
+        }
+      }
+    },
+    "导入完成": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import Complete"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "読み込み完了"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "가져오기 완료"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "匯入完成"
+          }
+        }
+      }
+    },
+    "已添加 %lld 条。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Added %lld."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld 件を追加しました。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld개를 추가했습니다."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已新增 %lld 條。"
+          }
+        }
+      }
+    },
+    "已添加 %lld 条，跳过 %lld 条无法使用的词条。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Added %lld. Skipped %lld that Vime can't use."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld 件を追加し、使用できない %lld 件をスキップしました。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld개를 추가하고, 사용할 수 없는 %lld개는 건너뛰었습니다."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已新增 %lld 條，略過 %lld 條無法使用的詞條。"
           }
         }
       }

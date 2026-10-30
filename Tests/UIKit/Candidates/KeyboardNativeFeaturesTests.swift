@@ -90,6 +90,57 @@ final class KeyboardNativeFeaturesTests: XCTestCase {
         XCTAssertEqual(try store.entries(), entries, "Reimport must preserve every entry and deduplicate")
     }
 
+    func testDictionaryImportsOtherInputMethodsAndExportsMozcText() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let suite = UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { try? FileManager.default.removeItem(at: directory); defaults.removePersistentDomain(forName: suite) }
+        let store = JapaneseUserDictionaryStore(directory: directory, defaults: defaults)
+        func utf16(_ text: String) -> Data { Data([0xFF, 0xFE]) + text.data(using: .utf16LittleEndian)! }
+
+        // Google 日本語入力 / Mozc: shortcuts become phrases; suppression and non-kana readings are skipped.
+        let mozc = "とうきょうえき\t東京駅\t固有名詞\t\nあいさつ\tいつもお世話になっております。\t短縮よみ\t\nけす\t消す\t抑制単語\t\nomw\ton my way\t名詞\t\n"
+        var result = try store.importFile(Data(mozc.utf8))
+        XCTAssertEqual(result.added, 2); XCTAssertEqual(result.skipped, 2)
+        XCTAssertEqual(try store.entries().map { [$0.reading, $0.surface, $0.kind.rawValue] },
+            [["トウキョウエキ", "東京駅", "word"], ["アイサツ", "いつもお世話になっております。", "shortcut"]])
+        result = try store.importFile(Data(mozc.utf8))
+        XCTAssertEqual(result.added, 0, "Reimporting merges without duplicates")
+
+        // Microsoft IME and ATOK: UTF-16 with a byte order mark and "!" headers.
+        result = try store.importFile(utf16("!Microsoft IME Dictionary Tool\r\n!Version:\r\n!Format:WORDLIST\r\n\r\nびーむ\tVime\t名詞\r\n"))
+        XCTAssertEqual(result.added, 1)
+        result = try store.importFile(utf16("!!ATOK_TANGO_TEXT_HEADER_1\r\n!!対象辞書;\r\nかいはつはん\t開発班\t名詞*\r\nおつ\tお疲れさまです\t短縮読み\r\n"))
+        XCTAssertEqual(result.added, 2)
+        XCTAssertEqual(try store.entries().first { $0.surface == "お疲れさまです" }?.kind, .shortcut)
+        // Older exports are Shift_JIS.
+        result = try store.importFile(try XCTUnwrap("やまだ\t山田\t人名\r\n".data(using: .shiftJIS)))
+        XCTAssertEqual(result.added, 1)
+
+        // The plist macOS exports from its user dictionary.
+        let plist = try PropertyListSerialization.data(fromPropertyList: [
+            ["shortcut": "すずき", "phrase": "鈴木"], ["shortcut": "omw", "phrase": "On my way!"],
+        ], format: .xml, options: 0)
+        result = try store.importFile(plist)
+        XCTAssertEqual(result.added, 1); XCTAssertEqual(result.skipped, 1)
+
+        let before = try store.entries()
+        XCTAssertThrowsError(try store.importFile(Data("not a dictionary".utf8)))
+        XCTAssertEqual(try store.entries(), before, "An unreadable file leaves the dictionary as it was")
+
+        // Vime JSON still goes through the same entry point.
+        let json = try store.exportData(); try store.save([])
+        XCTAssertEqual(try store.importFile(json).added, before.count)
+
+        let text = JapaneseUserDictionaryInterchange.mozcText(before)
+        XCTAssertTrue(String(decoding: text, as: UTF8.self).hasPrefix("とうきょうえき\t東京駅\t固有名詞\t\n"))
+        XCTAssertTrue(String(decoding: text, as: UTF8.self).contains("びーむ\tVime\t"), "ー stays a long vowel mark, not い")
+        let reparsed = try JapaneseUserDictionaryInterchange.parse(text)
+        XCTAssertEqual(reparsed.skipped, 0)
+        XCTAssertEqual(reparsed.entries.map { [$0.reading, $0.surface, $0.kind.rawValue] },
+            before.map { [$0.reading, $0.surface, $0.kind.rawValue] }, "Mozc text keeps every reading, word and kind")
+    }
+
     func testNativeSuggestionsWorkWithoutNeuralModelAndTerminalStops() throws {
         let session = KeyboardSession(); session.phraseSuggestions = true; session.candidateRanking = .engine
         _ = session.type("desu")
