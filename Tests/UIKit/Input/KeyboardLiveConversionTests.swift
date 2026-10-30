@@ -44,6 +44,17 @@ final class KeyboardLiveConversionTests: XCTestCase {
         XCTAssertEqual(session.enter().first, .insert(chosen))
     }
 
+    func testSpaceIsTitledNextWhileAConversionIsShown() {
+        let off = session(live: false)
+        for c in "toukyou" { _ = off.type(String(c)) }
+        XCTAssertEqual(off.inputTraits.compositionSpaceTitle, String(localized: "変換"))
+        let session = session()
+        for c in "toukyou" { _ = session.type(String(c)) }
+        XCTAssertEqual(session.inputTraits.compositionSpaceTitle, String(localized: "次候補"))
+        _ = session.space()
+        XCTAssertEqual(session.inputTraits.compositionSpaceTitle, String(localized: "次候補"))
+    }
+
     func testTypingAfterASelectionCommitsItFirst() {
         let session = session()
         for c in "toukyou" { _ = session.type(String(c)) }

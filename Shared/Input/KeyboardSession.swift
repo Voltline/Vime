@@ -231,7 +231,8 @@ final class KeyboardSession: KeyboardInputSession {
             supportsPrimaryVariant: true, primaryVariantAccessibilityLabel: String(localized: "切换平假名和片假名"),
             prolongedInput: mode == .english ? nil : "ー", compositionInputSymbols: symbols, convertsNumbers: mode != .english,
             comma: mode == .english ? "," : "、", period: "。",
-            compositionSpaceTitle: selectedIndex == nil ? String(localized: "変換") : String(localized: "次候補"), compositionReturnTitle: String(localized: "確定"))
+            // A live conversion is already on screen, so Space moves to the next one.
+            compositionSpaceTitle: selectedIndex == nil && liveCandidate == nil ? String(localized: "変換") : String(localized: "次候補"), compositionReturnTitle: String(localized: "確定"))
     }
 
     private func presentation(_ original: CandidatePresentation, index: Int, kind: CandidateSelectionToken.Kind) -> CandidatePresentation {

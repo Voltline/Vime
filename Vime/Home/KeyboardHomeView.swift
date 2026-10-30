@@ -11,6 +11,8 @@ struct KeyboardHomeView: View {
     @State private var practiceIndex = 0
     /// Onboarding covers this page while the keyboard first reports in.
     @AppStorage("vime.onboarding.completed") private var onboardingCompleted = false
+    /// The key reference describes Space and Return as live conversion uses them.
+    @AppStorage private var liveConversion: Bool
     /// Fixed state for rendering tests; the live page rereads the status record.
     private let fixed: Bool
 
@@ -18,6 +20,8 @@ struct KeyboardHomeView: View {
         let fixedProgress = progress ?? keyboardReady.map { .init(added: $0, fullAccess: $0) }
         _progress = State(initialValue: fixedProgress ?? .load())
         fixed = fixedProgress != nil
+        let preferences = KeyboardPreferences()
+        _liveConversion = AppStorage(wrappedValue: preferences.liveConversion, "vime.liveConversion", store: preferences.store)
     }
 
     var body: some View {
@@ -28,16 +32,20 @@ struct KeyboardHomeView: View {
             VStack(alignment: .leading, spacing: 10) {
                 AppSectionTitle("键位速查")
                 AppSettingsActionGroup {
-                    operation("空格", "开始转换，再按切换候选", tint: .blue)
+                    operation("空格", liveConversion ? "显示下一个候选" : "开始转换，再按切换候选", tint: .blue)
                     Divider().padding(.leading, 16)
-                    operation("回车", "确认输入，再按换行", tint: .teal)
+                    operation("回车", liveConversion ? "确认显示的文字，再按换行" : "确认输入，再按换行", tint: .teal)
                     Divider().padding(.leading, 16)
                     operation("あ / ア", "切换平假名与片假名", tint: .indigo)
                     Divider().padding(.leading, 16)
                     operation("日 / 英", "切换日语与英文", tint: .orange)
                 }
-                Text("字母上滑输入符号，长按空格拖动移动光标。")
-                    .font(.footnote).foregroundStyle(.secondary).padding(.horizontal, 4)
+                Group {
+                    Text("字母上滑输入符号，长按空格拖动移动光标。")
+                    if liveConversion { Text("实时转换已打开，输入时直接显示转换结果。") }
+                    else { Text("在「设置 → 转换与联想」中打开实时转换，输入时就会直接显示转换结果。") }
+                }
+                .font(.footnote).foregroundStyle(.secondary).padding(.horizontal, 4)
             }
         }
         .navigationTitle("试打")

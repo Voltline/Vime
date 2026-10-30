@@ -4776,6 +4776,118 @@
         }
       }
     },
+    "显示下一个候选": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show the next candidate"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "次の候補を表示"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "다음 후보 표시"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "顯示下一個候選"
+          }
+        }
+      }
+    },
+    "确认显示的文字，再按换行": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirm the text shown; press again for a new line"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "表示中の文字を確定、もう一度押すと改行"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "표시된 글자 확정, 다시 누르면 줄바꿈"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "確認顯示的文字，再按換行"
+          }
+        }
+      }
+    },
+    "实时转换已打开，输入时直接显示转换结果。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Live Conversion is on: text converts as you type."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ライブ変換はオンです。入力中に変換結果が表示されます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "라이브 변환이 켜져 있습니다. 입력하는 동안 변환 결과가 표시됩니다."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "即時轉換已開啟，輸入時直接顯示轉換結果。"
+          }
+        }
+      }
+    },
+    "在「设置 → 转换与联想」中打开实时转换，输入时就会直接显示转换结果。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turn on Live Conversion in Settings → Conversion & Suggestions to see text convert as you type."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「設定 → 変換と予測」でライブ変換をオンにすると、入力中に変換結果が表示されます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "설정 → 변환 및 제안에서 라이브 변환을 켜면 입력하는 동안 변환 결과가 표시됩니다."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在「設定 → 轉換與聯想」中開啟即時轉換，輸入時就會直接顯示轉換結果。"
+          }
+        }
+      }
+    },
     "害羞": {
       "extractionState": "manual",
       "localizations": {
