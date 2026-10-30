@@ -5,6 +5,10 @@ extension KeyboardView {
     func layoutCandidateStrip() {
         let height = candidateScroll.bounds.height
         var x: CGFloat = 0
+        if let chip = reconvertChip, !chip.isHidden {
+            chip.frame = CGRect(x: 0, y: 0, width: ceil(chip.intrinsicContentSize.width), height: height)
+            x = chip.frame.maxX + 2
+        }
         for button in stripButtons {
             button.frame = CGRect(x: x, y: 0, width: button.presentationWidth, height: height)
             button.layoutIfNeeded()
@@ -32,6 +36,33 @@ extension KeyboardView {
         guard let token = (sender as? KeyboardCandidateButton)?.takeSelectionToken() else { return }
         playFeedback()
         apply(session.chooseCandidate(token))
+    }
+
+    func presentReconvertChip(_ commit: (text: String, reading: String)?) {
+        guard let commit else { reconvertChip?.isHidden = true; return }
+        let chip = reconvertChip ?? {
+            let chip = UIButton(type: .custom)
+            chip.accessibilityIdentifier = "vime.reconvertCommit"
+            chip.addTarget(self, action: #selector(reconvertCommit), for: .touchUpInside)
+            candidateRow.addSubview(chip)
+            reconvertChip = chip
+            return chip
+        }()
+        var configuration = UIButton.Configuration.plain()
+        configuration.image = UIImage(systemName: "arrow.uturn.backward")
+        configuration.preferredSymbolConfigurationForImage = .init(pointSize: 13, weight: .semibold)
+        configuration.imagePadding = 4
+        configuration.contentInsets = .init(top: 0, leading: 10, bottom: 0, trailing: 10)
+        configuration.attributedTitle = AttributedString(commit.reading, attributes: .init([.font: UIFont.systemFont(ofSize: 17)]))
+        configuration.baseForegroundColor = KeyboardPalette.accent
+        chip.configuration = configuration
+        chip.accessibilityLabel = String(localized: "重新转换「\(commit.text)」")
+        chip.isHidden = false
+    }
+
+    @objc func reconvertCommit() {
+        playFeedback()
+        apply(session.reconvertCommit())
     }
 
     func rebuildCandidatePanel() {

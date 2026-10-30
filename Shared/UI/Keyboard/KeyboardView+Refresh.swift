@@ -121,7 +121,11 @@ extension KeyboardView {
                     && pair.0.selectionToken == pair.1.selectionToken
             }
         let selectionChanged = displayedSelection != session.selectedIndex
-        if candidatesChanged || selectionChanged {
+        let reconversion = session.reconvertibleCommit
+        let reconversionChanged = displayedReconversion != reconversion?.text
+        if candidatesChanged || selectionChanged || reconversionChanged {
+            displayedReconversion = reconversion?.text
+            presentReconvertChip(reconversion)
             displayedCandidates = presentations
             displayedSelection = session.selectedIndex
             while stripButtons.count > displayedCandidates.count {

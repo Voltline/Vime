@@ -999,6 +999,43 @@ final class KeyboardFeatureTests: XCTestCase {
         XCTAssertTrue(keyboard.quickCandidateItems().isEmpty)
     }
 
+    func testBackspaceUndoSettingAppliesWhenTheKeyboardStarts() throws {
+        let preferences = KeyboardPreferences()
+        let old = preferences.undoConversionOnBackspace
+        defer { preferences.undoConversionOnBackspace = old }
+        preferences.undoConversionOnBackspace = true
+        preferences.undoConversionOnBackspace = false
+        let session = KeyboardSession()
+        let (keyboard, _, text, window) = try fixture(session: session)
+        defer { keyboard.stopInteractions(); window.isHidden = true }
+        XCTAssertFalse(session.undoesCommitOnBackspace, "A keyboard started with the option off never undoes a conversion")
+        keyboard.reloadPreferences()
+        XCTAssertFalse(session.undoesCommitOnBackspace)
+        preferences.undoConversionOnBackspace = true
+        keyboard.reloadPreferences()
+        XCTAssertTrue(session.undoesCommitOnBackspace)
+
+        preferences.undoConversionOnBackspace = false
+        keyboard.reloadPreferences()
+
+        // After a conversion the next-word row starts with a chip that returns it to its reading.
+        keyboard.apply(session.type("nihongo"))
+        let index = try XCTUnwrap(session.candidateSnapshots.firstIndex { $0.fullConsumption && $0.text != "にほんご" })
+        let converted = session.candidateSnapshots[index].text
+        keyboard.apply(session.choose(index))
+        XCTAssertEqual(text.text, converted)
+        let chip = try button("vime.reconvertCommit", in: keyboard)
+        XCTAssertFalse(chip.isHidden)
+        XCTAssertEqual(chip.configuration?.title, "にほんご")
+        XCTAssertEqual(chip.frame.minX, 0, "The chip leads the row")
+        XCTAssertTrue(keyboard.stripButtons.allSatisfy { $0.frame.minX >= chip.frame.maxX })
+        chip.sendActions(for: .touchUpInside)
+        XCTAssertEqual(text.text, "にほんご", "The conversion is replaced by its marked reading")
+        XCTAssertNotNil(text.markedTextRange)
+        XCTAssertEqual(session.preedit, "にほんご")
+        XCTAssertTrue(chip.isHidden, "The chip leaves while the reading is composed again")
+    }
+
     func testOneHandedModeNarrowsKeysTowardOneSideAndRestores() throws {
         let (keyboard, surface, _, window) = try fixture()
         let preferences = keyboard.preferences

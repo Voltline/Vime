@@ -101,6 +101,10 @@ protocol KeyboardInputSession: AnyObject {
     func updateIntelligence(ranking: CandidateRankingMode, suggestionsEnabled: Bool)
     /// Backspace right after a conversion returns it to its reading.
     func setUndoesCommitOnBackspace(_ enabled: Bool)
+    /// The conversion just committed, which the toolbar offers to reconvert.
+    var reconvertibleCommit: (text: String, reading: String)? { get }
+    /// Deletes that conversion and restores its reading.
+    func reconvertCommit() -> [KeyboardEdit]
     func retryLanguageModel(requestID: String)
     func prepareForInput()
     func setCandidatePresentationPreparation(_ prepare: @escaping @Sendable (CandidatePresentation, Bool) -> Void)
@@ -116,6 +120,8 @@ protocol KeyboardInputSession: AnyObject {
 extension KeyboardInputSession {
     func retryLanguageModel(requestID: String) {}
     func setUndoesCommitOnBackspace(_ enabled: Bool) {}
+    var reconvertibleCommit: (text: String, reading: String)? { nil }
+    func reconvertCommit() -> [KeyboardEdit] { [] }
     var raw: String { "" }
     func prepareForInput() {}
     func setCandidatePresentationPreparation(_ prepare: @escaping @Sendable (CandidatePresentation, Bool) -> Void) {}

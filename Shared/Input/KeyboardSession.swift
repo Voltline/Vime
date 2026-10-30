@@ -42,14 +42,19 @@ final class KeyboardSession: KeyboardInputSession {
     private var pendingFeedback: PendingCandidateFeedback?
     private var feedbackTask: Task<Void, Never>?
     private var committedLeftContext = ""
-    /// The last whole conversion, while one backspace may return it to its
-    /// reading. Any other action, or a host change, forgets it.
+    /// The last whole conversion, while the toolbar offers to return it to
+    /// its reading (and backspace does, when enabled). Any other action, or a
+    /// host change, forgets it.
     private var undoableCommit: (text: String, reading: ComposingText)?
-    private var undoesCommitOnBackspace = true
+    private(set) var undoesCommitOnBackspace = false
     func setUndoesCommitOnBackspace(_ enabled: Bool) {
         undoesCommitOnBackspace = enabled
-        if !enabled { undoableCommit = nil }
     }
+    var reconvertibleCommit: (text: String, reading: String)? {
+        guard !isComposing, let commit = undoableCommit else { return nil }
+        return (commit.text, PreeditPresentation.kana(for: commit.reading, mode: mode))
+    }
+    func reconvertCommit() -> [KeyboardEdit] { undoCommit() ?? [] }
     private var lastPublishedInput = ""
     private var composing = ComposingText()
     private var conversionLength: Int?
@@ -136,7 +141,7 @@ final class KeyboardSession: KeyboardInputSession {
             presentation($0.element.presentation, index: $0.offset, kind: .suggestion)
         }
     }
-    var showsStrip: Bool { isComposing || !suggestionSnapshots.isEmpty }
+    var showsStrip: Bool { isComposing || !suggestionSnapshots.isEmpty || undoableCommit != nil }
 
     // Synchronous mode is used by deterministic conversion tests only.
     init(asynchronousCandidates: Bool = false, memoryDirectoryURL: URL? = nil) {
@@ -218,7 +223,8 @@ final class KeyboardSession: KeyboardInputSession {
     }
 
     func backspace() -> [KeyboardEdit] {
-        if let undo = undoCommit() { return undo }
+        if undoesCommitOnBackspace, let undo = undoCommit() { return undo }
+        undoableCommit = nil
         clearSuggestions()
         if selectedIndex != nil || pendingSpaces > 0 {
             // clearSuggestions cancelled the shared worker request. Restore a
@@ -293,7 +299,7 @@ final class KeyboardSession: KeyboardInputSession {
         if composing.isEmpty { reset(preservingContext: true); requestSuggestions() }
         else { refresh(leftContextOverride: committedLeftContext) }
         engine?.flushLearning()
-        if composing.isEmpty, undoesCommitOnBackspace, snapshot.text != PreeditPresentation.kana(for: reading, mode: mode) {
+        if composing.isEmpty, snapshot.text != PreeditPresentation.kana(for: reading, mode: mode) {
             undoableCommit = (snapshot.text, reading)
         }
         return [.insert(snapshot.text)]
@@ -347,8 +353,8 @@ final class KeyboardSession: KeyboardInputSession {
         return Array(repeating: .deleteBackward, count: replaced.count) + [.insert(text)]
     }
 
-    /// Backspace right after a conversion deletes it and restores its reading,
-    /// only while the host still ends with that text.
+    /// Deletes the last conversion and restores its reading, only while the
+    /// host still ends with that text.
     private func undoCommit() -> [KeyboardEdit]? {
         guard let commit = undoableCommit else { return nil }
         undoableCommit = nil
@@ -548,6 +554,7 @@ final class KeyboardSession: KeyboardInputSession {
     }
 
     func dismissSuggestions() {
+        undoableCommit = nil
         guard !isComposing, !suggestionSnapshots.isEmpty else { return }
         clearSuggestions()
     }
