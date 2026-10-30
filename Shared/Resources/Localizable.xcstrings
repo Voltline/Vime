@@ -2081,6 +2081,34 @@
         }
       }
     },
+    "全角": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Full Width"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "全角"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "전각"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "全形"
+          }
+        }
+      }
+    },
     "全角英数字": {
       "localizations": {
         "en": {
@@ -3173,6 +3201,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "加長轉換範圍"
+          }
+        }
+      }
+    },
+    "半角": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Half Width"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "半角"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "반각"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "半形"
           }
         }
       }
@@ -7335,6 +7391,34 @@
         }
       }
     },
+    "日语模式的空格": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Space in Japanese Mode"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "日本語モードのスペース"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "일본어 모드의 스페이스"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "日語模式的空格"
+          }
+        }
+      }
+    },
     "日语输入法": {
       "localizations": {
         "en": {
@@ -8456,6 +8540,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "沒有找到表情"
+          }
+        }
+      }
+    },
+    "没有正在输入的读音时，空格按这里的宽度输入；先按 Shift 再按空格输入另一种宽度": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "When no reading is being typed, space inserts this width. Press Shift, then space, for the other width."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "読みを入力していないとき、スペースはここで選んだ幅で入力されます。Shift を押してからスペースを押すと、もう一方の幅になります。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "읽기를 입력하고 있지 않을 때 스페이스는 여기서 고른 폭으로 입력됩니다. Shift를 누른 뒤 스페이스를 누르면 다른 폭으로 입력됩니다."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "沒有正在輸入的讀音時，空格按這裡的寬度輸入；先按 Shift 再按空格輸入另一種寬度"
           }
         }
       }

@@ -14,7 +14,10 @@ extension KeyboardView {
             apply(session.backspace() + session.insertLiteral(". "))
             return
         }
-        apply(session.space())
+        // Shift then space inserts the other width in Japanese mode, like a letter consumes it.
+        let alternate = shifted && !session.inputTraits.isEnglish && !session.isComposing
+        if alternate && !capsLocked { shifted = false; updateKeyLabels() }
+        apply(session.space(alternateWidth: alternate))
     }
 
     /// Follows the field's capitalization while typing English. Only edits

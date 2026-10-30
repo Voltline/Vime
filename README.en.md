@@ -66,7 +66,7 @@ Basic offline typing works without Allow Full Access. Key sounds and haptics, se
 | Type romaji | Kana appear immediately; unfinished consonants stay as romaji |
 | Kana pad tap / flick | Tap for the あ-column kana, flick for the others; repeat taps cycle through the key |
 | `↶` / `゛゜小` / `→` | Step back in the cycle / toggle voiced, semi-voiced and small forms / end the cycle so the same key starts a new kana |
-| Space | Start converting; press again for the next candidate |
+| Space | Start converting; press again for the next candidate. With nothing being typed it inserts a space: half or full width in Japanese mode, as set in Settings, and Shift + Space gives the other |
 | Tap a candidate | Commit it; with segments, the rest stays in conversion |
 | Expand → `−` / `+` / whole sentence | Resize the first segment or return to the whole sentence; scroll for more |
 | Return / 確定 | Commit the selected candidate or the kana as typed; with nothing composed, perform the host app's return action |

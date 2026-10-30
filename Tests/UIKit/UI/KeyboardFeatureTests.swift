@@ -942,6 +942,31 @@ final class KeyboardFeatureTests: XCTestCase {
         XCTAssertFalse(KeyboardView.capitalizes(after: "e.g, ", type: .sentences))
     }
 
+    func testJapaneseSpaceWidthFollowsTheSettingAndShiftPicksTheOther() throws {
+        let session = KeyboardSession()
+        let (keyboard, _, text, window) = try fixture(session: session)
+        defer { keyboard.stopInteractions(); window.isHidden = true }
+        let preferences = keyboard.preferences
+        let old = preferences.fullWidthSpace
+        defer { preferences.fullWidthSpace = old; keyboard.reloadPreferences() }
+        func tap(_ id: String) throws { try button(id, in: keyboard).sendActions(for: .touchUpInside) }
+        preferences.fullWidthSpace = false; keyboard.reloadPreferences()
+        keyboard.space(at: 10)
+        XCTAssertEqual(text.text, " ", "Half width stays the default")
+        keyboard.shift(at: 15); keyboard.space(at: 20)
+        XCTAssertEqual(text.text, " \u{3000}")
+        XCTAssertFalse(keyboard.shifted, "Shift applies to one space")
+        preferences.fullWidthSpace = true; keyboard.reloadPreferences()
+        keyboard.space(at: 30)
+        keyboard.shift(at: 35); keyboard.space(at: 40)
+        XCTAssertEqual(text.text, " \u{3000}\u{3000} ")
+        try tap("vime.key.a"); keyboard.space(at: 50)
+        XCTAssertTrue(session.isComposing, "Space still converts a reading")
+        _ = session.confirmAll(); text.text = ""
+        try tap("vime.key.language"); keyboard.space(at: 60)
+        XCTAssertEqual(text.text, " ", "English keeps a half-width space")
+    }
+
     func testTextReplacementsReplaceLatinWordsAndFeedKanaReadings() throws {
         let (keyboard, _, text, window) = try fixture()
         let preferences = keyboard.preferences
