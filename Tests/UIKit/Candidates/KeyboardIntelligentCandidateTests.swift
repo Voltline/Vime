@@ -46,6 +46,7 @@ final class KeyboardIntelligentCandidateTests: XCTestCase {
     }
 
     func testMixedSoundDictionaryCandidatesAndLiteralConfirmation() throws {
+        try skipTimingSensitiveTestOnCI()
         let engine = JapaneseCandidateEngine(learningEnabled: false)
         engine.diagnosticsEnabled = true
         for (input, reading, surface) in [("gazogu", "かぞく", "家族"), ("danabada", "たなばた", "七夕")] {

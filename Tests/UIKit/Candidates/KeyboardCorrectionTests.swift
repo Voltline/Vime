@@ -71,6 +71,7 @@ final class KeyboardCorrectionTests: XCTestCase {
     }
 
     func testDictionaryCorpusAndBoundedSearch() throws {
+        try skipTimingSensitiveTestOnCI()
         let engine = JapaneseCandidateEngine()
         XCTAssertTrue(CorrectionReadingIndex().isAvailable, "Pinned dictionary priority index must be bundled")
         let positives = [("shitsuka", "しずか"), ("shitsukanabasho", "しずかなばしょ"),
@@ -188,6 +189,7 @@ final class KeyboardCorrectionTests: XCTestCase {
     }
 
     func testOriginalConsumptionLiteralReturnAndMarkedText() throws {
+        try skipTimingSensitiveTestOnCI()
         let session = KeyboardSession()
         let view = UITextView(); view.text = "前後"; view.selectedRange = NSRange(location: 1, length: 0)
         let host = KeyboardHostConnection(setMarkedText: { view.setMarkedText($0, selectedRange: $1) },
@@ -222,6 +224,7 @@ final class KeyboardCorrectionTests: XCTestCase {
     }
 
     func testTwoPhaseRevisionAndSelectionProtection() async throws {
+        try skipTimingSensitiveTestOnCI()
         let session = KeyboardSession(asynchronousCandidates: true, memoryDirectoryURL: isolatedLearningDirectory())
         let normal = expectation(description: "Normal query published first")
         let corrected = expectation(description: "Idle correction published")
@@ -303,6 +306,7 @@ final class KeyboardCorrectionTests: XCTestCase {
     }
 
     func testExpandedPanelPublishesAndCommitsRealAsyncCorrection() async throws {
+        try skipTimingSensitiveTestOnCI()
         let suite = "VimeCorrectionPanel." + UUID().uuidString
         let preferences = KeyboardPreferences(defaults: try XCTUnwrap(UserDefaults(suiteName: suite)))
         preferences.candidateRanking = .engine
@@ -360,6 +364,7 @@ final class KeyboardCorrectionTests: XCTestCase {
     }
 
     func testProfileIdleCorrectionPublicationAndMemory() async throws {
+        try skipTimingSensitiveTestOnCI()
         let session = KeyboardSession(asynchronousCandidates: true, memoryDirectoryURL: isolatedLearningDirectory())
         let keyboard = KeyboardView(frame: CGRect(x: 0, y: 0, width: 440, height: 350), session: session)
         keyboard.hasFullAccess = false

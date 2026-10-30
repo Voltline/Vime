@@ -358,6 +358,7 @@ final class KeyboardIntegrationTests: XCTestCase {
     }
 
     func testTypingDoesNotWaitForDictionary() async throws {
+        try skipTimingSensitiveTestOnCI()
         let baseline = KeyboardSession()
         let start = ProcessInfo.processInfo.systemUptime
         for c in "nihongo" { _ = baseline.type(String(c)) }

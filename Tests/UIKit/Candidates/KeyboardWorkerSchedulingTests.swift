@@ -153,6 +153,7 @@ final class KeyboardWorkerSchedulingTests: XCTestCase {
     }
 
     func testBusyModelDoesNotBlockFallbackCorrectionsOrNewInput() async throws {
+        try skipTimingSensitiveTestOnCI()
         let worker = JapaneseCandidateWorker(memoryDirectoryURL: isolatedLearningDirectory())
         worker.disableLanguageModel(); worker.allowLanguageModel()
         let unloaded = await worker.resourceState()

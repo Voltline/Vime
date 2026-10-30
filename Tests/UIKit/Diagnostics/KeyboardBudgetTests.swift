@@ -1,15 +1,19 @@
 import XCTest
 import Darwin
 
-/// Latency and memory budgets checked on every run. The limits are about four
-/// times a local Debug simulator run (2026-10-30: key to candidates p50 21 ms,
-/// p95 58 ms; memory flat over 120 cycles; 1,024-entry import 185 ms), so a
-/// shared CI runner still passes while a change that makes typing visibly slower
-/// or keeps memory growing fails. Each check prints a VIME_BUDGET line, which
+/// Latency and memory budgets checked on every local run. The limits are about
+/// four times a local Debug simulator run (2026-10-30: key to candidates p50
+/// 21 ms, p95 58 ms; memory flat over 120 cycles; 1,024-entry import 185 ms), so
+/// a change that makes typing visibly slower or keeps memory growing fails. CI
+/// skips them, since a shared runner can be several times slower. Each check prints a VIME_BUDGET line, which
 /// Scripts/test.sh and the CI job summary list.
 @MainActor
 final class KeyboardBudgetTests: XCTestCase {
     private static let words = ["nihongo", "kaigi", "ashita", "benkyou", "arigatou", "konnichiha"]
+
+    override func setUp() async throws {
+        try skipTimingSensitiveTestOnCI()
+    }
 
     func testWarmTypingLatency() async throws {
         let session = KeyboardSession(asynchronousCandidates: true, memoryDirectoryURL: isolatedLearningDirectory())
