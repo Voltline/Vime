@@ -158,7 +158,7 @@ App Store 每次提交更新都要求各语言的「此版本的新增内容」�
 
 更新日志页顶部的版本状态在构建时读取：App Store 上架版本来自公开的 iTunes lookup；审核中的版本与状态、最新 TestFlight 版本和构建号用 `ASC_*` Secrets 经 [app_store.py](../.github/scripts/app_store.py) 读取 App Store Connect；`dev` 上的下一版本来自 `release_version.py current`；另列出每周节奏和下次构建、提交的时间。页面只包含版本、状态和日期。缺少密钥或 API 失败时只给出警告，网站照常构建，只显示公开部分。
 
-Workflow 总是构建 `dev` 上的 `site/`，在以下情况运行：`dev` 或 `main` 上与网站、隐私政策或版本号有关的推送；周三、周六任务结束后；每天北京时间 05:00（此时周三的 TestFlight 构建已上传）；以及手动运行。部署环境 `github-pages` 需允许 `dev` 和 `main`。
+Workflow 总是构建 `dev` 上的 `site/`，在以下情况运行：`dev` 上修改网站的推送；周三、周六任务结束后；每天北京时间 05:00（此时周三的 TestFlight 构建已上传）；以及手动运行。`main` 只由周六任务推进，所以周六任务结束后的构建会带上新的隐私政策。部署环境 `github-pages` 只允许 `dev` 部署，因此 workflow 不在 `main` 的推送上运行。
 
 本地预览：
 

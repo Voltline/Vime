@@ -1,19 +1,18 @@
 name: Website
 
 # Builds site/ from dev and deploys it to GitHub Pages. The privacy policy
-# comes from main (the released app). The version status is refreshed after
-# the weekly workflows and every morning, after Xcode Cloud has uploaded
-# Wednesday's TestFlight build.
+# comes from main (the released app). main only moves in the Saturday
+# workflow, so the run after it picks up main's changes; the github-pages
+# environment only accepts deployments from dev. The version status is also
+# refreshed every morning, after Xcode Cloud has uploaded Wednesday's
+# TestFlight build.
 on:
   push:
-    branches: [dev, main]
+    branches: [dev]
     paths:
       - site/**
       - .github/workflows/website.yml
       - .github/scripts/app_store.py
-      - Docs/Guides/Privacy*.md
-      - Scripts/release_version.py
-      - Vime.xcodeproj/project.pbxproj
   workflow_run:
     workflows: [Weekly TestFlight cut, Weekly App Store release]
     types: [completed]
