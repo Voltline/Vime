@@ -113,6 +113,7 @@ final class KeyboardLongInputCorrectionTests: XCTestCase {
     /// The keyboard never moves a displayed choice, so a correction is useful
     /// only if it joins the first display, inside the model ranking window.
     func testCorrectionJoinsTheFirstDisplayInsteadOfTheEnd() async throws {
+        try skipTimingSensitiveTestOnCI()
         let worker = JapaneseCandidateWorker(memoryDirectoryURL: isolatedLearningDirectory())
         worker.allowLanguageModel()
         var query = ComposingText()

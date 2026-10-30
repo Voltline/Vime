@@ -1,15 +1,19 @@
 import XCTest
 import Darwin
 
-/// Latency and memory budgets checked on every run. A local Debug simulator run
-/// on 2026-10-30 measured key to candidates p50 21 ms and p95 58 ms, memory flat
-/// over 120 cycles and a 1,024-entry import in 185 ms; the slowest CI runner seen
-/// took up to five times as long. The limits leave room for that runner, while a
-/// change that makes typing several times slower or keeps memory growing fails. Each check prints a VIME_BUDGET line, which
+/// Latency and memory budgets checked on every local run. The limits are about
+/// four times a local Debug simulator run (2026-10-30: key to candidates p50
+/// 21 ms, p95 58 ms; memory flat over 120 cycles; 1,024-entry import 185 ms), so
+/// a change that makes typing visibly slower or keeps memory growing fails. CI
+/// skips them, since a shared runner can be several times slower. Each check prints a VIME_BUDGET line, which
 /// Scripts/test.sh and the CI job summary list.
 @MainActor
 final class KeyboardBudgetTests: XCTestCase {
     private static let words = ["nihongo", "kaigi", "ashita", "benkyou", "arigatou", "konnichiha"]
+
+    override func setUp() async throws {
+        try skipTimingSensitiveTestOnCI()
+    }
 
     func testWarmTypingLatency() async throws {
         let session = KeyboardSession(asynchronousCandidates: true, memoryDirectoryURL: isolatedLearningDirectory())
@@ -38,9 +42,9 @@ final class KeyboardBudgetTests: XCTestCase {
         }
         // The key itself runs on the main thread, so it bounds how fast typing feels.
         // Local runs take 0.1 ms and the CI runner 3.3 ms, so this limit is wider.
-        budget("type_main_thread_p95", percentile(keyCosts, 0.95), below: 20, unit: "ms")
-        budget("key_to_candidates_p50", percentile(candidateWaits, 0.5), below: 150, unit: "ms")
-        budget("key_to_candidates_p95", percentile(candidateWaits, 0.95), below: 300, unit: "ms")
+        budget("type_main_thread_p95", percentile(keyCosts, 0.95), below: 10, unit: "ms")
+        budget("key_to_candidates_p50", percentile(candidateWaits, 0.5), below: 80, unit: "ms")
+        budget("key_to_candidates_p95", percentile(candidateWaits, 0.95), below: 200, unit: "ms")
     }
 
     func testSustainedTypingKeepsMemoryFlat() async throws {
@@ -67,7 +71,7 @@ final class KeyboardBudgetTests: XCTestCase {
         let before = try physicalFootprintMiB()
         for index in 30..<150 { try await cycle(index) }
         try await Task.sleep(for: .milliseconds(300))
-        budget("memory_growth_120_cycles", try physicalFootprintMiB() - before, below: 16, unit: "MiB")
+        budget("memory_growth_120_cycles", try physicalFootprintMiB() - before, below: 8, unit: "MiB")
     }
 
     func testFullDictionaryImportAndExport() throws {
@@ -90,7 +94,7 @@ final class KeyboardBudgetTests: XCTestCase {
         _ = try store.exportData()
         _ = JapaneseUserDictionaryInterchange.mozcText(try store.entries())
         let exported = (ProcessInfo.processInfo.systemUptime - start) * 1000
-        budget("dictionary_import_1024", imported, below: 2000, unit: "ms")
+        budget("dictionary_import_1024", imported, below: 800, unit: "ms")
         budget("dictionary_export_1024", exported, below: 50, unit: "ms")
     }
 

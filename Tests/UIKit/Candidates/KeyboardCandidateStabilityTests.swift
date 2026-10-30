@@ -155,6 +155,7 @@ final class KeyboardCandidateStabilityTests: XCTestCase {
     }
 
     func testWarmModelStillRanksBeforeFirstDisplay() async throws {
+        try skipTimingSensitiveTestOnCI()
         let worker = JapaneseCandidateWorker(memoryDirectoryURL: isolatedLearningDirectory())
         worker.allowLanguageModel()
         var warmup = ComposingText()
