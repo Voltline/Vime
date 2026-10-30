@@ -42,6 +42,14 @@ final class KeyboardSession: KeyboardInputSession {
     private var pendingFeedback: PendingCandidateFeedback?
     private var feedbackTask: Task<Void, Never>?
     private var committedLeftContext = ""
+    /// The last whole conversion, while one backspace may return it to its
+    /// reading. Any other action, or a host change, forgets it.
+    private var undoableCommit: (text: String, reading: ComposingText)?
+    private var undoesCommitOnBackspace = true
+    func setUndoesCommitOnBackspace(_ enabled: Bool) {
+        undoesCommitOnBackspace = enabled
+        if !enabled { undoableCommit = nil }
+    }
     private var lastPublishedInput = ""
     private var composing = ComposingText()
     private var conversionLength: Int?
@@ -183,7 +191,7 @@ final class KeyboardSession: KeyboardInputSession {
     func type(_ text: String) -> [KeyboardEdit] {
         inputStartedAt = KeyboardPerformance.start()
         clearSuggestions()
-        if mode == .english { finishLearningFeedback(); return [.insert(text)] }
+        if mode == .english { undoableCommit = nil; finishLearningFeedback(); return [.insert(text)] }
         var edits: [KeyboardEdit] = []
         // Preserve the word boundary even when typing resumes before a queued
         // space conversion finishes; current kana is a safe immediate fallback.
@@ -191,6 +199,7 @@ final class KeyboardSession: KeyboardInputSession {
         conversionLength = nil
         RomajiConverter.insert(text.lowercased().replacingOccurrences(of: "-", with: "ー"), into: &composing)
         refresh(startedAt: inputStartedAt)
+        undoableCommit = nil
         return edits
     }
 
@@ -209,6 +218,7 @@ final class KeyboardSession: KeyboardInputSession {
     }
 
     func backspace() -> [KeyboardEdit] {
+        if let undo = undoCommit() { return undo }
         clearSuggestions()
         if selectedIndex != nil || pendingSpaces > 0 {
             // clearSuggestions cancelled the shared worker request. Restore a
@@ -234,7 +244,7 @@ final class KeyboardSession: KeyboardInputSession {
     }
 
     func space() -> [KeyboardEdit] {
-        guard isComposing else { finishLearningFeedback(); clearSuggestions(); return [.insert(" ")] }
+        guard isComposing else { undoableCommit = nil; finishLearningFeedback(); clearSuggestions(); return [.insert(" ")] }
         // A trailing n already reads as ん in per-key requests; this covers a
         // request issued before that rule, such as one made by deletion.
         if PreeditPresentation.endsWithPendingN(composing), selectedIndex == nil, !boundaryRequested {
@@ -251,7 +261,7 @@ final class KeyboardSession: KeyboardInputSession {
     }
 
     func enter() -> [KeyboardEdit] {
-        guard isComposing else { finishLearningFeedback(); clearSuggestions(); return [.returnKey] }
+        guard isComposing else { undoableCommit = nil; finishLearningFeedback(); clearSuggestions(); return [.returnKey] }
         return confirm()
     }
 
@@ -259,6 +269,7 @@ final class KeyboardSession: KeyboardInputSession {
         guard candidatesAreCurrent, candidateSnapshots.indices.contains(index) else { return [] }
         let snapshot = candidateSnapshots[index]
         guard snapshot.revision == revision else { return [] }
+        let reading = composing
         selectionLog.debug("Selection revision=\(self.revision) rank=\(index + 1) consumedKana=\(snapshot.consumedReadingCount) remainingKana=\(snapshot.remainingComposition.convertTarget.count) full=\(snapshot.fullConsumption) source=\(snapshot.source.rawValue, privacy: .public)")
         finishLearningFeedback()
         if let event = beginLearningFeedback(text: snapshot.text, rank: index, kind: feedbackKind) {
@@ -282,6 +293,9 @@ final class KeyboardSession: KeyboardInputSession {
         if composing.isEmpty { reset(preservingContext: true); requestSuggestions() }
         else { refresh(leftContextOverride: committedLeftContext) }
         engine?.flushLearning()
+        if composing.isEmpty, undoesCommitOnBackspace, snapshot.text != PreeditPresentation.kana(for: reading, mode: mode) {
+            undoableCommit = (snapshot.text, reading)
+        }
         return [.insert(snapshot.text)]
     }
 
@@ -290,6 +304,7 @@ final class KeyboardSession: KeyboardInputSession {
     }
 
     func chooseSuggestion(_ index: Int) -> [KeyboardEdit] {
+        undoableCommit = nil
         guard !isComposing, suggestionSnapshots.indices.contains(index) else { return [] }
         let suggestion = suggestionSnapshots[index]
         let text = suggestion.text
@@ -330,6 +345,21 @@ final class KeyboardSession: KeyboardInputSession {
         clearSuggestions()
         if native?.isTerminal != true { requestSuggestions() }
         return Array(repeating: .deleteBackward, count: replaced.count) + [.insert(text)]
+    }
+
+    /// Backspace right after a conversion deletes it and restores its reading,
+    /// only while the host still ends with that text.
+    private func undoCommit() -> [KeyboardEdit]? {
+        guard let commit = undoableCommit else { return nil }
+        undoableCommit = nil
+        guard !isComposing, committedLeftContext.hasSuffix(commit.text),
+              leftContextProvider.map({ $0()?.hasSuffix(commit.text) == true }) ?? true else { return nil }
+        invalidateLearningFeedback()
+        clearSuggestions()
+        committedLeftContext = String(committedLeftContext.dropLast(commit.text.count))
+        composing = commit.reading
+        refresh(leftContextOverride: committedLeftContext)
+        return Array(repeating: .deleteBackward, count: commit.text.count)
     }
 
     func confirm() -> [KeyboardEdit] {
@@ -373,6 +403,7 @@ final class KeyboardSession: KeyboardInputSession {
         committedLeftContext = String((committedLeftContext + text).suffix(96))
         clearSuggestions()
         requestSuggestions()
+        undoableCommit = nil
         return edits + [.insert(text)]
     }
 
@@ -383,6 +414,7 @@ final class KeyboardSession: KeyboardInputSession {
     }
 
     func setMode(_ newMode: InputMode) -> [KeyboardEdit] {
+        undoableCommit = nil
         if mode != .english && newMode != .english {
             mode = newMode
             previousJapaneseMode = newMode
@@ -406,6 +438,7 @@ final class KeyboardSession: KeyboardInputSession {
     }
 
     func reset(preservingContext: Bool = false) {
+        undoableCommit = nil
         candidateRequestStartedAt = nil
         candidateInitialRequestStartedAt = nil
         if !preservingContext { hostEpoch += 1; finishLearningFeedback() }

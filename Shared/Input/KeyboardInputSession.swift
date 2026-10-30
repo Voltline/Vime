@@ -99,6 +99,8 @@ protocol KeyboardInputSession: AnyObject {
     func toggleEnglish() -> [KeyboardEdit]
     func togglePrimaryVariant() -> [KeyboardEdit]
     func updateIntelligence(ranking: CandidateRankingMode, suggestionsEnabled: Bool)
+    /// Backspace right after a conversion returns it to its reading.
+    func setUndoesCommitOnBackspace(_ enabled: Bool)
     func retryLanguageModel(requestID: String)
     func prepareForInput()
     func setCandidatePresentationPreparation(_ prepare: @escaping @Sendable (CandidatePresentation, Bool) -> Void)
@@ -113,6 +115,7 @@ protocol KeyboardInputSession: AnyObject {
 
 extension KeyboardInputSession {
     func retryLanguageModel(requestID: String) {}
+    func setUndoesCommitOnBackspace(_ enabled: Bool) {}
     var raw: String { "" }
     func prepareForInput() {}
     func setCandidatePresentationPreparation(_ prepare: @escaping @Sendable (CandidatePresentation, Bool) -> Void) {}
