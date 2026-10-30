@@ -25,6 +25,7 @@ extension KeyboardView {
                     pair.0.frame = metrics.frame(row: rowIndex, column: column, letters: page == .letters,
                                                 prolonged: rowIndex == 1 && row.count == 10)
                 }
+                pair.0.frame = oneHandedFrame(pair.0.frame)
                 pair.0.layer.cornerRadius = 6.2 * scale
                 // Compact phone keys are shorter despite the wider viewport.
                 // Typography follows their height rather than landscape width.
@@ -52,7 +53,7 @@ extension KeyboardView {
         if usesNumberPad {
             let top = metrics.numberPadFrame(row: 0, column: 0)
             let bottom = metrics.numberPadFrame(row: 2, column: 0)
-            numberSymbolRail?.frame = top.union(bottom)
+            numberSymbolRail?.frame = oneHandedFrame(top.union(bottom))
             numberSymbolRail?.scale = scale
             numberSymbolRail?.layoutIfNeeded()
         }
@@ -69,6 +70,7 @@ extension KeyboardView {
 
     func updateTouchBounds(metrics: KeyboardMetrics) {
         var regions: [KeyboardTouchSurface.Region] = []
+        let area = oneHandedKeyArea
         for (rowIndex, row) in rows.enumerated() {
             guard let first = row.first?.0 else { continue }
             let top = rowIndex == 0
@@ -82,9 +84,9 @@ extension KeyboardView {
                 // Boundaries lie in the gaps, never inside a painted key. This
                 // respects wide utility keys as well as staggered letter rows.
                 let leading = usesNumberPad && rowIndex < 3
-                    ? (metrics.numberPadFrame(row: rowIndex, column: 0).maxX + first.frame.minX) / 2 : 0
+                    ? (oneHandedFrame(metrics.numberPadFrame(row: rowIndex, column: 0)).maxX + first.frame.minX) / 2 : area.lowerBound
                 let left = column == 0 ? leading : (row[column - 1].0.frame.maxX + key.frame.minX) / 2
-                var right = column == row.count - 1 ? bounds.width : (key.frame.maxX + row[column + 1].0.frame.minX) / 2
+                var right = column == row.count - 1 ? area.upperBound : (key.frame.maxX + row[column + 1].0.frame.minX) / 2
                 var bottom = bottom
                 // The flick pad's 確定 spans two rows: it owns the rest of the
                 // column, and the row beside its lower half stops at the gap.

@@ -11,6 +11,8 @@ final class KeyboardSettingsPanel: UIScrollView {
     private let hapticValue = UILabel()
     private let numbers = UISegmentedControl(items: ["九宫格", "全键盘"])
     private let accessibleNumbers = UIStackView()
+    private let oneHanded = UISegmentedControl(items: [String(localized: "关闭"), String(localized: "靠左"), String(localized: "靠右")])
+    private var oneHandedGroup: UIView?
     private var numberChoices: [UIButton] = []
     private let notice = UILabel()
     private let neuralStatus = UILabel()
@@ -28,6 +30,9 @@ final class KeyboardSettingsPanel: UIScrollView {
     var onOpenAppSettings: (() -> Void)?
     var onFeedback: (() -> Void)?
     var onNumberLayoutChange: (() -> Void)?
+    var onOneHandedChange: (() -> Void)?
+    /// One-handed mode applies to an upright iPhone only.
+    var showsOneHanded = true { didSet { oneHandedGroup?.isHidden = !showsOneHanded } }
 
     init(preferences: KeyboardPreferences) {
         self.preferences = preferences
@@ -139,6 +144,18 @@ final class KeyboardSettingsPanel: UIScrollView {
         layouts.axis = .vertical
         stack.addArrangedSubview(group(row(symbol: "square.grid.2x2", content: [label("数字布局"), layouts], height: 48, adaptive: true)))
 
+        oneHanded.accessibilityLabel = String(localized: "单手模式"); oneHanded.accessibilityIdentifier = "vime.setting.oneHanded"
+        oneHanded.setContentHuggingPriority(.required, for: .horizontal)
+        oneHanded.addAction(UIAction { [weak self] _ in
+            guard let self else { return }
+            self.preferences.oneHanded = KeyboardOneHandedSide.allCases[self.oneHanded.selectedSegmentIndex]
+            self.onOneHandedChange?()
+        }, for: .valueChanged)
+        let oneHandedGroup = group(row(symbol: "keyboard.onehanded.left", content: [label(String(localized: "单手模式")), oneHanded],
+            height: 48, adaptive: true))
+        self.oneHandedGroup = oneHandedGroup
+        stack.addArrangedSubview(oneHandedGroup)
+
         configureTypography(notice, size: 12)
         notice.text = String(localized: "声音与振动需允许完全访问")
         stack.addArrangedSubview(notice)
@@ -178,6 +195,7 @@ final class KeyboardSettingsPanel: UIScrollView {
     func update(hasFullAccess: Bool, neuralPaused: Bool) {
         sound.isOn = preferences.sound
         updateNumberSelection()
+        oneHanded.selectedSegmentIndex = KeyboardOneHandedSide.allCases.firstIndex(of: preferences.oneHanded) ?? 0
         if !haptics.isAdjusting {
             haptics.setIntensity(preferences.hapticIntensity)
             hapticValue.text = HapticIntensity.description(preferences.hapticIntensity)
@@ -197,6 +215,9 @@ final class KeyboardSettingsPanel: UIScrollView {
         numbers.selectedSegmentTintColor = KeyboardPalette.accent.withAlphaComponent(0.16)
         numbers.setTitleTextAttributes([.foregroundColor: KeyboardPalette.text, .font: scaledFont(size: 13)], for: .normal)
         numbers.setTitleTextAttributes([.foregroundColor: KeyboardPalette.accent, .font: scaledFont(size: 13, weight: .medium)], for: .selected)
+        oneHanded.selectedSegmentTintColor = numbers.selectedSegmentTintColor
+        oneHanded.setTitleTextAttributes(numbers.titleTextAttributes(for: .normal), for: .normal)
+        oneHanded.setTitleTextAttributes(numbers.titleTextAttributes(for: .selected), for: .selected)
         updateNumberSelection()
     }
     private func updateNumberSelection() {

@@ -99,6 +99,7 @@ extension KeyboardView {
         view.onOpenAppSettings = { [weak self] in self?.onOpenAppSettings?() }
         view.onFeedback = { [weak self] in self?.playFeedback() }
         view.onNumberLayoutChange = { [weak self] in self?.rebuildKeys() }
+        view.onOneHandedChange = { [weak self] in self?.reloadPreferences() }
         view.onRetryNeural = { [weak self] in
             guard let self else { return }
             self.preferences.requestNeuralRetry()

@@ -998,4 +998,36 @@ final class KeyboardFeatureTests: XCTestCase {
         for key in "hel" { try tap("vime.key.\(key)") }
         XCTAssertTrue(keyboard.quickCandidateItems().isEmpty)
     }
+
+    func testOneHandedModeNarrowsKeysTowardOneSideAndRestores() throws {
+        let (keyboard, surface, _, window) = try fixture()
+        let preferences = keyboard.preferences
+        let old = preferences.oneHanded
+        defer { preferences.oneHanded = old; keyboard.reloadPreferences(); keyboard.stopInteractions(); window.isHidden = true }
+        preferences.oneHanded = .off; keyboard.reloadPreferences(); keyboard.layoutIfNeeded()
+        let fullQ = try button("vime.key.q", in: keyboard).frame, fullP = try button("vime.key.p", in: keyboard).frame
+        XCTAssertTrue(keyboard.oneHandedButton.isHidden)
+
+        preferences.oneHanded = .right; keyboard.reloadPreferences(); keyboard.layoutIfNeeded()
+        let q = try button("vime.key.q", in: keyboard).frame, p = try button("vime.key.p", in: keyboard).frame
+        let restore = keyboard.oneHandedButton
+        XCTAssertFalse(restore.isHidden)
+        XCTAssertLessThan(p.width, fullP.width)
+        XCTAssertGreaterThan(q.minX, restore.frame.maxX, "Keys sit beside the restore strip")
+        XCTAssertLessThan(p.maxX, keyboard.bounds.width)
+        XCTAssertTrue(surface.regions.allSatisfy { $0.cell.minX >= restore.frame.maxX - 0.5 }, "No key claims the strip")
+
+        preferences.oneHanded = .left; keyboard.reloadPreferences(); keyboard.layoutIfNeeded()
+        XCTAssertEqual(try button("vime.key.q", in: keyboard).frame.minX, fullQ.minX * (keyboard.oneHandedKeyArea.upperBound / keyboard.bounds.width), accuracy: 0.5)
+        XCTAssertGreaterThanOrEqual(restore.frame.minX, try button("vime.key.p", in: keyboard).frame.maxX)
+        keyboard.compact = true; keyboard.layoutIfNeeded()
+        XCTAssertTrue(restore.isHidden, "Landscape keeps the full width")
+        keyboard.compact = false; keyboard.layoutIfNeeded()
+
+        restore.sendActions(for: .touchUpInside)
+        keyboard.layoutIfNeeded()
+        XCTAssertEqual(preferences.oneHanded, .off)
+        XCTAssertTrue(restore.isHidden)
+        XCTAssertEqual(try button("vime.key.q", in: keyboard).frame, fullQ)
+    }
 }

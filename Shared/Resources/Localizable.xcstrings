@@ -3234,6 +3234,62 @@
         }
       }
     },
+    "单手模式": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "One-Handed Keyboard"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "片手用キーボード"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "한 손 키보드"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "單手模式"
+          }
+        }
+      }
+    },
+    "单手模式仅在竖屏时生效，点按键盘旁的空白条可恢复全宽，也可在键盘左上角快速切换": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The one-handed keyboard works in portrait only. Tap the strip beside the keys to return to full width, or switch it from the top-left corner of the keyboard."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "片手用キーボードは縦向きのときだけ使えます。キーの横の余白をタップすると全幅に戻ります。キーボード左上からも切り替えられます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "한 손 키보드는 세로 화면에서만 사용됩니다. 키 옆의 빈 띠를 누르면 전체 너비로 돌아가며, 키보드 왼쪽 위에서도 바꿀 수 있습니다."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "單手模式僅在直向時生效，點按鍵盤旁的空白條可恢復全寬，也可在鍵盤左上角快速切換"
+          }
+        }
+      }
+    },
     "单独字母图片优先于所有字母\n背景会裁切填满键盘，透明 PNG 适合按键贴图\n保存后在定制页选中皮肤即可使用": {
       "localizations": {
         "en": {
@@ -5758,6 +5814,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "快速設定"
+          }
+        }
+      }
+    },
+    "恢复全宽键盘": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Full-Width Keyboard"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "全幅キーボードに戻す"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "전체 너비 키보드로 복원"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "恢復全寬鍵盤"
           }
         }
       }
@@ -13482,6 +13566,62 @@
           "stringUnit": {
             "state": "translated",
             "value": "需要允許完整取用"
+          }
+        }
+      }
+    },
+    "靠右": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Right"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "右"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "오른쪽"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "靠右"
+          }
+        }
+      }
+    },
+    "靠左": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Left"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "左"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "왼쪽"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "靠左"
           }
         }
       }
