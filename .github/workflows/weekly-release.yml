@@ -36,6 +36,13 @@ jobs:
           fetch-depth: 0
           ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }}
 
+      # The release scripts come from the workflow's own commit on dev, which
+      # can be ahead of beta.
+      - uses: actions/checkout@v4
+        with:
+          path: tools
+          sparse-checkout: .github/scripts
+
       - name: Check for changes
         id: changes
         run: |
@@ -59,7 +66,7 @@ jobs:
           TAG: v${{ steps.changes.outputs.version }}
         run: |
           gh release view "$TAG" --json body --jq .body > notes.md
-          python3 .github/scripts/app_store.py notes notes.md --metadata metadata
+          python3 tools/.github/scripts/app_store.py notes notes.md --metadata metadata
 
       - name: Submit for review
         if: steps.changes.outputs.count != '0' && steps.changes.outputs.submitted != 'true' && (github.event_name == 'schedule' || inputs.submit)
@@ -75,7 +82,7 @@ jobs:
           fi
           # Stops before submitting when another version is still in review,
           # the localizations differ or no processed build exists.
-          python3 .github/scripts/app_store.py check --version "$VERSION" --strict
+          python3 tools/.github/scripts/app_store.py check --version "$VERSION" --strict
           gem install fastlane --no-document --quiet
           python3 -c 'import json, os; print(json.dumps({"key_id": os.environ["ASC_KEY_ID"], "issuer_id": os.environ["ASC_ISSUER_ID"], "key": os.environ["ASC_PRIVATE_KEY"], "in_house": False}))' > "$RUNNER_TEMP/asc_key.json"
           # Without a build number, deliver picks the newest processed build of
