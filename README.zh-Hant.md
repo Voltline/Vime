@@ -40,6 +40,7 @@ Vime 是一款完全離線的 iOS 日語輸入法。它支援羅馬字 QWERTY �
 - 內建多種外觀，也可自建主題：背景、按鍵圖片和配色皆可設定，以 `.vimeskin` 檔案匯入匯出。
 - 鍵盤高度可拖動調整，並提供按鍵聲音和可連續調整的震動強度。
 - 在本機學習您的選字習慣：長按候選可刪除該字詞的學習記錄，也可隨時一鍵清除。
+- **無障礙**：支援 VoiceOver（九宮格滑動和上滑符號可透過自訂動作輸入）、最大的輔助使用字級、粗體文字和增強對比。
 
 ### 主應用程式
 
@@ -113,7 +114,7 @@ python3 Scripts/validate_app_resources.py
 以下文件以简体中文撰寫。
 
 - [文件索引](Docs/README.md)
-- 使用：[App 設定](Docs/Guides/AppSettings.md) · [自訂主題](Docs/Guides/CustomSkins.md) · [使用者辭典](Docs/Guides/UserDictionary.md)
+- 使用：[App 設定](Docs/Guides/AppSettings.md) · [自訂主題](Docs/Guides/CustomSkins.md) · [使用者辭典](Docs/Guides/UserDictionary.md) · [無障礙](Docs/Guides/Accessibility.md)
 - 開發：[專案目錄](Docs/ProjectLayout.md) · [開發與驗證](Docs/Development.md) · [日語模型](Docs/Models/JapaneseModel.md)
 - 架構：[輸入與宿主](Docs/Architecture/InputPipeline.md) · [候選與聯想](Docs/Architecture/Candidates.md) · [學習與個人化](Docs/Architecture/Personalization.md) · [輸入後端介面](Docs/Architecture/InputBackends.md) · [表情顯示](Docs/Architecture/EmojiRendering.md)
 

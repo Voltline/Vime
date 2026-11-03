@@ -89,7 +89,7 @@ final class KeyboardSettingsPanel: UIScrollView {
         stack.addArrangedSubview(shortcuts)
 
 
-        sound.accessibilityLabel = "按键声音"; sound.accessibilityIdentifier = "vime.setting.sound"
+        sound.accessibilityLabel = String(localized: "按键声音"); sound.accessibilityIdentifier = "vime.setting.sound"
         sound.addAction(UIAction { [weak self] _ in
             guard let self else { return }; self.preferences.sound = self.sound.isOn
         }, for: .valueChanged)
@@ -171,7 +171,7 @@ final class KeyboardSettingsPanel: UIScrollView {
             retryRow.trailingAnchor.constraint(equalTo: retryNeural.trailingAnchor),
             retryRow.topAnchor.constraint(equalTo: retryNeural.topAnchor),
             retryRow.bottomAnchor.constraint(equalTo: retryNeural.bottomAnchor)])
-        retryNeural.accessibilityLabel = "重试智能排序"
+        retryNeural.accessibilityLabel = String(localized: "重试智能排序")
         retryNeural.accessibilityIdentifier = "vime.settings.neural.retry"
         retryNeural.addAction(UIAction { [weak self] _ in self?.onRetryNeural?() }, for: .touchUpInside)
         let retryGroup = group(retryNeural)

@@ -40,6 +40,7 @@ Vime は完全オフラインで動く iOS 向けの日本語キーボードで�
 - 組み込みのテーマに加え、背景・キー画像・配色を自由に設定したスキンを作成でき、`.vimeskin` ファイルで共有できます。
 - キーボードの高さをドラッグで調整でき、キー音のオン・オフや振動の強さを無段階で調整できます。
 - 変換の選び方を端末内で学習します。候補を長押しするとその語の学習を削除でき、学習内容はいつでもまとめて消去できます。
+- **アクセシビリティ**：VoiceOver（フリック入力と上スワイプの記号はカスタムアクションで入力可能）、最大のアクセシビリティ文字サイズ、文字の太字、コントラストを上げるに対応しています。
 
 ### 本体アプリ
 
@@ -113,7 +114,7 @@ python3 Scripts/validate_app_resources.py
 詳細なドキュメントは中国語で書かれています。
 
 - [ドキュメント一覧](Docs/README.md)
-- 使い方：[アプリの設定](Docs/Guides/AppSettings.md) · [カスタムスキン](Docs/Guides/CustomSkins.md) · [ユーザ辞書](Docs/Guides/UserDictionary.md)
+- 使い方：[アプリの設定](Docs/Guides/AppSettings.md) · [カスタムスキン](Docs/Guides/CustomSkins.md) · [ユーザ辞書](Docs/Guides/UserDictionary.md) · [アクセシビリティ](Docs/Guides/Accessibility.md)
 - 開発：[プロジェクト構成](Docs/ProjectLayout.md) · [開発と検証](Docs/Development.md) · [日本語モデル](Docs/Models/JapaneseModel.md)
 - アーキテクチャ：[入力とホスト](Docs/Architecture/InputPipeline.md) · [候補と予測](Docs/Architecture/Candidates.md) · [学習と個人化](Docs/Architecture/Personalization.md) · [入力バックエンド](Docs/Architecture/InputBackends.md) · [絵文字の表示](Docs/Architecture/EmojiRendering.md)
 

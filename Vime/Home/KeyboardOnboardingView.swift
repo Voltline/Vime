@@ -22,6 +22,7 @@ struct KeyboardSetupProgress: Equatable {
 struct KeyboardOnboardingView: View {
     @Environment(\.openURL) private var openURL
     @Environment(\.scenePhase) private var scenePhase
+    @ScaledMetric(relativeTo: .subheadline) private var badgeSize: CGFloat = 30
     @State private var progress: KeyboardSetupProgress
     @State private var text = ""
     @State private var composition = ""
@@ -137,7 +138,8 @@ struct KeyboardOnboardingView: View {
                 if done { Image(systemName: "checkmark").font(.footnote.weight(.bold)).foregroundStyle(.white) }
                 else { Text(verbatim: "\(number)").font(.subheadline.weight(.semibold)).foregroundStyle(Color.vimeBlue) }
             }
-            .frame(width: 30, height: 30)
+            .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+            .frame(width: min(badgeSize, 40), height: min(badgeSize, 40))
             .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 6) {
                 Text(title).font(.headline)

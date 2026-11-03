@@ -51,6 +51,7 @@ extension KeyboardView {
             guard let self else { return }
             self.kanaToggle = nil
             self.apply(self.session.space())
+            self.announceConversion()
         }
         space.0.accessibilityLabel = String(localized: "空格，转换候选")
         space.0.accessibilityIdentifier = "vime.key.space"

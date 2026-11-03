@@ -88,13 +88,14 @@ final class KeyboardKey: UIButton {
         layer.shadowRadius = 0
         titleLabel?.font = .systemFont(ofSize: 21, weight: .regular)
         hintLabel.font = .systemFont(ofSize: 9)
-        hintLabel.textColor = UIColor(white: 0.63, alpha: 1)
         hintLabel.textAlignment = .center
         hintLabel.isUserInteractionEnabled = false
         addSubview(hintLabel)
         setTitleColor(KeyboardPalette.text, for: .normal)
         tintColor = KeyboardPalette.text
         if let title { setTitle(title, for: .normal); accessibilityLabel = title }
+        // VoiceOver's typing modes (standard and touch typing) apply to keyboard keys.
+        accessibilityTraits = .keyboardKey
         if let symbol { setImage(UIImage(systemName: symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 20, weight: .regular)), for: .normal) }
         addTarget(self, action: #selector(down), for: .touchDown)
         addTarget(self, action: #selector(up), for: .touchUpInside)
@@ -105,6 +106,9 @@ final class KeyboardKey: UIButton {
         // Dynamic fills can change opacity between light and dark appearance.
         registerForTraitChanges(UITraitCollection.systemTraitsAffectingColorAppearance) { (key: KeyboardKey, _: UITraitCollection) in
             key.updateShadowPath()
+        }
+        registerForTraitChanges([UITraitLegibilityWeight.self, UITraitAccessibilityContrast.self]) { (key: KeyboardKey, _: UITraitCollection) in
+            key.setNeedsLayout()
         }
     }
 
@@ -119,6 +123,7 @@ final class KeyboardKey: UIButton {
 
     override func layoutSubviews() {
         super.layoutSubviews()
+        applyAccessibilityAppearance()
         updateShadowPath()
         hintLabel.frame = CGRect(x: 0, y: 2, width: bounds.width, height: 11)
         if hint != nil { titleLabel?.center.y = bounds.height * 0.59 }
@@ -237,7 +242,7 @@ final class KeyboardKey: UIButton {
         let box = CGSize(width: size + 4, height: size + 2)
         for (index, label) in flickLabels.enumerated() {
             label.font = .systemFont(ofSize: size)
-            label.textColor = KeyboardPalette.text.withAlphaComponent(0.45)
+            label.textColor = KeyboardPalette.text.withAlphaComponent(traitCollection.accessibilityContrast == .high ? 0.75 : 0.45)
             label.isHidden = hasSkinArtwork
             let center = switch KeyFlick.directions[index] {
             case .left: CGPoint(x: 3 + box.width / 2, y: bounds.midY)
@@ -274,6 +279,57 @@ final class KeyboardKey: UIButton {
             else { action?() }
         }
         if !cancelled && repeats && deferredRepeat && !resolvedRepeatOccurred && repeatIsAllowed { action?() }
+    }
+
+    /// Flick directions and the swipe-up symbol need a gesture VoiceOver users
+    /// can't make, so they are offered as actions (VoiceOver: swipe up or down).
+    override var accessibilityCustomActions: [UIAccessibilityCustomAction]? {
+        get {
+            var actions: [UIAccessibilityCustomAction] = []
+            if let outputs = flickOutputs, flickAction != nil {
+                for flick in KeyFlick.directions where outputs.indices.contains(flick.rawValue) && !outputs[flick.rawValue].isEmpty {
+                    actions.append(UIAccessibilityCustomAction(name: outputs[flick.rawValue]) { [weak self] _ in
+                        guard let self, let flickAction = self.flickAction else { return false }
+                        self.feedback?()
+                        flickAction(flick)
+                        return true
+                    })
+                }
+            } else if let alternateTitle, alternateAction != nil {
+                actions.append(UIAccessibilityCustomAction(name: alternateTitle) { [weak self] _ in
+                    guard let self, let alternateAction = self.alternateAction else { return false }
+                    self.feedback?()
+                    alternateAction()
+                    return true
+                })
+            }
+            return actions.isEmpty ? nil : actions
+        }
+        set {}
+    }
+
+    /// Bold Text and Increase Contrast. The system font and symbols already
+    /// follow Bold Text, but a skin's own font does not. Fills come from the
+    /// theme or skin, whose keys are told apart mostly by a faint shadow.
+    private var boldTitleFont: (regular: UIFont, bold: UIFont)?
+    private func applyAccessibilityAppearance() {
+        let bold = traitCollection.legibilityWeight == .bold
+        if let font = titleLabel?.font {
+            // System font names start with a period, such as ".SFUI-Regular".
+            if bold, !font.fontName.hasPrefix("."), !font.fontDescriptor.symbolicTraits.contains(.traitBold),
+               let descriptor = font.fontDescriptor.withSymbolicTraits(.traitBold) {
+                let heavier = UIFont(descriptor: descriptor, size: font.pointSize)
+                boldTitleFont = (font, heavier)
+                titleLabel?.font = heavier
+            } else if !bold, let boldTitleFont, font == boldTitleFont.bold {
+                titleLabel?.font = boldTitleFont.regular
+                self.boldTitleFont = nil
+            }
+        }
+        let contrast = traitCollection.accessibilityContrast == .high
+        layer.borderWidth = contrast ? 1 : 0
+        layer.borderColor = contrast ? KeyboardPalette.text.withAlphaComponent(0.5).resolvedColor(with: traitCollection).cgColor : nil
+        hintLabel.textColor = contrast ? KeyboardPalette.text.withAlphaComponent(0.75) : UIColor(white: 0.63, alpha: 1)
     }
 
     override func accessibilityActivate() -> Bool {

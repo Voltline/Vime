@@ -9,7 +9,7 @@ final class HapticIntensitySlider: UISlider {
         // The keyboard host needs rendered pixels over the full tracking region,
         // including the transparent area surrounding the thumb and track
         backgroundColor = KeyboardTouchBacking.color
-        accessibilityLabel = "振动强度"
+        accessibilityLabel = String(localized: "振动强度")
         accessibilityIdentifier = "vime.setting.haptics"
         addTarget(self, action: #selector(changed), for: .valueChanged)
         addTarget(self, action: #selector(settle), for: [.touchUpInside, .touchUpOutside])
