@@ -368,4 +368,27 @@ final class KeyboardPersonalizationTests: XCTestCase {
         print("PERSONALIZATION_TIMING", KeyboardPerformance.report())
         XCTAssertThrowsError(try lm.scoredNextWords(prompt: "プログラムを", cancelled: { true }))
     }
+
+    func testLearnedStandaloneClauseDoesNotSplitALongerReading() throws {
+        let directory = isolatedLearningDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let memory = CandidatePreferenceMemory(directory: directory)
+        for _ in 0..<4 {
+            memory.record(reading: "デ", surface: "で")
+            memory.record(reading: "デ", surface: "で", scope: "choice")
+        }
+        memory.flush()
+        let engine = JapaneseCandidateEngine(memoryDirectoryURL: directory, learningEnabled: true)
+        var composing = ComposingText(); RomajiConverter.insert("deha", into: &composing)
+        let values = engine.candidates(for: composing, revision: 1, includeCorrections: false)
+        let clause = try XCTUnwrap(values.first { $0.text == "で" && !$0.fullConsumption })
+        let complete = try XCTUnwrap(values.first { $0.text == "では" && $0.fullConsumption })
+        XCTAssertGreaterThan(clause.features.total, complete.features.total, "The learned clause scores higher on its own")
+        XCTAssertEqual(values.first?.text, "では")
+        XCTAssertTrue(try XCTUnwrap(values.first).fullConsumption)
+        let lm = try VimeLanguageModel()
+        let reranked = lm.rerank(values, context: "", katakana: false,
+            maximumCandidates: JapaneseCandidateWorker.initialRankingCandidateLimit, cancelled: { false })
+        XCTAssertTrue(try XCTUnwrap(reranked.first).fullConsumption, reranked.prefix(3).map(\.text).description)
+    }
 }

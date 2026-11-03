@@ -58,6 +58,8 @@ bash Scripts/test.sh --extension                       # 真实键盘扩展的 U
 
 [KeyboardBudgetTests](../Tests/UIKit/Diagnostics/KeyboardBudgetTests.swift) 随本机单元测试每次运行（CI 上跳过），检查热状态下按键到候选的 p50/p95、按键在主线程的耗时、连续 120 次输入并确认后的内存增长，以及 1,024 条词典的导入导出耗时。上限约为本机 Debug 模拟器实测的四倍，只拦截明显变慢或内存持续增长的改动；数值逐项打印为 `VIME_BUDGET` 行，`test.sh` 在汇总后列出，便于对比趋势。模拟器数字不能代替真机扩展的内存与性能验收。确有理由放宽上限时，在同一提交里写明新的实测值。
 
+改动候选生成或排序时，用 `bash Scripts/candidate_benchmark.sh` 比较改动前后的候选质量（默认不在单元测试中运行），方法、数据与当前结果见 [候选质量基准](Models/CandidateBenchmark.md)。
+
 ## 可复现检查
 
 [verify_review.sh](../Scripts/verify_review.sh) 支持 `focused`、`full`、`extension`、`all`。显式指定模拟器和已经解析好的依赖缓存，例如：

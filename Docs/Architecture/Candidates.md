@@ -23,6 +23,8 @@ azooKey 是候选生成器，Vime 负责统一展示排序。原始转换和预�
 
 来源内顺序取自 azooKey，但需要校正两处：`mainResults` 中穿插的 autoMix 预测有自己的列表和分值尺度，转换候选的顺序只在非预测条目之间计算；`firstClauseResults` 按单个文节排序，消费整个输入的文节候选不能直接沿用其序号，取「文节序号」与「在主结果非预测条目中的位置」二者中较靠后者。否则单文节读法「リファクタリング市ます」（文节第 1、主结果第 5）会与整句最优「リファクタリングします」同为第 0 位，在模型窗口错过时被冻结为首选。不同段的 lattice value（整句、文节、单词）尺度不同，不直接跨段比较。回归用例为 `KeyboardLexicalEvidenceTests/testSuruVerbOutranksFirstClauseNounReading`。
 
+普通候选栏里的部分文节（只转换输入的前一段、其余留在 preedit）带分段惩罚，但选择记忆按文节自身的读音记录：用户单独确认过「で」后，输入 deha 时「で…」会拿到学习加分并压过「では」。因此排序后若首位是部分文节，而列表中存在消费整个输入、读音完全一致的 lexical 候选，就把后者移到首位；部分文节仍在其后，可以一键选择。显式调整的转换范围不受影响。智能模式下部分文节不参与模型比较、保留原槽位，首位换成完整候选后同样成立。回归用例为 `KeyboardPersonalizationTests/testLearnedStandaloneClauseDoesNotSplitALongerReading`，覆盖情况见 [候选质量基准](../Models/CandidateBenchmark.md) 的 everyday-learned 组。
+
 平假名、片假名变体作为候选来源参与排序；与词典相同表记去重，保留有价值的原生 payload。词典已经提供标准片假名词时，通用脚本候选不会靠固定位置挤占它。
 
 完整候选菜单按需补充半角片假名和全角英数字，通过 azooKey 原生选项的独立会话生成，共享已有词典。半角候选使用当前假名读音，全角英数字使用原始 Roman / 数字输入，避免把已转换的假名当成英文字母。格式候选以 scriptVariant 来源和 widthVariant metadata 进入统一排序、去重和诊断，不作为 lexical 候选或反馈原生词条学习；用户确认前不改变 preedit，显式前段范围只消费该段。普通候选查询不启用这两个格式选项
