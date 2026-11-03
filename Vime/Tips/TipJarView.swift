@@ -72,7 +72,7 @@ private struct TipRow: View {
                     }
                 }.padding(.vertical, 4)
             } icon: {
-                Image(systemName: symbol).font(.body).foregroundStyle(.tint).frame(width: 24).accessibilityHidden(true)
+                Image(systemName: symbol).font(.body).foregroundStyle(.tint).appListIcon(width: 24)
             }
             Spacer(minLength: 8)
             Group {

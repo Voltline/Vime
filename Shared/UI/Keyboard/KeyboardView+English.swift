@@ -18,6 +18,16 @@ extension KeyboardView {
         let alternate = shifted && !session.inputTraits.isEnglish && !session.isComposing
         if alternate && !capsLocked { shifted = false; updateKeyLabels() }
         apply(session.space(alternateWidth: alternate))
+        announceConversion()
+    }
+
+    /// VoiceOver says only the key's name, so after Space say which
+    /// conversion is now shown. Queued, so it follows the key's own speech.
+    func announceConversion() {
+        guard UIAccessibility.isVoiceOverRunning, session.isComposing,
+              let text = session.markedText?.text, !text.isEmpty else { return }
+        UIAccessibility.post(notification: .announcement, argument: NSAttributedString(
+            string: text, attributes: [.accessibilitySpeechQueueAnnouncement: true]))
     }
 
     /// Follows the field's capitalization while typing English. Only edits

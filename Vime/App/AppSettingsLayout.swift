@@ -85,9 +85,23 @@ struct AppSettingsLabel: View {
                 if let subtitle { Text(subtitle).font(.caption).foregroundStyle(.secondary) }
             }.padding(.vertical, subtitle == nil ? 2 : 4)
         } icon: {
-            Image(systemName: symbol).font(.body).foregroundStyle(.tint)
-                .frame(width: 24).accessibilityHidden(true)
+            Image(systemName: symbol).font(.body).foregroundStyle(.tint).appListIcon(width: 24)
         }
+    }
+}
+
+extension View {
+    /// Decorative leading icon: grows with text up to xxxLarge and then stops,
+    /// so accessibility sizes give the width to the label instead.
+    func appListIcon(width: CGFloat) -> some View { modifier(AppListIcon(width: width)) }
+}
+
+private struct AppListIcon: ViewModifier {
+    let width: CGFloat
+    @ScaledMetric(relativeTo: .body) private var scale: CGFloat = 1
+    func body(content: Content) -> some View {
+        content.dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+            .frame(width: width * min(scale, 1.4)).accessibilityHidden(true)
     }
 }
 
@@ -148,6 +162,7 @@ struct AppIconChip: View {
     enum Icon { case glyph(String), symbol(String) }
     let icon: Icon
     let tint: Color
+    @ScaledMetric(relativeTo: .body) private var size: CGFloat = 34
     var body: some View {
         Group {
             switch icon {
@@ -156,7 +171,9 @@ struct AppIconChip: View {
             }
         }
         .foregroundStyle(tint)
-        .frame(width: 34, height: 34)
+        // Decorative, so the glyph stops growing with the tile's cap.
+        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+        .frame(width: min(size, 52), height: min(size, 52))
         .background(tint.opacity(0.15), in: RoundedRectangle(cornerRadius: 10))
         .accessibilityHidden(true)
     }

@@ -9,6 +9,7 @@
 
 - [自定义皮肤](Guides/CustomSkins.md)：创建、导入、导出及文件格式。
 - [用户词典](Guides/UserDictionary.md)：注册词语、短语快捷输入及 JSON 交换格式。
+- [无障碍](Guides/Accessibility.md)：VoiceOver、动态字体、粗体文本与增强对比度的支持范围。
 
 ## 开发指南
 
