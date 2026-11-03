@@ -14,9 +14,10 @@ final class KeyboardSymbolPanel: UIView, UICollectionViewDataSource, UICollectio
         didSet {
             guard recents != oldValue else { return }
             let current = locations[selectedSection]
-            recentItems = recents.map { KeyboardSymbolCatalog.Item(text: $0, name: KeyboardSymbolCatalog.emojiNames[$0] ?? $0) }
+            recentItems = recents.filter { !KeyboardEmojiAvailability.isRegionallyHidden($0) }
+                .map { KeyboardSymbolCatalog.Item(text: $0, name: KeyboardSymbolCatalog.emojiNames[$0] ?? $0) }
             cancelPrefetches()
-            locations = Self.locations(hasRecents: !recents.isEmpty)
+            locations = Self.locations(hasRecents: !recentItems.isEmpty)
             selectedSection = locations.firstIndex { $0.mode == current.mode && $0.group == current.group } ?? 0
             headerSelection = nil
             rebuildCategories(for: displayedMode)

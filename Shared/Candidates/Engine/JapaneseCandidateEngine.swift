@@ -171,7 +171,8 @@ nonisolated final class JapaneseCandidateEngine {
         guard let native = nativeCandidates(from: result, builder: builder, cancelled: cancelled) else { return [] }
         let special = specialCandidates(for: query, options: requestOptions, builder: builder)
             + (conversionLength == nil ? typedLetterCandidates(for: query, builder: builder) + dateCandidates(builder: builder) : [])
-        let emoji = textReplacer.getSearchResult(query: builder.kana, target: [.emoji], ignoreNonBaseEmoji: true).prefix(6).map {
+        let emoji = textReplacer.getSearchResult(query: builder.kana, target: [.emoji], ignoreNonBaseEmoji: true)
+            .filter { !KeyboardEmojiAvailability.isRegionallyHidden($0.text) }.prefix(6).map {
             builder.snapshot(builder.wholeQuery($0.text, value: -3, lastMid: MIDData.一般.mid), source: .emoji)
         }
         let literalScore = native.conversions.first { $0.exactReading && $0.fullConsumption }?.engineScore

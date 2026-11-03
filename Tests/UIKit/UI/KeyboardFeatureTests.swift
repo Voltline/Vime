@@ -659,6 +659,19 @@ final class KeyboardFeatureTests: XCTestCase {
         XCTAssertGreaterThan(grid.numberOfItems(inSection: 0), 100)
     }
 
+    func testRegionalEmojiExclusionsApplyOnlyInTheirRegion() {
+        let excluded = KeyboardEmojiAvailability.excluded(in: "CN")
+        XCTAssertFalse(excluded.isEmpty)
+        XCTAssertTrue(KeyboardEmojiAvailability.excluded(in: "JP").isEmpty)
+        XCTAssertTrue(KeyboardEmojiAvailability.excluded(in: nil).isEmpty)
+        for value in excluded {
+            XCTAssertTrue(KeyboardEmojiAvailability.isRegionallyHidden(value, excluded: excluded))
+            XCTAssertTrue(KeyboardEmojiAvailability.isRegionallyHidden("x" + value, excluded: excluded))
+            XCTAssertFalse(KeyboardEmojiAvailability.isRegionallyHidden(value, excluded: []))
+        }
+        XCTAssertFalse(KeyboardEmojiAvailability.isRegionallyHidden("🇯🇵", excluded: excluded))
+    }
+
     func testEmojiCellsPreserveColorAndCompositeGlyphs() async throws {
         let samples = ["😀", "🫡", "👩🏽‍💻", "🇯🇵", "1️⃣", "❤️", "👍🏿", "🫱🏻‍🫲🏼", "👩🏻‍❤️‍👨🏿", "👩🏻‍🤝‍👨🏼", "👨‍👩‍👧‍👦", "🚶‍➡️", "🧑🏽‍🦯‍➡️", "♀️", "♂️", "⚕️"]
         let panel = KeyboardSymbolPanel(frame: CGRect(x: 0, y: 0, width: 440, height: 350))

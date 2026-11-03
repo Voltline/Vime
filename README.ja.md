@@ -1,6 +1,6 @@
 # Vime
 
-[简体中文](README.md) | [English](README.en.md) | **日本語** | [한국어](README.ko.md)
+[简体中文](README.md) | [繁體中文](README.zh-Hant.md) | [English](README.en.md) | **日本語** | [한국어](README.ko.md)
 
 ![Platform](https://img.shields.io/badge/platform-iOS%2018%2B-blue) ![Swift](https://img.shields.io/badge/Swift-UIKit%20%2B%20SwiftUI-orange) ![License](https://img.shields.io/badge/license-GPL--3.0--or--later-green)
 
