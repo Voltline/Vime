@@ -9,8 +9,6 @@ import SwiftUI
 
 @main
 struct VimeApp: App {
-    private let tipUpdates = TipJarStore.finishTransactionUpdates()
-
     init() {
         VimeExtensionAudit.configureFromLaunchArguments()
 #if DEBUG

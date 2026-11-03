@@ -18,7 +18,10 @@ struct TipJarView: View {
             }
         }
         .navigationTitle("赞助开发").navigationBarTitleDisplayMode(.inline)
-        .task { if store.products.isEmpty { await store.load() } }
+        .task {
+            _ = TipJarStore.transactionUpdates
+            if store.products.isEmpty { await store.load() }
+        }
     }
 
     @ViewBuilder private var tiers: some View {
