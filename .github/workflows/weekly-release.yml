@@ -88,6 +88,13 @@ jobs:
           python3 tools/.github/scripts/app_store.py check --version "$VERSION" --strict \
             --notes notes.md --head-time "$(git log -1 --format=%cI HEAD)"
 
+      # The runner's system Ruby can't install gems without sudo, so fastlane
+      # is installed into a Ruby set up for the job.
+      - uses: ruby/setup-ruby@v1
+        if: steps.changes.outputs.count != '0' && steps.changes.outputs.submitted != 'true' && (github.event_name == 'schedule' || inputs.submit)
+        with:
+          ruby-version: "3.3"
+
       - name: Submit for review
         if: steps.changes.outputs.count != '0' && steps.changes.outputs.submitted != 'true' && (github.event_name == 'schedule' || inputs.submit)
         env:
