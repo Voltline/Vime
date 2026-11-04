@@ -121,7 +121,7 @@ flowchart LR
 ### 每周节奏（北京时间）
 
 1. **随时**：改动合入 `dev`。要进入本周版本的改动在周五 03:00 之前合并；周四 03:00 之后合入的改动只能在周五的构建上验收一天。
-2. **周三至周五 03:00**：[Weekly TestFlight cut](../.github/workflows/weekly-testflight.yml) 每天运行一次。它先把 `beta` 上的直接合并合回 `dev`，再检查 `dev` 是否有 `beta` 之外的提交（不计合并提交）。有则在 `dev` 写入营销版本、快进 `beta`，并创建或更新草稿 Release `v<版本>`；没有则当天不出构建。`beta` 的变化触发 Xcode Cloud 的 TestFlight workflow，archive 后上传 TestFlight。
+2. **周三至周五 03:00**：[Weekly TestFlight cut](../.github/workflows/weekly-testflight.yml) 每天运行一次。它先把 `beta` 上的直接合并合回 `dev`，再检查 `dev` 是否有 `beta` 之外、会影响 App 的提交：不计合并提交，也不计只改 `Docs/`、`.github/`、`site/`、`Tests/` 和 Markdown 文件的提交。有则在 `dev` 写入营销版本、快进 `beta`，并创建或更新草稿 Release `v<版本>`；没有则当天不出构建，这些提交留在 `dev`，随下一次出构建进入 `beta`。网站和工作流都从 `dev` 读取，不需要等出构建。`beta` 的变化触发 Xcode Cloud 的 TestFlight workflow，archive 后上传 TestFlight。
 3. **周三至周五**：在最新的 TestFlight 构建上做验收（见「测试层次」），并填写更新说明（见下文「更新说明」）。草稿 Release 的「验收构建」留空时，周六提交此版本最新的已处理构建；填写构建号则只提交该构建，之后有新构建时需要更新或清空；填写其他文字（例如「暂停」）则本周不提交。出构建的任务每次运行都会清空「验收构建」。这期间直接合入 `beta` 的 `build/` 等改动同样会触发新构建，同属本周版本，它们不改写草稿。发现阻断问题时在「验收构建」后写「暂停」（或删除草稿 Release），周六任务停止，本周不提交；修复照常走 `fix/` → `dev`，在下一次出构建时带上。
 4. **周六 10:00**：[Weekly App Store release](../.github/workflows/weekly-release.yml) 在 `beta` 领先 `main` 时，提交此版本最新的已处理构建。提交前先做一次只读检查（见下文「提交前检查」）：该构建的上传时间必须晚于 `beta` 最新提交，「验收构建」填写了构建号时必须与它一致，否则不提交。检查通过后提交审核，快进 `main`、打标签并发布 Release，Release 中的「验收构建」填为实际提交的构建号。审核通过后自动上架（`AUTOMATIC_RELEASE`）。若该版本已有标签，说明领先的只是提交审核后才合入 `beta` 的改动：此时只快进 `main`，不再提交，这些改动随下一个版本发布。
 
@@ -157,7 +157,7 @@ App Store 每次提交更新都要求各语言的「此版本的新增内容」�
 - **分支**：从 `main` 创建 `dev` 与 `beta`，把仓库默认分支设为 `dev`。定时 workflow 只从默认分支读取，因此 `.github/workflows` 必须先合入 `dev`。在 `main` 的 `fed1eb3`（1.0 的提交）上打 `v1.0`，作为第一个基准标签。
 - **分支规则（Rulesets）**：三个分支都禁止强推和删除。`dev` 与 `beta` 要求 PR（只允许 merge commit）与 `branch-policy` 检查通过；`main` 禁止直接更新。个人仓库不能把 GitHub Actions 加入绕过名单，因此绕过名单是部署密钥（Deploy keys）：周任务用有写权限的 `vime-release` 部署密钥推送，用于写入版本号、合回 `beta` 和快进分支。仓库中不要添加其他部署密钥，否则它们同样可以绕过规则。
 - **Secrets**：`RELEASE_DEPLOY_KEY`（上述部署密钥的私钥），以及 `ASC_KEY_ID`、`ASC_ISSUER_ID`、`ASC_PRIVATE_KEY`（App Store Connect API 密钥，App Manager 角色，私钥填 `.p8` 文件全文，仅供周六提交审核使用）。
-- **Xcode Cloud**：TestFlight workflow 的启动条件设为 `beta` 分支变化，并在文件条件中忽略 `Docs/`、`.github/` 与 `*.md`，避免纯文档合并触发构建；archive 后分发到 TestFlight。停用基于 `main` 的定时构建。
+- **Xcode Cloud**：TestFlight workflow 的启动条件设为 `beta` 分支变化，并在文件条件中忽略 `Docs/`、`.github/`、`site/`、`Tests/` 与 `*.md`（与出构建任务的判断一致），避免直接合入 `beta` 的非 App 改动触发构建；archive 后分发到 TestFlight。停用基于 `main` 的定时构建。
 
 ### 审核异常
 

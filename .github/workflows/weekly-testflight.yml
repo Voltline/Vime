@@ -2,7 +2,7 @@ name: Weekly TestFlight cut
 
 # Wednesday to Friday 03:00 Asia/Shanghai. Moving beta starts the Xcode Cloud
 # workflow that archives the branch and uploads it to TestFlight; days without
-# new changes on dev are skipped.
+# new changes to the app on dev are skipped.
 on:
   schedule:
     - cron: "0 19 * * 2-4"
@@ -27,13 +27,17 @@ jobs:
           fetch-depth: 0
           ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }}
 
+      # Only commits that can change the app count. Changes to docs, workflows,
+      # the website, tests and Markdown stay on dev until the next cut with
+      # app changes, so they don't raise the version or start a build.
       - name: Check for changes
         id: changes
         run: |
           git fetch --tags origin main beta
-          count=$(git rev-list --count --no-merges origin/beta..origin/dev)
+          count=$(git rev-list --count --no-merges origin/beta..origin/dev -- . \
+            ':!Docs' ':!.github' ':!site' ':!Tests' ':!*.md')
           echo "count=$count" >> "$GITHUB_OUTPUT"
-          [ "$count" -gt 0 ] || echo "dev has no changes since the last cut."
+          [ "$count" -gt 0 ] || echo "dev has no changes to the app since the last cut."
 
       # docs/, chore/ and build/ pull requests may merge into beta directly.
       # Bring them back to dev so beta can fast-forward again.
