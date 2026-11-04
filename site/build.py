@@ -179,7 +179,7 @@ def app_store_live():
         results = fetch_json(f"https://itunes.apple.com/lookup?{query}").get("results", [])
         if results:
             app = results[0]
-            return {"version": app.get("version"), "date": app.get("currentVersionReleaseDate"),
+            return {"id": app["trackId"], "version": app.get("version"), "date": app.get("currentVersionReleaseDate"),
                     "url": f"https://apps.apple.com/app/id{app['trackId']}"}
     return None
 
@@ -351,6 +351,8 @@ class Site:
             f' data-lang="{other}"{language_current if other == code else ""}>'
             f'{html.escape(self.content[other]["name"])}</a></li>' for other in LANGUAGES)
         footer = text["footer"]
+        # Safari on iPhone and iPad shows a banner that opens or installs the app.
+        banner = f'\n<meta name="apple-itunes-app" content="app-id={self.data["live"]["id"]}">' if self.data["live"] else ""
         return f"""<!doctype html>
 <html lang="{lang}">
 <head>
@@ -360,7 +362,7 @@ class Site:
 <meta name="description" content="{html.escape(description)}">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#f7f9fc" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#0f1115" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#0f1115" media="(prefers-color-scheme: dark)">{banner}
 <meta property="og:title" content="{html.escape(title)}">
 <meta property="og:description" content="{html.escape(description)}">
 <meta property="og:image" content="{self.base_url}apple-touch-icon.png">
