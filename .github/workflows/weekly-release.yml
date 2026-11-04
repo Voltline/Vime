@@ -82,8 +82,9 @@ jobs:
             exit 1
           fi
           # Stops before submitting when another version is still in review,
-          # the localizations differ, or the newest processed build is not the
-          # one entered after 验收构建 or was built before beta last changed.
+          # the localizations differ, 验收构建 holds the submission or names
+          # another build, or the newest processed build was uploaded before
+          # beta last changed. An empty 验收构建 takes the newest build.
           python3 tools/.github/scripts/app_store.py check --version "$VERSION" --strict \
             --notes notes.md --head-time "$(git log -1 --format=%cI HEAD)"
 
@@ -119,6 +120,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: v${{ steps.changes.outputs.version }}
+          BUILD: ${{ steps.check.outputs.build }}
         run: |
           previous=$(git tag --merged origin/main --list 'v*' --sort=-v:refname | head -n 1)
           git push origin HEAD:main
@@ -131,6 +133,8 @@ jobs:
             changes=$(gh api "repos/$GITHUB_REPOSITORY/releases/generate-notes" \
               -f tag_name="$TAG" ${previous:+-f previous_tag_name="$previous"} --jq .body)
             localized=$(gh release view "$TAG" --json body --jq .body | sed '/^---$/,$d')
+            # Record the submitted build, which an empty 验收构建 left unnamed.
+            [ -z "$BUILD" ] || localized=$(printf '%s\n' "$localized" | sed -E "s/^验收构建[:：].*/验收构建：$BUILD/")
             printf '%s\n---\n\n%s\n' "$localized" "$changes" > published.md
             gh release edit "$TAG" --draft=false --tag "$TAG" --notes-file published.md
           fi

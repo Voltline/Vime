@@ -88,10 +88,10 @@ jobs:
             localized=$(for locale in zh-Hans zh-Hant ja en-US ko; do printf '## %s\n\n\n' "$locale"; done)
           fi
           # Each cut is a new build, so the header and an empty 验收构建 line
-          # are written again; the Saturday workflow submits only the build
-          # entered there.
+          # are written again; the Saturday workflow submits the newest build
+          # unless a number or other text is entered there.
           {
-            echo "<!-- 周六提交审核前：真机验收最新的 TestFlight 构建后，在「验收构建」后填写它的构建号；在各语言标题下填写 App Store「此版本的新增内容」。--- 以下仅供参考，不会提交。 -->"
+            echo "<!-- 周六提交审核前：在各语言标题下填写 App Store「此版本的新增内容」。「验收构建」留空时提交最新的 TestFlight 构建；填写构建号则只提交该构建；填写其他文字（例如「暂停」）则本周不提交。--- 以下仅供参考，不会提交。 -->"
             echo "验收构建："
             echo
             printf '%s\n' "$localized" | sed -E '/^<!--.*-->$/d; /^验收构建/d' | sed '/./,$!d'

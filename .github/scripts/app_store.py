@@ -39,10 +39,11 @@ def release_notes(path):
 
 
 def accepted_build(path):
-    """The build number after 验收构建 in a draft release body, if one is entered."""
+    """What follows 验收构建 in a draft release body: a build number, other text
+    that holds the submission, or None when it is left empty."""
     body = Path(path).read_text() if Path(path).exists() else ""
-    match = re.search(r"^验收构建[:：][ \t]*(\d+)", body, flags=re.M)
-    return match.group(1) if match else None
+    match = re.search(r"^验收构建[:：][ \t]*(.*)$", body, flags=re.M)
+    return (match.group(1).strip() or None) if match else None
 
 
 def b64url(data):
@@ -151,24 +152,28 @@ def check(arguments):
         lines.append(f"Release notes filled: {', '.join(locale for locale in LOCALES if locale in notes) or 'none'}")
         if missing:
             warnings.append(f"Release notes are still empty for {', '.join(missing)}.")
-        # Only the newest build, built from the head of beta, is submitted, and
-        # only once it has been tested and entered after 验收构建.
+        # Only the newest build, built from the head of beta, is submitted. An
+        # empty 验收构建 takes it as it is; a number pins it, and other text
+        # holds the submission.
         accepted = accepted_build(arguments.notes)
         newest = usable[0]["attributes"] if usable else None
-        lines.append(f"Accepted build: {accepted or 'none'}")
-        if newest and not accepted:
-            warnings.append(f"No build is accepted yet; test build {newest['version']} on a device and "
-                            f"enter it after 验收构建 in the draft release.")
-        elif newest and accepted != newest["version"]:
-            warnings.append(f"Build {accepted} is accepted, but the newest processed build is {newest['version']}; "
-                            f"test it and update 验收构建 in the draft release.")
-        elif newest and arguments.head_time and \
-                datetime.fromisoformat(newest["uploadedDate"]) < datetime.fromisoformat(arguments.head_time):
-            warnings.append(f"beta changed after build {newest['version']} was uploaded; wait for Xcode Cloud "
-                            f"to upload the new build, then test it and update 验收构建.")
-        elif newest and os.environ.get("GITHUB_OUTPUT"):
-            with open(os.environ["GITHUB_OUTPUT"], "a") as output:
-                output.write(f"build={accepted}\n")
+        if accepted and not accepted.isdigit():
+            lines.append(f"Accepted build: on hold ({accepted})")
+            warnings.append(f"验收构建 is set to “{accepted}”; clear it or enter a build number to submit.")
+        elif not newest:
+            lines.append(f"Accepted build: {accepted or 'none'}")
+        else:
+            lines.append(f"Accepted build: {accepted or newest['version'] + ' (newest, 验收构建 is empty)'}")
+            if accepted and accepted != newest["version"]:
+                warnings.append(f"Build {accepted} is accepted, but the newest processed build is {newest['version']}; "
+                                f"test it and update 验收构建 in the draft release, or clear it.")
+            elif arguments.head_time and \
+                    datetime.fromisoformat(newest["uploadedDate"]) < datetime.fromisoformat(arguments.head_time):
+                warnings.append(f"beta changed after build {newest['version']} was uploaded; wait for Xcode Cloud "
+                                f"to upload the new build" + (", then test it and update 验收构建." if accepted else "."))
+            elif os.environ.get("GITHUB_OUTPUT"):
+                with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+                    output.write(f"build={newest['version']}\n")
 
     blocking = errors + (warnings if arguments.strict else [])
     report = lines + [f"Warning: {warning}" for warning in warnings] + [f"Error: {error}" for error in errors]
