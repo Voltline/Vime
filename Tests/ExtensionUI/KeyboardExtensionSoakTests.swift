@@ -23,16 +23,16 @@ final class KeyboardExtensionSoakTests: XCTestCase {
         let editor = app.textViews["vime.extension.editor"]
         XCTAssertTrue(editor.waitForExistence(timeout: 10))
         editor.tap()
-        if !app.buttons["vime.key.t"].waitForExistence(timeout: 3) {
+        if !app.keys["vime.key.t"].waitForExistence(timeout: 3) {
             let globe = app.buttons.matching(NSPredicate(format: "label IN %@",
                 ["Next keyboard", "下一键盘", "下一个键盘", "切换系统键盘", "次のキーボード"] as NSArray)).firstMatch
             for _ in 0..<6 {
-                guard !app.buttons["vime.key.t"].exists, globe.exists else { break }
+                guard !app.keys["vime.key.t"].exists, globe.exists else { break }
                 globe.tap()
-                _ = app.buttons["vime.key.t"].waitForExistence(timeout: 1)
+                _ = app.keys["vime.key.t"].waitForExistence(timeout: 1)
             }
         }
-        XCTAssertTrue(app.buttons["vime.key.t"].exists, "Enable the actual extension before running the soak")
+        XCTAssertTrue(app.keys["vime.key.t"].exists, "Enable the actual extension before running the soak")
         let began = ProcessInfo.processInfo.systemUptime
         var lastCheckpoint = began
         var cycles = 0
@@ -67,13 +67,13 @@ final class KeyboardExtensionSoakTests: XCTestCase {
         while ProcessInfo.processInfo.systemUptime - began < seconds {
             // If iOS replaces the extension, fail at the next cycle, without
             // switching back and hiding a genuine termination from the result.
-            XCTAssertTrue(app.buttons["vime.key.t"].exists, "Keyboard was replaced during the soak")
+            XCTAssertTrue(app.keys["vime.key.t"].exists, "Keyboard was replaced during the soak")
             expectClearMark()
             let before = editor.value as? String ?? ""
             let (word, reading) = corpus[cycles % corpus.count]
             for character in word {
                 let identifier = character == "-" ? "vime.key.prolonged" : "vime.key." + String(character)
-                app.buttons[identifier].tap()
+                app.keys[identifier].tap()
                 keyTaps += 1
             }
             XCTAssertFalse(markIsClear(), "The real host must receive marked text for \(word)")
@@ -96,12 +96,12 @@ final class KeyboardExtensionSoakTests: XCTestCase {
                 // selecting the first segment should finish the entire input.
                 if !markIsClear() {
                     if app.buttons["vime.panel.close"].exists { app.buttons["vime.panel.close"].tap() }
-                    app.buttons["vime.key.return"].tap(); keyTaps += 1
+                    app.keys["vime.key.return"].tap(); keyTaps += 1
                 }
             } else {
-                app.buttons["vime.key.space"].tap()
+                app.keys["vime.key.space"].tap()
                 let selectedHostText = editor.value as? String
-                app.buttons["vime.key.return"].tap()
+                app.keys["vime.key.return"].tap()
                 keyTaps += 2
                 XCTAssertEqual(editor.value as? String, selectedHostText, "Confirmation must not duplicate the selected preedit")
             }
@@ -115,7 +115,7 @@ final class KeyboardExtensionSoakTests: XCTestCase {
                 nonemptySuggestionObservations += 1
             }
             if cycles % 4 == 2 {
-                app.buttons["vime.key.delete"].tap(); keyTaps += 1
+                app.keys["vime.key.delete"].tap(); keyTaps += 1
                 expectClearMark()
             }
             cycles += 1
@@ -127,7 +127,7 @@ final class KeyboardExtensionSoakTests: XCTestCase {
         }
         XCTAssertGreaterThanOrEqual(ProcessInfo.processInfo.systemUptime - began, seconds)
         XCTAssertGreaterThan(cycles, 1)
-        XCTAssertTrue(app.buttons["vime.key.t"].exists)
+        XCTAssertTrue(app.keys["vime.key.t"].exists)
         expectClearMark()
     }
 }

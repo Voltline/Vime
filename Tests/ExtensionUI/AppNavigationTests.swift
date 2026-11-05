@@ -7,7 +7,7 @@ final class AppNavigationTests: XCTestCase {
         continueAfterFailure = false
         let app = XCUIApplication(); app.launch()
         app.tabBars.buttons["设置"].tap()
-        app.buttons["vime.settings.feedback"].tap()
+        app.openSettingsTile("vime.settings.feedback")
         let page = app.navigationBars["手感与布局"]
         let slider = app.sliders["vime.setting.haptics"]
         XCTAssertTrue(slider.waitForExistence(timeout: 3))
@@ -29,7 +29,7 @@ final class AppNavigationTests: XCTestCase {
         start.press(forDuration: 0.01, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.5)),
                     withVelocity: .slow, thenHoldForDuration: 0)
         XCTAssertTrue(app.navigationBars["设置"].waitForExistence(timeout: 3))
-        app.buttons["vime.settings.feedback"].tap()
+        app.openSettingsTile("vime.settings.feedback")
         XCTAssertEqual(slider.value as? String, "强 · 100%", "The drag must persist after returning to the page")
     }
 
@@ -37,7 +37,7 @@ final class AppNavigationTests: XCTestCase {
         let app = XCUIApplication(); app.launch()
         func openSymbols() {
             app.tabBars.buttons["设置"].tap()
-            app.buttons["vime.settings.symbols"].tap()
+            app.openSettingsTile("vime.settings.symbols")
             XCTAssertTrue(app.navigationBars["符号与括号"].waitForExistence(timeout: 3))
         }
         openSymbols()
@@ -47,7 +47,16 @@ final class AppNavigationTests: XCTestCase {
         add.tap()
         let alert = app.alerts["添加符号"]
         alert.textFields.firstMatch.tap(); alert.textFields.firstMatch.typeText(symbol)
-        alert.buttons["添加"].tap()
+        let confirm = alert.buttons["添加"]
+        XCTAssertTrue(confirm.isEnabled, "The typed symbol must be accepted")
+        // The keyboard slides in after typing and lifts the alert; tap only
+        // once it has settled. XCTest also treats this alert as an
+        // interruption and would tap 取消, so tap by coordinate.
+        _ = app.keyboards.firstMatch.waitForExistence(timeout: 3)
+        var frame = CGRect.null
+        for _ in 0..<10 where frame != confirm.frame { frame = confirm.frame; usleep(300_000) }
+        confirm.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        XCTAssertTrue(alert.waitForNonExistence(timeout: 3), "Adding must close the alert")
         app.terminate(); app.launch()
         openSymbols()
         let item = app.staticTexts["vime.numberSymbols.item." + symbol]
@@ -83,7 +92,7 @@ final class AppNavigationTests: XCTestCase {
         XCTAssertTrue(app.navigationBars["启用键盘"].waitForExistence(timeout: 3))
         capture(app, "Setup guide")
         app.navigationBars.buttons.firstMatch.tap()
-        app.buttons["vime.settings.feedback"].tap()
+        app.openSettingsTile("vime.settings.feedback")
         let slider = app.sliders["vime.setting.haptics"]
         XCTAssertTrue(slider.waitForExistence(timeout: 3))
         // Initialise the thumb, then use an actual drag to verify release snapping.
@@ -94,7 +103,7 @@ final class AppNavigationTests: XCTestCase {
         XCTAssertEqual(value, "中 · 60%")
         capture(app, "Feedback")
         app.navigationBars.buttons.firstMatch.tap()
-        app.buttons["vime.settings.privacy"].tap()
+        app.openSettingsTile("vime.settings.privacy")
         capture(app, "Data and privacy overview")
         app.buttons["vime.privacy.clipboard"].tap()
         XCTAssertTrue(app.navigationBars["剪贴板"].waitForExistence(timeout: 3))
