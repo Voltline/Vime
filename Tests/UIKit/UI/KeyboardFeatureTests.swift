@@ -994,6 +994,17 @@ final class KeyboardFeatureTests: XCTestCase {
         XCTAssertTrue(session.liveConversion)
         preferences.liveConversion = false; keyboard.reloadPreferences()
         XCTAssertFalse(session.liveConversion)
+
+        // The keyboard's own settings panel switches it without the app.
+        try button("vime.brand.settings", in: keyboard).sendActions(for: .touchUpInside)
+        keyboard.layoutIfNeeded()
+        let toggle = try XCTUnwrap(descendants(keyboard).first { $0.accessibilityIdentifier == "vime.setting.liveConversion" } as? UISwitch)
+        XCTAssertFalse(toggle.isOn)
+        toggle.isOn = true; toggle.sendActions(for: .valueChanged)
+        XCTAssertTrue(preferences.liveConversion)
+        XCTAssertTrue(session.liveConversion)
+        toggle.isOn = false; toggle.sendActions(for: .valueChanged)
+        XCTAssertFalse(session.liveConversion)
     }
 
     func testTextReplacementsReplaceLatinWordsAndFeedKanaReadings() throws {

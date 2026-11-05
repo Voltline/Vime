@@ -36,6 +36,9 @@ struct VimeApp: App {
             preferences.candidateRanking = ranking
             preferences.phraseSuggestions = true
         }
+        if arguments.contains("--keyboard-extension-test") {
+            KeyboardPreferences().liveConversion = arguments.contains("--keyboard-extension-test-live-conversion")
+        }
 #endif
     }
     var body: some Scene {

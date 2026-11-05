@@ -154,7 +154,82 @@ final class KeyboardLiveConversionTests: XCTestCase {
         await settle()
         XCTAssertEqual(session.preedit, "東京")
         _ = session.type("t")
-        XCTAssertEqual(session.enter(), [.insert("東京t")], "Return before the result commits what is shown")
+        XCTAssertEqual(session.preedit, "東京t")
+        XCTAssertEqual(session.enter(), [], "Return waits for the pending result")
+        XCTAssertEqual(session.enter(), [.insert("東京t")], "A second Return commits what is shown at once")
         XCTAssertFalse(session.isComposing)
+    }
+
+    private func asyncSession() -> KeyboardSession {
+        let session = KeyboardSession(asynchronousCandidates: true, memoryDirectoryURL: isolatedLearningDirectory())
+        session.candidateRanking = .engine
+        session.setLiveConversion(true)
+        return session
+    }
+
+    func testReturnBeforeTheResultCommitsTheConversion() async {
+        let session = asyncSession()
+        let committed = expectation(description: "deferred commit")
+        var batches: [KeyboardCommitBatch] = []
+        session.onCommittedEdits = { batches.append($0); committed.fulfill() }
+        for c in "toukyouto" { _ = session.type(String(c)) }
+        XCTAssertFalse(session.candidatesAreCurrent)
+        XCTAssertEqual(session.enter(), [], "Return waits for the pending conversion")
+        XCTAssertTrue(session.isComposing)
+        await fulfillment(of: [committed], timeout: 10)
+        XCTAssertEqual(batches.map(\.edits), [[.insert("東京都")]])
+        XCTAssertEqual(batches.first?.hostEpoch, session.hostEpoch)
+        XCTAssertFalse(session.isComposing)
+        XCTAssertNotNil(session.reconvertibleCommit, "The waited Return is an ordinary conversion confirmation")
+    }
+
+    func testKeysAfterAWaitingReturnCommitItFirst() async {
+        let session = asyncSession()
+        var batches: [KeyboardCommitBatch] = []
+        session.onCommittedEdits = { batches.append($0) }
+        for c in "toukyou" { _ = session.type(String(c)) }
+        XCTAssertEqual(session.enter(), [])
+        XCTAssertEqual(session.enter(), [.insert("とうきょう")], "A second Return commits what is shown at once")
+        XCTAssertFalse(session.isComposing)
+
+        for c in "toukyou" { _ = session.type(String(c)) }
+        XCTAssertEqual(session.enter(), [])
+        XCTAssertEqual(session.type("k"), [.insert("とうきょう")], "Typing commits the waiting Return before its key")
+        XCTAssertEqual(session.preedit, "k")
+
+        _ = session.backspace()
+        for c in "toukyou" { _ = session.type(String(c)) }
+        XCTAssertEqual(session.enter(), [])
+        XCTAssertEqual(session.backspace(), [.insert("とうきょう"), .deleteBackward], "Backspace applies after the Return")
+
+        try? await Task.sleep(for: .seconds(1))
+        XCTAssertTrue(batches.isEmpty, "A Return already committed never commits again")
+    }
+
+    func testAReissuedRequestStillCommitsTheWaitingReturn() async {
+        let session = asyncSession()
+        let committed = expectation(description: "commit")
+        var batches: [KeyboardCommitBatch] = []
+        session.onCommittedEdits = { batches.append($0); committed.fulfill() }
+        for c in "toukyou" { _ = session.type(String(c)) }
+        _ = session.enter()
+        // The reissued request has a new revision; the Return still commits.
+        // reply, so only the timeout can commit.
+        session.handleMemoryPressure()
+        await fulfillment(of: [committed], timeout: 10)
+        XCTAssertEqual(batches.count, 1)
+        XCTAssertFalse(session.isComposing)
+    }
+
+    func testReturnIsImmediateWhenOffOrKatakana() async {
+        let off = KeyboardSession(asynchronousCandidates: true, memoryDirectoryURL: isolatedLearningDirectory())
+        off.candidateRanking = .engine
+        for c in "toukyou" { _ = off.type(String(c)) }
+        XCTAssertEqual(off.enter(), [.insert("とうきょう")])
+
+        let katakana = asyncSession()
+        _ = katakana.toggleKana()
+        for c in "toukyou" { _ = katakana.type(String(c)) }
+        XCTAssertEqual(katakana.enter(), [.insert("トウキョウ")])
     }
 }

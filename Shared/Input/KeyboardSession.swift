@@ -34,6 +34,12 @@ final class KeyboardSession: KeyboardInputSession {
     // This query already resolves the trailing n. Further spaces advance the
     // same conversion, rather than restarting it and discarding queued steps.
     private var boundaryRequested = false
+    /// Return pressed while a live conversion is still being computed. The
+    /// commit waits for this revision's result (or a short timeout), so it
+    /// commits the conversion rather than the cached transition text.
+    private var pendingConfirm = false
+    private var pendingConfirmTask: Task<Void, Never>?
+    static let pendingConfirmTimeout: Duration = .milliseconds(350)
     var onCandidatesChange: (() -> Void)?
     var onCommittedEdits: ((KeyboardCommitBatch) -> Void)?
     /// Host supplies the actual left context excluding its owned marked range.
@@ -59,6 +65,7 @@ final class KeyboardSession: KeyboardInputSession {
     private(set) var liveConversion = false
     func setLiveConversion(_ enabled: Bool) {
         guard enabled != liveConversion else { return }
+        flushPendingConfirm()
         liveConversion = enabled
         liveSurfaces = [:]
         if isComposing { refresh(); onCandidatesChange?() }
@@ -89,6 +96,7 @@ final class KeyboardSession: KeyboardInputSession {
         return String(reading.prefix(length)) + "｜" + String(reading.dropFirst(length))
     }
     func adjustConversionRange(by delta: Int) {
+        flushPendingConfirm()
         guard isComposing else { return }
         if conversionLength == nil, delta == -1,
            let first = candidateSnapshots.first(where: { $0.fullConsumption && $0.lexical })?.candidate.data.first,
@@ -102,6 +110,7 @@ final class KeyboardSession: KeyboardInputSession {
         onCandidatesChange?()
     }
     func resetConversionRange() {
+        flushPendingConfirm()
         conversionLength = nil
         if isComposing { refresh(); onCandidatesChange?() }
     }
@@ -283,8 +292,8 @@ final class KeyboardSession: KeyboardInputSession {
         if mode == .english { undoableCommit = nil; finishLearningFeedback(); return [.insert(text)] }
         var edits: [KeyboardEdit] = []
         // Preserve the word boundary even when typing resumes before a queued
-        // space conversion finishes; current kana is a safe immediate fallback.
-        if selectedIndex != nil || pendingSpaces > 0 || raw.count + text.count > 96 { edits += confirm() }
+        // space conversion or Return finishes; what is shown is a safe fallback.
+        if selectedIndex != nil || pendingSpaces > 0 || pendingConfirm || raw.count + text.count > 96 { edits += confirm() }
         conversionLength = nil
         RomajiConverter.insert(text.lowercased().replacingOccurrences(of: "-", with: "ー"), into: &composing)
         refresh(startedAt: inputStartedAt)
@@ -295,7 +304,7 @@ final class KeyboardSession: KeyboardInputSession {
     func replaceLastKana(_ transform: (Character) -> Character?) -> [KeyboardEdit]? {
         // A selected candidate or queued conversion owns the preedit; the
         // next tap starts a new character there instead.
-        guard mode != .english, selectedIndex == nil, pendingSpaces == 0,
+        guard mode != .english, selectedIndex == nil, pendingSpaces == 0, !pendingConfirm,
               let last = composing.convertTarget.last, let next = transform(last) else { return nil }
         inputStartedAt = KeyboardPerformance.start()
         clearSuggestions()
@@ -307,6 +316,8 @@ final class KeyboardSession: KeyboardInputSession {
     }
 
     func backspace() -> [KeyboardEdit] {
+        // Keys apply in order: a waiting Return commits before this deletes.
+        if pendingConfirm { return confirm() + backspace() }
         if undoesCommitOnBackspace, let undo = undoCommit() { return undo }
         undoableCommit = nil
         clearSuggestions()
@@ -336,6 +347,7 @@ final class KeyboardSession: KeyboardInputSession {
     func space() -> [KeyboardEdit] { space(alternateWidth: false) }
 
     func space(alternateWidth: Bool) -> [KeyboardEdit] {
+        if pendingConfirm { return confirm() + space(alternateWidth: alternateWidth) }
         guard isComposing else {
             undoableCommit = nil; finishLearningFeedback(); clearSuggestions()
             return [.insert(!inputTraits.isEnglish && fullWidthSpace != alternateWidth ? "\u{3000}" : " ")]
@@ -359,7 +371,33 @@ final class KeyboardSession: KeyboardInputSession {
 
     func enter() -> [KeyboardEdit] {
         guard isComposing else { undoableCommit = nil; finishLearningFeedback(); clearSuggestions(); return [.returnKey] }
-        return confirm()
+        // A second Return, or Return before live conversion was ever shown,
+        // commits now. Otherwise wait briefly for the pending conversion.
+        guard !pendingConfirm, convertsLive, worker != nil, candidatesPending,
+              selectedIndex == nil, conversionLength == nil else { return confirm() }
+        pendingConfirm = true
+        // Any commit or reset cancels this; a reissued request keeps waiting.
+        pendingConfirmTask = Task { [weak self] in
+            try? await Task.sleep(for: Self.pendingConfirmTimeout)
+            guard !Task.isCancelled else { return }
+            self?.flushPendingConfirm()
+        }
+        return []
+    }
+
+    /// Commits a waiting Return now, delivering its edits asynchronously.
+    private func flushPendingConfirm() {
+        guard pendingConfirm else { return }
+        let edits = confirm()
+        guard !edits.isEmpty else { return }
+        onCommittedEdits?(KeyboardCommitBatch(hostEpoch: hostEpoch, edits: edits))
+        onCandidatesChange?()
+    }
+
+    private func clearPendingConfirm() {
+        pendingConfirm = false
+        pendingConfirmTask?.cancel()
+        pendingConfirmTask = nil
     }
 
     func choose(_ index: Int, feedbackKind: CandidateLearningFeedback.Kind = .explicitCandidate) -> [KeyboardEdit] {
@@ -463,6 +501,7 @@ final class KeyboardSession: KeyboardInputSession {
     }
 
     func confirm() -> [KeyboardEdit] {
+        clearPendingConfirm()
         guard isComposing else { return [] }
         if let selectedIndex { return choose(selectedIndex, feedbackKind: .conversionConfirmation) }
         if liveCandidate != nil { return choose(0, feedbackKind: .conversionConfirmation) }
@@ -521,6 +560,12 @@ final class KeyboardSession: KeyboardInputSession {
     func setMode(_ newMode: InputMode) -> [KeyboardEdit] {
         undoableCommit = nil
         if mode != .english && newMode != .english {
+            if pendingConfirm {
+                let edits = confirm()
+                mode = newMode
+                previousJapaneseMode = newMode
+                return edits
+            }
             mode = newMode
             previousJapaneseMode = newMode
             refresh()
@@ -552,6 +597,7 @@ final class KeyboardSession: KeyboardInputSession {
         revision += 1
         candidatesPending = false
         pendingSpaces = 0
+        clearPendingConfirm()
         boundaryRequested = false
         conversionLength = nil
         expandedCandidates = false
@@ -809,6 +855,8 @@ final class KeyboardSession: KeyboardInputSession {
                 selectedIndex = (pendingSpaces - 1 + first) % values.count
             }
             pendingSpaces = 0
+            // A Return pressed before this result commits what it now shows.
+            if pendingConfirm { return flushPendingConfirm() }
         }
         onCandidatesChange?()
     }
