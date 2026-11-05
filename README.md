@@ -1,6 +1,6 @@
 # Vime
 
-**简体中文** | [English](README.en.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
+**简体中文** | [繁體中文](README.zh-Hant.md) | [English](README.en.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
 ![Platform](https://img.shields.io/badge/platform-iOS%2018%2B-blue) ![Swift](https://img.shields.io/badge/Swift-UIKit%20%2B%20SwiftUI-orange) ![License](https://img.shields.io/badge/license-GPL--3.0--or--later-green)
 
@@ -40,6 +40,7 @@ Vime 是一款完全离线的 iOS 日语输入法。它支持罗马字 QWERTY �
 - 内置多种外观，可自建皮肤：背景、按键图片和配色均可设置，以 `.vimeskin` 文件导入导出。
 - 键盘高度可拖动调节，按键声音和连续可调的振动强度。
 - 在本机学习你的选词习惯：长按候选可删除这个词的学习记录，也可随时一键清空。
+- **无障碍**：支持 VoiceOver（九宫格滑动和上滑符号可通过自定操作输入）、最大辅助功能字号、粗体文本和增强对比度。
 
 ### 主 App
 
@@ -111,7 +112,7 @@ python3 Scripts/validate_app_resources.py
 ## 文档
 
 - [文档索引](Docs/README.md)
-- 使用：[App 设置](Docs/Guides/AppSettings.md) · [自定义皮肤](Docs/Guides/CustomSkins.md) · [用户词典](Docs/Guides/UserDictionary.md)
+- 使用：[App 设置](Docs/Guides/AppSettings.md) · [自定义皮肤](Docs/Guides/CustomSkins.md) · [用户词典](Docs/Guides/UserDictionary.md) · [无障碍](Docs/Guides/Accessibility.md)
 - 开发：[项目目录](Docs/ProjectLayout.md) · [开发与验证](Docs/Development.md) · [日语模型](Docs/Models/JapaneseModel.md)
 - 架构：[输入与宿主](Docs/Architecture/InputPipeline.md) · [候选与联想](Docs/Architecture/Candidates.md) · [学习与个性化](Docs/Architecture/Personalization.md) · [输入后端接口](Docs/Architecture/InputBackends.md) · [表情显示](Docs/Architecture/EmojiRendering.md)
 

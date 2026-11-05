@@ -49,10 +49,11 @@ final class TipJarStore: ObservableObject {
     }
 
     /// Finishes tips completed outside `purchase`, such as Ask to Buy approvals
-    /// or purchases interrupted by the app quitting.
-    static func finishTransactionUpdates() -> Task<Void, Never> {
-        Task.detached(priority: .background) {
-            for await update in Transaction.updates { await update.unsafePayloadValue.finish() }
-        }
+    /// or purchases interrupted by the app quitting. The tip page starts it on
+    /// first appearance rather than the app at launch, so nothing reaches the
+    /// network until someone opens that page; StoreKit then redelivers any
+    /// transaction still unfinished.
+    static let transactionUpdates = Task.detached(priority: .background) {
+        for await update in Transaction.updates { await update.unsafePayloadValue.finish() }
     }
 }

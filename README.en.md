@@ -1,6 +1,6 @@
 # Vime
 
-[简体中文](README.md) | **English** | [日本語](README.ja.md) | [한국어](README.ko.md)
+[简体中文](README.md) | [繁體中文](README.zh-Hant.md) | **English** | [日本語](README.ja.md) | [한국어](README.ko.md)
 
 ![Platform](https://img.shields.io/badge/platform-iOS%2018%2B-blue) ![Swift](https://img.shields.io/badge/Swift-UIKit%20%2B%20SwiftUI-orange) ![License](https://img.shields.io/badge/license-GPL--3.0--or--later-green)
 
@@ -40,6 +40,7 @@ The companion app handles setup, typing practice, appearance and settings. The k
 - Built-in themes plus custom skins with your own background, key images and colors, shared as `.vimeskin` files.
 - Drag to resize the keyboard; key sounds and continuously adjustable haptic strength.
 - Learns your word choices on the device. Long-press a candidate to forget what was learned for it, or clear all learning at any time.
+- **Accessibility**: VoiceOver (kana flicks and swipe-up symbols are available as custom actions), the largest accessibility text sizes, Bold Text and Increase Contrast.
 
 ### Companion app
 
@@ -113,7 +114,7 @@ The first validates model manifests, tokenizers and SHA256 checksums. The second
 The detailed documentation is written in Chinese.
 
 - [Documentation index](Docs/README.md)
-- Usage: [App settings](Docs/Guides/AppSettings.md) · [Custom skins](Docs/Guides/CustomSkins.md) · [User dictionary](Docs/Guides/UserDictionary.md)
+- Usage: [App settings](Docs/Guides/AppSettings.md) · [Custom skins](Docs/Guides/CustomSkins.md) · [User dictionary](Docs/Guides/UserDictionary.md) · [Accessibility](Docs/Guides/Accessibility.md)
 - Development: [Project layout](Docs/ProjectLayout.md) · [Development and verification](Docs/Development.md) · [Japanese model](Docs/Models/JapaneseModel.md)
 - Architecture: [Input pipeline](Docs/Architecture/InputPipeline.md) · [Candidates and suggestions](Docs/Architecture/Candidates.md) · [Learning and personalization](Docs/Architecture/Personalization.md) · [Input backends](Docs/Architecture/InputBackends.md) · [Emoji rendering](Docs/Architecture/EmojiRendering.md)
 

@@ -9,12 +9,14 @@
 
 - [自定义皮肤](Guides/CustomSkins.md)：创建、导入、导出及文件格式。
 - [用户词典](Guides/UserDictionary.md)：注册词语、短语快捷输入及 JSON 交换格式。
+- [无障碍](Guides/Accessibility.md)：VoiceOver、动态字体、粗体文本与增强对比度的支持范围。
 
 ## 开发指南
 
 - [项目目录](ProjectLayout.md)：App、扩展、共享代码、资源和测试的职责。
 - [开发与验证](Development.md)：构建、真实键盘扩展测试、资源校验与发布检查。
 - [日语模型](Models/JapaneseModel.md)：模型资源、评分方式、推理边界及替换流程。
+- [候选质量基准](Models/CandidateBenchmark.md)：逐键测量 top-1 / top-3、部分文节和输入中预测，数据来源与许可。
 
 ## 架构
 

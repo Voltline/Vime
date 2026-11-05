@@ -346,7 +346,7 @@ extension KeyboardView {
     }
 
     func deleteKey(weight: CGFloat) -> (KeyboardKey, CGFloat) {
-        let item = symbol("delete.left", label: "删除", weight: weight) { [weak self] in
+        let item = symbol("delete.left", label: String(localized: "删除"), weight: weight) { [weak self] in
             guard let self else { return }
             guard self.hasDeletableContent else { return }
             self.kanaToggle = nil
@@ -399,6 +399,9 @@ extension KeyboardView {
         let active = shifted
         shiftKey?.setImage(UIImage(systemName: capsLocked && session.inputTraits.isEnglish ? "capslock.fill" : active ? "shift.fill" : "shift"), for: .normal)
         shiftKey?.tintColor = KeyboardPalette.text
+        let locked = capsLocked && session.inputTraits.isEnglish
+        shiftKey?.accessibilityValue = locked ? String(localized: "大写锁定") : active ? String(localized: "已开启") : nil
+        shiftKey?.accessibilityTraits = active ? [.keyboardKey, .selected] : .keyboardKey
     }
 
     /// Shift acts on release, so a double tap is measured release to release

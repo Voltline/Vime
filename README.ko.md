@@ -1,6 +1,6 @@
 # Vime
 
-[简体中文](README.md) | [English](README.en.md) | [日本語](README.ja.md) | **한국어**
+[简体中文](README.md) | [繁體中文](README.zh-Hant.md) | [English](README.en.md) | [日本語](README.ja.md) | **한국어**
 
 ![Platform](https://img.shields.io/badge/platform-iOS%2018%2B-blue) ![Swift](https://img.shields.io/badge/Swift-UIKit%20%2B%20SwiftUI-orange) ![License](https://img.shields.io/badge/license-GPL--3.0--or--later-green)
 
@@ -40,6 +40,7 @@ Vime은 완전히 오프라인으로 동작하는 iOS용 일본어 키보드입�
 - 기본 스킨 외에 배경, 키 이미지, 색상을 직접 설정한 스킨을 만들 수 있으며, `.vimeskin` 파일로 가져오고 내보낼 수 있습니다.
 - 드래그로 키보드 높이를 조절할 수 있고, 키 소리와 단계 없이 조절되는 햅틱 강도를 지원합니다.
 - 단어 선택 습관을 기기에서 학습합니다. 후보를 길게 누르면 그 단어의 학습 기록을 지울 수 있고, 학습 내용은 언제든지 한꺼번에 지울 수 있습니다.
+- **손쉬운 사용**: VoiceOver(가나 플릭과 위로 쓸어 입력하는 기호는 사용자 설정 동작으로 입력), 가장 큰 손쉬운 사용 텍스트 크기, 볼드체 텍스트, 대비 증가를 지원합니다.
 
 ### 앱
 
@@ -113,7 +114,7 @@ python3 Scripts/validate_app_resources.py
 자세한 문서는 중국어로 작성되어 있습니다.
 
 - [문서 목록](Docs/README.md)
-- 사용: [앱 설정](Docs/Guides/AppSettings.md) · [사용자 스킨](Docs/Guides/CustomSkins.md) · [사용자 사전](Docs/Guides/UserDictionary.md)
+- 사용: [앱 설정](Docs/Guides/AppSettings.md) · [사용자 스킨](Docs/Guides/CustomSkins.md) · [사용자 사전](Docs/Guides/UserDictionary.md) · [손쉬운 사용](Docs/Guides/Accessibility.md)
 - 개발: [프로젝트 구조](Docs/ProjectLayout.md) · [개발과 검증](Docs/Development.md) · [일본어 모델](Docs/Models/JapaneseModel.md)
 - 아키텍처: [입력과 호스트](Docs/Architecture/InputPipeline.md) · [후보와 제안](Docs/Architecture/Candidates.md) · [학습과 개인화](Docs/Architecture/Personalization.md) · [입력 백엔드](Docs/Architecture/InputBackends.md) · [이모지 표시](Docs/Architecture/EmojiRendering.md)
 

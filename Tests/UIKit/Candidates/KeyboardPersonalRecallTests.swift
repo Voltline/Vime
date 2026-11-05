@@ -263,6 +263,7 @@ final class KeyboardPersonalRecallTests: XCTestCase {
     }
 
     func testFullReadingPopulationRecallStaysWithinInteractiveBudget() throws {
+        try skipTimingSensitiveTestOnCI()
         let url = try directory(), now = Date()
         let initial = Dictionary(uniqueKeysWithValues: (0..<CandidatePreferenceMemory.Policy.maximumEntries).map { index in
             let text = "記憶\(index)"

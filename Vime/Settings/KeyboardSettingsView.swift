@@ -146,6 +146,8 @@ private struct KeyboardStatusCard: View {
     let counts: KeyboardSettingsCounts
     @Environment(\.openURL) private var openURL
     @Environment(\.dynamicTypeSize) private var typeSize
+    @ScaledMetric(relativeTo: .title3) private var iconSize: CGFloat = 44
+    @ScaledMetric(relativeTo: .caption) private var stepSize: CGFloat = 20
     private let blue = Color.vimeBlue
 
     var body: some View {
@@ -178,16 +180,17 @@ private struct KeyboardStatusCard: View {
                 }
                 .padding(12).frame(maxWidth: .infinity, alignment: .leading)
                 .background(.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 14))
-                HStack(spacing: 10) {
+                let buttons = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(spacing: 10)) : AnyLayout(HStackLayout(spacing: 10))
+                buttons {
                     Button {
                         if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
                     } label: {
                         Text("打开系统设置").font(.subheadline.weight(.semibold)).foregroundStyle(blue)
-                            .frame(maxWidth: .infinity, minHeight: 44).background(.white, in: Capsule())
+                            .padding(.vertical, 6).frame(maxWidth: .infinity, minHeight: 44).background(.white, in: Capsule())
                     }.accessibilityIdentifier("vime.settings.status.openSettings")
                     NavigationLink { KeyboardSetupGuide() } label: {
                         Text("启用指南").font(.subheadline.weight(.semibold)).foregroundStyle(.white)
-                            .frame(maxWidth: .infinity, minHeight: 44).background(.white.opacity(0.18), in: Capsule())
+                            .padding(.vertical, 6).frame(maxWidth: .infinity, minHeight: 44).background(.white.opacity(0.18), in: Capsule())
                     }.accessibilityIdentifier("vime.settings.status.guide")
                 }
                 .buttonStyle(.plain)
@@ -201,12 +204,15 @@ private struct KeyboardStatusCard: View {
     }
 
     private func header(symbol: String?, title: LocalizedStringResource, detail: String) -> some View {
-        HStack(alignment: .center, spacing: 12) {
+        let layout = typeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12)) : AnyLayout(HStackLayout(alignment: .center, spacing: 12))
+        return layout {
             Group {
                 if let symbol { Image(systemName: symbol).font(.title3.weight(.semibold)) }
                 else { VimeLogoMark().stroke(.white, style: StrokeStyle(lineWidth: 3.2, lineCap: .round, lineJoin: .round)).padding(7) }
             }
-            .frame(width: 44, height: 44)
+            .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+            .frame(width: min(iconSize, 60), height: min(iconSize, 60))
             .background(.white.opacity(0.18), in: RoundedRectangle(cornerRadius: 12))
             .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
@@ -238,8 +244,8 @@ private struct KeyboardStatusCard: View {
 
     private func step(_ number: Int, _ text: LocalizedStringResource) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
-            Text("\(number)").font(.caption.weight(.semibold))
-                .frame(width: 20, height: 20).overlay(Circle().stroke(.white, lineWidth: 1.5))
+            Text("\(number)").font(.caption.weight(.semibold)).dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                .frame(width: min(stepSize, 28), height: min(stepSize, 28)).overlay(Circle().stroke(.white, lineWidth: 1.5))
                 .accessibilityHidden(true)
             Text(text).font(.subheadline).fixedSize(horizontal: false, vertical: true)
         }
@@ -560,8 +566,7 @@ struct KeyboardDataPrivacyView: View {
         AppSettingsPage {
             HStack(alignment: .top, spacing: 14) {
                 Image(systemName: "lock.shield")
-                    .font(.title2).foregroundStyle(.tint).frame(width: 28)
-                    .accessibilityHidden(true)
+                    .font(.title2).foregroundStyle(.tint).appListIcon(width: 28)
                 VStack(alignment: .leading, spacing: 6) {
                     Text("输入数据留在本机").font(.headline)
                     Text("转换、纠错、排序和联想在设备上完成，不上传输入或剪贴板内容。")

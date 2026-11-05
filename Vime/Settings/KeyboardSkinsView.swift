@@ -34,6 +34,7 @@ struct KeyboardSkinsView: View {
     @State private var heightFactor = KeyboardPreferences().heightFactor
     @State private var palettes: [String: KeyboardSkinDocument.Palette] = [:]
     @Environment(\.dynamicTypeSize) private var typeSize
+    @ScaledMetric(relativeTo: .body) private var buttonSize: CGFloat = 36
     private let store = KeyboardSkinStore()
 
     var body: some View {
@@ -83,10 +84,16 @@ struct KeyboardSkinsView: View {
             Button { router.present(.height) } label: {
                 HStack(spacing: 10) {
                     Image(systemName: "arrow.up.and.down").font(.body.weight(.semibold)).foregroundStyle(.teal)
-                        .accessibilityHidden(true)
-                    Text("键盘高度").foregroundStyle(.primary)
-                    Spacer(minLength: 8)
-                    Text(heightLabel).foregroundStyle(.secondary)
+                        .appListIcon(width: 20)
+                    // The value moves under the title at accessibility sizes.
+                    let text = typeSize.isAccessibilitySize
+                        ? AnyLayout(VStackLayout(alignment: .leading, spacing: 2)) : AnyLayout(HStackLayout(spacing: 10))
+                    text {
+                        Text("键盘高度").foregroundStyle(.primary)
+                        if !typeSize.isAccessibilitySize { Spacer(minLength: 8) }
+                        Text(heightLabel).foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 0)
                     Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
                         .accessibilityHidden(true)
                 }
@@ -138,8 +145,8 @@ struct KeyboardSkinsView: View {
                 ForEach(skins) { customSkinTile($0) }
                 Button { router.present(.skin(KeyboardSkinDocument())) } label: {
                     VStack(spacing: 8) {
-                        Image(systemName: "plus").font(.body.weight(.semibold))
-                            .frame(width: 36, height: 36)
+                        Image(systemName: "plus").font(.body.weight(.semibold)).dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                            .frame(width: min(buttonSize, 56), height: min(buttonSize, 56))
                             .background(Color.vimeBlue.opacity(0.12), in: Circle())
                         Text("创建皮肤").font(.subheadline.weight(.semibold))
                     }
@@ -205,9 +212,10 @@ struct KeyboardSkinsView: View {
                     Button("删除", role: .destructive) { deleting = skin }
                 } label: {
                     Image(systemName: "ellipsis").font(.body.weight(.semibold)).foregroundStyle(.primary)
-                        .frame(width: 32, height: 32)
+                        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                        .frame(width: min(buttonSize, 56) - 4, height: min(buttonSize, 56) - 4)
                         .background(Color(uiColor: .tertiarySystemFill), in: Circle())
-                        .frame(width: 44, height: 44)
+                        .frame(minWidth: 44, minHeight: 44)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)

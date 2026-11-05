@@ -9,7 +9,22 @@ enum KeyboardEmojiAvailability {
     // Only accessed on queue; catalogs are immutable during a keyboard session.
     private static var cache: [String: [KeyboardSymbolCatalog.Item]] = [:]
 
+    /// Sequences the system leaves undisplayed for a device region. The
+    /// keyboard draws emoji from the font's own bitmaps and offers emoji
+    /// candidates as text, so it applies the same rule itself.
+    private static let regionalExclusions: [String: Set<String>] = ["CN": ["\u{1F1F9}\u{1F1FC}"]]
+    private static let currentExclusions = excluded(in: Locale.current.region?.identifier)
+
+    static func excluded(in region: String?) -> Set<String> {
+        region.flatMap { regionalExclusions[$0] } ?? []
+    }
+
+    static func isRegionallyHidden(_ text: String, excluded: Set<String> = currentExclusions) -> Bool {
+        excluded.contains { text.contains($0) }
+    }
+
     static func supports(_ text: String) -> Bool {
+        if isRegionallyHidden(text) { return false }
         let string = NSAttributedString(string: text, attributes: [
             NSAttributedString.Key(kCTFontAttributeName as String): font
         ])

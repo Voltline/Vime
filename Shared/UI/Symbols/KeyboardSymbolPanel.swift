@@ -14,9 +14,10 @@ final class KeyboardSymbolPanel: UIView, UICollectionViewDataSource, UICollectio
         didSet {
             guard recents != oldValue else { return }
             let current = locations[selectedSection]
-            recentItems = recents.map { KeyboardSymbolCatalog.Item(text: $0, name: KeyboardSymbolCatalog.emojiNames[$0] ?? $0) }
+            recentItems = recents.filter { !KeyboardEmojiAvailability.isRegionallyHidden($0) }
+                .map { KeyboardSymbolCatalog.Item(text: $0, name: KeyboardSymbolCatalog.emojiNames[$0] ?? $0) }
             cancelPrefetches()
-            locations = Self.locations(hasRecents: !recents.isEmpty)
+            locations = Self.locations(hasRecents: !recentItems.isEmpty)
             selectedSection = locations.firstIndex { $0.mode == current.mode && $0.group == current.group } ?? 0
             headerSelection = nil
             rebuildCategories(for: displayedMode)
@@ -378,7 +379,9 @@ final class KeyboardSymbolPanel: UIView, UICollectionViewDataSource, UICollectio
         cell.label.textColor = KeyboardPalette.text
         cell.label.font = .systemFont(ofSize: mode == .kaomoji ? 16 : mode == .symbols ? 23 : 29)
         cell.contentView.backgroundColor = mode == .emoji ? .clear : KeyboardPalette.key
-        cell.accessibilityLabel = item.name
+        // The character itself: VoiceOver names emoji in the user's language,
+        // where the catalog only has English Unicode names.
+        cell.accessibilityLabel = item.text
         cell.accessibilityIdentifier = "vime.symbol.\(item.text)"
         return cell
     }

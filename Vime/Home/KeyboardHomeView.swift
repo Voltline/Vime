@@ -3,6 +3,8 @@ import SwiftUI
 struct KeyboardHomeView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var withoutColor
+    @ScaledMetric(relativeTo: .body) private var iconSize: CGFloat = 36
     @State private var text = ""
     @State private var composition = ""
     @State private var focusRequest = 0
@@ -70,9 +72,14 @@ struct KeyboardHomeView: View {
 
     private var setupBanner: some View {
         NavigationLink { KeyboardSetupGuide() } label: {
-            HStack(spacing: 12) {
+            // At accessibility sizes the card stacks so neither the text nor
+            // the button is squeezed into a narrow column.
+            let layout = typeSize.isAccessibilitySize
+                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12)) : AnyLayout(HStackLayout(spacing: 12))
+            layout {
                 Image(systemName: progress.added ? "keyboard" : "exclamationmark.triangle").font(.body.weight(.semibold))
-                    .frame(width: 36, height: 36)
+                    .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                    .frame(width: min(iconSize, 52), height: min(iconSize, 52))
                     .background(.white.opacity(0.18), in: RoundedRectangle(cornerRadius: 10))
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
@@ -86,10 +93,12 @@ struct KeyboardHomeView: View {
                     }.font(.footnote).foregroundStyle(.white.opacity(0.85))
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                Spacer(minLength: 8)
+                if !typeSize.isAccessibilitySize { Spacer(minLength: 8) }
                 Text("去启用").font(.subheadline.weight(.semibold)).foregroundStyle(Color.vimeBlue)
-                    .padding(.horizontal, 14).frame(minHeight: 34).background(.white, in: Capsule())
+                    .padding(.horizontal, 14).padding(.vertical, 6).frame(minHeight: 34).background(.white, in: Capsule())
+                    .fixedSize()
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .foregroundStyle(.white)
             .padding(.horizontal, 16).padding(.vertical, 14)
             .background(Color.vimeBlue, in: RoundedRectangle(cornerRadius: 20))
@@ -171,6 +180,8 @@ struct KeyboardHomeView: View {
         let done = matched == target.count
         var shown = AttributedString(String(target.prefix(matched)))
         shown.foregroundColor = Color.vimeBlue
+        // Typed characters are otherwise told apart by color alone.
+        if withoutColor { shown.underlineStyle = .single }
         var rest = AttributedString(String(target.dropFirst(matched)))
         rest.foregroundColor = Color.primary
         shown.append(rest)

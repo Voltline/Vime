@@ -186,13 +186,21 @@ nonisolated struct CandidateReranker {
                 unique[key] = value
             }
         }
-        return unique.values.sorted {
+        var ranked = unique.values.sorted {
             if $0.features.total != $1.features.total { return $0.features.total > $1.features.total }
             if $0.engineRank != $1.engineRank { return $0.engineRank < $1.engineRank }
             if $0.text != $1.text { return $0.text < $1.text }
             if $0.consumedInputCount != $1.consumedInputCount { return $0.consumedInputCount > $1.consumedInputCount }
             return $0.source.rawValue < $1.source.rawValue
         }
+        // Selection memory is keyed by a clause's own reading: a learned で is
+        // no evidence for splitting では. The complete reading leads; the
+        // clause stays one tap away. An explicit range is the user's split.
+        if let first = ranked.first, !first.fullConsumption, !first.explicitScope,
+           let complete = ranked.firstIndex(where: { $0.fullConsumption && $0.lexical && $0.exactReading }) {
+            ranked.insert(ranked.remove(at: complete), at: 0)
+        }
+        return ranked
     }
 }
 

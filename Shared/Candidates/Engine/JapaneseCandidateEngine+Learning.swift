@@ -100,7 +100,8 @@ nonisolated extension JapaneseCandidateEngine {
         let started = KeyboardPerformance.start()
         defer { KeyboardPerformance.record(.nativeNextWords, since: started) }
         return converter.requestPostCompositionPredictionCandidates(leftSideCandidate: base, options: options).enumerated().compactMap { rank, candidate in
-            guard !candidate.text.isEmpty, candidate.text.count <= 128 else { return nil }
+            guard !candidate.text.isEmpty, candidate.text.count <= 128,
+                  !KeyboardEmojiAvailability.isRegionallyHidden(candidate.text) else { return nil }
             let native = NativePostCompositionPrediction(base: base, text: candidate.text, value: candidate.value,
                 type: candidate.type, isTerminal: candidate.isTerminal, expectedLeftContext: committedContext)
             if native.isReplacement && (native.replacedText.isEmpty || !committedContext.hasSuffix(native.replacedText)) { return nil }
