@@ -62,6 +62,12 @@ nonisolated enum KeyboardCandidateTextMetrics {
         // may instead be appended, so cache its regular weight as well.
         if first { _ = width(of: presentation.text, font: .systemFont(ofSize: 18, weight: .medium)) }
         if let note = presentation.annotation { _ = width(of: note, font: .systemFont(ofSize: 10)) }
+        // A word with a ruby reading uses a smaller title (KeyboardCandidateButton).
+        if let ruby = presentation.rubyReading {
+            _ = width(of: ruby, font: .systemFont(ofSize: 10))
+            let size = KeyboardCandidateButton.rubyTitleFontSize
+            _ = width(of: presentation.text, font: .systemFont(ofSize: size, weight: first ? .medium : .regular))
+        }
     }
 
     static func width(of text: String, font: UIFont) -> CGFloat {
