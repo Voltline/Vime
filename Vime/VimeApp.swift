@@ -44,6 +44,8 @@ struct VimeApp: App {
 #if DEBUG
             if ProcessInfo.processInfo.arguments.contains("--keyboard-extension-test") {
                 NavigationStack { KeyboardExtensionTestView() }
+            } else if ProcessInfo.processInfo.arguments.contains("--chinese-tryout") {
+                NavigationStack { ChineseTryOutView() }
             } else { ContentView() }
 #else
             ContentView()

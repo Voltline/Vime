@@ -8,8 +8,11 @@
 
 /* Begin PBXBuildFile section */
 		A81000000000000000000001 /* VimeSentencePiece in Frameworks */ = {isa = PBXBuildFile; productRef = A82000000000000000000001 /* VimeSentencePiece */; };
+		A84000000000000000000001 /* VimeRime in Frameworks */ = {isa = PBXBuildFile; productRef = A85000000000000000000001 /* VimeRime */; };
 		A81000000000000000000002 /* VimeSentencePiece in Frameworks */ = {isa = PBXBuildFile; productRef = A82000000000000000000002 /* VimeSentencePiece */; };
+		A84000000000000000000002 /* VimeRime in Frameworks */ = {isa = PBXBuildFile; productRef = A85000000000000000000002 /* VimeRime */; };
 		A81000000000000000000003 /* VimeSentencePiece in Frameworks */ = {isa = PBXBuildFile; productRef = A82000000000000000000003 /* VimeSentencePiece */; };
+		A84000000000000000000003 /* VimeRime in Frameworks */ = {isa = PBXBuildFile; productRef = A85000000000000000000003 /* VimeRime */; };
 		C10000000000000000000001 /* VimeKeyboard.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = C10000000000000000000002 /* VimeKeyboard.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		E10000000000000000000001 /* KanaKanjiConverterModuleWithDefaultDictionary in Frameworks */ = {isa = PBXBuildFile; productRef = E20000000000000000000001 /* KanaKanjiConverterModuleWithDefaultDictionary */; };
 		E10000000000000000000002 /* KanaKanjiConverterModuleWithDefaultDictionary in Frameworks */ = {isa = PBXBuildFile; productRef = E20000000000000000000002 /* KanaKanjiConverterModuleWithDefaultDictionary */; };
@@ -143,6 +146,7 @@
 			files = (
 				E10000000000000000000001 /* KanaKanjiConverterModuleWithDefaultDictionary in Frameworks */,
 				A81000000000000000000001 /* VimeSentencePiece in Frameworks */,
+				A84000000000000000000001 /* VimeRime in Frameworks */,
 			);
 		};
 		C10000000000000000000009 /* Frameworks */ = {
@@ -150,6 +154,7 @@
 			files = (
 				E10000000000000000000002 /* KanaKanjiConverterModuleWithDefaultDictionary in Frameworks */,
 				A81000000000000000000002 /* VimeSentencePiece in Frameworks */,
+				A84000000000000000000002 /* VimeRime in Frameworks */,
 			);
 		};
 		D10000000000000000000007 /* Frameworks */ = {
@@ -157,6 +162,7 @@
 			files = (
 				E10000000000000000000003 /* KanaKanjiConverterModuleWithDefaultDictionary in Frameworks */,
 				A81000000000000000000003 /* VimeSentencePiece in Frameworks */,
+				A84000000000000000000003 /* VimeRime in Frameworks */,
 			);
 		};
 		D20000000000000000000007 /* Frameworks */ = {
@@ -216,6 +222,7 @@
 			packageProductDependencies = (
 				E20000000000000000000001 /* KanaKanjiConverterModuleWithDefaultDictionary */,
 				A82000000000000000000001 /* VimeSentencePiece */,
+				A85000000000000000000001 /* VimeRime */,
 			);
 			productName = Vime;
 			productReference = B2ED4C083071EF7600C73DB0 /* Vime.app */;
@@ -240,6 +247,7 @@
 			packageProductDependencies = (
 				E20000000000000000000002 /* KanaKanjiConverterModuleWithDefaultDictionary */,
 				A82000000000000000000002 /* VimeSentencePiece */,
+				A85000000000000000000002 /* VimeRime */,
 			);
 			productName = VimeKeyboard;
 			productReference = C10000000000000000000002 /* VimeKeyboard.appex */;
@@ -267,6 +275,7 @@
 			packageProductDependencies = (
 				E20000000000000000000003 /* KanaKanjiConverterModuleWithDefaultDictionary */,
 				A82000000000000000000003 /* VimeSentencePiece */,
+				A85000000000000000000003 /* VimeRime */,
 			);
 			productName = VimeKeyboardTests;
 			productReference = D10000000000000000000001 /* VimeKeyboardTests.xctest */;
@@ -324,6 +333,7 @@
 			packageReferences = (
 				E30000000000000000000001 /* XCRemoteSwiftPackageReference "AzooKeyKanaKanjiConverter" */,
 				A83000000000000000000001 /* XCLocalSwiftPackageReference "Dependencies/VimeSentencePiece" */,
+				A86000000000000000000001 /* XCLocalSwiftPackageReference "Dependencies/VimeRime" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = B2ED4C093071EF7600C73DB0 /* Products */;
@@ -815,6 +825,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Dependencies/VimeSentencePiece;
 		};
+		A86000000000000000000001 /* XCLocalSwiftPackageReference "Dependencies/VimeRime" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Dependencies/VimeRime;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
@@ -829,15 +843,30 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		A85000000000000000000001 /* VimeRime */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A86000000000000000000001 /* XCLocalSwiftPackageReference "Dependencies/VimeRime" */;
+			productName = VimeRime;
+		};
 		A82000000000000000000001 /* VimeSentencePiece */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = A83000000000000000000001 /* XCLocalSwiftPackageReference "Dependencies/VimeSentencePiece" */;
 			productName = VimeSentencePiece;
 		};
+		A85000000000000000000002 /* VimeRime */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A86000000000000000000001 /* XCLocalSwiftPackageReference "Dependencies/VimeRime" */;
+			productName = VimeRime;
+		};
 		A82000000000000000000002 /* VimeSentencePiece */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = A83000000000000000000001 /* XCLocalSwiftPackageReference "Dependencies/VimeSentencePiece" */;
 			productName = VimeSentencePiece;
+		};
+		A85000000000000000000003 /* VimeRime */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A86000000000000000000001 /* XCLocalSwiftPackageReference "Dependencies/VimeRime" */;
+			productName = VimeRime;
 		};
 		A82000000000000000000003 /* VimeSentencePiece */ = {
 			isa = XCSwiftPackageProductDependency;

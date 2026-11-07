@@ -1,0 +1,47 @@
+__build_info:
+  rime_version: vime
+  timestamps:
+    default: 1794022570
+    default.custom: 0
+    vime_pinyin.custom: 0
+    vime_pinyin.schema: 1794022570
+engine:
+  filters:
+    - uniquifier
+  processors:
+    - speller
+    - selector
+    - navigator
+    - express_editor
+  segmentors:
+    - abc_segmentor
+    - fallback_segmentor
+  translators:
+    - script_translator
+menu:
+  page_size: 9
+schema:
+  name: "Vime 拼音"
+  schema_id: vime_pinyin
+  version: 1
+speller:
+  algebra:
+    - "erase/^hm$/"
+    - "erase/^m$/"
+    - "erase/^n$/"
+    - "erase/^ng$/"
+    - "abbrev/^([a-z]).+$/$1/"
+    - "abbrev/^([zcs]h).+$/$1/"
+    - "derive/^([nl])ve$/$1ue/"
+    - "derive/^([jqxy])u/$1v/"
+    - "derive/^([nl])ue$/$1ve/"
+    - "derive/^([jqxy])v/$1u/"
+  alphabet: zyxwvutsrqponmlkjihgfedcba
+  delimiter: " '"
+  initials: zyxwvutsrqponmlkjihgfedcba
+translator:
+  dictionary: vime_pinyin
+  enable_word_completion: true
+  preedit_format:
+    - "xform/([jqxy])v/$1u/"
+    - "xform/([nl])ue/$1ve/"

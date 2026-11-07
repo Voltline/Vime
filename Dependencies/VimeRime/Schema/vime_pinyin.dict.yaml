@@ -1,0 +1,10 @@
+# Character and word lists from rime-ice (https://github.com/iDvel/rime-ice).
+---
+name: vime_pinyin
+version: "1"
+sort: by_weight
+import_tables:
+  - cn_dicts/8105
+  - cn_dicts/base
+  - cn_dicts/others
+...
