@@ -286,14 +286,18 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
 
     override convenience init(frame: CGRect) {
         let preferences = KeyboardPreferences()
-        self.init(frame: frame, session: Self.session(for: preferences.inputLanguage), preferences: preferences)
-        followsInputLanguage = true
+        self.init(frame: frame, session: Self.session(for: preferences.inputLanguage), preferences: preferences,
+                  followsInputLanguage: true)
     }
 
+    /// `followsInputLanguage` is an argument, not set afterwards: a property
+    /// set inside an initializer skips its didSet, and the keys built here
+    /// would otherwise lack the language switch until the next rebuild.
     init(frame: CGRect, session: any KeyboardInputSession, preferences: KeyboardPreferences = KeyboardPreferences(),
-         clipboard: KeyboardClipboard? = nil) {
+         clipboard: KeyboardClipboard? = nil, followsInputLanguage: Bool = false) {
         self.session = session
         self.preferences = preferences
+        self.followsInputLanguage = followsInputLanguage
         self.clipboard = clipboard ?? KeyboardClipboard()
         super.init(frame: frame)
         KeyboardCandidateTextMetrics.prepareFonts()

@@ -134,6 +134,34 @@ final class KeyboardLanguageSwitchTests: XCTestCase {
         XCTAssertNil(key.hint)
     }
 
+    /// The extension's keyboard comes from the plain initializer, and UIKit
+    /// usually builds a new controller each time the keyboard is shown again.
+    /// Each one must offer the switch from its first layout, not only after
+    /// something happens to rebuild its keys.
+    func testTheSwitchSurvivesDismissingAndShowingTheKeyboardAgain() throws {
+        try XCTSkipIf(RimeEngine.bundledData == nil, "RimeData.bundle is not bundled")
+        XCTAssertEqual(KeyboardPreferences().inputLanguage, .japanese)
+        func assertOffersChinese(_ keyboard: KeyboardView, _ moment: String) throws {
+            keyboard.layoutIfNeeded()
+            let key = try languageKey(in: keyboard)
+            XCTAssertEqual(key.hint, "中", moment)
+            XCTAssertNotNil(key.alternateAction, "\(moment): a swipe up has somewhere to go")
+            XCTAssertEqual(key.accessibilityCustomActions?.map(\.name), [String(localized: "切换到简体中文")], moment)
+        }
+        for showing in 1...3 {
+            let controller = KeyboardViewController()
+            controller.loadViewIfNeeded()
+            let keyboard = try XCTUnwrap((controller.view as? KeyboardInputView)?.keyboard)
+            controller.beginAppearanceTransition(true, animated: false); controller.endAppearanceTransition()
+            try assertOffersChinese(keyboard, "showing \(showing), new controller")
+            controller.beginAppearanceTransition(false, animated: false); controller.endAppearanceTransition()
+            // A retained controller can be shown again, too.
+            controller.beginAppearanceTransition(true, animated: false); controller.endAppearanceTransition()
+            try assertOffersChinese(keyboard, "showing \(showing), same controller")
+            controller.beginAppearanceTransition(false, animated: false); controller.endAppearanceTransition()
+        }
+    }
+
     func testTheSettingsPanelSwitchesTheLanguage() throws {
         let (keyboard, preferences) = try keyboard()
         keyboard.createSettingsPanel()
