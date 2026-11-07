@@ -116,6 +116,17 @@ void vime_rime_clear(VimeRimeSession session) {
     guarded([&] { api()->clear_composition(session); return true; });
 }
 
+bool vime_rime_commit_composition(VimeRimeSession session) {
+    return guarded([&] { return bool(api()->commit_composition(session)); });
+}
+
+bool vime_rime_is_composing(VimeRimeSession session) {
+    return guarded([&] {
+        const char *input = api()->get_input(session);
+        return input && *input;
+    });
+}
+
 VimeRimeSnapshot vime_rime_snapshot(VimeRimeSession session, int32_t candidateLimit) {
     VimeRimeSnapshot snapshot = {};
     snapshot.highlighted = -1;

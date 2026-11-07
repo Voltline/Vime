@@ -37,6 +37,11 @@ struct VimeApp: App {
             preferences.candidateRanking = ranking
             preferences.phraseSuggestions = true
         }
+        // Chinese has no switch yet; the keyboard reads this when it loads.
+        if let index = arguments.firstIndex(of: "--keyboard-input-language"), index + 1 < arguments.count,
+           let language = KeyboardInputLanguage(rawValue: arguments[index + 1]), language != .english {
+            KeyboardPreferences().inputLanguage = language
+        }
 #endif
     }
     var body: some Scene {

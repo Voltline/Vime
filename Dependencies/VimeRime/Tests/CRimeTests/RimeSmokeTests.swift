@@ -89,4 +89,47 @@ final class RimeSmokeTests: XCTestCase {
         XCTAssertTrue(vime_rime_select_candidate(session, 0))
         XCTAssertEqual(snapshot(session).commit, "你好吗")
     }
+
+    func testCommitCompositionKeepsEarlierSelections() throws {
+        let session = vime_rime_create_session()
+        defer { vime_rime_destroy_session(session) }
+        type("nihaoma", into: session)
+        XCTAssertTrue(vime_rime_is_composing(session))
+        var raw = vime_rime_snapshot(session, 80)
+        let candidates = (0..<Int(raw.candidateCount)).map { String(cString: raw.candidates[$0].text) }
+        vime_rime_snapshot_free(&raw)
+        XCTAssertTrue(vime_rime_select_candidate(session, try XCTUnwrap(candidates.firstIndex(of: "你好"))))
+        XCTAssertTrue(vime_rime_commit_composition(session))
+        XCTAssertEqual(snapshot(session).commit, "你好吗")
+        XCTAssertFalse(vime_rime_is_composing(session))
+    }
+
+    func testBackspaceRightAfterACommitForgetsIt() throws {
+        let session = vime_rime_create_session()
+        defer { vime_rime_destroy_session(session) }
+        let before = try XCTUnwrap(rank(of: "试", after: "shi", selecting: false, session: session))
+        _ = rank(of: "试", after: "shi", selecting: true, session: session)
+        // The host deletes the commit; Rime sees an unhandled BackSpace.
+        XCTAssertFalse(vime_rime_process_key(session, 0xff08, 0))
+        XCTAssertEqual(rank(of: "试", after: "shi", selecting: false, session: session), before)
+        // Control: the same single selection without BackSpace is learned.
+        let control = try XCTUnwrap(rank(of: "室", after: "shi", selecting: false, session: session))
+        _ = rank(of: "室", after: "shi", selecting: true, session: session)
+        _ = vime_rime_process_key(session, 0xff1b, 0)
+        XCTAssertLessThan(try XCTUnwrap(rank(of: "室", after: "shi", selecting: false, session: session)), control)
+    }
+
+    func testLearningSurvivesARestart() throws {
+        var session = vime_rime_create_session()
+        let before = try XCTUnwrap(rank(of: "式", after: "shi", selecting: false, session: session))
+        for _ in 0..<3 { _ = rank(of: "式", after: "shi", selecting: true, session: session) }
+        // An unhandled key ends the learning transaction, as a reset does.
+        _ = vime_rime_process_key(session, 0xff1b, 0)
+        vime_rime_destroy_session(session)
+        vime_rime_stop()
+        XCTAssertTrue(vime_rime_start(Self.data.path, Self.user.path))
+        session = vime_rime_create_session()
+        defer { vime_rime_destroy_session(session) }
+        XCTAssertLessThan(try XCTUnwrap(rank(of: "式", after: "shi", selecting: false, session: session)), before)
+    }
 }

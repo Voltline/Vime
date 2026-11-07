@@ -59,6 +59,9 @@ bool vime_rime_process_key(VimeRimeSession session, int32_t keycode, int32_t mas
 bool vime_rime_select_candidate(VimeRimeSession session, size_t index);
 bool vime_rime_set_input(VimeRimeSession session, const char *input);
 void vime_rime_clear(VimeRimeSession session);
+/// Commits the whole composition with its current selections.
+bool vime_rime_commit_composition(VimeRimeSession session);
+bool vime_rime_is_composing(VimeRimeSession session);
 
 VimeRimeSnapshot vime_rime_snapshot(VimeRimeSession session, int32_t candidateLimit);
 void vime_rime_snapshot_free(VimeRimeSnapshot *snapshot);

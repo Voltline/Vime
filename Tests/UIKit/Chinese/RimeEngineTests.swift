@@ -60,8 +60,9 @@ final class RimeEngineTests: XCTestCase {
 /// TEST_RUNNER_VIME_RIME_METRICS names an output file.
 final class RimeEngineMetricsTests: XCTestCase {
     func testMeasure() throws {
-        let output = try XCTUnwrap(ProcessInfo.processInfo.environment["VIME_RIME_METRICS"].map(URL.init(fileURLWithPath:)),
-                                   "set TEST_RUNNER_VIME_RIME_METRICS to measure")
+        let path = ProcessInfo.processInfo.environment["VIME_RIME_METRICS"]
+        try XCTSkipIf(path == nil, "set TEST_RUNNER_VIME_RIME_METRICS to measure")
+        let output = URL(fileURLWithPath: try XCTUnwrap(path))
         let user = FileManager.default.temporaryDirectory.appendingPathComponent("RimeMetrics-\(UUID().uuidString)")
         let before = footprint()
         let engine = RimeEngine(data: try XCTUnwrap(RimeEngine.bundledData), userDirectory: user)

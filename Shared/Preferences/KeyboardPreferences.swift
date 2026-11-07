@@ -92,6 +92,11 @@ struct KeyboardPreferences {
         get { defaults.object(forKey: "vime.nineKeyNumbers") as? Bool ?? true }
         nonmutating set { defaults.set(newValue, forKey: "vime.nineKeyNumbers") }
     }
+    /// The keyboard's primary language. Chinese needs the bundled Rime data.
+    var inputLanguage: KeyboardInputLanguage {
+        get { KeyboardInputLanguage(rawValue: defaults.string(forKey: "vime.inputLanguage") ?? "") ?? .japanese }
+        nonmutating set { defaults.set(newValue.rawValue, forKey: "vime.inputLanguage") }
+    }
     /// Japanese letters on a 12-key flick pad instead of romaji QWERTY.
     var kanaLayout: Bool {
         get { defaults.object(forKey: "vime.kanaLayout") as? Bool ?? false }

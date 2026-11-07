@@ -202,7 +202,9 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     var kanaToggle: (key: Int, output: Character, time: TimeInterval)?
 
     override convenience init(frame: CGRect) {
-        self.init(frame: frame, session: KeyboardSession(asynchronousCandidates: true))
+        let preferences = KeyboardPreferences()
+        let chinese = preferences.inputLanguage == .chinese ? ChineseInputSession.bundled() : nil
+        self.init(frame: frame, session: chinese ?? KeyboardSession(asynchronousCandidates: true), preferences: preferences)
     }
 
     init(frame: CGRect, session: any KeyboardInputSession, preferences: KeyboardPreferences = KeyboardPreferences(),
