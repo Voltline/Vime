@@ -1438,35 +1438,6 @@
         }
       }
     },
-    "中文拼音词库": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Chinese pinyin dictionary"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "中国語ピンイン辞書"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "중국어 병음 사전"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "中文拼音詞庫"
-          }
-        }
-      }
-    },
     "中文拼音输入引擎": {
       "extractionState": "manual",
       "localizations": {
@@ -2902,35 +2873,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "切換大小寫"
-          }
-        }
-      }
-    },
-    "取字表、基础词库与杂项词库，编译为 Rime 二进制词典": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The character list, base and miscellaneous word lists, compiled into Rime binary dictionaries"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "字表・基本辞書・その他の辞書を Rime のバイナリ辞書にコンパイル"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "글자표, 기본 사전과 기타 사전을 Rime 바이너리 사전으로 컴파일"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "取字表、基礎詞庫與雜項詞庫，編譯為 Rime 二進位詞典"
           }
         }
       }
@@ -14643,6 +14585,470 @@
           "stringUnit": {
             "state": "translated",
             "value": "日語模式下，輸入漢字的普通話拼音（可與羅馬字混用）也能找到對應的詞，候選上方顯示平假名讀音"
+          }
+        }
+      }
+    },
+    "汉字拼音读音": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pinyin readings of Chinese characters"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "漢字のピンイン読み"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "한자의 병음 읽기"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "漢字拼音讀音"
+          }
+        }
+      }
+    },
+    "取通用规范汉字表 8105 字的读音，生成拼音词库": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Readings of the 8,105 characters in the Table of General Standard Chinese Characters, generated into the pinyin dictionary"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通用規範漢字表の 8105 字の読みを取り、ピンイン辞書を生成"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "통용규범한자표 8105자의 읽기를 가져와 병음 사전을 생성"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取通用規範漢字表 8105 字的讀音，生成拼音詞庫"
+          }
+        }
+      }
+    },
+    "词语拼音读音": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pinyin readings of words"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "語句のピンイン読み"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "단어의 병음 읽기"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "詞語拼音讀音"
+          }
+        }
+      }
+    },
+    "取词语读音，让多音字按所在词语的读音输入": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Word readings, so a character with several readings is typed with the reading it has in the word"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "語句の読みを取り、多音字を語句の中での読みで入力できるように"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "단어 읽기를 가져와 여러 음을 가진 글자를 단어 속 읽기로 입력"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取詞語讀音，讓多音字按所在詞語的讀音輸入"
+          }
+        }
+      }
+    },
+    "补充词语与读音": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Additional words and readings"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "補足語彙と読み"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "추가 단어와 읽기"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "補充詞語與讀音"
+          }
+        }
+      }
+    },
+    "取 phrase-pinyin-data 转换的词语读音，编入拼音词库": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Word readings as converted by phrase-pinyin-data, added to the pinyin dictionary"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "phrase-pinyin-data が変換した語句の読みを取り、ピンイン辞書に収録"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "phrase-pinyin-data가 변환한 단어 읽기를 병음 사전에 수록"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取 phrase-pinyin-data 轉換的詞語讀音，編入拼音詞庫"
+          }
+        }
+      }
+    },
+    "中文词频": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chinese word frequencies"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中国語の語頻度"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "중국어 단어 빈도"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中文詞頻"
+          }
+        }
+      }
+    },
+    "取 dict.txt 的词频，计算候选词的排序": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Word counts from dict.txt, used to rank candidates"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "dict.txt の語頻度を取り、候補の順位を計算"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "dict.txt의 단어 빈도로 후보 순위를 계산"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取 dict.txt 的詞頻，計算候選詞的排序"
+          }
+        }
+      }
+    },
+    "中英文词频": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chinese and English word frequencies"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中国語と英語の語頻度"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "중국어와 영어 단어 빈도"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中英文詞頻"
+          }
+        }
+      }
+    },
+    "取中文与英文词频数据，计算候选词的排序": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chinese and English word frequency data, used to rank candidates"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中国語と英語の語頻度データを取り、候補の順位を計算"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "중국어와 영어 단어 빈도 데이터로 후보 순위를 계산"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取中文與英文詞頻資料，計算候選詞的排序"
+          }
+        }
+      }
+    },
+    "中英混输的英文词表": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "English words for mixed Chinese–English input"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中英混在入力の英単語リスト"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "중국어·영어 혼합 입력용 영어 단어 목록"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中英混輸的英文詞表"
+          }
+        }
+      }
+    },
+    "取 70 级以内的单词及其大小写，生成英文词库": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Words up to size 70 and their capitalization, generated into the English dictionary"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サイズ 70 以内の単語と大文字・小文字の表記を取り、英語辞書を生成"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "크기 70 이내의 단어와 대소문자 표기를 가져와 영어 사전을 생성"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取 70 級以內的單詞及其大小寫，生成英文詞庫"
+          }
+        }
+      }
+    },
+    "多音字读音频率": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "How often each reading of a character occurs"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "多音字の各読みの頻度"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "여러 음을 가진 글자의 읽기별 빈도"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "多音字讀音頻率"
+          }
+        }
+      }
+    },
+    "取 kHanyuPinlu 读音次数，分配多音字各读音的排序": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "kHanyuPinlu reading counts, used to rank the readings of a character"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "kHanyuPinlu の読みの出現回数を取り、多音字の各読みの順位を配分"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "kHanyuPinlu 읽기 횟수로 여러 음을 가진 글자의 읽기 순위를 배분"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取 kHanyuPinlu 讀音次數，分配多音字各讀音的排序"
+          }
+        }
+      }
+    },
+    "常用短语搭配": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Common short phrases"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "よく使う短いフレーズ"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "자주 쓰는 짧은 구절"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "常用短語搭配"
+          }
+        }
+      }
+    },
+    "统计中文例句中的常见短语，编入拼音词库；不含例句本身": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Common short phrases counted in Chinese example sentences and added to the pinyin dictionary; no sentence is included"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中国語の例文でよく使われる短いフレーズを数えてピンイン辞書に収録。例文そのものは含みません"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "중국어 예문에서 자주 쓰는 짧은 구절을 세어 병음 사전에 수록. 예문 자체는 포함하지 않음"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "統計中文例句中的常見短語，編入拼音詞庫；不含例句本身"
           }
         }
       }

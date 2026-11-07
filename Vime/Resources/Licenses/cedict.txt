@@ -1,0 +1,11 @@
+CC-CEDICT (CC BY-SA 4.0)
+Copyright MDBG and the CC-CEDICT contributors.
+Project: https://cc-cedict.org/wiki/
+Source: cc_cedict.txt in https://github.com/mozillazg/phrase-pinyin-data at revision
+4afa3226ce53c9138b939e83c3bb294dbe0da511, the CC-CEDICT words with their readings converted by phrase-pinyin-data.
+License: CC BY-SA 4.0 https://creativecommons.org/licenses/by-sa/4.0/
+Vime modifications: generated, with the other sources listed in Dependencies/VimeRime/UPSTREAM.md,
+into Vime's Rime pinyin dictionary by Scripts/build_rime_dicts.py.
+The generated pinyin dictionary is distributed under CC BY-SA 4.0. The application code has a separate license.
+
+
