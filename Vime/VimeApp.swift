@@ -11,6 +11,7 @@ import SwiftUI
 struct VimeApp: App {
     init() {
         VimeExtensionAudit.configureFromLaunchArguments()
+        Task { await StorefrontRecorder.record() }
 #if DEBUG
         // Reproducible settings for opt-in tests of the installed extension.
         // Normal launches never change the user's choices.

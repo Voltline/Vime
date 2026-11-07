@@ -55,3 +55,6 @@ __pycache__/
 
 # Candidate benchmark corpora built from external data, and reports
 /Artifacts/CandidateBenchmark/
+
+# Opened from its sealed copy at build time
+/Shared/Resources/LearningExclusions.bin
