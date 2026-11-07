@@ -283,7 +283,14 @@ def main():
 
     version = (boost / "boost/version.hpp").read_text()
     boost_version = re.search(r'BOOST_LIB_VERSION "([^"]+)"', version).group(1)
-    (PACKAGE / "UPSTREAM.md").write_text(
+    # Sections after the generated table (e.g. "## Dictionary data") are kept.
+    upstream = PACKAGE / "UPSTREAM.md"
+    kept = ""
+    if upstream.exists():
+        old = upstream.read_text()
+        start = old.find("\n## ")
+        kept = old[start:] if start >= 0 else ""
+    upstream.write_text(
         "# Upstream sources\n\n"
         "Copied by `Scripts/vendor_rime.py`; do not edit files under `Sources/CRime/vendor`.\n"
         "Three changes to upstream code are applied by the script: a learning filter\n"
@@ -297,7 +304,7 @@ def main():
         f"| [leveldb](https://github.com/google/leveldb) | `{head(deps / 'leveldb')}` | BSD-3-Clause |\n"
         f"| [marisa-trie](https://github.com/s-yata/marisa-trie) | `{head(deps / 'marisa-trie')}` | BSD-2-Clause or LGPL-2.1+ |\n"
         f"| [OpenCC](https://github.com/BYVoid/OpenCC) | `{head(oc)}` | Apache-2.0 |\n"
-        f"| [Boost](https://www.boost.org) headers ({len(headers)} files) | {boost_version.replace('_', '.')} | BSL-1.0 |\n")
+        f"| [Boost](https://www.boost.org) headers ({len(headers)} files) | {boost_version.replace('_', '.')} | BSL-1.0 |\n" + kept)
     count = sum(1 for _ in VENDOR.rglob("*") if _.suffix in {".cc", ".cpp"})
     print(f"{VENDOR.relative_to(ROOT)}: {count} sources, {len(headers)} Boost headers")
 
