@@ -108,7 +108,7 @@ final class ChineseInputSessionTests: XCTestCase {
         _ = session.type("xi")
         _ = session.type("'")
         _ = session.type("an")
-        XCTAssertEqual(session.markedText?.text.replacingOccurrences(of: " ", with: ""), "xi'an")
+        XCTAssertEqual(session.markedText?.text.replacingOccurrences(of: ChineseInputSession.syllableGap, with: ""), "xi'an")
         XCTAssertEqual(session.enter(), [])
         waitUntilCurrent(session)
         XCTAssertEqual(batches.last?.edits, [.insert("xi'an")])
@@ -170,7 +170,7 @@ final class ChineseInputSessionTests: XCTestCase {
         keyboard.apply(session.type("nihao"))
         XCTAssertEqual(preedits.last, "nihao")
         waitUntilCurrent(session)
-        XCTAssertEqual(preedits.last, "ni hao")
+        XCTAssertEqual(preedits.last, "ni\u{2006}hao", "syllables are joined by a narrow space, not a full one")
         let button = try XCTUnwrap(descendants(keyboard).compactMap { $0 as? UIButton }
             .first { $0.accessibilityLabel == "候选词：你好" && $0.isUserInteractionEnabled })
         button.sendActions(for: .touchUpInside)

@@ -76,10 +76,14 @@ final class ChineseInputSession: KeyboardInputSession {
     var isComposing: Bool { !english && (state.isComposing || !echo.isEmpty) }
     var composition: String { markedText?.text ?? "" }
     var raw: String { isComposing ? state.input + echo : "" }
+    /// Rime separates syllables with a space; a full space reads as a gap
+    /// between words, so the preedit shows a narrow one instead.
+    static let syllableGap = "\u{2006}"
+
     var markedText: KeyboardPreedit? {
         guard isComposing else { return nil }
         let text = state.preedit.isEmpty ? state.input : state.preedit
-        return KeyboardPreedit(text: text + echo)
+        return KeyboardPreedit(text: text.replacingOccurrences(of: " ", with: Self.syllableGap) + echo)
     }
     var candidatePresentations: [CandidatePresentation] { isComposing ? presentations : [] }
     var stripPresentations: [CandidatePresentation] { candidatePresentations }

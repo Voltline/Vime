@@ -149,6 +149,22 @@ final class KeyboardLanguageSwitchTests: XCTestCase {
         XCTAssertEqual(control.selectedSegmentIndex, 1)
     }
 
+    func testUndoMovesBesideCloseWhenChineseHidesTheKanaToggle() throws {
+        let (keyboard, preferences) = try keyboard()
+        keyboard.canUndoLineDeletion = true
+        keyboard.layoutIfNeeded()
+        let metrics = KeyboardMetrics(width: 440, compact: keyboard.compact, showsFooter: keyboard.showsFooter, pad: keyboard.pad)
+        XCTAssertFalse(keyboard.modeButton.isHidden)
+        XCTAssertFalse(keyboard.undoButton.isHidden)
+        XCTAssertEqual(keyboard.undoButton.frame, metrics.trailingToolbarFrame(index: 2))
+        preferences.inputLanguage = .chinese
+        keyboard.reloadPreferences()
+        keyboard.layoutIfNeeded()
+        XCTAssertTrue(keyboard.modeButton.isHidden)
+        XCTAssertFalse(keyboard.undoButton.isHidden)
+        XCTAssertEqual(keyboard.undoButton.frame, metrics.trailingToolbarFrame(index: 1), "no empty slot before the close button")
+    }
+
     private func languageKey(in keyboard: KeyboardView) throws -> KeyboardKey {
         try XCTUnwrap(descendants(keyboard).compactMap { $0 as? KeyboardKey }
             .first { $0.accessibilityIdentifier == "vime.key.language" })
