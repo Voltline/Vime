@@ -200,7 +200,7 @@
     "copyright": "Carbo Kuo and contributors",
     "source": "https://github.com/BYVoid/OpenCC",
     "revision": "025f371dc76b598d77384fbdab90c937471844d8",
-    "modified": "不含转换数据；附带的 RapidJSON 声明保留在下方",
+    "modified": "librime 不含转换数据；中日混输读音表用其日本新字体与繁简字表生成；附带的 RapidJSON 声明保留在下方",
     "noticeFile": "opencc"
   },
   {
@@ -250,5 +250,41 @@
     "revision": "1.90",
     "modified": "仅头文件",
     "noticeFile": "boost"
+  },
+  {
+    "id": "mozc",
+    "name": "Mozc 词典",
+    "use": "中日混输的日语词语与读音",
+    "category": "语言与表情数据",
+    "license": "BSD-3-Clause / IPAdic",
+    "copyright": "Google Inc.；Nara Institute of Science and Technology；ICOT",
+    "source": "https://github.com/google/mozc",
+    "revision": "c7538e6f8ee56ff94789494106ad5d6d658cd4f6",
+    "modified": "保留汉字词语的读音与成本，去除人名与词语片段，按拼音和罗马字索引",
+    "noticeFile": "mozc"
+  },
+  {
+    "id": "unihan",
+    "name": "Unihan",
+    "use": "中日混输的汉字普通话读音",
+    "category": "语言与表情数据",
+    "license": "Unicode V3",
+    "copyright": "Unicode, Inc.",
+    "source": "https://www.unicode.org/Public/17.0.0/ucd/Unihan.zip",
+    "revision": "17.0.0",
+    "modified": "取汉字的普通话读音（含多音字）",
+    "noticeFile": "unihan"
+  },
+  {
+    "id": "kanjidic2",
+    "name": "KANJIDIC2",
+    "use": "中日混输的汉字音读与训读",
+    "category": "语言与表情数据",
+    "license": "CC BY-SA 4.0",
+    "copyright": "Electronic Dictionary Research and Development Group (EDRDG)",
+    "source": "https://www.edrdg.org/wiki/index.php/KANJIDIC_Project",
+    "revision": "2026-311",
+    "modified": "用音读与训读把词语读音按字切分；衍生数据以 CC BY-SA 4.0 分发",
+    "noticeFile": "kanjidic2"
   }
 ]

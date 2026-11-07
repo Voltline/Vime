@@ -843,6 +843,35 @@
         }
       }
     },
+    "librime 不含转换数据；中日混输读音表用其日本新字体与繁简字表生成；附带的 RapidJSON 声明保留在下方": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "librime includes no conversion data. Its Japanese shinjitai and Traditional–Simplified tables generate the pinyin lookup table. The bundled RapidJSON notice is kept below"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "librime は変換データを含みません。ピンイン検索表はその日本の新字体表と繁簡字表から生成。同梱の RapidJSON の表示は下に全文を掲載"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "librime은 변환 데이터를 포함하지 않습니다. 병음 조회표는 그 일본 신자체 표와 번간 대응표로 생성됩니다. 함께 포함된 RapidJSON 고지는 아래에 보존되어 있습니다"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "librime 不含轉換資料；中日混輸讀音表用其日本新字體與繁簡字表產生；隨附的 RapidJSON 聲明保留在下方"
+          }
+        }
+      }
+    },
     "librime 依赖的 C++ 基础库": {
       "extractionState": "manual",
       "localizations": {
@@ -1325,35 +1354,6 @@
         }
       }
     },
-    "不含转换数据；附带的 RapidJSON 声明保留在下方": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No conversion data included. The bundled RapidJSON notice is kept below"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "変換データは含みません。同梱の RapidJSON の表示は下に全文を掲載"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "변환 데이터는 포함하지 않습니다. 함께 포함된 RapidJSON 고지는 아래에 보존되어 있습니다"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "不含轉換資料；隨附的 RapidJSON 聲明保留在下方"
-          }
-        }
-      }
-    },
     "个人记忆": {
       "localizations": {
         "en": {
@@ -1492,6 +1492,93 @@
           "stringUnit": {
             "state": "translated",
             "value": "中文拼音輸入引擎"
+          }
+        }
+      }
+    },
+    "中日混输的日语词语与读音": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Japanese words and readings for typing kanji by pinyin"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ピンイン入力で探す日本語の語とその読み"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "병음으로 입력하는 일본어 단어와 읽기"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中日混輸的日語詞語與讀音"
+          }
+        }
+      }
+    },
+    "中日混输的汉字普通话读音": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mandarin readings of kanji for typing by pinyin"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ピンイン入力に使う漢字の中国語（普通話）の読み"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "병음 입력에 쓰는 한자의 중국어(보통화) 읽기"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中日混輸的漢字普通話讀音"
+          }
+        }
+      }
+    },
+    "中日混输的汉字音读与训读": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On and kun readings of kanji for typing by pinyin"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ピンイン入力に使う漢字の音読みと訓読み"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "병음 입력에 쓰는 한자의 음독과 훈독"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中日混輸的漢字音讀與訓讀"
           }
         }
       }
@@ -2060,6 +2147,35 @@
         }
       }
     },
+    "保留汉字词语的读音与成本，去除人名与词语片段，按拼音和罗马字索引": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kanji words keep their readings and costs; personal names and fragments are removed; indexed by pinyin and romaji"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "漢字語の読みとコストを残し、人名と語の断片を除いて、ピンインとローマ字で索引化"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "한자 단어의 읽기와 비용을 남기고 인명과 단어 조각을 제외하여 병음과 로마자로 색인화"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保留漢字詞語的讀音與成本，去除人名與詞語片段，按拼音和羅馬字索引"
+          }
+        }
+      }
+    },
     "修改一个源文件，编译为静态库；附带的 darts-clone、UTF8-CPP 与 X11 声明保留在下方": {
       "extractionState": "manual",
       "localizations": {
@@ -2197,6 +2313,35 @@
           "stringUnit": {
             "state": "translated",
             "value": "候選詞：%@，%@"
+          }
+        }
+      }
+    },
+    "候选词：%@，读音：%@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Candidate: %@, reading: %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "変換候補：%@、読み：%@"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "후보: %@, 읽기: %@"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "候選詞：%@，讀音：%@"
           }
         }
       }
@@ -3941,6 +4086,35 @@
           "stringUnit": {
             "state": "translated",
             "value": "傳送"
+          }
+        }
+      }
+    },
+    "取汉字的普通话读音（含多音字）": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mandarin readings of each character, including alternative readings"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "漢字ごとの中国語（普通話）の読み（多音字を含む）"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "한자별 중국어(보통화) 읽기(다음자 포함)"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取漢字的普通話讀音（含多音字）"
           }
         }
       }
@@ -10067,6 +10241,35 @@
           "stringUnit": {
             "state": "translated",
             "value": "使用者辭典"
+          }
+        }
+      }
+    },
+    "用音读与训读把词语读音按字切分；衍生数据以 CC BY-SA 4.0 分发": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On and kun readings split each word's reading by character. Derived data is distributed under CC BY-SA 4.0"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "音読みと訓読みで語の読みを字ごとに分割。派生データは CC BY-SA 4.0 で配布"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "음독과 훈독으로 단어의 읽기를 글자별로 나눔. 파생 데이터는 CC BY-SA 4.0으로 배포"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "用音讀與訓讀把詞語讀音按字切分；衍生資料以 CC BY-SA 4.0 分發"
           }
         }
       }
