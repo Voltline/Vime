@@ -54,6 +54,146 @@ def patch_learning_filter(memory: Path):
     memory.write_text(text)
 
 
+def patch_corrections(translator: Path):
+    """Three changes to how ScriptTranslation ranks spelling corrections.
+
+    Vime's speller algebra (Scripts/generate_pinyin_algebra.py) marks typo
+    spellings as corrections. The input is spelled exactly when a path of
+    full syllables spells all of it, and counts as exact when that or a
+    phrase spells it.
+
+    1. Input spelled exactly looks words up, and makes its sentence, in a
+       copy of the syllable graph whose correction edges carry a penalty no
+       dictionary weight can make up for. Every exact reading then comes
+       before every correction, however widely a dictionary's weights
+       spread, and the sentence reads as it would without the algebra
+       ("woyuo" stays 我与哦, not 我有).
+    2. Without a phrase that spells the whole input exactly, Rime makes a
+       sentence and always lists it first. For a typo ("zaho") that sentence
+       is assembled from abbreviations (在好) while the corrected word (找)
+       waits behind it. The poet never weighs a single word against the
+       sentence, so do it here with the poet's own per-word penalty.
+       Only for input that is not exact.
+    3. For exact input, show at most two corrections, each for the whole
+       input (upstream caps corrections at four, and only with the
+       keyboard-distance corrector on).
+    """
+    edits = [
+        ("#include <cmath>\n", "#include <cmath>\n#include <limits>\n"),
+        ("  bool enable_correction_;\n};\n",
+         "  bool enable_correction_;\n"
+         "  // Vime: full syllables spell the whole input; lookups then use\n"
+         "  // exact_graph_ (see Evaluate).\n"
+         "  bool exact_spelling_ = false;\n"
+         "  SyllableGraph exact_graph_;\n"
+         "  // Vime: spelled exactly, or a phrase spells the whole input.\n"
+         "  bool exact_input_ = false;\n};\n"),
+        ("  size_t consumed = syllabifier_->BuildSyllableGraph(*dict->prism());\n"
+         "  const auto& syllable_graph = syllabifier_->syllable_graph();\n",
+         "  size_t consumed = syllabifier_->BuildSyllableGraph(*dict->prism());\n"
+         "  // Vime: when full syllables spell the whole input, look up a copy of\n"
+         "  // the graph whose corrections rank below anything a dictionary holds.\n"
+         "  // Correction edges never set a vertex type.\n"
+         "  const auto& full_graph = syllabifier_->syllable_graph();\n"
+         "  auto end_vertex = full_graph.vertices.find(consumed);\n"
+         "  exact_spelling_ = consumed == full_graph.input_length &&\n"
+         "                    end_vertex != full_graph.vertices.end() &&\n"
+         "                    end_vertex->second == kNormalSpelling;\n"
+         "  if (exact_spelling_) {\n"
+         "    const double kExactInputCorrectionPenalty = -1000.0;\n"
+         "    exact_graph_.input_length = full_graph.input_length;\n"
+         "    exact_graph_.interpreted_length = full_graph.interpreted_length;\n"
+         "    exact_graph_.vertices = full_graph.vertices;\n"
+         "    exact_graph_.edges = full_graph.edges;\n"
+         "    exact_graph_.indices.clear();\n"
+         "    for (auto& start : exact_graph_.edges)\n"
+         "      for (auto& end : start.second)\n"
+         "        for (auto& spelling : end.second)\n"
+         "          if (spelling.second.is_correction)\n"
+         "            spelling.second.credibility += kExactInputCorrectionPenalty;\n"
+         "    for (const auto& start : exact_graph_.edges)  // Syllabifier::Transpose\n"
+         "      for (const auto& end : boost::adaptors::reverse(start.second))\n"
+         "        for (const auto& spelling : end.second)\n"
+         "          exact_graph_.indices[start.first][spelling.first].push_back(\n"
+         "              &spelling.second);\n"
+         "  }\n"
+         "  const auto& syllable_graph = exact_spelling_ ? exact_graph_ : full_graph;\n"),
+        ("  // make sentences when there is no exact-matching phrase candidate\n",
+         "  exact_input_ =\n"
+         "      exact_spelling_ || has_reliable_phrase || has_reliable_user_phrase;\n"
+         "  // make sentences when there is no exact-matching phrase candidate\n"),
+        ("        sentences_.clear();\n    }\n  }\n\n  return !CheckEmpty();\n}\n",
+         "        sentences_.clear();\n    }\n  }\n"
+         "  // Vime: a corrected word that reads better than the sentence goes first.\n"
+         "  if (!sentences_.empty() && !exact_input_) {\n"
+         "    const double kWordPenalty = -13.815510557964274;  // Grammar::Evaluate\n"
+         "    auto corrected_weight = [&](auto& result, auto& iter) {\n"
+         "      return result && iter != result->rend() && iter->first == consumed &&\n"
+         "                     !iter->second.exhausted() &&\n"
+         "                     syllabifier_->IsCorrection(iter->second.Peek()->code,\n"
+         "                                                consumed)\n"
+         "                 ? iter->second.Peek()->weight + kWordPenalty\n"
+         "                 : -std::numeric_limits<double>::infinity();\n"
+         "    };\n"
+         "    double best = (std::max)(corrected_weight(phrase_, phrase_iter_),\n"
+         "                             corrected_weight(user_phrase_, user_phrase_iter_));\n"
+         "    if (best > sentences_.front()->weight())\n"
+         "      sentences_.clear();\n"
+         "  }\n\n  return !CheckEmpty();\n}\n"),
+        ("    if (enable_correction_) {\n      // populate next candidate",
+         "    if (enable_correction_ || exact_input_) {\n      // populate next candidate"),
+        ("  } while (enable_correction_ &&\n",
+         "  } while ((enable_correction_ || exact_input_) &&\n"),
+        ("           ++correction_count_ > max_corrections_);\n",
+         "           // Vime: exact input shows two, each for the whole input\n"
+         "           (exact_input_ ? candidate_->end() < end_of_input_ ||\n"
+         "                               ++correction_count_ > 2\n"
+         "                         : ++correction_count_ > max_corrections_));\n"),
+        ("  const int kMaxSyllablesForUserPhraseQuery = 5;\n"
+         "  const auto& syllable_graph = syllabifier_->syllable_graph();\n",
+         "  const int kMaxSyllablesForUserPhraseQuery = 5;\n"
+         "  // Vime: exact input makes its sentence from the graph it looked up.\n"
+         "  const auto& syllable_graph =\n"
+         "      exact_spelling_ ? exact_graph_ : syllabifier_->syllable_graph();\n"),
+    ]
+    text = translator.read_text()
+    for old, new in edits:
+        assert text.count(old) == 1, f"librime changed script_translator.cc; update the patch for {old!r}"
+        text = text.replace(old, new)
+    translator.write_text(text)
+
+
+def patch_extra_code_credibility(dictionary: Path):
+    """Counts spelling penalties past a phrase's third syllable.
+
+    Tables index a phrase by its first three syllables and match the rest
+    (the extra code) against the syllable graph, ignoring the credibility of
+    those edges. A correction in the fourth syllable on ("tianqizhenhai" for
+    天气真好) then costs nothing, and exact input would read as a typo.
+    """
+    edits = [
+        ("  size_t end_pos;\n};\n",
+         "  size_t end_pos;\n"
+         "  double credibility = 0.0;  // Vime: of the matched edges\n};\n"),
+        ("    if (!match.success)\n      continue;\n"
+         "    if (match.end_pos > best_match.end_pos)\n      best_match = match;\n",
+         "    if (!match.success)\n      continue;\n"
+         "    match.credibility += props->credibility;\n"
+         "    if (match.end_pos > best_match.end_pos ||\n"
+         "        (match.end_pos == best_match.end_pos &&\n"
+         "         match.credibility > best_match.credibility))\n"
+         "      best_match = match;\n"),
+        ("              {table, a.code(), a.entry(), matching_code_size, cr, q});\n",
+         "              {table, a.code(), a.entry(), matching_code_size,\n"
+         "               cr + match.credibility, q});\n"),
+    ]
+    text = dictionary.read_text()
+    for old, new in edits:
+        assert text.count(old) == 1, f"librime changed dictionary.cc; update the patch for {old!r}"
+        text = text.replace(old, new)
+    dictionary.write_text(text)
+
+
 def head(repo: Path) -> str:
     return subprocess.run(["git", "-C", repo, "log", "-1", "--format=%H %cs"],
                           capture_output=True, text=True, check=True).stdout.strip()
@@ -75,6 +215,8 @@ def main():
         "// Logging off; data directories are always set at run time.\n"
         "#endif\n")
     patch_learning_filter(VENDOR / "librime/src/rime/gear/memory.cc")
+    patch_corrections(VENDOR / "librime/src/rime/gear/script_translator.cc")
+    patch_extra_code_credibility(VENDOR / "librime/src/rime/dict/dictionary.cc")
     # utfcpp, darts-clone and X11 key symbols ship in librime's include/.
     copy(rime / "include", VENDOR / "librime/include", lambda r: r.suffix == ".h")
     shutil.copy2(rime / "LICENSE", LICENSES / "librime.txt")
@@ -144,8 +286,11 @@ def main():
     (PACKAGE / "UPSTREAM.md").write_text(
         "# Upstream sources\n\n"
         "Copied by `Scripts/vendor_rime.py`; do not edit files under `Sources/CRime/vendor`.\n"
-        "The one change to upstream code is a learning filter hook in\n"
-        "`librime/src/rime/gear/memory.cc`, applied by the script.\n\n"
+        "Three changes to upstream code are applied by the script: a learning filter\n"
+        "hook in `librime/src/rime/gear/memory.cc`; in\n"
+        "`librime/src/rime/gear/script_translator.cc`, how spelling corrections rank\n"
+        "(`patch_corrections`); and in `librime/src/rime/dict/dictionary.cc`, spelling\n"
+        "penalties past a phrase's third syllable (`patch_extra_code_credibility`).\n\n"
         "| Project | Commit | License |\n| --- | --- | --- |\n"
         f"| [librime](https://github.com/rime/librime) | `{head(rime)}` | BSD-3-Clause |\n"
         f"| [yaml-cpp](https://github.com/jbeder/yaml-cpp) | `{head(deps / 'yaml-cpp')}` | MIT |\n"

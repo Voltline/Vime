@@ -87,6 +87,7 @@ struct CodeMatch {
   bool success;
   size_t depth;
   size_t end_pos;
+  double credibility = 0.0;  // Vime: of the matched edges
 };
 
 CodeMatch match_extra_code(const table::Code* extra_code,
@@ -116,7 +117,10 @@ CodeMatch match_extra_code(const table::Code* extra_code,
                                        props->end_pos, predict_word);
     if (!match.success)
       continue;
-    if (match.end_pos > best_match.end_pos)
+    match.credibility += props->credibility;
+    if (match.end_pos > best_match.end_pos ||
+        (match.end_pos == best_match.end_pos &&
+         match.credibility > best_match.credibility))
       best_match = match;
   }
   return best_match;
@@ -259,7 +263,8 @@ static void lookup_table(Table* table,
             continue;
           size_t matching_code_size = a.index_code().size() + match.depth;
           (*collector)[match.end_pos].AddChunk(
-              {table, a.code(), a.entry(), matching_code_size, cr, q});
+              {table, a.code(), a.entry(), matching_code_size,
+               cr + match.credibility, q});
         } while (a.Next());
       } else {
         (*collector)[end_pos].AddChunk({table, a, cr, q});
