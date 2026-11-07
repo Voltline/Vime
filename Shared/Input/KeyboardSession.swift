@@ -54,6 +54,16 @@ final class KeyboardSession: KeyboardInputSession {
     func setFullWidthSpace(_ enabled: Bool) {
         fullWidthSpace = enabled
     }
+    /// 中日混输: kanji words typed by their Mandarin reading, or a per-character
+    /// mix of pinyin and romaji, join the candidates (PinyinLookupCandidates).
+    /// Off until the view sets it from KeyboardPreferences.pinyinLookupInJapanese,
+    /// so headless and test sessions keep the plain Japanese list.
+    var pinyinLookupEnabled = false {
+        didSet { if oldValue != pinyinLookupEnabled, isComposing { refresh(); onCandidatesChange?() } }
+    }
+    func setPinyinLookupEnabled(_ enabled: Bool) { pinyinLookupEnabled = enabled }
+    /// The bundled table unless a test supplies another.
+    var pinyinLookup: PinyinKanjiLookup? = PinyinKanjiLookup.shared
     var reconvertibleCommit: (text: String, reading: String)? {
         guard !isComposing, let commit = undoableCommit else { return nil }
         return (commit.text, PreeditPresentation.kana(for: commit.reading, mode: mode))
@@ -307,6 +317,16 @@ final class KeyboardSession: KeyboardInputSession {
         let reading = composing
         selectionLog.debug("Selection revision=\(self.revision) rank=\(index + 1) consumedKana=\(snapshot.consumedReadingCount) remainingKana=\(snapshot.remainingComposition.convertTarget.count) full=\(snapshot.fullConsumption) source=\(snapshot.source.rawValue, privacy: .public)")
         finishLearningFeedback()
+        if snapshot.source == .pinyinLookup {
+            // The word's reading is not the typed kana (jiancha is じあんちゃ,
+            // 検察 is けんさつ), so neither Japanese learning nor preference
+            // memory sees this commit: either would pair the wrong reading.
+            committedLeftContext = String((committedLeftContext + snapshot.text).suffix(96))
+            reset(preservingContext: true)
+            requestSuggestions()
+            undoableCommit = (snapshot.text, reading)
+            return [.insert(snapshot.text)]
+        }
         if let event = beginLearningFeedback(text: snapshot.text, rank: index, kind: feedbackKind) {
             engine?.stageSelection(snapshot, event: event)
             worker?.stageSelection(snapshot, event: event)
@@ -642,6 +662,16 @@ final class KeyboardSession: KeyboardInputSession {
         onCandidatesChange?()
     }
 
+    /// The engine's list for the current composition, with words found by
+    /// their Mandarin reading placed by PinyinLookupCandidates' tier rule. A
+    /// range-limited conversion converts only part of the reading, so it
+    /// gets none. The lookup takes well under a millisecond.
+    private func addingPinyinLookup(to values: [CandidateSnapshot], revision: Int) -> [CandidateSnapshot] {
+        guard pinyinLookupEnabled, mode != .english, conversionLength == nil, isComposing,
+              let pinyinLookup else { return values }
+        return PinyinLookupCandidates.merge(values, composing: composing, revision: revision, lookup: pinyinLookup)
+    }
+
     private func refresh(boundary: Bool = false, leftContextOverride: String? = nil, startedAt: TimeInterval? = nil) {
         candidateRequestStartedAt = startedAt ?? KeyboardPerformance.start()
         revision += 1
@@ -673,6 +703,7 @@ final class KeyboardSession: KeyboardInputSession {
                 candidateSnapshots = engine?.addingPrefixCandidates(to: candidateSnapshots, for: composing,
                     katakana: mode == .katakana, revision: revision) ?? candidateSnapshots
             }
+            candidateSnapshots = addingPinyinLookup(to: candidateSnapshots, revision: revision)
             candidateListGeneration += 1
             return
         }
@@ -688,7 +719,9 @@ final class KeyboardSession: KeyboardInputSession {
         candidateRequestCount += 1
         let requestedRevision = revision
         let requestedInput = raw
-        let continuity = candidateSnapshots.first.map { CandidateContinuity(surface: $0.text, reading: $0.reading, input: lastPublishedInput) }
+        // A word found by its Mandarin reading has another reading; the
+        // engine's own first choice is what it should keep stable.
+        let continuity = candidateSnapshots.first(where: { $0.source != .pinyinLookup }).map { CandidateContinuity(surface: $0.text, reading: $0.reading, input: lastPublishedInput) }
         worker.candidates(for: boundary ? PreeditPresentation.finalized(composing) : composing,
                           katakana: mode == .katakana, revision: requestedRevision, leftContext: leftContext, continuity: continuity,
                           ranking: candidateRanking, conversionLength: conversionLength, expanded: expandedCandidates) { [weak self] values, resultReadyAt, supplementary in
@@ -725,11 +758,14 @@ final class KeyboardSession: KeyboardInputSession {
             // remain valid because existing text/consumption/index cannot change.
             guard candidateSnapshots.map(\.presentation) != oldPresentations else { return }
         } else {
-            candidateSnapshots = values
+            // Supplements keep these in place like any other choice.
+            candidateSnapshots = addingPinyinLookup(to: values, revision: requestedRevision)
             candidateListGeneration += 1
         }
         if !supplementary {
-            if pendingSpaces > 0, !values.isEmpty { selectedIndex = (pendingSpaces - 1) % values.count }
+            if pendingSpaces > 0, !candidateSnapshots.isEmpty {
+                selectedIndex = (pendingSpaces - 1) % candidateSnapshots.count
+            }
             pendingSpaces = 0
         }
         onCandidatesChange?()

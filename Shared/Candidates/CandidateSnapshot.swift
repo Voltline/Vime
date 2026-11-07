@@ -81,7 +81,8 @@ nonisolated struct CandidateSnapshot: Sendable {
                 ?? (source == .specialConversion ? String(localized: "格式转换") : source == .emoji ? String(localized: "表情")
                 : source == .userDictionary ? "用户词典"
                 : source == .rememberedConversion ? String(localized: "个人记忆")
-                : !fullConsumption ? String(localized: "\(Self.hiraganaAnnotation(reading)) · 部分转换") : nil))
+                : !fullConsumption ? String(localized: "\(Self.hiraganaAnnotation(reading)) · 部分转换") : nil),
+            rubyReading: source == .pinyinLookup ? Self.hiraganaAnnotation(reading) : nil)
     }
 
     /// Presentations are rebuilt for every published list. A plain scalar shift
