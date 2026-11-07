@@ -22,8 +22,12 @@ import KanaKanjiConverterModuleWithDefaultDictionary
 ///
 /// Tier A goes before all engine candidates, at most `highLimit` of them.
 /// Tier B goes after the first `lowInsertionIndex` engine candidates, at most
-/// `lowLimit`, and only complete matches of two or more characters: a partial
-/// or one-character match on Japanese-looking letters is mostly noise.
+/// `lowLimit`, and only common words typed with telling pinyin: complete
+/// matches of two or more characters, no proper nouns, word cost at most
+/// `lowMaximumCost`, and every pinyin syllable at least three letters (a
+/// two-letter one such as su, ya or ha is also a single kana). On
+/// Japanese-looking letters anything else is mostly noise (hashi → 葉室,
+/// sushi → 素子, yama → 邪魔), while kencha still offers 検査 and 検察.
 /// Within a tier, `PinyinKanjiLookup.Match.ranks` orders matches: complete
 /// before partial, then fewer pinyin/romaji switches, then word cost.
 /// A word the engine already offers is not repeated.
@@ -31,6 +35,8 @@ nonisolated enum PinyinLookupCandidates {
     static let highLimit = 8
     static let lowLimit = 3
     static let lowInsertionIndex = 3
+    /// Mozc cost; 検察 is 5211, the rare 素適 6109.
+    static let lowMaximumCost = 6000
 
     enum Tier: Equatable, Sendable { case high, low }
 
@@ -71,7 +77,8 @@ nonisolated enum PinyinLookupCandidates {
         if !evidence.engineWord && (evidence.pinyinFinal || (!match.partial && match.parts.allSatisfy { $0.mode == .pinyin })) {
             return .high
         }
-        guard !match.partial, match.parts.count > 1 else { return nil }
+        guard !match.partial, match.parts.count > 1, !match.properNoun, match.cost <= lowMaximumCost,
+              match.parts.allSatisfy({ $0.mode != .pinyin || $0.letters.count >= 3 }) else { return nil }
         return .low
     }
 

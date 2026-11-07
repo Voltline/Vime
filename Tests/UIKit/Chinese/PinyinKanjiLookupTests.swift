@@ -154,6 +154,24 @@ final class PinyinKanjiLookupTests: XCTestCase {
         XCTAssertTrue(plain.candidates.contains("検察"))
     }
 
+    func testOrdinaryJapaneseGetsNoRareOrProperNounWords() throws {
+        // Romaji of common words also spells rare words or names in pinyin
+        // (hashi → 葉室, sushi → 素子, yama → 邪魔); those are left out.
+        for input in ["hashi", "sushi", "yama", "watashi", "kaisha", "denwa"] {
+            let session = type(input)
+            XCTAssertFalse(session.candidateSnapshots.contains { $0.source == .pinyinLookup }, "\(input) → \(session.candidates.prefix(8))")
+        }
+    }
+
+    func testEnablingDuringASelectionKeepsTheFrozenList() throws {
+        let session = type("jiansatsu", lookup: false)
+        _ = session.space()
+        let list = session.candidatePresentations, selection = session.selectedIndex
+        session.setPinyinLookupEnabled(true)
+        XCTAssertEqual(session.candidatePresentations, list)
+        XCTAssertEqual(session.selectedIndex, selection)
+    }
+
     func testSettingOffKeepsThePlainList() throws {
         let off = type("jiancha", lookup: false)
         XCTAssertFalse(off.candidateSnapshots.contains { $0.source == .pinyinLookup })

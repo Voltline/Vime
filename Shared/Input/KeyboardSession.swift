@@ -57,9 +57,14 @@ final class KeyboardSession: KeyboardInputSession {
     /// 中日混输: kanji words typed by their Mandarin reading, or a per-character
     /// mix of pinyin and romaji, join the candidates (PinyinLookupCandidates).
     /// Off until the view sets it from KeyboardPreferences.pinyinLookupInJapanese,
-    /// so headless and test sessions keep the plain Japanese list.
+    /// so headless and test sessions keep the plain Japanese list. A change
+    /// refreshes the composition, except while a candidate is selected: that
+    /// list is frozen until the user commits or edits.
     var pinyinLookupEnabled = false {
-        didSet { if oldValue != pinyinLookupEnabled, isComposing { refresh(); onCandidatesChange?() } }
+        didSet {
+            guard oldValue != pinyinLookupEnabled, isComposing, selectedIndex == nil else { return }
+            refresh(); onCandidatesChange?()
+        }
     }
     func setPinyinLookupEnabled(_ enabled: Bool) { pinyinLookupEnabled = enabled }
     /// The bundled table unless a test supplies another.
