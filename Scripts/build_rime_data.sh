@@ -1,22 +1,35 @@
 #!/bin/bash
 # Prebuilds the Chinese input data into Shared/Resources/RimeData.bundle.
 #
-#   Scripts/build_rime_data.sh <rime-ice checkout>
+#   Scripts/build_rime_data.sh [source cache dir] [--refresh-tatoeba]
 #
-# The schema lives in Dependencies/VimeRime/Schema; the dictionaries named in
-# vime_pinyin.dict.yaml are copied from rime-ice. Only compiled files ship, so
-# the keyboard never deploys anything itself.
+# The schemas live in Dependencies/VimeRime/Schema. Scripts/build_rime_dicts.py
+# generates the pinyin and English dictionaries from sources pinned to a commit
+# or a SHA-256 and writes SOURCE.txt; Dependencies/VimeRime/UPSTREAM.md lists
+# them with their licenses. The first run downloads about 35 MB into the cache
+# (default /private/tmp/vime-rime-sources; set HTTPS_PROXY if needed), and later
+# runs work offline from it. The same sources give the same dictionaries.
+#
+# Tatoeba keeps only its current weekly export, so the phrase counts taken from
+# it are checked in as Scripts/rime_collocations.txt; --refresh-tatoeba
+# downloads the current export and counts again, which changes the result.
+#
+# Only compiled files ship, so the keyboard never deploys anything itself.
+# Check the result with
+#
+#   swift test --package-path Dependencies/VimeRime
 set -euo pipefail
 cd "$(dirname "$0")/.."
-ice=$(cd "$1" && pwd)
+cache=${1:-/private/tmp/vime-rime-sources}
+[ $# -gt 0 ] && shift
 work=$(mktemp -d); trap 'rm -rf "$work"' EXIT
 cp Dependencies/VimeRime/Schema/*.yaml "$work/"
-mkdir -p "$work/cn_dicts"
-for dict in 8105 base others; do cp "$ice/cn_dicts/$dict.dict.yaml" "$work/cn_dicts/"; done
+python3 Scripts/build_rime_dicts.py "$work" --cache "$cache" ${1+"$@"}
 swift build -c release --package-path Dependencies/VimeRime --product vime-rime-build >/dev/null
 "$(swift build -c release --package-path Dependencies/VimeRime --show-bin-path)/vime-rime-build" "$work" "$work/build"
 out=Shared/Resources/RimeData.bundle
 rm -rf "$out"; mkdir -p "$out"
-cp "$work"/build/{default.yaml,vime_pinyin.schema.yaml,vime_pinyin.prism.bin,vime_pinyin.table.bin,vime_pinyin.reverse.bin} "$out/"
-printf 'rime-ice %s\n' "$(git -C "$ice" log -1 --format='%H %cs')" > "$out/SOURCE.txt"
+cp "$work"/build/{default.yaml,vime_pinyin.schema.yaml} "$out/"
+cp "$work"/build/vime_pinyin.{prism,table,reverse}.bin "$work"/build/vime_english.{prism,table}.bin "$out/"
+cp "$work/SOURCE.txt" "$out/"
 du -sh "$out"/*

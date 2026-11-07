@@ -1,10 +1,10 @@
 __build_info:
   rime_version: vime
   timestamps:
-    default: 1794022570
+    default: 1794055807
     default.custom: 0
     vime_pinyin.custom: 0
-    vime_pinyin.schema: 1794022570
+    vime_pinyin.schema: 1794055807
 engine:
   filters:
     - uniquifier
@@ -18,9 +18,19 @@ engine:
     - fallback_segmentor
   translators:
     - script_translator
+    - "table_translator@english"
+english:
+  dictionary: vime_english
+  enable_completion: false
+  enable_encoder: false
+  enable_sentence: false
+  enable_user_dict: false
+  initial_quality: "-1"
 menu:
   page_size: 9
 schema:
+  dependencies:
+    - vime_english
   name: "Vime 拼音"
   schema_id: vime_pinyin
   version: 1

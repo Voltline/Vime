@@ -1,1 +1,7 @@
-rime-ice 99662ba01e3affa6a0f009174ca530b887bac3b6 2026-10-31
+mozillazg/pinyin-data fe29ad32bdf352b31a02b9936e537f575432e9a6 2026-11-01 (MIT)
+mozillazg/phrase-pinyin-data 4afa3226ce53c9138b939e83c3bb294dbe0da511 2026-11-01 (MIT; cc_cedict.txt CC BY-SA 4.0)
+fxsjy/jieba 67fa2e36e72f69d9134b8a1037b83fbb070b9775 2020-02-15 (MIT)
+rspeer/wordfreq 912caf64b657478d1dff1138efdc078947d54bb1 2025-01-04 (data CC BY-SA 4.0)
+en-wl/wordlist 1e5b7d3a72f47a71da5d28686c1dd4b397178485 2026-06-24 (MIT-like)
+Unihan Unicode 18.0.0 https://www.unicode.org/Public/18.0.0/ucd/Unihan.zip sha256 4c93ea9c1f636451729a840978f1667a53886af37ba854fdcce109721c63d43e (Unicode License V3)
+Tatoeba https://downloads.tatoeba.org/exports/per_language/cmn/cmn_sentences.tsv.bz2 export 2026-11-07 sha256 262a48cacb7693f6e47a2c4c42f216a5c45dd28b9b62014b159628cc908e8fcc via Scripts/rime_collocations.txt (CC BY 2.0 FR)

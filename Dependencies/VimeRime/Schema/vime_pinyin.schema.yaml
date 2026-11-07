@@ -1,9 +1,12 @@
-# Simplified Chinese full pinyin for Vime. Dictionaries come from rime-ice
-# (GPL-3.0); see Scripts/build_rime_data.sh.
+# Simplified Chinese full pinyin for Vime, with English words mixed in.
+# Scripts/build_rime_dicts.py generates both dictionaries from permissively
+# licensed and CC BY-SA data; see Scripts/build_rime_data.sh.
 schema:
   schema_id: vime_pinyin
   name: Vime 拼音
   version: "1"
+  dependencies:
+    - vime_english
 engine:
   processors:
     - speller
@@ -15,6 +18,7 @@ engine:
     - fallback_segmentor
   translators:
     - script_translator
+    - table_translator@english
   filters:
     - uniquifier
 speller:
@@ -38,3 +42,14 @@ translator:
   preedit_format:
     - xform/([jqxy])v/$1u/
     - xform/([nl])ue/$1ve/
+# English words typed in the same composition. Rime orders the candidates of
+# both translators by quality, which the English weights set: a word that is
+# not pinyin ranks above a Chinese sentence, and one that is pinyin, or is as
+# short as an abbreviation, ranks after the Chinese candidates.
+english:
+  dictionary: vime_english
+  enable_completion: false
+  enable_sentence: false
+  enable_user_dict: false
+  enable_encoder: false
+  initial_quality: -1
