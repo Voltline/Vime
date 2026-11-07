@@ -21,6 +21,50 @@ final class RimeEngineTests: XCTestCase {
         XCTAssertNil(engine.sendAndWait(.clear).commit)
     }
 
+    func testCompletionAddsAtMostTwoCharacters() throws {
+        XCTAssertEqual(RimeEngine.syllableCount("zhong g d t"), 4)
+        XCTAssertEqual(RimeEngine.syllableCount("你好 ma"), 1)
+        XCTAssertTrue(RimeEngine.completionFits("你好", syllables: 2))
+        XCTAssertTrue(RimeEngine.completionFits("中国地图", syllables: 2))
+        XCTAssertFalse(RimeEngine.completionFits("中国地图出", syllables: 2))
+        XCTAssertTrue(RimeEngine.completionFits("iPhone", syllables: 1))
+
+        let engine = try engine()
+        let typed = engine.sendAndWait(.type("zhonggdt"))
+        XCTAssertFalse(typed.candidates.isEmpty)
+        XCTAssertTrue(typed.candidates.allSatisfy { $0.text.count <= 6 }, "\(typed.candidates.map(\.text))")
+        // Indices count shown candidates, skipping hidden ones.
+        let second = typed.candidates[1].text
+        let selected = engine.sendAndWait(.select(1))
+        // A phrase for part of the input stays in the preedit until the rest is chosen.
+        XCTAssertTrue(selected.commit == second || selected.preedit.hasPrefix(second), "\(second) \(selected)")
+        _ = engine.sendAndWait(.clear)
+        XCTAssertTrue(engine.sendAndWait(.type("nih")).candidates.map(\.text).contains("你好"))
+        _ = engine.sendAndWait(.clear)
+    }
+
+    func testLearningResetDeletesTheUserDictionary() throws {
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: "RimeEngineTests-\(UUID().uuidString)"))
+        let requests = KeyboardLearningResetRequests(defaults: defaults)
+        let engine = RimeEngine(data: try XCTUnwrap(RimeEngine.bundledData), userDirectory: Self.user, resetRequests: requests)
+        func rank() -> Int? {
+            let index = engine.sendAndWait(.type("shi")).candidates.firstIndex { $0.text == "式" }
+            _ = engine.sendAndWait(.clear)
+            return index
+        }
+        let before = try XCTUnwrap(rank())
+        for _ in 0..<3 {
+            let index = try XCTUnwrap(engine.sendAndWait(.type("shi")).candidates.firstIndex { $0.text == "式" })
+            XCTAssertEqual(engine.sendAndWait(.select(index)).commit, "式")
+            _ = engine.sendAndWait(.finishLearning)
+        }
+        XCTAssertLessThan(try XCTUnwrap(rank()), before)
+        requests.request()
+        _ = engine.sendAndWait(.clear)
+        XCTAssertEqual(rank(), before)
+        XCTAssertNil(requests.pendingID(for: "rime." + Self.user.lastPathComponent))
+    }
+
     func testCommandsRunInOrder() throws {
         let engine = try engine()
         let done = expectation(description: "all commands")

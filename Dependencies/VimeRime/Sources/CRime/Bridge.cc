@@ -5,7 +5,11 @@
 #include <mutex>
 #include <string>
 
+#include <rime/candidate.h>
+#include <rime/composition.h>
+#include <rime/context.h>
 #include <rime/deployer.h>
+#include <rime/menu.h>
 #include <rime/lever/deployment_tasks.h>
 #include <rime/service.h>
 #include <rime/setup.h>
@@ -155,12 +159,23 @@ VimeRimeSnapshot vime_rime_snapshot(VimeRimeSession session, int32_t candidateLi
         snapshot.candidates = static_cast<VimeRimeCandidate *>(
             std::calloc(size_t(candidateLimit), sizeof(VimeRimeCandidate)));
         if (!snapshot.candidates) return true;
+        // The C API leaves out a candidate's type, so read it from the menu.
+        rime::an<rime::Menu> menu;
+        if (auto owner = rime::Service::instance().GetSession(session)) {
+            rime::Context *ctx = owner->context();
+            if (ctx && ctx->HasMenu()) menu = ctx->composition().back().menu;
+        }
         RimeCandidateListIterator iterator = {};
         if (api()->candidate_list_begin(session, &iterator)) {
             while (snapshot.candidateCount < candidateLimit && api()->candidate_list_next(&iterator)) {
-                VimeRimeCandidate &out = snapshot.candidates[snapshot.candidateCount++];
+                VimeRimeCandidate &out = snapshot.candidates[snapshot.candidateCount];
                 out.text = copy(iterator.candidate.text);
                 out.comment = copy(iterator.candidate.comment);
+                if (menu) {
+                    if (auto candidate = menu->GetCandidateAt(size_t(snapshot.candidateCount)))
+                        out.completion = rime::Candidate::GetGenuineCandidate(candidate)->type() == "completion";
+                }
+                ++snapshot.candidateCount;
             }
             api()->candidate_list_end(&iterator);
         }

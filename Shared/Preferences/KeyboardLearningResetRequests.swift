@@ -14,4 +14,12 @@ nonisolated struct KeyboardLearningResetRequests: @unchecked Sendable {
     var isPending: Bool { requestID != completedID }
     func request() { defaults.set(UUID().uuidString, forKey: "vime.learningReset.request") }
     func complete(_ id: String) { defaults.set(id, forKey: "vime.learningReset.completed") }
+
+    /// Another store of learning, such as one process's pinyin dictionary,
+    /// keeps its own completion: the request it has not yet carried out.
+    func pendingID(for store: String) -> String? {
+        guard let id = requestID, id != defaults.string(forKey: "vime.learningReset.completed." + store) else { return nil }
+        return id
+    }
+    func complete(_ id: String, for store: String) { defaults.set(id, forKey: "vime.learningReset.completed." + store) }
 }

@@ -17,6 +17,8 @@ typedef uintptr_t VimeRimeSession;
 typedef struct {
     char *text;
     char *comment;
+    /// Completes the input past what was typed, such as a longer phrase.
+    bool completion;
 } VimeRimeCandidate;
 
 typedef struct {

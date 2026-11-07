@@ -119,6 +119,38 @@ final class RimeSmokeTests: XCTestCase {
         XCTAssertLessThan(try XCTUnwrap(rank(of: "室", after: "shi", selecting: false, session: session)), control)
     }
 
+    private func commitFirst(_ input: String, session: VimeRimeSession) -> String? {
+        type(input, into: session)
+        XCTAssertTrue(vime_rime_select_candidate(session, 0))
+        let commit = snapshot(session).commit
+        _ = vime_rime_process_key(session, 0xff1b, 0)
+        return commit
+    }
+
+    func testLongSentencesAreNotLearnedWhole() throws {
+        let session = vime_rime_create_session()
+        defer { vime_rime_destroy_session(session) }
+        let long = try XCTUnwrap(commitFirst("womenmingtianyiqiqukandianying", session: session))
+        XCTAssertGreaterThan(long.count, 8)
+        let short = try XCTUnwrap(commitFirst("tamenqukandianying", session: session))
+        XCTAssertLessThanOrEqual(short.count, 8)
+        // Completion offers a learned phrase for the start of its input.
+        XCTAssertFalse(candidates(for: "womenmingtianyiqi", limit: 60).contains(long))
+        XCTAssertTrue(candidates(for: "tamenqukan", limit: 60).contains(short))
+    }
+
+    func testCompletionsAreMarked() throws {
+        let session = vime_rime_create_session()
+        defer { vime_rime_destroy_session(session) }
+        type("zhonggdt", into: session)
+        var raw = vime_rime_snapshot(session, 20)
+        defer { vime_rime_snapshot_free(&raw) }
+        let marked = (0..<Int(raw.candidateCount)).filter { raw.candidates[$0].completion }
+            .map { String(cString: raw.candidates[$0].text) }
+        XCTAssertTrue(marked.contains { $0.count > 6 }, "\(marked)")
+        XCTAssertFalse(raw.candidates[0].completion)
+    }
+
     func testLearningSurvivesARestart() throws {
         var session = vime_rime_create_session()
         let before = try XCTUnwrap(rank(of: "式", after: "shi", selecting: false, session: session))

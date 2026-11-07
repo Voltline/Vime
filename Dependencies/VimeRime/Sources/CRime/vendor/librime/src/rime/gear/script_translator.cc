@@ -12,6 +12,7 @@
 #include <limits>
 #include <boost/algorithm/string/join.hpp>
 #include <boost/range/adaptor/reversed.hpp>
+#include <utf8.h>
 #include <rime/common.h>
 #include <rime/composition.h>
 #include <rime/candidate.h>
@@ -357,7 +358,12 @@ bool ScriptTranslator::UpdateElements(const CommitEntry& commit_entry) {
 
 bool ScriptTranslator::Memorize(const CommitEntry& commit_entry) {
   UpdateElements(commit_entry);
-  user_dict_->UpdateEntry(commit_entry, 1);
+  // Vime: skip long sentences made of several words.
+  if (commit_entry.elements.size() <= 1 ||
+      utf8::unchecked::distance(commit_entry.text.c_str(),
+                                commit_entry.text.c_str() +
+                                    commit_entry.text.length()) <= 8)
+    user_dict_->UpdateEntry(commit_entry, 1);
   return true;
 }
 

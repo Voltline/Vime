@@ -194,6 +194,30 @@ def patch_extra_code_credibility(dictionary: Path):
     dictionary.write_text(text)
 
 
+def patch_sentence_learning(translator: Path):
+    """Learns a composed sentence as a whole only while it is short.
+
+    Rime saves every committed sentence as one user phrase, which completion
+    then offers for any input sharing its first letters. A long sentence
+    composed from separate words would come back as a suggestion for an
+    unrelated abbreviation. Its words are still learned one by one.
+    """
+    old = ("  UpdateElements(commit_entry);\n"
+           "  user_dict_->UpdateEntry(commit_entry, 1);\n")
+    new = ("  UpdateElements(commit_entry);\n"
+           "  // Vime: skip long sentences made of several words.\n"
+           "  if (commit_entry.elements.size() <= 1 ||\n"
+           "      utf8::unchecked::distance(commit_entry.text.c_str(),\n"
+           "                                commit_entry.text.c_str() +\n"
+           "                                    commit_entry.text.length()) <= 8)\n"
+           "    user_dict_->UpdateEntry(commit_entry, 1);\n")
+    text = translator.read_text()
+    assert text.count(old) == 1, "librime changed ScriptTranslator::Memorize; update the patch"
+    if "#include <utf8.h>" not in text:
+        text = text.replace("#include <rime/common.h>\n", "#include <utf8.h>\n#include <rime/common.h>\n", 1)
+    translator.write_text(text.replace(old, new))
+
+
 def head(repo: Path) -> str:
     return subprocess.run(["git", "-C", repo, "log", "-1", "--format=%H %cs"],
                           capture_output=True, text=True, check=True).stdout.strip()
@@ -216,6 +240,7 @@ def main():
         "#endif\n")
     patch_learning_filter(VENDOR / "librime/src/rime/gear/memory.cc")
     patch_corrections(VENDOR / "librime/src/rime/gear/script_translator.cc")
+    patch_sentence_learning(VENDOR / "librime/src/rime/gear/script_translator.cc")
     patch_extra_code_credibility(VENDOR / "librime/src/rime/dict/dictionary.cc")
     # utfcpp, darts-clone and X11 key symbols ship in librime's include/.
     copy(rime / "include", VENDOR / "librime/include", lambda r: r.suffix == ".h")
@@ -293,11 +318,13 @@ def main():
     upstream.write_text(
         "# Upstream sources\n\n"
         "Copied by `Scripts/vendor_rime.py`; do not edit files under `Sources/CRime/vendor`.\n"
-        "Three changes to upstream code are applied by the script: a learning filter\n"
+        "Four changes to upstream code are applied by the script: a learning filter\n"
         "hook in `librime/src/rime/gear/memory.cc`; in\n"
         "`librime/src/rime/gear/script_translator.cc`, how spelling corrections rank\n"
-        "(`patch_corrections`); and in `librime/src/rime/dict/dictionary.cc`, spelling\n"
-        "penalties past a phrase's third syllable (`patch_extra_code_credibility`).\n\n"
+        "(`patch_corrections`) and which committed sentences are learned whole\n"
+        "(`patch_sentence_learning`); and in `librime/src/rime/dict/dictionary.cc`,\n"
+        "spelling penalties past a phrase's third syllable\n"
+        "(`patch_extra_code_credibility`).\n\n"
         "| Project | Commit | License |\n| --- | --- | --- |\n"
         f"| [librime](https://github.com/rime/librime) | `{head(rime)}` | BSD-3-Clause |\n"
         f"| [yaml-cpp](https://github.com/jbeder/yaml-cpp) | `{head(deps / 'yaml-cpp')}` | MIT |\n"

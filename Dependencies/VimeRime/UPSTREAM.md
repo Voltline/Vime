@@ -1,11 +1,13 @@
 # Upstream sources
 
 Copied by `Scripts/vendor_rime.py`; do not edit files under `Sources/CRime/vendor`.
-Three changes to upstream code are applied by the script: a learning filter
+Four changes to upstream code are applied by the script: a learning filter
 hook in `librime/src/rime/gear/memory.cc`; in
 `librime/src/rime/gear/script_translator.cc`, how spelling corrections rank
-(`patch_corrections`); and in `librime/src/rime/dict/dictionary.cc`, spelling
-penalties past a phrase's third syllable (`patch_extra_code_credibility`).
+(`patch_corrections`) and which committed sentences are learned whole
+(`patch_sentence_learning`); and in `librime/src/rime/dict/dictionary.cc`,
+spelling penalties past a phrase's third syllable
+(`patch_extra_code_credibility`).
 
 | Project | Commit | License |
 | --- | --- | --- |
