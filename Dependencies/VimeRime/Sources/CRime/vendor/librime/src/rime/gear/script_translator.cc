@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <stack>
 #include <cmath>
+#include <limits>
 #include <boost/algorithm/string/join.hpp>
 #include <boost/range/adaptor/reversed.hpp>
 #include <rime/common.h>
@@ -176,6 +177,12 @@ class ScriptTranslation : public Translation {
   double sentence_cutoff_threshold_ = 0.1;
 
   bool enable_correction_;
+  // Vime: full syllables spell the whole input; lookups then use
+  // exact_graph_ (see Evaluate).
+  bool exact_spelling_ = false;
+  SyllableGraph exact_graph_;
+  // Vime: spelled exactly, or a phrase spells the whole input.
+  bool exact_input_ = false;
 };
 
 // ScriptTranslator implementation
@@ -459,7 +466,33 @@ static bool has_exact_match_phrase(Ptr ptr, Iter iter, size_t consumed) {
 
 bool ScriptTranslation::Evaluate(Dictionary* dict, UserDictionary* user_dict) {
   size_t consumed = syllabifier_->BuildSyllableGraph(*dict->prism());
-  const auto& syllable_graph = syllabifier_->syllable_graph();
+  // Vime: when full syllables spell the whole input, look up a copy of
+  // the graph whose corrections rank below anything a dictionary holds.
+  // Correction edges never set a vertex type.
+  const auto& full_graph = syllabifier_->syllable_graph();
+  auto end_vertex = full_graph.vertices.find(consumed);
+  exact_spelling_ = consumed == full_graph.input_length &&
+                    end_vertex != full_graph.vertices.end() &&
+                    end_vertex->second == kNormalSpelling;
+  if (exact_spelling_) {
+    const double kExactInputCorrectionPenalty = -1000.0;
+    exact_graph_.input_length = full_graph.input_length;
+    exact_graph_.interpreted_length = full_graph.interpreted_length;
+    exact_graph_.vertices = full_graph.vertices;
+    exact_graph_.edges = full_graph.edges;
+    exact_graph_.indices.clear();
+    for (auto& start : exact_graph_.edges)
+      for (auto& end : start.second)
+        for (auto& spelling : end.second)
+          if (spelling.second.is_correction)
+            spelling.second.credibility += kExactInputCorrectionPenalty;
+    for (const auto& start : exact_graph_.edges)  // Syllabifier::Transpose
+      for (const auto& end : boost::adaptors::reverse(start.second))
+        for (const auto& spelling : end.second)
+          exact_graph_.indices[start.first][spelling.first].push_back(
+              &spelling.second);
+  }
+  const auto& syllable_graph = exact_spelling_ ? exact_graph_ : full_graph;
   bool predict_word = translator_->enable_word_completion() &&
                       start_ + consumed == end_of_input_;
 
@@ -499,6 +532,8 @@ bool ScriptTranslation::Evaluate(Dictionary* dict, UserDictionary* user_dict) {
              << ", has_reliable_phrase: " << has_reliable_phrase
              << ", has_reliable_user_phrase: " << has_reliable_user_phrase
              << ", has_at_least_two_syllables: " << has_at_least_two_syllables;
+  exact_input_ =
+      exact_spelling_ || has_reliable_phrase || has_reliable_user_phrase;
   // make sentences when there is no exact-matching phrase candidate
   if (has_at_least_two_syllables && !has_reliable_phrase &&
       !has_reliable_user_phrase) {
@@ -511,6 +546,22 @@ bool ScriptTranslation::Evaluate(Dictionary* dict, UserDictionary* user_dict) {
       else
         sentences_.clear();
     }
+  }
+  // Vime: a corrected word that reads better than the sentence goes first.
+  if (!sentences_.empty() && !exact_input_) {
+    const double kWordPenalty = -13.815510557964274;  // Grammar::Evaluate
+    auto corrected_weight = [&](auto& result, auto& iter) {
+      return result && iter != result->rend() && iter->first == consumed &&
+                     !iter->second.exhausted() &&
+                     syllabifier_->IsCorrection(iter->second.Peek()->code,
+                                                consumed)
+                 ? iter->second.Peek()->weight + kWordPenalty
+                 : -std::numeric_limits<double>::infinity();
+    };
+    double best = (std::max)(corrected_weight(phrase_, phrase_iter_),
+                             corrected_weight(user_phrase_, user_phrase_iter_));
+    if (best > sentences_.front()->weight())
+      sentences_.clear();
   }
 
   return !CheckEmpty();
@@ -545,18 +596,21 @@ bool ScriptTranslation::Next() {
     }
     candidate_.reset();
     candidate_source_ = kUninitialized;
-    if (enable_correction_) {
+    if (enable_correction_ || exact_input_) {
       // populate next candidate and skip it if it's a correction beyond max
       // numbers.
       if (!PrepareCandidate()) {
         break;
       }
     }
-  } while (enable_correction_ &&
+  } while ((enable_correction_ || exact_input_) &&
            syllabifier_->IsCorrection(candidate_->code(),
                                       candidate_->end() - start_) &&
            // limit the number of correction candidates
-           ++correction_count_ > max_corrections_);
+           // Vime: exact input shows two, each for the whole input
+           (exact_input_ ? candidate_->end() < end_of_input_ ||
+                               ++correction_count_ > 2
+                         : ++correction_count_ > max_corrections_));
   if (!CheckEmpty()) {
     ++candidate_index_;
     return true;
@@ -706,7 +760,9 @@ WordGraph ScriptTranslation::PrepareForMakingSentence(
     Dictionary* dict,
     UserDictionary* user_dict) {
   const int kMaxSyllablesForUserPhraseQuery = 5;
-  const auto& syllable_graph = syllabifier_->syllable_graph();
+  // Vime: exact input makes its sentence from the graph it looked up.
+  const auto& syllable_graph =
+      exact_spelling_ ? exact_graph_ : syllabifier_->syllable_graph();
   WordGraph graph;
   for (const auto& x : syllable_graph.edges) {
     auto& same_start_pos = graph[x.first];
