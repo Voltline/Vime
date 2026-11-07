@@ -109,6 +109,7 @@ def main():
     copy(oc / "src/plugin", VENDOR / "opencc/opencc/plugin", lambda r: r.suffix == ".h")
     # One darts-clone for both: OpenCC's copy adds validate() to librime's.
     shutil.copy2(oc / "deps/darts-clone-0.32h/include/darts.h", VENDOR / "librime/include/darts.h")
+    shutil.copy2(oc / "deps/darts-clone-0.32h/COPYING.md", LICENSES / "darts-clone.txt")
     shutil.copy2(oc / "LICENSE", LICENSES / "opencc.txt")
 
     # Boost headers that librime reaches, from clang's dependency output.

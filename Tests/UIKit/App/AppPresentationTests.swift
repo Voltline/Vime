@@ -214,7 +214,7 @@ final class AppPresentationTests: XCTestCase {
     }
     func testBundledComponentNoticesCoverOriginalBytesAndPolicyLoadsOffline() async throws {
         let catalog = try Vime.LicenseCatalog()
-        XCTAssertEqual(catalog.components.count, 14)
+        XCTAssertEqual(catalog.components.count, 21)
         let url = try XCTUnwrap(Bundle.main.url(forResource: "ThirdPartyNotices", withExtension: "txt"))
         let original = try String(contentsOf: url, encoding: .utf8)
         var sections: [(String.Index, String)] = []

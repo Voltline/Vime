@@ -166,5 +166,89 @@
     "revision": "EMJ1 format",
     "modified": "Swift 实现，增加长度、版本和维度校验，支持有界缓存",
     "noticeFile": "emojifonts"
+  },
+  {
+    "id": "librime",
+    "name": "librime",
+    "use": "中文拼音输入引擎",
+    "category": "转换与分词",
+    "license": "BSD-3-Clause",
+    "copyright": "RIME Developers; Susumu Yata; Nemanja Trifunovic",
+    "source": "https://github.com/rime/librime",
+    "revision": "2bae6b59b5ebbf2a8af7ffae5b22fbf090f91841",
+    "modified": "修改一个源文件，编译为静态库；附带的 darts-clone、UTF8-CPP 与 X11 声明保留在下方",
+    "noticeFile": "librime"
+  },
+  {
+    "id": "rimeice",
+    "name": "rime-ice",
+    "use": "中文拼音词库",
+    "category": "语言与表情数据",
+    "license": "GPL v3",
+    "copyright": "iDvel and contributors",
+    "source": "https://github.com/iDvel/rime-ice",
+    "revision": "99662ba01e3affa6a0f009174ca530b887bac3b6",
+    "modified": "取字表、基础词库与杂项词库，编译为 Rime 二进制词典",
+    "noticeFile": "rimeice"
+  },
+  {
+    "id": "opencc",
+    "name": "OpenCC",
+    "use": "librime 依赖的简繁转换库",
+    "category": "其他依赖",
+    "license": "Apache 2.0",
+    "copyright": "Carbo Kuo and contributors",
+    "source": "https://github.com/BYVoid/OpenCC",
+    "revision": "025f371dc76b598d77384fbdab90c937471844d8",
+    "modified": "不含转换数据；附带的 RapidJSON 声明保留在下方",
+    "noticeFile": "opencc"
+  },
+  {
+    "id": "yamlcpp",
+    "name": "yaml-cpp",
+    "use": "Rime 配置解析",
+    "category": "其他依赖",
+    "license": "MIT",
+    "copyright": "Jesse Beder",
+    "source": "https://github.com/jbeder/yaml-cpp",
+    "revision": "56e3bb550c91fd7005566f19c079cb7a503223cf",
+    "modified": "",
+    "noticeFile": "yamlcpp"
+  },
+  {
+    "id": "leveldb",
+    "name": "LevelDB",
+    "use": "Rime 用户词典存储",
+    "category": "其他依赖",
+    "license": "BSD-3-Clause",
+    "copyright": "The LevelDB Authors",
+    "source": "https://github.com/google/leveldb",
+    "revision": "bb74ef739973a70ca9f0d90788a1da89b788c0ad",
+    "modified": "",
+    "noticeFile": "leveldb"
+  },
+  {
+    "id": "marisa",
+    "name": "marisa-trie",
+    "use": "Rime 词典索引",
+    "category": "其他依赖",
+    "license": "BSD-2-Clause",
+    "copyright": "Susumu Yata",
+    "source": "https://github.com/s-yata/marisa-trie",
+    "revision": "3e87d53b78e15f2f43783d5e376561a8c9722051",
+    "modified": "按 BSD-2-Clause 选项使用",
+    "noticeFile": "marisa"
+  },
+  {
+    "id": "boost",
+    "name": "Boost",
+    "use": "librime 依赖的 C++ 基础库",
+    "category": "其他依赖",
+    "license": "BSL-1.0",
+    "copyright": "Boost contributors",
+    "source": "https://www.boost.org",
+    "revision": "1.90",
+    "modified": "仅头文件",
+    "noticeFile": "boost"
   }
 ]
