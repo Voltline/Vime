@@ -132,4 +132,50 @@ final class RimeSmokeTests: XCTestCase {
         defer { vime_rime_destroy_session(session) }
         XCTAssertLessThan(try XCTUnwrap(rank(of: "式", after: "shi", selecting: false, session: session)), before)
     }
+
+    private func candidates(for input: String, limit: Int32 = 20) -> [String] {
+        let session = vime_rime_create_session()
+        defer { vime_rime_destroy_session(session) }
+        type(input, into: session)
+        var raw = vime_rime_snapshot(session, limit)
+        defer { vime_rime_snapshot_free(&raw) }
+        return (0..<Int(raw.candidateCount)).map { String(cString: raw.candidates[$0].text) }
+    }
+
+    /// Prints the first candidates of the inputs in VIME_DUMP, separated by spaces.
+    func testDump() throws {
+        guard let list = ProcessInfo.processInfo.environment["VIME_DUMP"] else { throw XCTSkip("set VIME_DUMP") }
+        let inputs = list.split(separator: " ")
+        for input in inputs { print("DUMP \(input): \(candidates(for: String(input), limit: 5).joined(separator: " "))") }
+    }
+
+    func testCommonWordsComeFirst() {
+        let expected = [
+            "nihao": "你好", "women": "我们", "shenme": "什么", "zhongguo": "中国", "xianzai": "现在",
+            "wodou": "我都", "jintiantianqizhenhao": "今天天气真好", "xiexie": "谢谢", "mingtian": "明天",
+            "pengyou": "朋友", "zhidao": "知道", "keyi": "可以",
+        ]
+        for (input, word) in expected { XCTAssertEqual(candidates(for: input).first, word, input) }
+    }
+
+    func testPolyphonesInWordsTakeTheWordsReading() {
+        // 行, 长, 重 and 乐 read differently in these words than on their own.
+        for (input, word) in ["yinhang": "银行", "zhangda": "长大", "chongxin": "重新", "yinyue": "音乐", "xingli": "行李"] {
+            XCTAssertEqual(candidates(for: input).first, word, input)
+        }
+        XCTAssertFalse(candidates(for: "yinxing", limit: 40).contains("银行"))
+    }
+
+    func testEnglishWordsMixIn() {
+        for (input, word) in ["hello": "hello", "iphone": "iPhone", "ok": "OK", "github": "GitHub", "thanks": "thanks"] {
+            let found = candidates(for: input)
+            XCTAssertLessThan(found.firstIndex(of: word) ?? 99, 2, "\(input): \(found)")
+        }
+        // Input that is whole pinyin keeps a Chinese candidate first.
+        for (input, word) in ["an": "an", "she": "she", "hang": "hang"] {
+            let found = candidates(for: input, limit: 60)
+            XCTAssertNotEqual(found.first, word, input)
+            XCTAssertTrue(found.first?.unicodeScalars.first.map { $0.value >= 0x4E00 } ?? false, "\(input): \(found)")
+        }
+    }
 }
