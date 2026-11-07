@@ -40,7 +40,9 @@ struct VimeApp: App {
         // Sets the input language before a test run, as the setting in the app does.
         if let index = arguments.firstIndex(of: "--keyboard-input-language"), index + 1 < arguments.count,
            let language = KeyboardInputLanguage(rawValue: arguments[index + 1]), language != .english {
-            KeyboardPreferences().inputLanguage = language
+            let preferences = KeyboardPreferences()
+            preferences.inputLanguage = language
+            if language == .chinese { preferences.chineseInputEnabled = true }
         }
 #endif
     }

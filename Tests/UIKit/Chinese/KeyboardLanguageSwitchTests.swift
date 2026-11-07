@@ -162,6 +162,123 @@ final class KeyboardLanguageSwitchTests: XCTestCase {
         }
     }
 
+    // MARK: Chinese input turned off
+
+    func testChineseInputIsOnByDefaultWithPinyinLookup() throws {
+        let preferences = KeyboardPreferences(defaults: try XCTUnwrap(UserDefaults(suiteName: suite)))
+        XCTAssertTrue(preferences.chineseInputEnabled)
+        XCTAssertTrue(preferences.pinyinLookupInJapanese)
+    }
+
+    func testTurningChineseOffWhileSelectedFallsBackToJapanese() throws {
+        let (keyboard, preferences) = try keyboard()
+        preferences.inputLanguage = .chinese
+        keyboard.reloadPreferences()
+        XCTAssertTrue(keyboard.session is ChineseInputSession)
+        var edits: [KeyboardEdit] = []
+        keyboard.onEdit = { edits += $0 }
+        let chinese = try XCTUnwrap(keyboard.session as? ChineseInputSession)
+        keyboard.apply(chinese.type("nihao"))
+        waitUntilCurrent(chinese)
+
+        preferences.chineseInputEnabled = false
+        XCTAssertEqual(preferences.inputLanguage, .japanese)
+        keyboard.reloadPreferences()
+        XCTAssertFalse(keyboard.session is ChineseInputSession)
+        XCTAssertEqual(keyboard.session.inputTraits.language, .japanese)
+        XCTAssertTrue(edits.contains(.insert("你好")), "the Chinese composition reaches the host first")
+        XCTAssertEqual(preferences.store.string(forKey: "vime.inputLanguage"), "chinese", "the stored choice is kept")
+
+        preferences.chineseInputEnabled = true
+        keyboard.reloadPreferences()
+        XCTAssertTrue(keyboard.session is ChineseInputSession, "turning Chinese back on restores the choice")
+    }
+
+    /// The extension's own keyboard reads the App Group store.
+    func testAKeyboardOpenedWithChineseOffNeverBuildsAChineseSession() throws {
+        try XCTSkipIf(RimeEngine.bundledData == nil, "RimeData.bundle is not bundled")
+        let shared = KeyboardPreferences()
+        defer { shared.chineseInputEnabled = true; shared.inputLanguage = .japanese }
+        shared.inputLanguage = .chinese
+        shared.chineseInputEnabled = false
+        let keyboard = KeyboardView(frame: CGRect(x: 0, y: 0, width: 440, height: 350))
+        keyboard.layoutIfNeeded()
+        XCTAssertFalse(keyboard.session is ChineseInputSession, "Rime only starts inside a Chinese session")
+        let key = try languageKey(in: keyboard)
+        XCTAssertNil(key.hint)
+        XCTAssertNil(key.alternateAction)
+    }
+
+    func testTheLanguageKeyOffersChineseOnlyWhileChineseInputIsOn() throws {
+        let (keyboard, preferences) = try keyboard()
+        var key = try languageKey(in: keyboard)
+        XCTAssertEqual(key.hint, "中")
+        XCTAssertNotNil(key.alternateAction)
+
+        preferences.chineseInputEnabled = false
+        keyboard.reloadPreferences()
+        key = try languageKey(in: keyboard)
+        XCTAssertNil(key.hint, "back to the Japanese/English key")
+        XCTAssertNil(key.alternateAction)
+        XCTAssertNil(key.alternateTitle)
+        XCTAssertNil(key.accessibilityCustomActions)
+        XCTAssertNil(keyboard.quickSwitchLanguage)
+        keyboard.switchInputLanguage(to: .chinese)
+        XCTAssertFalse(keyboard.session is ChineseInputSession, "nothing else can switch to Chinese")
+        key.action?()
+        XCTAssertEqual(keyboard.session.inputTraits.language, .english, "a tap still toggles English")
+        key = try languageKey(in: keyboard)
+        key.action?()
+        XCTAssertEqual(keyboard.session.inputTraits.language, .japanese)
+
+        preferences.chineseInputEnabled = true
+        keyboard.reloadPreferences()
+        key = try languageKey(in: keyboard)
+        XCTAssertEqual(key.hint, "中")
+        XCTAssertNotNil(key.alternateAction)
+    }
+
+    func testTheKanaPadDropsTheSwitchWhileChineseInputIsOff() throws {
+        let (keyboard, preferences) = try keyboard()
+        preferences.kanaLayout = true
+        preferences.chineseInputEnabled = false
+        keyboard.reloadPreferences()
+        keyboard.layoutIfNeeded()
+        XCTAssertTrue(keyboard.kanaLayoutActive)
+        let key = try languageKey(in: keyboard)
+        XCTAssertNil(key.hint)
+        XCTAssertNil(key.alternateAction)
+    }
+
+    func testTheSettingsPanelHidesTheLanguageWhileChineseInputIsOff() throws {
+        let (keyboard, preferences) = try keyboard()
+        keyboard.createSettingsPanel()
+        let panel = try XCTUnwrap(keyboard.settingsPanel)
+        XCTAssertTrue(panel.showsInputLanguage)
+        preferences.chineseInputEnabled = false
+        keyboard.reloadPreferences()
+        XCTAssertFalse(panel.showsInputLanguage)
+        preferences.chineseInputEnabled = true
+        keyboard.reloadPreferences()
+        XCTAssertTrue(panel.showsInputLanguage)
+    }
+
+    func testPinyinLookupDependsOnChineseInput() throws {
+        let preferences = KeyboardPreferences(defaults: try XCTUnwrap(UserDefaults(suiteName: suite)))
+        preferences.chineseInputEnabled = false
+        XCTAssertFalse(preferences.pinyinLookupInJapanese, "part of Chinese input")
+        preferences.chineseInputEnabled = true
+        XCTAssertTrue(preferences.pinyinLookupInJapanese)
+        preferences.pinyinLookupInJapanese = false
+        XCTAssertFalse(preferences.pinyinLookupInJapanese)
+        preferences.chineseInputEnabled = false
+        preferences.chineseInputEnabled = true
+        XCTAssertFalse(preferences.pinyinLookupInJapanese, "its own choice survives Chinese input turning off")
+        let before = preferences.snapshot
+        preferences.pinyinLookupInJapanese = true
+        XCTAssertNotEqual(preferences.snapshot, before, "the keyboard reloads when it changes")
+    }
+
     func testTheSettingsPanelSwitchesTheLanguage() throws {
         let (keyboard, preferences) = try keyboard()
         keyboard.createSettingsPanel()

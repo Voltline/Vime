@@ -14534,6 +14534,118 @@
           }
         }
       }
+    },
+    "中文输入": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chinese Input"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中国語入力"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "중국어 입력"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中文輸入"
+          }
+        }
+      }
+    },
+    "关闭后，键盘只提供日语和英文，也不会加载中文引擎": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "When off, the keyboard offers only Japanese and English and never loads the Chinese engine."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "オフにすると、キーボードは日本語と英語だけになり、中国語エンジンも読み込みません。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "끄면 키보드에서 일본어와 영어만 제공하며 중국어 엔진도 불러오지 않습니다."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "關閉後，鍵盤只提供日語和英文，也不會載入中文引擎"
+          }
+        }
+      }
+    },
+    "日语中用拼音查词": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pinyin Lookup in Japanese"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "日本語でピンイン検索"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "일본어에서 병음으로 찾기"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "日語中用拼音查詞"
+          }
+        }
+      }
+    },
+    "日语模式下，输入汉字的普通话拼音（可与罗马字混用）也能找到对应的词，候选上方显示平假名读音": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In Japanese, type a word's Mandarin pinyin, or mix pinyin with romaji, to find its kanji. The hiragana reading shows above the candidate."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "日本語入力中に、漢字の中国語ピンイン（ローマ字と混ぜても可）を入力しても、その語が候補に出ます。候補の上にはひらがなの読みを表示します。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "일본어 입력 중 한자의 중국어 병음(로마자와 섞어도 됨)을 입력해도 해당 단어를 찾을 수 있습니다. 후보 위에 히라가나 읽기가 표시됩니다."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "日語模式下，輸入漢字的普通話拼音（可與羅馬字混用）也能找到對應的詞，候選上方顯示平假名讀音"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

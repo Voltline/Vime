@@ -41,7 +41,10 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         heightFactor = CGFloat(next.heightFactor)
         if followsInputLanguage, let previous, next.inputLanguage != previous.inputLanguage {
             switchSession(to: Self.session(for: next.inputLanguage))
+        } else if next.chineseInputEnabled != previous?.chineseInputEnabled {
+            rebuildKeys() // The language key gains or loses its swipe-up switch.
         }
+        settingsPanel?.showsInputLanguage = quickSwitchLanguage != nil
         session.updateIntelligence(ranking: next.candidateRanking, suggestionsEnabled: next.phraseSuggestions)
         session.setUndoesCommitOnBackspace(next.undoConversionOnBackspace)
         session.setFullWidthSpace(next.fullWidthSpace)
@@ -69,16 +72,17 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         settingsPanel?.update(hasFullAccess: hasFullAccess, neuralPaused: session.neuralModeSuspendedForMemoryPressure)
     }
     /// The language a swipe up on the language key switches to, or nil when
-    /// this keyboard has a fixed session or no Rime data.
+    /// this keyboard has a fixed session, Chinese input is off, or there is no
+    /// Rime data. Then the key toggles Japanese and English only.
     var quickSwitchLanguage: KeyboardInputLanguage? {
-        guard followsInputLanguage, RimeEngine.bundledData != nil else { return nil }
+        guard followsInputLanguage, preferences.chineseInputEnabled, RimeEngine.bundledData != nil else { return nil }
         return session is ChineseInputSession ? .japanese : .chinese
     }
 
     /// Japanese ↔ Chinese without opening the app. The choice is stored, so the
     /// app's setting and the next keyboard show the same language.
     func switchInputLanguage(to language: KeyboardInputLanguage) {
-        guard followsInputLanguage, language != .english else { return }
+        guard followsInputLanguage, language != .english, language != .chinese || preferences.chineseInputEnabled else { return }
         preferences.inputLanguage = language
         reloadPreferences()
     }
@@ -97,6 +101,8 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     }
 
     /// Chinese needs the bundled Rime data; without it the keyboard stays Japanese.
+    /// Callers pass the effective preference, which is never Chinese while
+    /// Chinese input is off, so Rime is not started then.
     static func session(for language: KeyboardInputLanguage) -> any KeyboardInputSession {
         (language == .chinese ? ChineseInputSession.bundled() : nil) ?? KeyboardSession(asynchronousCandidates: true)
     }

@@ -257,6 +257,7 @@ final class AppPresentationTests: XCTestCase {
                              ("定制", AnyView(Vime.KeyboardSkinsView().environmentObject(Vime.AppRouter()))),
                              ("定制-大字", AnyView(Vime.KeyboardSkinsView().environmentObject(Vime.AppRouter()).environment(\.dynamicTypeSize, .accessibility1))),
                              ("定制-深色", AnyView(Vime.KeyboardSkinsView().environmentObject(Vime.AppRouter()).environment(\.colorScheme, .dark))),
+                             ("转换与联想", AnyView(Vime.KeyboardInputSettingsView())),
                              ("学习与隐私", AnyView(Vime.KeyboardDataPrivacyView())),
                              ("学习与隐私-大字", AnyView(Vime.KeyboardDataPrivacyView().environment(\.dynamicTypeSize, .accessibility1))),
                              ("剪贴板设置", AnyView(Vime.KeyboardClipboardSettingsView())),

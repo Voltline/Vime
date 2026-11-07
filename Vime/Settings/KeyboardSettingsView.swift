@@ -384,9 +384,14 @@ struct KeyboardInputSettingsView: View {
     @AppStorage private var doubleSpacePeriod: Bool
     @AppStorage private var englishCompletion: Bool
     @AppStorage private var inputLanguage: KeyboardInputLanguage
+    @AppStorage private var chineseInput: Bool
+    @AppStorage private var pinyinLookup: Bool
     init() {
         let prefs = KeyboardPreferences()
         _inputLanguage = AppStorage(wrappedValue: prefs.inputLanguage, "vime.inputLanguage", store: prefs.store)
+        _chineseInput = AppStorage(wrappedValue: prefs.chineseInputEnabled, "vime.chineseInputEnabled", store: prefs.store)
+        // The stored choice, not the effective value, which is false while Chinese input is off.
+        _pinyinLookup = AppStorage(wrappedValue: true, "vime.pinyinLookupInJapanese", store: prefs.store)
         _ranking = AppStorage(wrappedValue: prefs.candidateRanking, "vime.candidateRanking", store: prefs.store)
         _suggestions = AppStorage(wrappedValue: prefs.phraseSuggestions, "vime.phraseSuggestions", store: prefs.store)
         _undoConversion = AppStorage(wrappedValue: prefs.undoConversionOnBackspace, "vime.undoConversionOnBackspace", store: prefs.store)
@@ -399,12 +404,28 @@ struct KeyboardInputSettingsView: View {
         Form {
             if RimeEngine.bundledData != nil {
                 Section {
-                    Picker("输入语言", selection: $inputLanguage) {
-                        Text("日语").tag(KeyboardInputLanguage.japanese)
-                        Text("简体中文").tag(KeyboardInputLanguage.chinese)
-                    }.accessibilityIdentifier("vime.settings.inputLanguage")
+                    Toggle("中文输入", isOn: $chineseInput)
+                        .accessibilityIdentifier("vime.settings.chineseInput")
+                    if chineseInput {
+                        Picker("输入语言", selection: $inputLanguage) {
+                            Text("日语").tag(KeyboardInputLanguage.japanese)
+                            Text("简体中文").tag(KeyboardInputLanguage.chinese)
+                        }.accessibilityIdentifier("vime.settings.inputLanguage")
+                    }
                 } footer: {
-                    Text("中文使用全拼，学习记录与日语分开保存；智能排序、下一词联想和退格撤销转换目前只用于日语\n切换后，下次打开键盘时生效")
+                    if chineseInput {
+                        Text("中文使用全拼，学习记录与日语分开保存；智能排序、下一词联想和退格撤销转换目前只用于日语\n切换后，下次打开键盘时生效")
+                    } else {
+                        Text("关闭后，键盘只提供日语和英文，也不会加载中文引擎")
+                    }
+                }
+                if chineseInput {
+                    Section {
+                        Toggle("日语中用拼音查词", isOn: $pinyinLookup)
+                            .accessibilityIdentifier("vime.settings.pinyinLookupInJapanese")
+                    } footer: {
+                        Text("日语模式下，输入汉字的普通话拼音（可与罗马字混用）也能找到对应的词，候选上方显示平假名读音")
+                    }
                 }
             }
             Section {
