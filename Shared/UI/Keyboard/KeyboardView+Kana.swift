@@ -42,6 +42,7 @@ extension KeyboardView {
         }
         letters.0.accessibilityIdentifier = "vime.key.language"
         letters.0.accessibilityLabel = session.inputTraits.languageSwitchAccessibilityLabel
+        configureQuickSwitch(letters.0)
         let numbers = key("123", utility: true, weight: 1) { [weak self] in
             guard let self else { return }
             self.page = .numbers

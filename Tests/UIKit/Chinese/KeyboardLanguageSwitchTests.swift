@@ -83,4 +83,76 @@ final class KeyboardLanguageSwitchTests: XCTestCase {
         keyboard.reloadPreferences()
         XCTAssertFalse(keyboard.session is ChineseInputSession)
     }
+
+    func testSwipingUpOnTheLanguageKeySwitchesAndStoresTheLanguage() throws {
+        let (keyboard, preferences) = try keyboard()
+        var key = try languageKey(in: keyboard)
+        XCTAssertEqual(key.hint, "中")
+        XCTAssertEqual(key.accessibilityCustomActions?.map(\.name), [String(localized: "切换到简体中文")])
+        keyboard.apply(keyboard.session.type("ka"))
+        var edits: [KeyboardEdit] = []
+        keyboard.onEdit = { edits += $0 }
+
+        try XCTUnwrap(key.alternateAction)()
+        XCTAssertTrue(keyboard.session is ChineseInputSession)
+        XCTAssertEqual(preferences.inputLanguage, .chinese)
+        XCTAssertFalse(edits.isEmpty, "the Japanese composition reaches the host first")
+        key = try languageKey(in: keyboard)
+        XCTAssertEqual(key.hint, "あ")
+
+        try XCTUnwrap(key.alternateAction)()
+        XCTAssertFalse(keyboard.session is ChineseInputSession)
+        XCTAssertEqual(preferences.inputLanguage, .japanese)
+    }
+
+    func testTappingTheLanguageKeyStillTogglesEnglish() throws {
+        let (keyboard, preferences) = try keyboard()
+        let key = try languageKey(in: keyboard)
+        key.action?()
+        XCTAssertEqual(keyboard.session.inputTraits.language, .english)
+        XCTAssertEqual(preferences.inputLanguage, .japanese)
+    }
+
+    func testTheKanaPadOffersTheSameSwitch() throws {
+        let (keyboard, preferences) = try keyboard()
+        preferences.kanaLayout = true
+        keyboard.reloadPreferences()
+        keyboard.layoutIfNeeded()
+        let key = try languageKey(in: keyboard)
+        XCTAssertEqual(key.hint, "中")
+        try XCTUnwrap(key.alternateAction)()
+        XCTAssertTrue(keyboard.session is ChineseInputSession)
+        XCTAssertFalse(keyboard.prefersKanaLayout)
+    }
+
+    func testAFixedSessionOffersNoSwitch() throws {
+        let (keyboard, _) = try keyboard()
+        keyboard.followsInputLanguage = false
+        keyboard.rebuildKeys()
+        let key = try languageKey(in: keyboard)
+        XCTAssertNil(key.alternateAction)
+        XCTAssertNil(key.hint)
+    }
+
+    func testTheSettingsPanelSwitchesTheLanguage() throws {
+        let (keyboard, preferences) = try keyboard()
+        keyboard.createSettingsPanel()
+        let panel = try XCTUnwrap(keyboard.settingsPanel)
+        let control = try XCTUnwrap(descendants(panel).compactMap { $0 as? UISegmentedControl }
+            .first { $0.accessibilityIdentifier == "vime.setting.inputLanguage" })
+        XCTAssertFalse(sequence(first: control as UIView, next: \.superview).contains { $0.isHidden })
+        XCTAssertEqual(control.selectedSegmentIndex, 0)
+        control.selectedSegmentIndex = 1
+        control.sendActions(for: .valueChanged)
+        XCTAssertTrue(keyboard.session is ChineseInputSession)
+        XCTAssertEqual(preferences.inputLanguage, .chinese)
+        XCTAssertEqual(control.selectedSegmentIndex, 1)
+    }
+
+    private func languageKey(in keyboard: KeyboardView) throws -> KeyboardKey {
+        try XCTUnwrap(descendants(keyboard).compactMap { $0 as? KeyboardKey }
+            .first { $0.accessibilityIdentifier == "vime.key.language" })
+    }
+
+    private func descendants(_ view: UIView) -> [UIView] { [view] + view.subviews.flatMap(descendants) }
 }

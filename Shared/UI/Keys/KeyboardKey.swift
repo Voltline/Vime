@@ -10,6 +10,8 @@ final class KeyboardKey: UIButton {
     var canRepeat: (() -> Bool)?
     var alternateAction: (() -> Void)?
     var alternateTitle: String?
+    /// VoiceOver's name for the swipe-up action when the bubble text alone is unclear.
+    var alternateAccessibilityName: String?
     /// Flick kana: outputs for center, left, up, right and down ("" = none).
     /// The touch surface resolves the direction; release calls flickAction.
     var flickOutputs: [String]? { didSet { updateFlickLabels() } }
@@ -295,8 +297,8 @@ final class KeyboardKey: UIButton {
                         return true
                     })
                 }
-            } else if let alternateTitle, alternateAction != nil {
-                actions.append(UIAccessibilityCustomAction(name: alternateTitle) { [weak self] _ in
+            } else if let name = alternateAccessibilityName ?? alternateTitle, alternateAction != nil {
+                actions.append(UIAccessibilityCustomAction(name: name) { [weak self] _ in
                     guard let self, let alternateAction = self.alternateAction else { return false }
                     self.feedback?()
                     alternateAction()

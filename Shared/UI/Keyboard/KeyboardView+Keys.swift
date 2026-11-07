@@ -327,6 +327,7 @@ extension KeyboardView {
         languageKey = language.0
         language.0.accessibilityLabel = session.inputTraits.languageSwitchAccessibilityLabel
         language.0.accessibilityIdentifier = "vime.key.language"
+        configureQuickSwitch(language.0)
         bottom.append(language)
         let enter = key(String(localized: "换行"), weight: 1.55) { [weak self] in
             guard let self else { return }

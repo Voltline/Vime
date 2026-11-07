@@ -68,6 +68,34 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         if next.theme != previous?.theme || next.customSkinID != previous?.customSkinID || next.skinRevision != previous?.skinRevision { applyTheme() }
         settingsPanel?.update(hasFullAccess: hasFullAccess, neuralPaused: session.neuralModeSuspendedForMemoryPressure)
     }
+    /// The language a swipe up on the language key switches to, or nil when
+    /// this keyboard has a fixed session or no Rime data.
+    var quickSwitchLanguage: KeyboardInputLanguage? {
+        guard followsInputLanguage, RimeEngine.bundledData != nil else { return nil }
+        return session is ChineseInputSession ? .japanese : .chinese
+    }
+
+    /// Japanese ↔ Chinese without opening the app. The choice is stored, so the
+    /// app's setting and the next keyboard show the same language.
+    func switchInputLanguage(to language: KeyboardInputLanguage) {
+        guard followsInputLanguage, language != .english else { return }
+        preferences.inputLanguage = language
+        reloadPreferences()
+    }
+
+    /// Swipe up on the language key: the target shows as a corner hint.
+    func configureQuickSwitch(_ key: KeyboardKey) {
+        guard let target = quickSwitchLanguage else {
+            key.hint = nil; key.alternateTitle = nil; key.alternateAccessibilityName = nil; key.alternateAction = nil
+            return
+        }
+        let glyph = target == .chinese ? "中" : "あ"
+        key.hint = glyph
+        key.alternateTitle = glyph
+        key.alternateAccessibilityName = target == .chinese ? String(localized: "切换到简体中文") : String(localized: "切换到日语")
+        key.alternateAction = { [weak self] in self?.switchInputLanguage(to: target) }
+    }
+
     /// Chinese needs the bundled Rime data; without it the keyboard stays Japanese.
     static func session(for language: KeyboardInputLanguage) -> any KeyboardInputSession {
         (language == .chinese ? ChineseInputSession.bundled() : nil) ?? KeyboardSession(asynchronousCandidates: true)
@@ -147,7 +175,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     private(set) var session: any KeyboardInputSession
     /// Built from the stored input language, so a change in the app swaps
     /// the session. Views given a session keep it.
-    var followsInputLanguage = false
+    var followsInputLanguage = false { didSet { if oldValue != followsInputLanguage { rebuildKeys() } } }
     var displayedCandidates: [CandidatePresentation] = []
     var displayedSelection: Int?
     var pendingCandidateTiming: (startedAt: TimeInterval, token: CandidateSelectionToken)?

@@ -122,7 +122,8 @@ final class KeyboardReviewRegressionTests: XCTestCase {
         panel.updateTraitsIfNeeded()
         panel.update(hasFullAccess: false, neuralPaused: true)
         panel.layoutIfNeeded()
-        for label in descendants(panel).compactMap({ $0 as? UILabel }).filter({ !$0.isHidden && $0.adjustsFontForContentSizeCategory }) {
+        let shown = { (view: UIView) in !sequence(first: view, next: \.superview).contains { $0.isHidden } }
+        for label in descendants(panel).compactMap({ $0 as? UILabel }).filter({ shown($0) && $0.adjustsFontForContentSizeCategory }) {
             XCTAssertGreaterThanOrEqual(label.bounds.height + 1, label.sizeThatFits(CGSize(width: label.bounds.width, height: .greatestFiniteMagnitude)).height)
         }
         let sound = try XCTUnwrap(descendants(panel).first { $0.accessibilityIdentifier == "vime.setting.sound" })

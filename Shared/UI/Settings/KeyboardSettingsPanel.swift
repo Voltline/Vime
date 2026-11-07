@@ -13,6 +13,9 @@ final class KeyboardSettingsPanel: UIScrollView {
     private let accessibleNumbers = UIStackView()
     private let oneHanded = UISegmentedControl(items: [String(localized: "关闭"), String(localized: "靠左"), String(localized: "靠右")])
     private var oneHandedGroup: UIView?
+    private static let languages: [KeyboardInputLanguage] = [.japanese, .chinese]
+    private let inputLanguage = UISegmentedControl(items: [String(localized: "日语"), String(localized: "简体中文")])
+    private var inputLanguageGroup: UIView?
     private var numberChoices: [UIButton] = []
     private let notice = UILabel()
     private let neuralStatus = UILabel()
@@ -31,6 +34,9 @@ final class KeyboardSettingsPanel: UIScrollView {
     var onFeedback: (() -> Void)?
     var onNumberLayoutChange: (() -> Void)?
     var onOneHandedChange: (() -> Void)?
+    var onInputLanguageChange: ((KeyboardInputLanguage) -> Void)?
+    /// Only a keyboard that follows the stored language with Rime data bundled.
+    var showsInputLanguage = false { didSet { inputLanguageGroup?.isHidden = !showsInputLanguage } }
     /// One-handed mode applies to an upright iPhone only.
     var showsOneHanded = true { didSet { oneHandedGroup?.isHidden = !showsOneHanded } }
 
@@ -156,6 +162,18 @@ final class KeyboardSettingsPanel: UIScrollView {
         self.oneHandedGroup = oneHandedGroup
         stack.addArrangedSubview(oneHandedGroup)
 
+        inputLanguage.accessibilityLabel = String(localized: "输入语言"); inputLanguage.accessibilityIdentifier = "vime.setting.inputLanguage"
+        inputLanguage.setContentHuggingPriority(.required, for: .horizontal)
+        inputLanguage.addAction(UIAction { [weak self] _ in
+            guard let self, Self.languages.indices.contains(self.inputLanguage.selectedSegmentIndex) else { return }
+            self.onInputLanguageChange?(Self.languages[self.inputLanguage.selectedSegmentIndex])
+        }, for: .valueChanged)
+        let inputLanguageGroup = group(row(symbol: "globe", content: [label(String(localized: "输入语言")), inputLanguage],
+            height: 48, adaptive: true))
+        inputLanguageGroup.isHidden = !showsInputLanguage
+        self.inputLanguageGroup = inputLanguageGroup
+        stack.addArrangedSubview(inputLanguageGroup)
+
         configureTypography(notice, size: 12)
         notice.text = String(localized: "声音与振动需允许完全访问")
         stack.addArrangedSubview(notice)
@@ -196,6 +214,7 @@ final class KeyboardSettingsPanel: UIScrollView {
         sound.isOn = preferences.sound
         updateNumberSelection()
         oneHanded.selectedSegmentIndex = KeyboardOneHandedSide.allCases.firstIndex(of: preferences.oneHanded) ?? 0
+        inputLanguage.selectedSegmentIndex = Self.languages.firstIndex(of: preferences.inputLanguage) ?? 0
         if !haptics.isAdjusting {
             haptics.setIntensity(preferences.hapticIntensity)
             hapticValue.text = HapticIntensity.description(preferences.hapticIntensity)
@@ -218,6 +237,9 @@ final class KeyboardSettingsPanel: UIScrollView {
         oneHanded.selectedSegmentTintColor = numbers.selectedSegmentTintColor
         oneHanded.setTitleTextAttributes(numbers.titleTextAttributes(for: .normal), for: .normal)
         oneHanded.setTitleTextAttributes(numbers.titleTextAttributes(for: .selected), for: .selected)
+        inputLanguage.selectedSegmentTintColor = numbers.selectedSegmentTintColor
+        inputLanguage.setTitleTextAttributes(numbers.titleTextAttributes(for: .normal), for: .normal)
+        inputLanguage.setTitleTextAttributes(numbers.titleTextAttributes(for: .selected), for: .selected)
         updateNumberSelection()
     }
     private func updateNumberSelection() {
