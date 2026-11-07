@@ -151,7 +151,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     }
     weak var inputModeListTarget: AnyObject? { didSet { configureGlobe() } }
     var inputModeListAction: Selector? { didSet { configureGlobe() } }
-    var needsGlobe = false { didSet { if oldValue != needsGlobe { configureGlobe() } } }
+    var needsGlobe = false { didSet { if oldValue != needsGlobe { configureGlobe(); setNeedsLayout() } } }
     var showsFooter = true { didSet { if oldValue != showsFooter { setNeedsLayout(); invalidateIntrinsicContentSize(); onHeightChange?() } } }
     var compact = false { didSet { if oldValue != compact { setNeedsLayout(); invalidateIntrinsicContentSize(); onHeightChange?() } } }
     /// Running on an iPad; a docked, full-width keyboard uses the iPad layout.
@@ -513,6 +513,9 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         guard width > 0 else { return }
         let metrics = KeyboardMetrics(width: width, compact: compact, showsFooter: showsFooter,
             heightFactor: heightFactor, availableHeight: bounds.height, pad: pad)
+        // A phone without the system globe bar gets ours in the toolbar, like the
+        // docked iPad, rather than a footer band that holds nothing else.
+        let globeInToolbar = metrics.showsToolbarGlobe || (needsGlobe && !showsFooter)
         let scale = metrics.scale
         let xScale = width / 440
         let aligned = metrics.alignsToolbarToKeys
@@ -521,18 +524,19 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         header.frame = CGRect(x: 0, y: 0, width: width, height: headerHeight)
         let diameter = metrics.toolbarButtonDiameter
         let centerY = max(22, KeyboardMetrics.toolbarTopInset + diameter / 2)
-        brandButton.frame = CGRect(x: metrics.showsToolbarGlobe ? metrics.leadingToolbarFrame(index: 1).minX : toolbarLeft,
+        brandButton.frame = CGRect(x: globeInToolbar ? metrics.leadingToolbarFrame(index: 1).minX : toolbarLeft,
             y: centerY - diameter / 2, width: diameter, height: diameter)
         brandArtwork.frame = brandButton.bounds.insetBy(dx: 2, dy: 2)
         brandButton.imageView?.isHidden = brandArtwork.image != nil
         modeButton.frame = metrics.trailingToolbarFrame(index: 1)
-        undoButton.frame = metrics.trailingToolbarFrame(index: 2)
+        // Undo sits beside the kana toggle, or takes its place when Chinese hides it.
+        undoButton.frame = metrics.trailingToolbarFrame(index: modeButton.isHidden ? 1 : 2)
         neuralStatusLabel.frame = CGRect(x: brandButton.frame.maxX + 8, y: centerY - diameter / 2,
             width: max(0, undoButton.frame.minX - brandButton.frame.maxX - 16), height: diameter)
         expandButton.frame = metrics.trailingToolbarFrame(index: 0)
         for button in [undoButton, modeButton, expandButton] { button.layer.cornerRadius = diameter / 2 }
-        // The iPad globe keeps its place beside every toolbar state.
-        let stripLeft = metrics.showsToolbarGlobe ? metrics.leadingToolbarFrame(index: 0).midX + 22 + 2
+        // A toolbar globe keeps its place beside every toolbar state.
+        let stripLeft = globeInToolbar ? metrics.leadingToolbarFrame(index: 0).midX + 22 + 2
             : aligned ? metrics.contentLeft : 4 * xScale
         candidateScroll.frame = CGRect(x: stripLeft, y: 3, width: expandButton.frame.midX - 22 - stripLeft,
             height: headerHeight - 6)
@@ -560,7 +564,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
             control.frame = CGRect(x: rangeRight - 8 - width, y: centerY - 22, width: width, height: 44)
             rangeRight = control.frame.minX
         }
-        let titleLeft = metrics.showsToolbarGlobe ? metrics.leadingToolbarFrame(index: 0).maxX + 12 : toolbarLeft
+        let titleLeft = globeInToolbar ? metrics.leadingToolbarFrame(index: 0).maxX + 12 : toolbarLeft
         let titleRight = shortenRange.isHidden ? expandButton.frame.midX - 22 : shortenRange.frame.minX
         panelTitle.frame = CGRect(x: titleLeft, y: centerY - diameter / 2,
             width: max(0, titleRight - 8 - titleLeft), height: diameter)
@@ -594,20 +598,20 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
             layoutKeyGrid(metrics: metrics)
         }
         layoutOneHandedButton(keysTop: headerHeight, keysBottom: metrics.contentHeight)
-        globeButton.isHidden = !showsFooter || panel == .symbols || (metrics.showsToolbarGlobe && header.isHidden)
-        if metrics.showsToolbarGlobe {
+        globeButton.isHidden = !(showsFooter || globeInToolbar) || panel == .symbols || (globeInToolbar && header.isHidden)
+        if globeInToolbar {
             globeButton.frame = metrics.leadingToolbarFrame(index: 0)
             globeButton.layer.cornerRadius = diameter / 2
         } else {
             globeButton.frame = CGRect(x: 22 * xScale, y: metrics.contentHeight + (compact ? 0 : 17 * scale), width: 40 * scale, height: compact ? 34 : 40 * scale)
             globeButton.layer.cornerRadius = 0
         }
-        globeButton.backgroundColor = metrics.showsToolbarGlobe ? KeyboardPalette.key : .clear
-        let globe = metrics.showsToolbarGlobe ? Self.toolbarGlobe : Self.footerGlobe
+        globeButton.backgroundColor = globeInToolbar ? KeyboardPalette.key : .clear
+        let globe = globeInToolbar ? Self.toolbarGlobe : Self.footerGlobe
         if globeButton.image(for: .normal) !== globe { globeButton.setImage(globe, for: .normal) }
-        globeButton.tintColor = metrics.showsToolbarGlobe ? .secondaryLabel : .label
+        globeButton.tintColor = globeInToolbar ? .secondaryLabel : .label
         bringSubviewToFront(header)
-        if metrics.showsToolbarGlobe { bringSubviewToFront(globeButton) }
+        if globeInToolbar { bringSubviewToFront(globeButton) }
         if !deletePrompt.isHidden { bringSubviewToFront(deletePrompt) }
         // Candidate refreshes and layout changes must never raise a sibling
         // above held key previews. This overlay also stays transparent to input.

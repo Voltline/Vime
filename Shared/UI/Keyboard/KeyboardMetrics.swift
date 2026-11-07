@@ -40,7 +40,7 @@ struct KeyboardMetrics {
             : width - 46 * width / 440 - CGFloat(index) * spacing
         return CGRect(x: x, y: Self.toolbarTopInset, width: toolbarButtonDiameter, height: toolbarButtonDiameter)
     }
-    /// The globe (iPad only), then the brand button, from the leading edge.
+    /// The globe (when the keyboard draws one in its toolbar), then the brand button.
     func leadingToolbarFrame(index: Int) -> CGRect {
         let spacing = max(44, toolbarButtonDiameter + Self.toolbarGap)
         return CGRect(x: contentLeft + CGFloat(index) * spacing, y: Self.toolbarTopInset,
