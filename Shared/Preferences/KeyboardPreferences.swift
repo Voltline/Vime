@@ -26,7 +26,7 @@ struct KeyboardPreferences {
         FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroup) != nil ? UserDefaults(suiteName: appGroup) : nil
     }
     private static let sharedKeys = ["vime.sound", "vime.hapticLevel", "vime.hapticIntensity", "vime.nineKeyNumbers", "vime.kanaLayout",
-        "vime.prolongedKey", "vime.previews", "vime.theme", "vime.candidateRanking", "vime.phraseSuggestions", "vime.clipboardSuggestions", "vime.autoPairBrackets", "vime.autoCapitalize", "vime.doubleSpacePeriod", "vime.undoConversionOnBackspace", "vime.fullWidthSpace", "vime.textReplacements", "vime.englishCompletion", "vime.oneHanded", "vime.customSkinID", "vime.skinRevision", "vime.numberSymbols"]
+        "vime.prolongedKey", "vime.previews", "vime.theme", "vime.candidateRanking", "vime.phraseSuggestions", "vime.clipboardSuggestions", "vime.autoPairBrackets", "vime.autoCapitalize", "vime.doubleSpacePeriod", "vime.undoConversionOnBackspace", "vime.fullWidthSpace", "vime.textReplacements", "vime.englishCompletion", "vime.oneHanded", "vime.customSkinID", "vime.skinRevision", "vime.numberSymbols", "vime.inputLanguage"]
     var store: UserDefaults { defaults }
     struct Snapshot: Equatable {
         let heightFactor: Double
@@ -53,6 +53,7 @@ struct KeyboardPreferences {
         let numberSymbols: [String]
         let neuralRetryID: String?
         let learningResetID: String?
+        let inputLanguage: KeyboardInputLanguage
     }
     var snapshot: Snapshot {
         Snapshot(heightFactor: heightFactor, sound: sound, hapticIntensity: hapticIntensity,
@@ -62,7 +63,8 @@ struct KeyboardPreferences {
             autoCapitalize: autoCapitalize, doubleSpacePeriod: doubleSpacePeriod,
             undoConversionOnBackspace: undoConversionOnBackspace, fullWidthSpace: fullWidthSpace, textReplacements: textReplacements,
             englishCompletion: englishCompletion, oneHanded: oneHanded, numberSymbols: numberSymbols,
-            neuralRetryID: neuralRetryID, learningResetID: learningResetRequests.requestID)
+            neuralRetryID: neuralRetryID, learningResetID: learningResetRequests.requestID,
+            inputLanguage: inputLanguage)
     }
     var heightFactor: Double {
         get {

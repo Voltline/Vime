@@ -383,8 +383,10 @@ struct KeyboardInputSettingsView: View {
     @AppStorage private var autoCapitalize: Bool
     @AppStorage private var doubleSpacePeriod: Bool
     @AppStorage private var englishCompletion: Bool
+    @AppStorage private var inputLanguage: KeyboardInputLanguage
     init() {
         let prefs = KeyboardPreferences()
+        _inputLanguage = AppStorage(wrappedValue: prefs.inputLanguage, "vime.inputLanguage", store: prefs.store)
         _ranking = AppStorage(wrappedValue: prefs.candidateRanking, "vime.candidateRanking", store: prefs.store)
         _suggestions = AppStorage(wrappedValue: prefs.phraseSuggestions, "vime.phraseSuggestions", store: prefs.store)
         _undoConversion = AppStorage(wrappedValue: prefs.undoConversionOnBackspace, "vime.undoConversionOnBackspace", store: prefs.store)
@@ -395,6 +397,16 @@ struct KeyboardInputSettingsView: View {
     }
     var body: some View {
         Form {
+            if RimeEngine.bundledData != nil {
+                Section {
+                    Picker("输入语言", selection: $inputLanguage) {
+                        Text("日语").tag(KeyboardInputLanguage.japanese)
+                        Text("简体中文").tag(KeyboardInputLanguage.chinese)
+                    }.accessibilityIdentifier("vime.settings.inputLanguage")
+                } footer: {
+                    Text("中文使用全拼，学习记录与日语分开保存；智能排序、下一词联想和退格撤销转换目前只用于日语\n切换后，下次打开键盘时生效")
+                }
+            }
             Section {
                 Picker("候选排序", selection: Binding(get: { ranking }, set: { value in
                     ranking = value

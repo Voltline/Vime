@@ -39,6 +39,9 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         guard next != previous else { return }
         appliedPreferences = next
         heightFactor = CGFloat(next.heightFactor)
+        if followsInputLanguage, let previous, next.inputLanguage != previous.inputLanguage {
+            switchSession(to: Self.session(for: next.inputLanguage))
+        }
         session.updateIntelligence(ranking: next.candidateRanking, suggestionsEnabled: next.phraseSuggestions)
         session.setUndoesCommitOnBackspace(next.undoConversionOnBackspace)
         session.setFullWidthSpace(next.fullWidthSpace)
@@ -65,6 +68,55 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         if next.theme != previous?.theme || next.customSkinID != previous?.customSkinID || next.skinRevision != previous?.skinRevision { applyTheme() }
         settingsPanel?.update(hasFullAccess: hasFullAccess, neuralPaused: session.neuralModeSuspendedForMemoryPressure)
     }
+    /// Chinese needs the bundled Rime data; without it the keyboard stays Japanese.
+    static func session(for language: KeyboardInputLanguage) -> any KeyboardInputSession {
+        (language == .chinese ? ChineseInputSession.bundled() : nil) ?? KeyboardSession(asynchronousCandidates: true)
+    }
+
+    /// Connects a session to this view and applies the current preferences.
+    private func bind(_ session: any KeyboardInputSession) {
+        session.setCandidatePresentationPreparation { KeyboardCandidateTextMetrics.prepare($0, first: $1) }
+        session.updateIntelligence(ranking: preferences.candidateRanking, suggestionsEnabled: preferences.phraseSuggestions)
+        session.setUndoesCommitOnBackspace(preferences.undoConversionOnBackspace)
+        session.setFullWidthSpace(preferences.fullWidthSpace)
+        applyNeuralRetry()
+        session.onCommittedEdits = { [weak self] batch in
+            guard let self, batch.hostEpoch == self.session.hostEpoch else { return }
+            self.apply(batch.edits)
+        }
+        session.onCandidatesChange = { [weak self] in
+            guard let self else { return }
+            self.publishPreedit()
+            let publicationStartedAt = KeyboardPerformance.start()
+            self.refresh()
+            if let startedAt = self.session.candidateInitialRequestStartedAt,
+               let token = self.stripButtons.first?.selectionToken {
+                self.pendingCandidateTiming = (startedAt, token)
+            }
+            KeyboardPerformance.record(.candidatePublication, since: publicationStartedAt)
+            KeyboardPerformance.record(.resultToCandidateUI, since: self.session.candidateResultReadyAt)
+        }
+    }
+
+    /// Replaces the input language's session. What was being typed goes to
+    /// the host first; the old session sends nothing afterwards.
+    func switchSession(to next: any KeyboardInputSession) {
+        apply(session.confirmAll())
+        session.finishLearningFeedback()
+        session.reset()
+        session.onCommittedEdits = nil
+        session.onCandidatesChange = nil
+        next.leftContextProvider = session.leftContextProvider
+        next.learningContextProvider = session.learningContextProvider
+        session = next
+        bind(next)
+        shifted = false; capsLocked = false
+        next.prepareForInput()
+        rebuildKeys()
+        publishPreedit()
+        refresh()
+    }
+
     func applyNeuralRetry() {
         guard preferences.candidateRanking == .languageModel, let id = preferences.neuralRetryID else { return }
         session.retryLanguageModel(requestID: id)
@@ -92,7 +144,10 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     }
 
     enum Page { case letters, numbers, symbols }
-    let session: any KeyboardInputSession
+    private(set) var session: any KeyboardInputSession
+    /// Built from the stored input language, so a change in the app swaps
+    /// the session. Views given a session keep it.
+    var followsInputLanguage = false
     var displayedCandidates: [CandidatePresentation] = []
     var displayedSelection: Int?
     var pendingCandidateTiming: (startedAt: TimeInterval, token: CandidateSelectionToken)?
@@ -194,7 +249,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     var numberBackKey: KeyboardKey?
     var usesNumberPad: Bool { page == .numbers && preferences.nineKeyNumbers }
     /// Japanese input on the flick pad; English keeps QWERTY.
-    var prefersKanaLayout: Bool { preferences.kanaLayout && !session.inputTraits.isEnglish }
+    var prefersKanaLayout: Bool { preferences.kanaLayout && session.inputTraits.language == .japanese }
     var usesKanaLayout: Bool { page == .letters && prefersKanaLayout }
     /// The layout the current rows were built for.
     var kanaLayoutActive = false
@@ -203,8 +258,8 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
 
     override convenience init(frame: CGRect) {
         let preferences = KeyboardPreferences()
-        let chinese = preferences.inputLanguage == .chinese ? ChineseInputSession.bundled() : nil
-        self.init(frame: frame, session: chinese ?? KeyboardSession(asynchronousCandidates: true), preferences: preferences)
+        self.init(frame: frame, session: Self.session(for: preferences.inputLanguage), preferences: preferences)
+        followsInputLanguage = true
     }
 
     init(frame: CGRect, session: any KeyboardInputSession, preferences: KeyboardPreferences = KeyboardPreferences(),
@@ -214,30 +269,10 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         self.clipboard = clipboard ?? KeyboardClipboard()
         super.init(frame: frame)
         KeyboardCandidateTextMetrics.prepareFonts()
-        session.setCandidatePresentationPreparation { KeyboardCandidateTextMetrics.prepare($0, first: $1) }
         heightFactor = CGFloat(preferences.heightFactor)
         KeyboardPalette.theme = preferences.theme
-        session.updateIntelligence(ranking: preferences.candidateRanking, suggestionsEnabled: preferences.phraseSuggestions)
-        session.setUndoesCommitOnBackspace(preferences.undoConversionOnBackspace)
-        session.setFullWidthSpace(preferences.fullWidthSpace)
-        applyNeuralRetry()
+        bind(session)
         appliedPreferences = preferences.snapshot
-        session.onCommittedEdits = { [weak self] batch in
-            guard let self, batch.hostEpoch == self.session.hostEpoch else { return }
-            self.apply(batch.edits)
-        }
-        session.onCandidatesChange = { [weak self] in
-            guard let self else { return }
-            self.publishPreedit()
-            let publicationStartedAt = KeyboardPerformance.start()
-            self.refresh()
-            if let startedAt = self.session.candidateInitialRequestStartedAt,
-               let token = self.stripButtons.first?.selectionToken {
-                self.pendingCandidateTiming = (startedAt, token)
-            }
-            KeyboardPerformance.record(.candidatePublication, since: publicationStartedAt)
-            KeyboardPerformance.record(.resultToCandidateUI, since: self.session.candidateResultReadyAt)
-        }
         backgroundColor = .clear
         autoresizingMask = [.flexibleWidth, .flexibleHeight]
         accessibilityIdentifier = "vime.keyboard"
