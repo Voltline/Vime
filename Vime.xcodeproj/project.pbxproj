@@ -82,6 +82,7 @@
 			membershipExceptions = (
 				Resources/DictionarySource.json,
 				Resources/JapaneseLexicon.tsv,
+				Resources/PinyinKanjiLookupSource.json,
 			);
 			target = B2ED4C073071EF7600C73DB0 /* Vime */;
 		};
@@ -90,6 +91,7 @@
 			membershipExceptions = (
 				Resources/DictionarySource.json,
 				Resources/JapaneseLexicon.tsv,
+				Resources/PinyinKanjiLookupSource.json,
 			);
 			target = C10000000000000000000004 /* VimeKeyboard */;
 		};
@@ -98,6 +100,7 @@
 			membershipExceptions = (
 				Resources/DictionarySource.json,
 				Resources/JapaneseLexicon.tsv,
+				Resources/PinyinKanjiLookupSource.json,
 			);
 			target = D10000000000000000000004 /* VimeKeyboardTests */;
 		};

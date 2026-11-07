@@ -1,8 +1,10 @@
-Unihan Database 18.0 (Unicode License V3)
-Source: https://www.unicode.org/Public/18.0.0/ucd/Unihan.zip
+Unihan Database (Unicode License V3)
+Unihan 18.0.0: https://www.unicode.org/Public/18.0.0/ucd/Unihan.zip
 Files: Unihan_Readings.txt (kHanyuPinlu reading counts)
 Vime modifications: generated, with the other sources listed in Dependencies/VimeRime/UPSTREAM.md,
 into Vime's Rime pinyin dictionary by Scripts/build_rime_dicts.py.
+Unihan 17.0.0: https://www.unicode.org/Public/17.0.0/ucd/Unihan.zip
+Vime modifications: the Mandarin readings (kMandarin, kXHC1983, kTGHZ2013, kHanyuPinyin) of PinyinKanjiLookup.bin.
 
 UNICODE LICENSE V3
 

@@ -1,7 +1,9 @@
 OpenCC (Apache-2.0)
 Source: https://github.com/BYVoid/OpenCC
 Revision: 025f371dc76b598d77384fbdab90c937471844d8
-Used by librime; no conversion data is bundled.
+Used by librime; no conversion data is bundled. Its Japanese shinjitai and traditional-simplified
+character tables (JPShinjitaiCharacters.txt, TSCharacters.txt) map kanji to their Chinese forms
+when PinyinKanjiLookup.bin is generated.
 
 Apache License
 Version 2.0, January 2004
