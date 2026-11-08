@@ -27,7 +27,7 @@ struct KeyboardPreferences {
     }
     private static let sharedKeys = ["vime.sound", "vime.hapticLevel", "vime.hapticIntensity", "vime.nineKeyNumbers", "vime.kanaLayout",
         "vime.prolongedKey", "vime.previews", "vime.previewHold", "vime.theme", "vime.candidateRanking", "vime.phraseSuggestions", "vime.clipboardSuggestions", "vime.autoPairBrackets", "vime.autoCapitalize", "vime.doubleSpacePeriod", "vime.undoConversionOnBackspace", "vime.fullWidthSpace", "vime.liveConversion", "vime.textReplacements", "vime.englishCompletion", "vime.oneHanded", "vime.customSkinID", "vime.skinRevision", "vime.numberSymbols", "vime.inputLanguage",
-        "vime.chineseInputEnabled", "vime.pinyinLookupInJapanese"]
+        "vime.chineseInputEnabled", "vime.pinyinLookupInJapanese", "vime.traditionalChinese"]
     var store: UserDefaults { defaults }
     struct Snapshot: Equatable {
         let heightFactor: Double
@@ -59,6 +59,7 @@ struct KeyboardPreferences {
         let inputLanguage: KeyboardInputLanguage
         let chineseInputEnabled: Bool
         let pinyinLookupInJapanese: Bool
+        let traditionalChinese: Bool
     }
     var snapshot: Snapshot {
         Snapshot(heightFactor: heightFactor, sound: sound, hapticIntensity: hapticIntensity,
@@ -73,7 +74,7 @@ struct KeyboardPreferences {
             learningResetID: [learningResetRequests.requestID, learningResetRequests.chinese.requestID]
                 .map { $0 ?? "" }.joined(separator: "|"),
             inputLanguage: inputLanguage, chineseInputEnabled: chineseInputEnabled,
-            pinyinLookupInJapanese: pinyinLookupInJapanese)
+            pinyinLookupInJapanese: pinyinLookupInJapanese, traditionalChinese: traditionalChinese)
     }
     var heightFactor: Double {
         get {
@@ -124,6 +125,19 @@ struct KeyboardPreferences {
     var pinyinLookupInJapanese: Bool {
         get { chineseInputEnabled && (defaults.object(forKey: "vime.pinyinLookupInJapanese") as? Bool ?? true) }
         nonmutating set { defaults.set(newValue, forKey: "vime.pinyinLookupInJapanese") }
+    }
+    /// Chinese input shows traditional characters (OpenCC s2t). Until chosen,
+    /// follows whether the phone's first language is Traditional Chinese.
+    var traditionalChinese: Bool {
+        get { defaults.object(forKey: "vime.traditionalChinese") as? Bool ?? Self.prefersTraditionalChinese(Locale.preferredLanguages) }
+        nonmutating set { defaults.set(newValue, forKey: "vime.traditionalChinese") }
+    }
+    static func prefersTraditionalChinese(_ languages: [String]) -> Bool {
+        guard let first = languages.first else { return false }
+        let locale = Locale(identifier: first)
+        guard locale.language.languageCode == .chinese else { return false }
+        if let script = locale.language.script { return script == .hanTraditional }
+        return ["TW", "HK", "MO"].contains(locale.region?.identifier ?? "")
     }
     /// Japanese letters on a 12-key flick pad instead of romaji QWERTY.
     var kanaLayout: Bool {

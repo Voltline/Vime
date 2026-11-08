@@ -387,12 +387,14 @@ struct KeyboardInputSettingsView: View {
     @AppStorage private var inputLanguage: KeyboardInputLanguage
     @AppStorage private var chineseInput: Bool
     @AppStorage private var pinyinLookup: Bool
+    @AppStorage private var traditionalChinese: Bool
     init() {
         let prefs = KeyboardPreferences()
         _inputLanguage = AppStorage(wrappedValue: prefs.inputLanguage, "vime.inputLanguage", store: prefs.store)
         _chineseInput = AppStorage(wrappedValue: prefs.chineseInputEnabled, "vime.chineseInputEnabled", store: prefs.store)
         // The stored choice, not the effective value, which is false while Chinese input is off.
         _pinyinLookup = AppStorage(wrappedValue: true, "vime.pinyinLookupInJapanese", store: prefs.store)
+        _traditionalChinese = AppStorage(wrappedValue: prefs.traditionalChinese, "vime.traditionalChinese", store: prefs.store)
         _ranking = AppStorage(wrappedValue: prefs.candidateRanking, "vime.candidateRanking", store: prefs.store)
         _suggestions = AppStorage(wrappedValue: prefs.phraseSuggestions, "vime.phraseSuggestions", store: prefs.store)
         _undoConversion = AppStorage(wrappedValue: prefs.undoConversionOnBackspace, "vime.undoConversionOnBackspace", store: prefs.store)
@@ -402,6 +404,17 @@ struct KeyboardInputSettingsView: View {
         _doubleSpacePeriod = AppStorage(wrappedValue: prefs.doubleSpacePeriod, "vime.doubleSpacePeriod", store: prefs.store)
         _englishCompletion = AppStorage(wrappedValue: prefs.englishCompletion, "vime.englishCompletion", store: prefs.store)
     }
+    enum LanguageChoice: Hashable { case japanese, simplifiedChinese, traditionalChinese }
+    /// Chinese in either script is one input language; the script is kept
+    /// while Japanese is chosen.
+    private var languageChoice: Binding<LanguageChoice> {
+        Binding(get: {
+            inputLanguage != .chinese ? .japanese : traditionalChinese ? .traditionalChinese : .simplifiedChinese
+        }, set: { choice in
+            if choice != .japanese { traditionalChinese = choice == .traditionalChinese }
+            inputLanguage = choice == .japanese ? .japanese : .chinese
+        })
+    }
     var body: some View {
         Form {
             if RimeEngine.bundledData != nil {
@@ -409,9 +422,10 @@ struct KeyboardInputSettingsView: View {
                     Toggle("中文输入", isOn: $chineseInput)
                         .accessibilityIdentifier("vime.settings.chineseInput")
                     if chineseInput {
-                        Picker("输入语言", selection: $inputLanguage) {
-                            Text("日语").tag(KeyboardInputLanguage.japanese)
-                            Text("简体中文").tag(KeyboardInputLanguage.chinese)
+                        Picker("输入语言", selection: languageChoice) {
+                            Text("日语").tag(LanguageChoice.japanese)
+                            Text("简体中文").tag(LanguageChoice.simplifiedChinese)
+                            Text("繁体中文").tag(LanguageChoice.traditionalChinese)
                         }.accessibilityIdentifier("vime.settings.inputLanguage")
                     }
                 } footer: {
