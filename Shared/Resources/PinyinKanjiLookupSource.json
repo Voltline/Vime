@@ -1,0 +1,88 @@
+{
+  "schema": 2,
+  "output": "PinyinKanjiLookup.bin",
+  "bytes": 2535619,
+  "sha256": "ef844d54f48a76ba393fe87e93b4664c506de261e662778ae7a81a0237da496b",
+  "counts": {
+    "words": 125381,
+    "aligned": 116141,
+    "pinyinOnly": 9240,
+    "dropped": 99,
+    "characters": 4701,
+    "segments": 2716,
+    "spellings": 4664,
+    "nodes": 190993
+  },
+  "sources": {
+    "lexicon": {
+      "file": "JapaneseLexicon.tsv",
+      "sha256": "5b7dd823a7318ca90958a4014a2f7f112320c2c7aa245694f03393ec867c6032"
+    },
+    "mozc": {
+      "repository": "https://github.com/google/mozc/tree/c7538e6f8ee56ff94789494106ad5d6d658cd4f6/src/data/dictionary_oss",
+      "revision": "c7538e6f8ee56ff94789494106ad5d6d658cd4f6",
+      "license": "BSD-3-Clause (Mozc); dictionary data under the NAIST IPAdic and ICOT terms in the Mozc LICENSE",
+      "files": {
+        "dictionary00.txt": "9e07ce292932c4fff327ed8cb06274c09acca556bd8bdf7c7ef1f6173eae3b61",
+        "dictionary01.txt": "836fd5fd8399510de0d8ef7b33be913cca6bbaee7b712cc8045fba03f4c75a89",
+        "dictionary02.txt": "93943858d0cfd092b849a78def6901eaf228177e1ac5663544e865a3a1e45a9e",
+        "dictionary03.txt": "cb9f1b0b4a7550d682d86244a021cd17e0b15366328819e69135b5f183a1a24b",
+        "dictionary04.txt": "9fdc4e3948d03463de13ab5782adffbc11dd06e934cb80138c5920029cd3d2f6",
+        "dictionary05.txt": "199e3b0f050b691823ae7ba943090d437f51af6436b27c5f3dc69cafa12000e4",
+        "dictionary06.txt": "b95b14f7770ae2a824bc8e9fad8b03c1bc45c504f93a36554b8b56daa0368d2a",
+        "dictionary07.txt": "7f53649b529d4c8c495d3a8dd9c4d489dfe7696080f7423107ff01331174be48",
+        "dictionary08.txt": "50a31bb5fc1646721b00be371a5695dffab1292bda143e1e59cc70cbbdd8643f",
+        "dictionary09.txt": "4e5fcd4cbfbf11395166a37b506f547fc54d20edc0884f5184ecd3fc705f0d9a",
+        "id.def": "07a05a268c3783b7e02b36e4aa591555a2dd19a1f3c93891576740761c154f2d"
+      },
+      "use": "common words the lexicon leaves out; part-of-speech ids: proper nouns downweighted, names and fragments dropped"
+    },
+    "unihan": {
+      "url": "https://www.unicode.org/Public/17.0.0/ucd/Unihan.zip",
+      "version": "17.0.0",
+      "license": "Unicode-3.0",
+      "sha256": "f7a48b2b545acfaa77b2d607ae28747404ce02baefee16396c5d2d7a8ef34b5e",
+      "fields": [
+        "kMandarin",
+        "kXHC1983",
+        "kTGHZ2013",
+        "kHanyuPinyin (secondary)"
+      ]
+    },
+    "opencc": {
+      "repository": "https://github.com/BYVoid/OpenCC",
+      "commit": "025f371dc76b598d77384fbdab90c937471844d8",
+      "license": "Apache-2.0",
+      "files": {
+        "JPShinjitaiCharacters.txt": "12cec7250b873ef52b36d8f92218d4f92c0aaf5d8cd7c58fe42d9785bdcdc43a",
+        "TSCharacters.txt": "737c21c66f55a419dd6956cb3089476cdefc5a36877452631617696df1e5d925"
+      }
+    },
+    "kanjidic2": {
+      "url": "http://www.edrdg.org/kanjidic/kanjidic2.xml.gz",
+      "license": "CC-BY-SA-4.0",
+      "copyright": "Electronic Dictionary Research and Development Group",
+      "databaseVersion": "2026-311",
+      "dateOfCreation": "2026-11-07",
+      "sha256": "0ac6d0c0fba4a43a20c3d24c010b3b6a0066b80fe273c2c867041a97faf80ce7",
+      "use": "on/kun readings for aligning word readings"
+    }
+  },
+  "policy": {
+    "maximumCost": 9000,
+    "maximumWordLength": 8,
+    "extraWords": "full Mozc dictionary words outside the lexicon, cost <= 7000, at most 2 kana",
+    "properNounPenalty": {
+      "1920": 1500,
+      "1924": 1000,
+      "1925": 1000,
+      "1926": 1000,
+      "1927": 1000,
+      "1928": 0,
+      "1929": 2500
+    },
+    "personalNames": "dropped",
+    "fragments": "dropped: bare numerals (counted words such as 三ヶ月 kept), affixes, particles, inflected verb/adjective stems",
+    "japaneseOnlyCharacters": "畑畠辻込 and characters with only kMandarin"
+  }
+}

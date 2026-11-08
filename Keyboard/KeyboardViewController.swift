@@ -39,7 +39,7 @@ class KeyboardViewController: UIInputViewController {
         VimeExtensionAudit.recordLifecycle(event: .viewDidLoad)
         keyboard.hasFullAccess = hasFullAccess
         keyboard.setClipboardActive(false)
-        keyboard.showsFooter = needsInputModeSwitchKey
+        keyboard.showsFooter = showsGlobeFooter
         keyboard.needsGlobe = needsInputModeSwitchKey
         keyboard.inputModeListAction = #selector(switchInputMode(_:event:))
         keyboard.inputModeListTarget = self
@@ -138,13 +138,19 @@ class KeyboardViewController: UIInputViewController {
         updateKeyboardGeometry()
     }
 
+    /// Only the floating iPad keyboard keeps a footer for its globe. A phone puts
+    /// it in the toolbar, and the docked iPad layout does so by itself.
+    private var showsGlobeFooter: Bool {
+        needsInputModeSwitchKey && traitCollection.userInterfaceIdiom == .pad
+    }
+
     private func updateKeyboardGeometry() {
         let landscape = view.window?.windowScene?.interfaceOrientation.isLandscape ?? false
         keyboard.compact = traitCollection.userInterfaceIdiom == .phone && landscape
         // The floating iPad keyboard is narrower than KeyboardMetrics.padMinimumWidth
         // and falls back to the iPhone layout by itself.
         keyboard.pad = traitCollection.userInterfaceIdiom == .pad
-        keyboard.showsFooter = needsInputModeSwitchKey
+        keyboard.showsFooter = showsGlobeFooter
         keyboard.needsGlobe = needsInputModeSwitchKey
         (view as? KeyboardInputView)?.refreshSizing()
     }

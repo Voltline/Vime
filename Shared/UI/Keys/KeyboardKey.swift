@@ -10,6 +10,8 @@ final class KeyboardKey: UIButton {
     var canRepeat: (() -> Bool)?
     var alternateAction: (() -> Void)?
     var alternateTitle: String?
+    /// VoiceOver's name for the swipe-up action when the bubble text alone is unclear.
+    var alternateAccessibilityName: String?
     /// Flick kana: outputs for center, left, up, right and down ("" = none).
     /// The touch surface resolves the direction; release calls flickAction.
     var flickOutputs: [String]? { didSet { updateFlickLabels() } }
@@ -26,6 +28,9 @@ final class KeyboardKey: UIButton {
     var isUtility = false
     private var resolvedRepeatOccurred = false
     var showsPreview = false
+    /// Seconds the preview stays after the finger lifts; 0 hides it at once.
+    var previewHold: TimeInterval = 0
+    private var previewHideWork: DispatchWorkItem?
     weak var previewContainer: UIView?
     var fillColor: UIColor = KeyboardPalette.key { didSet { updateAppearance() } }
     private var repeatTimer: Timer?
@@ -269,7 +274,7 @@ final class KeyboardKey: UIButton {
             detail: "cancelled=\(cancelled) alternate=\(alternate) stillPressed=\(stillPressed)")
         if !stillPressed {
             isHighlighted = false
-            stopTracking()
+            stopTracking(holdingPreview: !cancelled)
         }
         // The surface owns selection per finger; UIButton's shared swipe/up
         // state must not decide another simultaneous finger's character.
@@ -295,8 +300,8 @@ final class KeyboardKey: UIButton {
                         return true
                     })
                 }
-            } else if let alternateTitle, alternateAction != nil {
-                actions.append(UIAccessibilityCustomAction(name: alternateTitle) { [weak self] _ in
+            } else if let name = alternateAccessibilityName ?? alternateTitle, alternateAction != nil {
+                actions.append(UIAccessibilityCustomAction(name: name) { [weak self] _ in
                     guard let self, let alternateAction = self.alternateAction else { return false }
                     self.feedback?()
                     alternateAction()
@@ -347,6 +352,7 @@ final class KeyboardKey: UIButton {
     }
 
     private func showPreview(_ text: String, alternate: Bool) {
+        previewHideWork?.cancel(); previewHideWork = nil
         let bubble = preview ?? UILabel()
         let container = previewContainer ?? superview?.superview ?? self
         var rect = convert(CGRect(x: -8, y: -48, width: bounds.width + 16, height: 44), to: container)
@@ -417,7 +423,7 @@ final class KeyboardKey: UIButton {
 
     @objc private func up() {
         KeyboardTouchDiagnostics.record("KeyboardKey.touchUpInside", view: self)
-        stopTracking()
+        stopTracking(holdingPreview: true)
         if !repeats && !usedAlternate { action?() }
     }
 
@@ -431,14 +437,29 @@ final class KeyboardKey: UIButton {
     }
     @objc private func reenter() { if repeats { down() } }
 
-    func stopTracking() {
+    /// `holdingPreview`: a released key keeps its preview for `previewHold`
+    /// seconds, so a quick tap is still readable. A cancel hides it at once.
+    func stopTracking(holdingPreview: Bool = false) {
         delayTimer?.invalidate()
         repeatTimer?.invalidate()
         delayTimer = nil
         repeatTimer = nil
-        preview?.removeFromSuperview()
-        preview = nil
+        previewHideWork?.cancel(); previewHideWork = nil
+        guard holdingPreview, previewHold > 0, let bubble = preview else {
+            preview?.removeFromSuperview()
+            preview = nil
+            return
+        }
+        let work = DispatchWorkItem { [weak self, weak bubble] in
+            bubble?.removeFromSuperview()
+            if let self, self.preview === bubble { self.preview = nil; self.previewHideWork = nil }
+        }
+        previewHideWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + previewHold, execute: work)
     }
+
+    /// Whether a released key's preview is still showing.
+    var isHoldingPreview: Bool { previewHideWork != nil }
 
     override func didMoveToWindow() { if window == nil { stopTracking() } }
     deinit { delayTimer?.invalidate(); repeatTimer?.invalidate() }

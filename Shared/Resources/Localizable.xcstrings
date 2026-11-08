@@ -119,6 +119,62 @@
         }
       }
     },
+    "%@ · 日语义：%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · In Japanese: %2$@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · 日本語では「%2$@」の意味"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · 일본어 뜻: %2$@"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · 日語義：%2$@"
+          }
+        }
+      }
+    },
+    "%@ · 日语说法": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · Japanese word"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · 日本語での言い方"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · 일본어 표현"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · 日語說法"
+          }
+        }
+      }
+    },
     "%@使用过": {
       "localizations": {
         "en": {
@@ -382,6 +438,34 @@
         }
       }
     },
+    "%lld 毫秒": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld ms"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld ミリ秒"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lldms"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld 毫秒"
+          }
+        }
+      }
+    },
     "1. 打开 iPhone 的“设置”。": {
       "localizations": {
         "en": {
@@ -580,6 +664,93 @@
         }
       }
     },
+    "Rime 用户词典存储": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rime user dictionary storage"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rime ユーザー辞書の保存"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rime 사용자 사전 저장"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rime 使用者詞典儲存"
+          }
+        }
+      }
+    },
+    "Rime 词典索引": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rime dictionary index"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rime 辞書のインデックス"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rime 사전 색인"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rime 詞典索引"
+          }
+        }
+      }
+    },
+    "Rime 配置解析": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rime configuration parsing"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rime 設定の解析"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rime 설정 파싱"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rime 設定解析"
+          }
+        }
+      }
+    },
     "Shift": {
       "shouldTranslate": false
     },
@@ -752,6 +923,93 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vime 主題"
+          }
+        }
+      }
+    },
+    "librime 不含转换数据；中日混输读音表用其日本新字体与繁简字表生成；附带的 RapidJSON 声明保留在下方": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "librime includes no conversion data. Its Japanese shinjitai and Traditional–Simplified tables generate the pinyin lookup table. The bundled RapidJSON notice is kept below"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "librime は変換データを含みません。ピンイン検索表はその日本の新字体表と繁簡字表から生成。同梱の RapidJSON の表示は下に全文を掲載"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "librime은 변환 데이터를 포함하지 않습니다. 병음 조회표는 그 일본 신자체 표와 번간 대응표로 생성됩니다. 함께 포함된 RapidJSON 고지는 아래에 보존되어 있습니다"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "librime 不含轉換資料；中日混輸讀音表用其日本新字體與繁簡字表產生；隨附的 RapidJSON 聲明保留在下方"
+          }
+        }
+      }
+    },
+    "librime 依赖的 C++ 基础库": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "C++ libraries used by librime"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "librime が依存する C++ 基盤ライブラリ"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "librime이 사용하는 C++ 기반 라이브러리"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "librime 相依的 C++ 基礎函式庫"
+          }
+        }
+      }
+    },
+    "librime 依赖的简繁转换库": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Simplified–Traditional conversion library used by librime"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "librime が依存する簡体字・繁体字変換ライブラリ"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "librime이 사용하는 간체·번체 변환 라이브러리"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "librime 相依的簡繁轉換函式庫"
           }
         }
       }
@@ -956,6 +1214,35 @@
         }
       }
     },
+    "上次中文清空已完成。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The last Chinese reset is complete."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "前回の中国語の消去は完了しました。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "지난 중국어 초기화가 완료되었습니다."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "上次中文清空已完成。"
+          }
+        }
+      }
+    },
     "上次清空已完成。键盘会重新学习输入习惯；用户词典、剪贴板历史和皮肤保留。": {
       "localizations": {
         "en": {
@@ -1152,6 +1439,35 @@
         }
       }
     },
+    "下次打开键盘时清空拼音输入学到的词语偏好，此操作无法撤销。日语学习、用户词典、剪贴板历史和皮肤不会删除。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The next time the keyboard opens, it clears the word preferences learned from pinyin input. This can't be undone. Japanese learning, the user dictionary, clipboard history and skins are not deleted."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "次にキーボードを開いたときに、ピンイン入力で学習した語の好みを消去します。この操作は取り消せません。日本語の学習、ユーザ辞書、クリップボード履歴、スキンは削除されません。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "다음에 키보드를 열 때 병음 입력으로 학습한 단어 선호를 지웁니다. 이 작업은 취소할 수 없습니다. 일본어 학습, 사용자 사전, 클립보드 기록과 스킨은 삭제되지 않습니다."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下次打開鍵盤時清空拼音輸入學到的詞語偏好，此操作無法復原。日語學習、使用者詞典、剪貼簿記錄和外觀不會刪除。"
+          }
+        }
+      }
+    },
     "下次打开键盘时清空词语偏好和转换学习，此操作无法撤销。用户词典、剪贴板历史和皮肤不会删除。": {
       "localizations": {
         "en": {
@@ -1260,6 +1576,151 @@
           "stringUnit": {
             "state": "translated",
             "value": "中文"
+          }
+        }
+      }
+    },
+    "中文拼音输入引擎": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chinese pinyin input engine"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中国語ピンイン入力エンジン"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "중국어 병음 입력 엔진"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中文拼音輸入引擎"
+          }
+        }
+      }
+    },
+    "中文清空请求已保存，下次打开键盘时执行。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The Chinese reset is saved and runs the next time the keyboard opens."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中国語の消去リクエストを保存しました。次にキーボードを開いたときに実行されます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "중국어 초기화 요청을 저장했습니다. 다음에 키보드를 열 때 실행됩니다."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中文清空請求已儲存，下次打開鍵盤時執行。"
+          }
+        }
+      }
+    },
+    "中文词语与词频排序": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chinese words and their frequency order"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中国語の語彙と頻度順"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "중국어 단어와 빈도 순위"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中文詞語與詞頻排序"
+          }
+        }
+      }
+    },
+    "中日混输的日语词语与读音": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Japanese words and readings for typing kanji by pinyin"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ピンイン入力で探す日本語の語とその読み"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "병음으로 입력하는 일본어 단어와 읽기"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中日混輸的日語詞語與讀音"
+          }
+        }
+      }
+    },
+    "中日混输的汉字音读与训读": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On and kun readings of kanji for typing by pinyin"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ピンイン入力に使う漢字の音読みと訓読み"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "병음 입력에 쓰는 한자의 음독과 훈독"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中日混輸的漢字音讀與訓讀"
           }
         }
       }
@@ -1457,6 +1918,35 @@
           "stringUnit": {
             "state": "translated",
             "value": "僅在鍵盤顯示期間回應剪貼簿變化，打開鍵盤時也會檢查。主 App 不會在背景自動讀取。"
+          }
+        }
+      }
+    },
+    "仅头文件": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Headers only"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ヘッダーのみ"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "헤더 파일만 사용"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "僅標頭檔"
           }
         }
       }
@@ -1799,6 +2289,64 @@
         }
       }
     },
+    "保留汉字词语的读音与成本，去除人名与词语片段，按拼音和罗马字索引": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kanji words keep their readings and costs; personal names and fragments are removed; indexed by pinyin and romaji"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "漢字語の読みとコストを残し、人名と語の断片を除いて、ピンインとローマ字で索引化"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "한자 단어의 읽기와 비용을 남기고 인명과 단어 조각을 제외하여 병음과 로마자로 색인화"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保留漢字詞語的讀音與成本，去除人名與詞語片段，按拼音和羅馬字索引"
+          }
+        }
+      }
+    },
+    "修改一个源文件，编译为静态库；附带的 darts-clone、UTF8-CPP 与 X11 声明保留在下方": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "One source file modified; built as a static library. The bundled darts-clone, UTF8-CPP and X11 notices are kept below"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ソースファイルを 1 つ変更し、静的ライブラリとしてビルド。同梱の darts-clone、UTF8-CPP、X11 の表示は下に全文を掲載"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "소스 파일 하나를 수정해 정적 라이브러리로 빌드했습니다. 함께 포함된 darts-clone, UTF8-CPP 및 X11 고지는 아래에 보존되어 있습니다"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "修改一個原始檔，編譯為靜態函式庫；隨附的 darts-clone、UTF8-CPP 與 X11 聲明保留在下方"
+          }
+        }
+      }
+    },
     "候选排序": {
       "localizations": {
         "en": {
@@ -1907,6 +2455,35 @@
           "stringUnit": {
             "state": "translated",
             "value": "候選詞：%@，%@"
+          }
+        }
+      }
+    },
+    "候选词：%@，读音：%@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Candidate: %@, reading: %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "変換候補：%@、読み：%@"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "후보: %@, 읽기: %@"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "候選詞：%@，讀音：%@"
           }
         }
       }
@@ -2532,6 +3109,62 @@
         }
       }
     },
+    "切换到日语": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switch to Japanese"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "日本語に切り替え"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "일본어로 전환"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "切換到日語"
+          }
+        }
+      }
+    },
+    "切换到简体中文": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switch to Simplified Chinese"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "簡体字中国語に切り替え"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "중국어 간체로 전환"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "切換到簡體中文"
+          }
+        }
+      }
+    },
     "切换大小写": {
       "localizations": {
         "en": {
@@ -2556,6 +3189,151 @@
           "stringUnit": {
             "state": "translated",
             "value": "切換大小寫"
+          }
+        }
+      }
+    },
+    "取英文词频数据，计算英文候选词的排序": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "English word frequency data, used to rank English candidates"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "英語の語頻度データを取り、英語候補の順位を計算"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "영어 단어 빈도 데이터로 영어 후보 순위를 계산"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取英文詞頻數據，計算英文候選詞的排序"
+          }
+        }
+      }
+    },
+    "取词语、读音与词序，编入拼音词库": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Words, readings and their order, added to the pinyin dictionary"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "語、読みと語順を取り、ピンイン辞書に収録"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "단어, 독음과 순서를 병음 사전에 수록"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取詞語、讀音與詞序，編入拼音詞庫"
+          }
+        }
+      }
+    },
+    "取词语与词频，计算候选词的排序": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Words and their counts, used to rank candidates"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "語とその頻度を取り、候補の順位を計算"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "단어와 빈도로 후보 순위를 계산"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取詞語與詞頻，計算候選詞的排序"
+          }
+        }
+      }
+    },
+    "只取词表及其顺序，不含词向量；取前 40 万个二至六字词编入拼音词库": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only the word list and its order, no vectors; the 400,000 most frequent words of two to six characters are added to the pinyin dictionary"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "語彙リストとその順序のみを使用し、単語ベクトルは含みません。上位 40 万語の 2〜6 文字語をピンイン辞書に収録"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "단어 목록과 순서만 사용하며 단어 벡터는 포함하지 않습니다. 상위 40만 개의 2~6자 단어를 병음 사전에 수록"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "只取詞表及其順序，不含詞向量；取前 40 萬個二至六字詞編入拼音詞庫"
+          }
+        }
+      }
+    },
+    "只重置拼音的词语偏好，日语学习保留": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resets pinyin word preferences only; Japanese learning is kept"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ピンインの語の好みだけをリセット。日本語の学習は保持されます"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "병음 단어 선호만 초기화하며 일본어 학습은 유지됩니다"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "只重設拼音的詞語偏好，日語學習保留"
           }
         }
       }
@@ -5367,6 +6145,35 @@
         }
       }
     },
+    "常用词语、读音与排序": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Common words, readings and order"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "常用語、読みと順位"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "상용 단어, 독음과 순위"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "常用詞語、讀音與排序"
+          }
+        }
+      }
+    },
     "序列算法基础库": {
       "extractionState": "manual",
       "localizations": {
@@ -6488,6 +7295,35 @@
           "stringUnit": {
             "state": "translated",
             "value": "括號"
+          }
+        }
+      }
+    },
+    "按 BSD-2-Clause 选项使用": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Used under the BSD-2-Clause option"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "BSD-2-Clause の選択肢で使用"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "BSD-2-Clause 옵션으로 사용"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "依 BSD-2-Clause 選項使用"
           }
         }
       }
@@ -8122,6 +8958,34 @@
         }
       }
     },
+    "松手即消失": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hide on Release"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "指を離すとすぐ消える"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "손을 떼면 바로 사라짐"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "放開即消失"
+          }
+        }
+      }
+    },
     "松手清空": {
       "localizations": {
         "en": {
@@ -8993,6 +9857,64 @@
         }
       }
     },
+    "清空中文学习记录": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear Chinese Learning"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中国語の学習記録を消去"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "중국어 학습 기록 지우기"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "清空中文學習記錄"
+          }
+        }
+      }
+    },
+    "清空中文学习记录？": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear Chinese learning?"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中国語の学習記録を消去しますか？"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "중국어 학습 기록을 지울까요?"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "清空中文學習記錄？"
+          }
+        }
+      }
+    },
     "清空剪贴板历史": {
       "localizations": {
         "en": {
@@ -9663,6 +10585,35 @@
           "stringUnit": {
             "state": "translated",
             "value": "使用者辭典"
+          }
+        }
+      }
+    },
+    "用音读与训读把词语读音按字切分；衍生数据以 CC BY-SA 4.0 分发": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On and kun readings split each word's reading by character. Derived data is distributed under CC BY-SA 4.0"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "音読みと訓読みで語の読みを字ごとに分割。派生データは CC BY-SA 4.0 で配布"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "음독과 훈독으로 단어의 읽기를 글자별로 나눔. 파생 데이터는 CC BY-SA 4.0으로 배포"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "用音讀與訓讀把詞語讀音按字切分；衍生資料以 CC BY-SA 4.0 分發"
           }
         }
       }
@@ -11207,6 +12158,35 @@
           "stringUnit": {
             "state": "translated",
             "value": "英文單字補全"
+          }
+        }
+      }
+    },
+    "英文词频": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "English word frequencies"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "英語の語頻度"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "영어 단어 빈도"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "英文詞頻"
           }
         }
       }
@@ -13850,6 +14830,34 @@
         }
       }
     },
+    "预览停留时间": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preview Duration"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ポップアップの表示時間"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "미리보기 표시 시간"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "預覽停留時間"
+          }
+        }
+      }
+    },
     "颜文字": {
       "localizations": {
         "en": {
@@ -14043,6 +15051,579 @@
           "stringUnit": {
             "state": "translated",
             "value": "已新增 %lld 條，略過 %lld 條無法使用的詞條。"
+          }
+        }
+      }
+    },
+    "输入语言": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Input Language"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "入力言語"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "입력 언어"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "輸入語言"
+          }
+        }
+      }
+    },
+    "简体中文": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Simplified Chinese"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "簡体字中国語"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "중국어 간체"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "簡體中文"
+          }
+        }
+      }
+    },
+    "中文使用全拼，学习记录与日语分开保存；智能排序、下一词联想和退格撤销转换目前只用于日语\n切换后，下次打开键盘时生效": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chinese uses full pinyin and learns separately from Japanese. Smart Ranking, Next-Word Suggestions and Backspace Undoes Conversion apply to Japanese only for now.\nThe change takes effect the next time the keyboard opens."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中国語は全拼で入力し、学習記録は日本語とは別に保存します。スマート並べ替え、次の語の予測、削除キーで変換を取り消す機能は現在日本語のみで使えます。\n切り替えは次にキーボードを開いたときに反映されます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "중국어는 전체 병음으로 입력하며 학습 기록은 일본어와 따로 저장됩니다. 스마트 순위, 다음 단어 제안, 백스페이스로 변환 취소는 현재 일본어에만 적용됩니다.\n변경 사항은 다음에 키보드를 열 때 적용됩니다."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中文使用全拼，學習記錄與日語分開儲存；智慧排序、下一詞聯想和退格撤銷轉換目前只用於日語\n切換後，下次開啟鍵盤時生效"
+          }
+        }
+      }
+    },
+    "中文输入": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chinese Input"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中国語入力"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "중국어 입력"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中文輸入"
+          }
+        }
+      }
+    },
+    "关闭后，键盘只提供日语和英文，也不会加载中文引擎": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "When off, the keyboard offers only Japanese and English and never loads the Chinese engine."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "オフにすると、キーボードは日本語と英語だけになり、中国語エンジンも読み込みません。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "끄면 키보드에서 일본어와 영어만 제공하며 중국어 엔진도 불러오지 않습니다."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "關閉後，鍵盤只提供日語和英文，也不會載入中文引擎"
+          }
+        }
+      }
+    },
+    "日语中用拼音查词": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pinyin Lookup in Japanese"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "日本語でピンイン検索"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "일본어에서 병음으로 찾기"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "日語中用拼音查詞"
+          }
+        }
+      }
+    },
+    "日语模式下，输入汉字的普通话拼音（可与罗马字混用）也能找到对应的词，候选上方显示平假名读音": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In Japanese, type a word's Mandarin pinyin, or mix pinyin with romaji, to find its kanji. The hiragana reading shows above the candidate."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "日本語入力中に、漢字の中国語ピンイン（ローマ字と混ぜても可）を入力しても、その語が候補に出ます。候補の上にはひらがなの読みを表示します。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "일본어 입력 중 한자의 중국어 병음(로마자와 섞어도 됨)을 입력해도 해당 단어를 찾을 수 있습니다. 후보 위에 히라가나 읽기가 표시됩니다."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "日語模式下，輸入漢字的普通話拼音（可與羅馬字混用）也能找到對應的詞，候選上方顯示平假名讀音"
+          }
+        }
+      }
+    },
+    "汉字拼音读音": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pinyin readings of Chinese characters"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "漢字のピンイン読み"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "한자의 병음 읽기"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "漢字拼音讀音"
+          }
+        }
+      }
+    },
+    "取通用规范汉字表 8105 字的读音，生成拼音词库": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Readings of the 8,105 characters in the Table of General Standard Chinese Characters, generated into the pinyin dictionary"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通用規範漢字表の 8105 字の読みを取り、ピンイン辞書を生成"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "통용규범한자표 8105자의 읽기를 가져와 병음 사전을 생성"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取通用規範漢字表 8105 字的讀音，生成拼音詞庫"
+          }
+        }
+      }
+    },
+    "词语拼音读音": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pinyin readings of words"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "語句のピンイン読み"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "단어의 병음 읽기"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "詞語拼音讀音"
+          }
+        }
+      }
+    },
+    "取词语读音，让多音字按所在词语的读音输入": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Word readings, so a character with several readings is typed with the reading it has in the word"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "語句の読みを取り、多音字を語句の中での読みで入力できるように"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "단어 읽기를 가져와 여러 음을 가진 글자를 단어 속 읽기로 입력"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取詞語讀音，讓多音字按所在詞語的讀音輸入"
+          }
+        }
+      }
+    },
+    "补充词语与读音": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Additional words and readings"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "補足語彙と読み"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "추가 단어와 읽기"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "補充詞語與讀音"
+          }
+        }
+      }
+    },
+    "取 phrase-pinyin-data 转换的词语读音，编入拼音词库": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Word readings as converted by phrase-pinyin-data, added to the pinyin dictionary"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "phrase-pinyin-data が変換した語句の読みを取り、ピンイン辞書に収録"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "phrase-pinyin-data가 변환한 단어 읽기를 병음 사전에 수록"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取 phrase-pinyin-data 轉換的詞語讀音，編入拼音詞庫"
+          }
+        }
+      }
+    },
+    "中文词频": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chinese word frequencies"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中国語の語頻度"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "중국어 단어 빈도"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中文詞頻"
+          }
+        }
+      }
+    },
+    "中英混输的英文词表": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "English words for mixed Chinese–English input"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中英混在入力の英単語リスト"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "중국어·영어 혼합 입력용 영어 단어 목록"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中英混輸的英文詞表"
+          }
+        }
+      }
+    },
+    "取 70 级以内的单词及其大小写，生成英文词库": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Words up to size 70 and their capitalization, generated into the English dictionary"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サイズ 70 以内の単語と大文字・小文字の表記を取り、英語辞書を生成"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "크기 70 이내의 단어와 대소문자 표기를 가져와 영어 사전을 생성"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取 70 級以內的單詞及其大小寫，生成英文詞庫"
+          }
+        }
+      }
+    },
+    "拼音候选排序与中日混输的汉字读音": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ranking pinyin readings, and kanji readings for pinyin lookup in Japanese"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ピンイン候補の並べ替えと、日本語でのピンイン検索に使う漢字の読み"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "병음 후보 정렬과 일본어 병음 검색에 쓰는 한자 읽기"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拼音候選排序與中日混輸的漢字讀音"
+          }
+        }
+      }
+    },
+    "取 kHanyuPinlu 读音次数排列多音字的读音；取汉字的普通话读音（含多音字）用于中日混输": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "kHanyuPinlu reading counts rank each character's readings; Mandarin readings of each character, including alternative readings, are used for pinyin lookup in Japanese"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "kHanyuPinlu の読みの出現回数で多音字の読みを並べ、漢字ごとの中国語（普通話）の読み（多音字を含む）を日本語でのピンイン検索に使用"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "kHanyuPinlu 읽기 횟수로 다음자의 읽기를 정렬하고, 한자별 중국어(보통화) 읽기(다음자 포함)를 일본어 병음 검색에 사용"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取 kHanyuPinlu 讀音次數排列多音字的讀音；取漢字的普通話讀音（含多音字）用於中日混輸"
+          }
+        }
+      }
+    },
+    "常用短语搭配": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Common short phrases"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "よく使う短いフレーズ"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "자주 쓰는 짧은 구절"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "常用短語搭配"
+          }
+        }
+      }
+    },
+    "统计中文例句中的常见短语，编入拼音词库；不含例句本身": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Common short phrases counted in Chinese example sentences and added to the pinyin dictionary; no sentence is included"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中国語の例文でよく使われる短いフレーズを数えてピンイン辞書に収録。例文そのものは含みません"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "중국어 예문에서 자주 쓰는 짧은 구절을 세어 병음 사전에 수록. 예문 자체는 포함하지 않음"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "統計中文例句中的常見短語，編入拼音詞庫；不含例句本身"
           }
         }
       }

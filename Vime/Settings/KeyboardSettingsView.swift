@@ -383,8 +383,15 @@ struct KeyboardInputSettingsView: View {
     @AppStorage private var autoCapitalize: Bool
     @AppStorage private var doubleSpacePeriod: Bool
     @AppStorage private var englishCompletion: Bool
+    @AppStorage private var inputLanguage: KeyboardInputLanguage
+    @AppStorage private var chineseInput: Bool
+    @AppStorage private var pinyinLookup: Bool
     init() {
         let prefs = KeyboardPreferences()
+        _inputLanguage = AppStorage(wrappedValue: prefs.inputLanguage, "vime.inputLanguage", store: prefs.store)
+        _chineseInput = AppStorage(wrappedValue: prefs.chineseInputEnabled, "vime.chineseInputEnabled", store: prefs.store)
+        // The stored choice, not the effective value, which is false while Chinese input is off.
+        _pinyinLookup = AppStorage(wrappedValue: true, "vime.pinyinLookupInJapanese", store: prefs.store)
         _ranking = AppStorage(wrappedValue: prefs.candidateRanking, "vime.candidateRanking", store: prefs.store)
         _suggestions = AppStorage(wrappedValue: prefs.phraseSuggestions, "vime.phraseSuggestions", store: prefs.store)
         _undoConversion = AppStorage(wrappedValue: prefs.undoConversionOnBackspace, "vime.undoConversionOnBackspace", store: prefs.store)
@@ -395,6 +402,32 @@ struct KeyboardInputSettingsView: View {
     }
     var body: some View {
         Form {
+            if RimeEngine.bundledData != nil {
+                Section {
+                    Toggle("中文输入", isOn: $chineseInput)
+                        .accessibilityIdentifier("vime.settings.chineseInput")
+                    if chineseInput {
+                        Picker("输入语言", selection: $inputLanguage) {
+                            Text("日语").tag(KeyboardInputLanguage.japanese)
+                            Text("简体中文").tag(KeyboardInputLanguage.chinese)
+                        }.accessibilityIdentifier("vime.settings.inputLanguage")
+                    }
+                } footer: {
+                    if chineseInput {
+                        Text("中文使用全拼，学习记录与日语分开保存；智能排序、下一词联想和退格撤销转换目前只用于日语\n切换后，下次打开键盘时生效")
+                    } else {
+                        Text("关闭后，键盘只提供日语和英文，也不会加载中文引擎")
+                    }
+                }
+                if chineseInput {
+                    Section {
+                        Toggle("日语中用拼音查词", isOn: $pinyinLookup)
+                            .accessibilityIdentifier("vime.settings.pinyinLookupInJapanese")
+                    } footer: {
+                        Text("日语模式下，输入汉字的普通话拼音（可与罗马字混用）也能找到对应的词，候选上方显示平假名读音")
+                    }
+                }
+            }
             Section {
                 Picker("候选排序", selection: Binding(get: { ranking }, set: { value in
                     ranking = value
@@ -451,6 +484,7 @@ struct KeyboardFeedbackSettingsView: View {
     @AppStorage private var kanaLayout: Bool
     @AppStorage private var prolongedKey: Bool
     @AppStorage private var previews: Bool
+    @AppStorage private var previewHold: Double
     @AppStorage private var oneHanded: KeyboardOneHandedSide
     init() {
         let prefs = KeyboardPreferences(), store = prefs.store
@@ -460,6 +494,7 @@ struct KeyboardFeedbackSettingsView: View {
         _kanaLayout = AppStorage(wrappedValue: prefs.kanaLayout, "vime.kanaLayout", store: store)
         _prolongedKey = AppStorage(wrappedValue: prefs.prolongedKey, "vime.prolongedKey", store: store)
         _previews = AppStorage(wrappedValue: prefs.previews, "vime.previews", store: store)
+        _previewHold = AppStorage(wrappedValue: prefs.previewHold, "vime.previewHold", store: store)
         _oneHanded = AppStorage(wrappedValue: prefs.oneHanded, "vime.oneHanded", store: store)
     }
     var body: some View {
@@ -496,6 +531,20 @@ struct KeyboardFeedbackSettingsView: View {
                 }
                 Toggle("显示长音键 ー", isOn: $prolongedKey).disabled(kanaLayout)
                 Toggle("按键预览", isOn: $previews)
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack {
+                        Text("预览停留时间")
+                        Spacer()
+                        Text(Self.previewHoldDescription(previewHold)).font(.subheadline).foregroundStyle(.tint)
+                    }
+                    Slider(value: $previewHold, in: KeyboardPreferences.previewHoldRange, step: 0.05)
+                        .tint(Color(cgColor: VimeLogo.blue))
+                        .accessibilityLabel("预览停留时间")
+                        .accessibilityValue(Self.previewHoldDescription(previewHold))
+                        .accessibilityIdentifier("vime.settings.previewHold")
+                }
+                .padding(.vertical, 4)
+                .disabled(!previews)
             } header: { Text("布局") } footer: {
                 Text("假名九宫格：点按输入あ段，上下左右滑动输入其他段；连续点按同一键依次切换\n声音、振动和数字布局也可在键盘左上角快速调整\n修改后重新打开键盘即可读取更新")
             }
@@ -514,6 +563,12 @@ struct KeyboardFeedbackSettingsView: View {
         }
         .appReadableList()
         .navigationTitle("手感与布局").navigationBarTitleDisplayMode(.inline)
+    }
+
+    /// How long a key preview stays after the finger lifts.
+    static func previewHoldDescription(_ seconds: Double) -> String {
+        let milliseconds = Int((seconds * 1000).rounded())
+        return milliseconds == 0 ? String(localized: "松手即消失") : String(localized: "\(milliseconds) 毫秒")
     }
 }
 
@@ -546,12 +601,24 @@ private struct AppHapticScale: UIViewRepresentable {
 
 struct KeyboardDataPrivacyView: View {
     @State private var confirmLearningReset = false
+    @State private var confirmChineseLearningReset = false
     @AppStorage private var resetRequest: String
     @AppStorage private var resetCompleted: String
+    @AppStorage private var chineseResetRequest: String
+    @AppStorage private var chineseResetCompleted: String
+    @AppStorage private var chineseInput: Bool
     init() {
-        let store = KeyboardPreferences().store
+        let prefs = KeyboardPreferences(), store = prefs.store, chinese = prefs.learningResetRequests.chinese
         _resetRequest = AppStorage(wrappedValue: "", "vime.learningReset.request", store: store)
         _resetCompleted = AppStorage(wrappedValue: "", "vime.learningReset.completed", store: store)
+        _chineseResetRequest = AppStorage(wrappedValue: "", chinese.requestKey, store: store)
+        _chineseResetCompleted = AppStorage(wrappedValue: "", chinese.completedKey, store: store)
+        _chineseInput = AppStorage(wrappedValue: prefs.chineseInputEnabled, "vime.chineseInputEnabled", store: store)
+    }
+    private var chineseLearningResetMessage: String? {
+        if chineseResetRequest.isEmpty { return nil }
+        if chineseResetRequest != chineseResetCompleted { return String(localized: "中文清空请求已保存，下次打开键盘时执行。") }
+        return String(localized: "上次中文清空已完成。")
     }
     private var learningResetMessage: String {
         if resetRequest.isEmpty { return String(localized: "清空后将重新学习输入习惯。用户词典、剪贴板历史和皮肤会保留。") }
@@ -577,9 +644,19 @@ struct KeyboardDataPrivacyView: View {
                     Button { confirmLearningReset = true } label: {
                         AppSettingsActionRow(title: "清空学习记录", subtitle: "重置词语偏好与转换学习", symbol: "arrow.counterclockwise")
                     }.accessibilityIdentifier("vime.privacy.resetLearning")
+                    if chineseInput {
+                        Divider().padding(.leading, 52)
+                        Button { confirmChineseLearningReset = true } label: {
+                            AppSettingsActionRow(title: "清空中文学习记录", subtitle: "只重置拼音的词语偏好，日语学习保留", symbol: "arrow.counterclockwise.circle")
+                        }.accessibilityIdentifier("vime.privacy.resetChineseLearning")
+                    }
                 }
                 Text(learningResetMessage)
                     .font(.footnote).foregroundStyle(.secondary)
+                if chineseInput, let chineseLearningResetMessage {
+                    Text(chineseLearningResetMessage)
+                        .font(.footnote).foregroundStyle(.secondary)
+                }
             }
 
             VStack(alignment: .leading, spacing: 10) {
@@ -621,6 +698,12 @@ struct KeyboardDataPrivacyView: View {
             Button("取消", role: .cancel) {}
         } message: {
             Text("下次打开键盘时清空词语偏好和转换学习，此操作无法撤销。用户词典、剪贴板历史和皮肤不会删除。")
+        }
+        .confirmationDialog("清空中文学习记录？", isPresented: $confirmChineseLearningReset, titleVisibility: .visible) {
+            Button("清空中文学习记录", role: .destructive) { KeyboardPreferences().learningResetRequests.chinese.request() }
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text("下次打开键盘时清空拼音输入学到的词语偏好，此操作无法撤销。日语学习、用户词典、剪贴板历史和皮肤不会删除。")
         }
     }
 }

@@ -1,0 +1,8 @@
+现代汉语常用词表 (Lexicon of Common Words in Contemporary Chinese), word list with readings
+Source: https://gist.github.com/indiejoseph/eae09c673460aa0b56db at revision ac66c1900b048e3c72a4388b2304893ca3b9a571
+(SHA-256 8e16b3e1c40593bfa81e18f285ecc830a349629877d45bdd033c2dd5b77783cb), a transcription of the list published in
+2008 by the Ministry of Education and the State Language Commission of China. The gist states no license.
+Vime modifications: used the words, their readings and their order, with the other sources listed in
+Dependencies/VimeRime/UPSTREAM.md, to generate Vime's Rime pinyin dictionary by Scripts/build_rime_dicts.py.
+
+

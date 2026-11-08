@@ -11,6 +11,7 @@ import SwiftUI
 struct VimeApp: App {
     init() {
         VimeExtensionAudit.configureFromLaunchArguments()
+        Task { await StorefrontRecorder.record() }
 #if DEBUG
         // Reproducible settings for opt-in tests of the installed extension.
         // Normal launches never change the user's choices.
@@ -36,6 +37,13 @@ struct VimeApp: App {
             preferences.candidateRanking = ranking
             preferences.phraseSuggestions = true
         }
+        // Sets the input language before a test run, as the setting in the app does.
+        if let index = arguments.firstIndex(of: "--keyboard-input-language"), index + 1 < arguments.count,
+           let language = KeyboardInputLanguage(rawValue: arguments[index + 1]), language != .english {
+            let preferences = KeyboardPreferences()
+            preferences.inputLanguage = language
+            if language == .chinese { preferences.chineseInputEnabled = true }
+        }
 #endif
     }
     var body: some Scene {
@@ -43,6 +51,8 @@ struct VimeApp: App {
 #if DEBUG
             if ProcessInfo.processInfo.arguments.contains("--keyboard-extension-test") {
                 NavigationStack { KeyboardExtensionTestView() }
+            } else if ProcessInfo.processInfo.arguments.contains("--chinese-tryout") {
+                NavigationStack { ChineseTryOutView() }
             } else { ContentView() }
 #else
             ContentView()

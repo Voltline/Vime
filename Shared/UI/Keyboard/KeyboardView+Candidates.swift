@@ -125,7 +125,7 @@ extension KeyboardView {
         if emojiSearchActive && panel == .keyboard { return emojiSearchItems() }
         let words = englishWordItems()
         if !words.isEmpty { return words }
-        if panel == .keyboard, !session.isComposing, !session.inputTraits.isEnglish,
+        if panel == .keyboard, !session.isComposing, session.inputTraits.language == .japanese,
            let selection = selectedTextProvider?(), KeyboardReconversion.reading(for: selection) != nil {
             return [.init(title: String(localized: "重新转换「\(selection)」"), action: .reconvert(selection))]
         }

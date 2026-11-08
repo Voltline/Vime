@@ -3,6 +3,8 @@ import Foundation
 nonisolated enum CandidateSource: String, Codable, Sendable {
     case conversion, prediction, orthographicVariant, scriptVariant, readingAlternative, typoCorrection, userHistory, contextPrediction
     case enginePrediction, specialConversion, emoji, userDictionary, rememberedConversion
+    /// A kanji word found by its Mandarin reading (PinyinKanjiLookup).
+    case pinyinLookup
     // Compatibility for existing callers; diagnostics use the canonical source.
     static let kana = Self.scriptVariant
     static let correction = Self.typoCorrection
@@ -63,8 +65,14 @@ nonisolated struct CandidatePresentation: Equatable, Sendable {
     let correction: CorrectionSuggestion?
     var selectionToken: CandidateSelectionToken? = nil
     var detailAnnotation: String? = nil
+    /// The word's hiragana reading, shown small above the text like furigana.
+    /// Only words found by their Mandarin reading have one.
+    var rubyReading: String? = nil
     var annotation: String? { detailAnnotation ?? correction.map { String(localized: "\($0.suggestedReading) · 建议") } }
     var accessibilityLabel: String {
+        if let rubyReading {
+            return String(localized: "候选词：\(text)，读音：\(rubyReading)")
+        }
         guard let correction else {
             return annotation.map { String(localized: "候选词：\(text)，\($0)") } ?? String(localized: "候选词：\(text)")
         }

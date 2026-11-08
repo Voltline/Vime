@@ -1,0 +1,7 @@
+# Vime's Rime defaults: one schema, no hotkeys. The keyboard handles
+# switching, punctuation and the candidate bar itself.
+config_version: "1"
+schema_list:
+  - schema: vime_pinyin
+menu:
+  page_size: 9
