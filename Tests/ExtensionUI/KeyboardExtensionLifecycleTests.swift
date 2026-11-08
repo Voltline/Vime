@@ -33,6 +33,13 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
     }()
 #endif
 
+    override func tearDown() {
+        // A failed assertion stops the test by exception, which skips Swift
+        // `defer` blocks; restore portrait here so later tests start upright.
+        XCUIDevice.shared.orientation = .portrait
+        super.tearDown()
+    }
+
     override func setUp() {
         super.setUp()
 #if targetEnvironment(simulator)
@@ -54,7 +61,7 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
     }
 
     private func selectVimeKeyboard(in app: XCUIApplication) throws {
-        let key = app.buttons["vime.key.h"]
+        let key = app.keys["vime.key.h"]
         if key.waitForExistence(timeout: 2) { return }
         let globe = app.buttons.matching(NSPredicate(format: "label IN %@",
             ["Next keyboard", "下一键盘", "下一个键盘", "切换系统键盘", "次のキーボード"] as NSArray)).firstMatch
@@ -97,7 +104,7 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
         XCTAssertTrue(editor.waitForExistence(timeout: 10)); editor.tap()
         try selectVimeKeyboard(in: app)
         func typeHashi() {
-            for key in "hashi" { app.buttons["vime.key." + String(key)].tap() }
+            for key in "hashi" { app.keys["vime.key." + String(key)].tap() }
             XCTAssertTrue(app.scrollViews["vime.candidates"].buttons["候选词：箸"].waitForExistence(timeout: 10))
         }
         for attempt in 1...3 {
@@ -116,12 +123,12 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
                 (editor.value as? String ?? "").isEmpty
             }, object: editor)
             XCTAssertEqual(XCTWaiter.wait(for: [cleared], timeout: 5), .completed)
-            XCTAssertTrue(app.buttons["vime.key.h"].exists)
+            XCTAssertTrue(app.keys["vime.key.h"].exists)
         }
         app.buttons["vime.extension.dismiss"].tap()
-        XCTAssertTrue(app.buttons["vime.key.h"].waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.keys["vime.key.h"].waitForNonExistence(timeout: 5))
         app.buttons["vime.extension.focus"].tap()
-        XCTAssertTrue(app.buttons["vime.key.h"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.keys["vime.key.h"].waitForExistence(timeout: 10))
         typeHashi()
         let first = app.scrollViews["vime.candidates"].buttons.element(boundBy: 0)
         print("EXTENSION_LEARNING_RELOADED first=\(first.label)")
@@ -144,7 +151,7 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
                 let frame = app.frame
                 guard landscape ? frame.width > frame.height : frame.width < frame.height else { return false }
                 guard keyboardVisible else { return true }
-                let enter = app.buttons["vime.key.return"]
+                let enter = app.keys["vime.key.return"]
                 let dismiss = app.buttons["vime.candidates.expand"]
                 return enter.exists && dismiss.exists && enter.frame.width >= 20 && dismiss.frame.width >= 20
                     && enter.isHittable && dismiss.isHittable
@@ -174,7 +181,7 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
             for round in 0..<6 {
                 if round == 1 {
                     XCUIDevice.shared.orientation = .landscapeLeft
-                    XCTAssertTrue(app.buttons["vime.key.return"].waitForExistence(timeout: 5))
+                    XCTAssertTrue(app.keys["vime.key.return"].waitForExistence(timeout: 5))
                     waitForOrientation(true, keyboardVisible: true)
                     XCUIDevice.shared.orientation = .portrait
                     waitForOrientation(false, keyboardVisible: true)
@@ -184,27 +191,27 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
                         ["Next keyboard", "下一键盘", "下一个键盘", "切换系统键盘", "次のキーボード"] as NSArray)).firstMatch
                     XCTAssertTrue(globe.exists)
                     globe.tap()
-                    XCTAssertTrue(app.buttons["vime.key.h"].waitForNonExistence(timeout: 5))
+                    XCTAssertTrue(app.keys["vime.key.h"].waitForNonExistence(timeout: 5))
                     try selectVimeKeyboard(in: app)
                 }
                 // Tall landscape keyboards can cover the host's controls.
                 // Exercise the keyboard's own dismissal action instead.
                 app.buttons["vime.candidates.expand"].tap()
-                XCTAssertTrue(app.buttons["vime.key.h"].waitForNonExistence(timeout: 5))
+                XCTAssertTrue(app.keys["vime.key.h"].waitForNonExistence(timeout: 5))
                 if round == 4 {
                     // Change orientation while the root has no keyboard tree.
                     XCUIDevice.shared.orientation = .landscapeRight
                     waitForOrientation(true, keyboardVisible: false)
                     editor.tap()
-                    XCTAssertTrue(app.buttons["vime.key.h"].waitForExistence(timeout: 5))
+                    XCTAssertTrue(app.keys["vime.key.h"].waitForExistence(timeout: 5))
                     waitForOrientation(true, keyboardVisible: true)
                     app.buttons["vime.candidates.expand"].tap()
-                    XCTAssertTrue(app.buttons["vime.key.h"].waitForNonExistence(timeout: 5))
+                    XCTAssertTrue(app.keys["vime.key.h"].waitForNonExistence(timeout: 5))
                     XCUIDevice.shared.orientation = .portrait
                     waitForOrientation(false, keyboardVisible: false)
                 }
                 editor.tap()
-                let reopened = app.buttons["vime.key.h"].waitForExistence(timeout: 5)
+                let reopened = app.keys["vime.key.h"].waitForExistence(timeout: 5)
                 if !reopened {
                     print("VIME_HEIGHT_RECONNECT_FAILURE factor=\(factor) round=\(round) \(app.debugDescription)")
                     let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
@@ -217,14 +224,14 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
                 }, object: root)
                 XCTAssertEqual(XCTWaiter.wait(for: [stableHeight], timeout: 5), .completed,
                     "Reconnecting after rotation must restore the saved portrait height")
-                XCTAssertTrue(app.buttons["vime.key.return"].isHittable)
+                XCTAssertTrue(app.keys["vime.key.return"].isHittable)
                 print("VIME_HEIGHT_RECONNECT factor=\(factor) round=\(round) input=\(root.frame)")
             }
             // Check background restoration last: on some simulator runtimes
             // subsequent synthesized taps wait for a missing animation notice.
             XCUIDevice.shared.press(.home)
             app.activate()
-            XCTAssertTrue(app.buttons["vime.key.h"].waitForExistence(timeout: 5))
+            XCTAssertTrue(app.keys["vime.key.h"].waitForExistence(timeout: 5))
             let resumedHeight = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
                 abs(root.frame.height - height) < 1
             }, object: root)
@@ -247,16 +254,16 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
         XCTAssertTrue(editor.waitForExistence(timeout: 10)); editor.tap()
         // Component tests can leave iOS's selected input mode on English.
         // Select the installed extension through the same globe UI as a user.
-        if !app.buttons["vime.key.h"].waitForExistence(timeout: 2) {
+        if !app.keys["vime.key.h"].waitForExistence(timeout: 2) {
             let globe = app.buttons.matching(NSPredicate(format: "label == %@ OR label == %@", "下一个键盘", "Next keyboard"))
             for _ in 0..<6 {
-                guard !app.buttons["vime.key.h"].exists, globe.firstMatch.exists else { break }
+                guard !app.keys["vime.key.h"].exists, globe.firstMatch.exists else { break }
                 globe.firstMatch.tap()
-                if app.buttons["vime.key.h"].waitForExistence(timeout: 2) { break }
+                if app.keys["vime.key.h"].waitForExistence(timeout: 2) { break }
             }
         }
-        XCTAssertTrue(app.buttons["vime.key.h"].waitForExistence(timeout: 5))
-        app.buttons["表情"].tap()
+        XCTAssertTrue(app.keys["vime.key.h"].waitForExistence(timeout: 5))
+        app.keys["vime.key.emoji"].tap()
         let grid = app.collectionViews["vime.symbols.grid"]
         let categories = app.scrollViews["vime.symbols.categories"]
         let modes = app.segmentedControls["vime.symbols.mode"]
@@ -323,7 +330,7 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
         drag(-100, -25); expectCategory(1)
         XCTAssertEqual(editor.value as? String, before + "👋(T_T)↑")
         app.buttons["vime.symbols.close"].tap()
-        XCTAssertTrue(app.buttons["vime.key.h"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.keys["vime.key.h"].waitForExistence(timeout: 3))
     }
 
     func testLandscapeMinimumHeightShowsAndTypesCompleteBottomRow() throws {
@@ -344,13 +351,13 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
         try selectVimeKeyboard(in: app)
         for round in 1...3 {
             XCUIDevice.shared.orientation = round == 2 ? .landscapeRight : .landscapeLeft
-            let space = app.buttons["vime.key.space"]
-            let enter = app.buttons["vime.key.return"]
+            let space = app.keys["vime.key.space"]
+            let enter = app.keys["vime.key.return"]
             let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "hittable == true"), object: enter)
             XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 5), .completed)
             XCTAssertTrue(space.isHittable)
-            let firstRow = app.buttons["vime.key.q"]
-            let lastFirstRow = app.buttons["vime.key.p"]
+            let firstRow = app.keys["vime.key.q"]
+            let lastFirstRow = app.keys["vime.key.p"]
             let brand = app.buttons["vime.brand.settings"]
             let mode = app.buttons["切换平假名和片假名"]
             let arrow = app.buttons["vime.candidates.expand"]
@@ -387,7 +394,7 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
                     "Only the key margin belongs inside Vime; UIKit owns the bottom area outside it")
             }
             let previous = editor.value as? String ?? ""
-            app.buttons["vime.key.a"].tap()
+            app.keys["vime.key.a"].tap()
             capture("candidate-strip")
             app.buttons["vime.candidates.expand"].tap()
             XCTAssertTrue(app.scrollViews["vime.candidates.panel"].waitForExistence(timeout: 3))
@@ -401,7 +408,7 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
             // The first return confirms the conversion; the second inserts a newline.
             enter.tap()
             XCTAssertEqual(editor.value as? String, previous + "あ\n")
-            app.buttons["表情"].tap()
+            app.keys["vime.key.emoji"].tap()
             let modes = app.segmentedControls["vime.symbols.mode"]
             XCTAssertTrue(modes.waitForExistence(timeout: 3))
             XCTAssertEqual(app.buttons["vime.symbols.close"].frame.maxX, keyPlaneRight, accuracy: 1)
@@ -418,11 +425,11 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
             attachment.lifetime = .keepAlways; add(attachment)
             XCUIDevice.shared.orientation = .portrait
             app.buttons["vime.extension.dismiss"].tap()
-            XCTAssertTrue(app.buttons["vime.key.h"].waitForNonExistence(timeout: 5))
+            XCTAssertTrue(app.keys["vime.key.h"].waitForNonExistence(timeout: 5))
             app.buttons["vime.extension.clear"].tap()
             XCTAssertEqual(editor.value as? String, "")
             app.buttons["vime.extension.focus"].tap()
-            XCTAssertTrue(app.buttons["vime.key.h"].waitForExistence(timeout: 5))
+            XCTAssertTrue(app.keys["vime.key.h"].waitForExistence(timeout: 5))
         }
     }
 
@@ -460,19 +467,19 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
         let editor = app.textViews["vime.extension.editor"]
         XCTAssertTrue(editor.waitForExistence(timeout: 10))
         editor.tap()
-        if !app.buttons["vime.key.h"].waitForExistence(timeout: 3) {
+        if !app.keys["vime.key.h"].waitForExistence(timeout: 3) {
             let globe = app.buttons.matching(NSPredicate(format: "label IN %@",
                 ["Next keyboard", "下一键盘", "下一个键盘", "切换系统键盘", "次のキーボード"] as NSArray)).firstMatch
             for _ in 0..<6 {
-                guard !app.buttons["vime.key.h"].exists, globe.exists else { break }
+                guard !app.keys["vime.key.h"].exists, globe.exists else { break }
                 globe.tap()
-                _ = app.buttons["vime.key.h"].waitForExistence(timeout: 1)
+                _ = app.keys["vime.key.h"].waitForExistence(timeout: 1)
             }
         }
-        XCTAssertTrue(app.buttons["vime.key.h"].exists, "The actual extension must be enabled in this simulator")
+        XCTAssertTrue(app.keys["vime.key.h"].exists, "The actual extension must be enabled in this simulator")
         let began = ProcessInfo.processInfo.systemUptime
         for cycle in 1...cycles {
-            XCTAssertTrue(app.buttons["vime.key.h"].exists, "Vime was replaced before cycle \(cycle)")
+            XCTAssertTrue(app.keys["vime.key.h"].exists, "Vime was replaced before cycle \(cycle)")
             let previous = editor.value as? String ?? ""
             let readings = [("hashi", "はし"), ("nihongo", "にほんご"),
                 ("ashitanokaiginisankashimasu", "あしたのかいぎにさんかします"), ("tennanhantenn", "てんあんはんてん")]
@@ -482,7 +489,7 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
             let (roman, kana) = mixedFeatures ? readings[(cycle - 1) % readings.count]
                 : (cycles >= 300 && cycle > 1 ? ("a", "あ") : readings[0])
             print("VIME_EXTENSION_PHASE cycle=\(cycle) phase=typing seconds=\(Int(ProcessInfo.processInfo.systemUptime - began))")
-            for character in roman { app.buttons["vime.key.\(character)"].tap() }
+            for character in roman { app.keys["vime.key.\(character)"].tap() }
             XCTAssertEqual(editor.value as? String, previous + kana)
             if mixedFeatures {
                 print("VIME_EXTENSION_PHASE cycle=\(cycle) phase=candidate_panel seconds=\(Int(ProcessInfo.processInfo.systemUptime - began))")
@@ -492,13 +499,13 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
                 panel.swipeUp()
                 app.buttons["vime.panel.close"].tap()
             }
-            if roman != "a" { app.buttons["vime.key.space"].tap() }
-            app.buttons["vime.key.return"].tap()
+            if roman != "a" { app.keys["vime.key.space"].tap() }
+            app.keys["vime.key.return"].tap()
             XCTAssertNotEqual(editor.value as? String, previous)
             XCTAssertEqual(app.staticTexts["vime.extension.marked"].label, "待确认文本：无")
             if mixedFeatures && cycle.isMultiple(of: 4) {
                 print("VIME_EXTENSION_PHASE cycle=\(cycle) phase=symbol_panel seconds=\(Int(ProcessInfo.processInfo.systemUptime - began))")
-                app.buttons["表情"].tap()
+                app.keys["vime.key.emoji"].tap()
                 let modes = app.segmentedControls["vime.symbols.mode"]
                 XCTAssertTrue(modes.waitForExistence(timeout: 3))
                 modes.buttons["颜文字"].tap()
@@ -508,7 +515,7 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
             let committed = editor.value as? String
             app.buttons["vime.extension.dismiss"].tap()
             let hidden = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"),
-                object: app.buttons["vime.key.h"])
+                object: app.keys["vime.key.h"])
             XCTAssertEqual(XCTWaiter.wait(for: [hidden], timeout: 5), .completed,
                 "Cycle \(cycle) must really close the extension")
             XCTAssertEqual(editor.value as? String, committed)
@@ -522,9 +529,13 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
                 XCUIDevice.shared.orientation = cycle.isMultiple(of: 12) ? .portrait : .landscapeLeft
             }
             app.buttons["vime.extension.focus"].tap()
+            // In landscape the button sits where the keyboard just was, and the
+            // first tap after dismissal never reaches the host (the editor stays
+            // unfocused); a second tap does. Retry once rather than fail there.
+            if !app.keys["vime.key.h"].waitForExistence(timeout: 5) { app.buttons["vime.extension.focus"].tap() }
             // Do not switch back using the globe after initial setup: fallback
             // to the native keyboard is a failure, not a recoverable test step.
-            XCTAssertTrue(app.buttons["vime.key.h"].waitForExistence(timeout: 5),
+            XCTAssertTrue(app.keys["vime.key.h"].waitForExistence(timeout: 5),
                 "Vime did not reopen at cycle \(cycle)")
             XCTAssertEqual(editor.value as? String, clearDocument ? "" : committed, "Reopening must preserve the host document")
             print("VIME_EXTENSION_LIFECYCLE ranking=\(ranking) constant_context=\(clearDocument) cycle=\(cycle) seconds=\(Int(ProcessInfo.processInfo.systemUptime - began))")

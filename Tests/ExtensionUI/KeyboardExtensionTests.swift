@@ -19,20 +19,20 @@ final class KeyboardExtensionTests: XCTestCase {
             image.lifetime = .keepAlways
             add(image)
         }
-        if !app.buttons["vime.key.t"].waitForExistence(timeout: 3) {
+        if !app.keys["vime.key.t"].waitForExistence(timeout: 3) {
             let globe = app.buttons.matching(NSPredicate(format:
                 "label IN %@", ["Next keyboard", "下一键盘", "下一个键盘", "切换系统键盘", "次のキーボード"] as NSArray))
             for _ in 0..<6 {
-                guard !app.buttons["vime.key.t"].exists, globe.firstMatch.exists else { break }
+                guard !app.keys["vime.key.t"].exists, globe.firstMatch.exists else { break }
                 globe.firstMatch.tap()
-                _ = app.buttons["vime.key.t"].waitForExistence(timeout: 1)
+                _ = app.keys["vime.key.t"].waitForExistence(timeout: 1)
             }
         }
-        guard app.buttons["vime.key.t"].exists else {
+        guard app.keys["vime.key.t"].exists else {
             XCTFail("Vime extension is not selected/enabled. Actual UI: \(app.debugDescription)")
             return
         }
-        for char in "tennanhantenn" { app.buttons["vime.key.\(char)"].tap() }
+        for char in "tennanhantenn" { app.keys["vime.key.\(char)"].tap() }
         app.buttons["vime.candidates.expand"].tap()
         func select(_ surface: String) throws {
             let label = "候选词：\(surface)"
@@ -124,31 +124,31 @@ final class KeyboardExtensionTests: XCTestCase {
         try expect("天安飯店", mark: "无")
         // Check ordinary preedit editing and final commit on the same actual
         // extension after segmented conversion, without changing input rules.
-        for char in "desu" { app.buttons["vime.key.\(char)"].tap() }
-        app.buttons["vime.key.delete"].tap()
+        for char in "desu" { app.keys["vime.key.\(char)"].tap() }
+        app.keys["vime.key.delete"].tap()
         try expect("天安飯店で", mark: "で")
-        app.buttons["vime.key.s"].tap()
-        app.buttons["vime.key.u"].tap()
-        app.buttons["vime.key.return"].tap()
+        app.keys["vime.key.s"].tap()
+        app.keys["vime.key.u"].tap()
+        app.keys["vime.key.return"].tap()
         try expect("天安飯店です", mark: "无")
         // Exercise conversion cancellation through the installed extension too.
         // XCTest taps do not guarantee the pending-request timing; the real
         // worker unit tests separately cover multiple spaces before delivery.
-        for char in "kan" { app.buttons["vime.key.\(char)"].tap() }
-        app.buttons["vime.key.space"].tap()
-        app.buttons["vime.key.delete"].tap()
+        for char in "kan" { app.keys["vime.key.\(char)"].tap() }
+        app.keys["vime.key.space"].tap()
+        app.keys["vime.key.delete"].tap()
         try expect("天安飯店ですかn", mark: "かn")
-        app.buttons["vime.key.a"].tap()
-        app.buttons["vime.key.return"].tap()
+        app.keys["vime.key.a"].tap()
+        app.keys["vime.key.return"].tap()
         try expect("天安飯店ですかな", mark: "无")
         // Select native width variants through the real extension's menu.
         // Opening it must preserve the host's current marked range.
-        for char in "gakkou" { app.buttons["vime.key.\(char)"].tap() }
+        for char in "gakkou" { app.keys["vime.key.\(char)"].tap() }
         app.buttons["vime.candidates.expand"].tap()
         try expect("天安飯店ですかながっこう", mark: "がっこう")
         try select("ｶﾞｯｺｳ")
         try expect("天安飯店ですかなｶﾞｯｺｳ", mark: "无")
-        for char in "abc" { app.buttons["vime.key.\(char)"].tap() }
+        for char in "abc" { app.keys["vime.key.\(char)"].tap() }
         app.buttons["vime.candidates.expand"].tap()
         try expect("天安飯店ですかなｶﾞｯｺｳあbc", mark: "あbc")
         try select("ａｂｃ")

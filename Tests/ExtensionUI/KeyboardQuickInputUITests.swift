@@ -43,7 +43,7 @@ final class KeyboardQuickInputUITests: XCTestCase {
         brand.tap()
         app.segmentedControls["vime.setting.numbers"].buttons["九宫格"].tap()
         brand.tap()
-        app.buttons["123"].tap()
+        app.keys["123"].tap()
         let rail = app.scrollViews["vime.numberSymbols"]
         XCTAssertTrue(rail.waitForExistence(timeout: 3))
         let before = app.textViews["vime.extension.editor"].value as? String
@@ -93,7 +93,7 @@ final class KeyboardQuickInputUITests: XCTestCase {
         func clipboardSetting(_ enabled: Bool) -> Bool {
             app.terminate(); app.launchArguments = []; app.launch()
             app.tabBars.buttons["设置"].tap()
-            app.buttons["vime.settings.clipboard"].tap()
+            app.openSettingsTile("vime.settings.clipboard")
             let toggle = app.switches["vime.settings.clipboard.enabled"]
             XCTAssertTrue(toggle.waitForExistence(timeout: 3))
             let previous = toggle.value as? String == "1"
@@ -119,18 +119,18 @@ final class KeyboardQuickInputUITests: XCTestCase {
             }
         }
         XCTAssertTrue(brand.exists)
-        if !app.buttons["ABC"].exists { app.buttons["123"].tap() }
+        if !app.keys["ABC"].exists { app.keys["123"].tap() }
         // Each run copies different real host events; persistent adjacent-text
         // suppression correctly hides an identical fixture on a second run.
         for digit in String(Int64(Date().timeIntervalSince1970 * 1000)) {
-            app.buttons["vime.number.\(digit)"].tap()
+            app.numberKey("\(digit)").tap()
         }
-        app.buttons["vime.key.return"].tap()
+        app.keys["vime.key.return"].tap()
         app.buttons["vime.extension.send"].tap()
         XCTAssertFalse(app.staticTexts["vime.extension.events"].label.isEmpty)
         // Copy through a real containing-app control; no test-only clipboard
         // injection or in-process KeyboardView stands in for the extension.
-        app.buttons["ABC"].tap()
+        app.keys["ABC"].tap()
         let copiedAt = ProcessInfo.processInfo.systemUptime
         app.buttons["复制测试记录"].tap()
         let preview = app.buttons["vime.clipboard.paste"]
@@ -182,7 +182,7 @@ final class KeyboardQuickInputUITests: XCTestCase {
         let app = XCUIApplication(); app.launch()
         XCTAssertTrue(app.tabBars.buttons["设置"].waitForExistence(timeout: 10))
         app.tabBars.buttons["设置"].tap()
-        app.buttons["vime.settings.clipboard"].tap()
+        app.openSettingsTile("vime.settings.clipboard")
         let toggle = app.switches["vime.settings.clipboard.enabled"]
         XCTAssertTrue(toggle.waitForExistence(timeout: 3))
         let originallyEnabled = toggle.value as? String == "1"
@@ -198,11 +198,14 @@ final class KeyboardQuickInputUITests: XCTestCase {
         let alert = app.alerts["开启自动读取剪贴板？"]
         XCTAssertTrue(alert.waitForExistence(timeout: 3))
         alert.buttons["取消"].tap()
+        XCTAssertTrue(alert.waitForNonExistence(timeout: 3))
         XCTAssertEqual(toggle.value as? String, "0")
         toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
         XCTAssertTrue(alert.waitForExistence(timeout: 3))
         alert.buttons["了解并开启"].tap()
-        XCTAssertEqual(toggle.value as? String, "1")
+        XCTAssertTrue(alert.waitForNonExistence(timeout: 3))
+        let enabled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == '1'"), object: toggle)
+        XCTAssertEqual(XCTWaiter.wait(for: [enabled], timeout: 3), .completed)
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "剪贴板开关授权完成"; screenshot.lifetime = .keepAlways; add(screenshot)
     }
@@ -212,7 +215,7 @@ final class KeyboardQuickInputUITests: XCTestCase {
         func setPairing(_ enabled: Bool) -> Bool {
             app.terminate(); app.launchArguments = []; app.launch()
             app.tabBars.buttons["设置"].tap()
-            app.buttons["vime.settings.symbols"].tap()
+            app.openSettingsTile("vime.settings.symbols")
             let toggle = app.switches["vime.settings.autoPairBrackets"]
             XCTAssertTrue(toggle.waitForExistence(timeout: 3))
             let previous = toggle.value as? String == "1"
@@ -227,17 +230,17 @@ final class KeyboardQuickInputUITests: XCTestCase {
             let editor = app.textViews["vime.extension.editor"]
             XCTAssertTrue(editor.waitForExistence(timeout: 10)); editor.tap()
             XCTAssertTrue(app.buttons["vime.brand.settings"].waitForExistence(timeout: 5))
-            if !app.buttons["ABC"].exists { app.buttons["123"].tap() }
+            if !app.keys["ABC"].exists { app.keys["123"].tap() }
             app.buttons["vime.quickSymbol.("].tap()
             if enabled {
                 XCTAssertEqual(editor.value as? String, "()")
                 app.buttons["vime.quickSymbol.("].tap()
-                app.buttons["vime.number.1"].tap()
+                app.numberKey("1").tap()
                 XCTAssertEqual(editor.value as? String, "((1))", "Input must stay inside nested pairs")
                 XCTAssertEqual(app.staticTexts["vime.extension.marked"].label, "待确认文本：1")
             } else {
                 XCTAssertEqual(editor.value as? String, "(")
-                app.buttons["vime.number.1"].tap()
+                app.numberKey("1").tap()
                 XCTAssertEqual(editor.value as? String, "(1")
             }
         }
@@ -265,24 +268,24 @@ final class KeyboardQuickInputUITests: XCTestCase {
             }
         }
         XCTAssertTrue(app.buttons["vime.brand.settings"].exists, "Vime must be selected")
-        if !app.buttons["ABC"].exists { app.buttons["123"].tap() }
+        if !app.keys["ABC"].exists { app.keys["123"].tap() }
         func one() -> XCUIElement {
-            let nineKey = app.buttons["vime.number.1"]
-            return nineKey.exists ? nineKey : app.buttons["1"].firstMatch
+            let nineKey = app.numberKey("1")
+            return nineKey.exists ? nineKey : app.keys["1"].firstMatch
         }
         for (index, expression, expected) in [(0, "1+1", "2"), (1, "1+1", "1+1=2"), (0, "12+34", "46")] {
             app.buttons["vime.extension.send"].tap()
             one().tap()
-            if expression == "12+34" { app.buttons["vime.number.2"].tap() }
-            let plus = app.buttons["vime.number.+"]
+            if expression == "12+34" { app.numberKey("2").tap() }
+            let plus = app.numberKey("+")
             if plus.exists { plus.tap() }
             else {
-                app.buttons["#+="].tap()
-                app.buttons["+"].firstMatch.tap()
-                app.buttons["123"].tap()
+                app.keys["#+="].tap()
+                app.keys["+"].firstMatch.tap()
+                app.keys["123"].tap()
             }
             if expression == "12+34" {
-                app.buttons["vime.number.3"].tap(); app.buttons["vime.number.4"].tap()
+                app.numberKey("3").tap(); app.numberKey("4").tap()
             } else { one().tap() }
             let result = app.buttons["vime.calculation.\(index)"]
             XCTAssertTrue(result.waitForExistence(timeout: 5))
@@ -293,5 +296,12 @@ final class KeyboardQuickInputUITests: XCTestCase {
             XCTAssertEqual(app.staticTexts["vime.extension.marked"].label, "待确认文本：无")
 
         }
+    }
+}
+
+private extension XCUIApplication {
+    /// Number-pad keys are keyboard keys; the number-symbol rail is plain buttons.
+    func numberKey(_ value: String) -> XCUIElement {
+        descendants(matching: .any).matching(identifier: "vime.number." + value).firstMatch
     }
 }

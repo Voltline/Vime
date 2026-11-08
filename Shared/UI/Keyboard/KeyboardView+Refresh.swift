@@ -150,7 +150,9 @@ extension KeyboardView {
         }
         if let index = session.selectedIndex, stripButtons.indices.contains(index), selectionChanged {
             candidateScroll.scrollRectToVisible(stripButtons[index].frame, animated: true)
-        } else if candidatesChanged && !preservesCandidatePositions && session.selectedIndex == nil {
+        } else if session.selectedIndex == nil && (selectionChanged || (candidatesChanged && !preservesCandidatePositions)) {
+            // Backspace out of a selection returns to the first candidate,
+            // even when the list itself is unchanged.
             candidateScroll.setContentOffset(.zero, animated: false)
         }
         // The retained list may belong to the previous input revision. Keep

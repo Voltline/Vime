@@ -105,6 +105,8 @@ protocol KeyboardInputSession: AnyObject {
     func setUndoesCommitOnBackspace(_ enabled: Bool)
     /// Japanese mode inserts a full-width space outside a composition.
     func setFullWidthSpace(_ enabled: Bool)
+    /// The preedit shows the best conversion while typing (ライブ変換).
+    func setLiveConversion(_ enabled: Bool)
     /// Japanese mode also offers kanji words typed by their Mandarin reading.
     func setPinyinLookupEnabled(_ enabled: Bool)
     /// The conversion just committed, which the toolbar offers to reconvert.
@@ -131,6 +133,7 @@ extension KeyboardInputSession {
     func setUndoesCommitOnBackspace(_ enabled: Bool) {}
     func space(alternateWidth: Bool) -> [KeyboardEdit] { space() }
     func setFullWidthSpace(_ enabled: Bool) {}
+    func setLiveConversion(_ enabled: Bool) {}
     func setPinyinLookupEnabled(_ enabled: Bool) {}
     var reconvertibleCommit: (text: String, reading: String)? { nil }
     func reconvertCommit() -> [KeyboardEdit] { [] }

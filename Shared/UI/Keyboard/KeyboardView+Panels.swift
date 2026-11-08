@@ -100,6 +100,7 @@ extension KeyboardView {
         view.onFeedback = { [weak self] in self?.playFeedback() }
         view.onNumberLayoutChange = { [weak self] in self?.rebuildKeys() }
         view.onOneHandedChange = { [weak self] in self?.reloadPreferences() }
+        view.onLiveConversionChange = { [weak self] in self?.reloadPreferences() }
         view.showsInputLanguage = quickSwitchLanguage != nil
         view.onInputLanguageChange = { [weak self] in self?.switchInputLanguage(to: $0) }
         view.onRetryNeural = { [weak self] in

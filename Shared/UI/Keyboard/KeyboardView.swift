@@ -48,6 +48,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         session.updateIntelligence(ranking: next.candidateRanking, suggestionsEnabled: next.phraseSuggestions)
         session.setUndoesCommitOnBackspace(next.undoConversionOnBackspace)
         session.setFullWidthSpace(next.fullWidthSpace)
+        session.setLiveConversion(next.liveConversion)
         session.setPinyinLookupEnabled(next.pinyinLookupInJapanese)
         applyNeuralRetry()
         if next.learningResetID != previous?.learningResetID {
@@ -115,6 +116,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         session.setUndoesCommitOnBackspace(preferences.undoConversionOnBackspace)
         session.setFullWidthSpace(preferences.fullWidthSpace)
         session.setPinyinLookupEnabled(preferences.pinyinLookupInJapanese)
+        session.setLiveConversion(preferences.liveConversion)
         applyNeuralRetry()
         session.onCommittedEdits = { [weak self] batch in
             guard let self, batch.hostEpoch == self.session.hostEpoch else { return }

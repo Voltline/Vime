@@ -7,6 +7,7 @@ final class KeyboardSettingsPanel: UIScrollView {
     private let shortcuts = UIStackView()
     private let history = UIButton(type: .custom)
     private let sound = UISwitch()
+    private let liveConversion = UISwitch()
     private let haptics = HapticIntensitySlider()
     private let hapticValue = UILabel()
     private let numbers = UISegmentedControl(items: ["九宫格", "全键盘"])
@@ -34,6 +35,7 @@ final class KeyboardSettingsPanel: UIScrollView {
     var onFeedback: (() -> Void)?
     var onNumberLayoutChange: (() -> Void)?
     var onOneHandedChange: (() -> Void)?
+    var onLiveConversionChange: (() -> Void)?
     var onInputLanguageChange: ((KeyboardInputLanguage) -> Void)?
     /// Only a keyboard that follows the stored language with Rime data bundled.
     var showsInputLanguage = false { didSet { inputLanguageGroup?.isHidden = !showsInputLanguage } }
@@ -121,6 +123,17 @@ final class KeyboardSettingsPanel: UIScrollView {
         let feedback = UIStackView(arrangedSubviews: [soundRow, separator(), hapticRow])
         feedback.axis = .vertical
         stack.addArrangedSubview(group(feedback))
+
+        // Live conversion is a matter of taste; try it without leaving the keyboard.
+        liveConversion.accessibilityLabel = String(localized: "实时转换")
+        liveConversion.accessibilityIdentifier = "vime.setting.liveConversion"
+        liveConversion.addAction(UIAction { [weak self] _ in
+            guard let self else { return }
+            self.preferences.liveConversion = self.liveConversion.isOn
+            self.onLiveConversionChange?()
+        }, for: .valueChanged)
+        stack.addArrangedSubview(group(row(symbol: "character.textbox",
+            content: [label(String(localized: "实时转换")), liveConversion], height: 44, adaptive: true)))
 
         numbers.accessibilityLabel = String(localized: "数字键盘布局"); numbers.accessibilityIdentifier = "vime.setting.numbers"
         numbers.setContentHuggingPriority(.required, for: .horizontal)
@@ -212,6 +225,7 @@ final class KeyboardSettingsPanel: UIScrollView {
 
     func update(hasFullAccess: Bool, neuralPaused: Bool) {
         sound.isOn = preferences.sound
+        liveConversion.isOn = preferences.liveConversion
         updateNumberSelection()
         oneHanded.selectedSegmentIndex = KeyboardOneHandedSide.allCases.firstIndex(of: preferences.oneHanded) ?? 0
         inputLanguage.selectedSegmentIndex = Self.languages.firstIndex(of: preferences.inputLanguage) ?? 0
@@ -230,6 +244,7 @@ final class KeyboardSettingsPanel: UIScrollView {
         labels.forEach { $0.textColor = KeyboardPalette.text }
         for item in [hapticValue, notice, neuralStatus] { item.textColor = KeyboardPalette.text.withAlphaComponent(0.6) }
         sound.onTintColor = KeyboardPalette.accent
+        liveConversion.onTintColor = KeyboardPalette.accent
         haptics.tintColor = KeyboardPalette.accent
         numbers.selectedSegmentTintColor = KeyboardPalette.accent.withAlphaComponent(0.16)
         numbers.setTitleTextAttributes([.foregroundColor: KeyboardPalette.text, .font: scaledFont(size: 13)], for: .normal)
