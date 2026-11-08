@@ -50,6 +50,8 @@ nonisolated final class PinyinKanjiLookup: @unchecked Sendable {
         let cost: Int
         let properNoun: Bool
         var usesRomaji: Bool { parts.contains { $0.mode == .romaji } }
+        /// How many typed letters the word spells.
+        var letterCount: Int { parts.reduce(0) { $0 + $1.letters.count } }
         /// Which characters used pinyin, e.g. 検[jian]察[satu] → "検·察" with
         /// pinyin on 検 only; for diagnostics and tests.
         var matchDescription: String {
@@ -132,6 +134,18 @@ nonisolated final class PinyinKanjiLookup: @unchecked Sendable {
     /// Words whose characters spell `input`, best first by `Match.ranks`.
     /// `input` is the raw typed letters; ü may be typed as v (or ü).
     func matches(for input: String, limit: Int = 24) -> [Match] {
+        search(input, prefixes: false, limit: limit)
+    }
+
+    /// Words of two or more characters that spell a beginning of `input`
+    /// exactly, shorter than the whole: jingjiwenti → 経済 (jingji), 競技.
+    /// Longest first, then by `Match.ranks`. Input past the maximum length
+    /// is cut, since only its beginning can matter.
+    func prefixMatches(for input: String, limit: Int = 24) -> [Match] {
+        search(String(input.prefix(Self.maximumInputLength)), prefixes: true, limit: limit)
+    }
+
+    private func search(_ input: String, prefixes: Bool, limit: Int) -> [Match] {
         var letters: [UInt8] = []
         letters.reserveCapacity(input.utf8.count)
         for scalar in input.unicodeScalars {
@@ -144,7 +158,7 @@ nonisolated final class PinyinKanjiLookup: @unchecked Sendable {
         }
         guard letters.count >= 2, letters.count <= Self.maximumInputLength else { return [] }
         return data.withUnsafeBytes { bytes in
-            var search = Search(lookup: self, bytes: bytes, input: letters)
+            var search = Search(lookup: self, bytes: bytes, input: letters, prefixes: prefixes)
             search.run()
             return search.results(limit: limit)
         }
@@ -156,20 +170,23 @@ nonisolated final class PinyinKanjiLookup: @unchecked Sendable {
         let lookup: PinyinKanjiLookup
         let bytes: UnsafeRawBufferPointer
         let input: [UInt8]
+        /// Collects words ending before the input does, instead of whole matches.
+        let prefixes: Bool
         // The path being explored, one entry per character.
         var characterIDs: [Int] = []
         var segmentIDs: [UInt16] = []
         var modes: [Mode] = []
         var ends: [Int] = []
         var historical = 0
+        /// Keyed by surface; with `prefixes`, by surface and length.
         var best: [String: Match] = [:]
         /// Surfaces reachable by romaji alone: plain Japanese input.
         var romajiOnly: Set<String> = []
         /// Bounds pathological input; real queries visit a few hundred edges.
         var budget = 200_000
 
-        init(lookup: PinyinKanjiLookup, bytes: UnsafeRawBufferPointer, input: [UInt8]) {
-            self.lookup = lookup; self.bytes = bytes; self.input = input
+        init(lookup: PinyinKanjiLookup, bytes: UnsafeRawBufferPointer, input: [UInt8], prefixes: Bool) {
+            self.lookup = lookup; self.bytes = bytes; self.input = input; self.prefixes = prefixes
         }
 
         func u32(_ section: Section, _ index: Int) -> Int {
@@ -235,8 +252,9 @@ nonisolated final class PinyinKanjiLookup: @unchecked Sendable {
                 if historical { self.historical -= 1 }
             }
             if end == input.count {
-                emit(node: node, partial: partial)
+                if !prefixes { emit(node: node, partial: partial) }
             } else {
+                if prefixes, characterIDs.count >= 2 { emit(node: node, partial: false) }
                 let first = u32(lookup.edgeStart, node), last = u32(lookup.edgeStart, node + 1)
                 for child in first..<last { visit(edge: child, at: end) }
             }
@@ -251,7 +269,8 @@ nonisolated final class PinyinKanjiLookup: @unchecked Sendable {
             let surface = String(String.UnicodeScalarView(characterIDs.compactMap {
                 UnicodeScalar(UInt32(u32(lookup.characters, $0 * 2)))
             }))
-            guard pinyin else { romajiOnly.insert(surface); return }
+            let key = prefixes ? "\(surface)\t\(ends.last ?? 0)" : surface
+            guard pinyin else { romajiOnly.insert(key); return }
             // Kana inside the word are typed in romaji, so pinyin → okurigana
             // is a switch too: 勝利 (sheng|ri) and 乗り (sheng|ri) tie on it.
             var switches = 0
@@ -262,7 +281,7 @@ nonisolated final class PinyinKanjiLookup: @unchecked Sendable {
                 last = pinyin
             }
             let total = Int(cost) + historical * PinyinKanjiLookup.historicalReadingPenalty
-            if let existing = best[surface], !Self.better(partial: partial, switches: switches, cost: total, than: existing) { return }
+            if let existing = best[key], !Self.better(partial: partial, switches: switches, cost: total, than: existing) { return }
             var parts: [Part] = []
             var start = 0
             for (index, id) in characterIDs.enumerated() {
@@ -271,7 +290,7 @@ nonisolated final class PinyinKanjiLookup: @unchecked Sendable {
                 start = ends[index]
             }
             let flags = bytes[lookup.nodeFlags.offset + node]
-            best[surface] = Match(surface: surface, reading: reading(node: node), parts: parts, partial: partial,
+            best[key] = Match(surface: surface, reading: reading(node: node), parts: parts, partial: partial,
                                   switches: switches, cost: total, properNoun: flags & 1 != 0)
         }
 
@@ -302,8 +321,10 @@ nonisolated final class PinyinKanjiLookup: @unchecked Sendable {
         }
 
         func results(limit: Int) -> [Match] {
-            let values = best.values.filter { !romajiOnly.contains($0.surface) }
-            return Array(values.sorted(by: Match.ranks).prefix(limit))
+            let values = best.filter { !romajiOnly.contains($0.key) }.values
+            return Array(values.sorted {
+                prefixes && $0.letterCount != $1.letterCount ? $0.letterCount > $1.letterCount : Match.ranks($0, before: $1)
+            }.prefix(limit))
         }
     }
 }

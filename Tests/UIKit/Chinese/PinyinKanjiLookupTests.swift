@@ -74,7 +74,8 @@ final class PinyinKanjiLookupTests: XCTestCase {
     /// gets a looser bound while its average must still meet the budget.
     func testTwelveLettersAreFast() throws {
         let lookup = try lookup()
-        let inputs = ["tushuguanjia", "jiansatsukan", "zhongguoren", "xinwenjizhe", "lvxingshe", "jingjixuejia"]
+        let inputs = ["tushuguanjia", "jiansatsukan", "zhongguoren", "xinwenjizhe", "lvxingshe", "jingjixuejia",
+                      "jingjiwentiyanjiu", "zhongguojingjifazhan"]
         _ = inputs.map { lookup.matches(for: $0) }
         var slowest = 0.0, total = 0.0, count = 0
         for input in inputs {
@@ -82,7 +83,8 @@ final class PinyinKanjiLookupTests: XCTestCase {
             for length in 2...input.count {
                 let prefix = String(input.prefix(length))
                 let start = CFAbsoluteTimeGetCurrent()
-                _ = lookup.matches(for: prefix)
+                // A keystroke with no whole word also looks for a beginning.
+                if lookup.matches(for: prefix).isEmpty { _ = lookup.prefixMatches(for: prefix) }
                 let elapsed = CFAbsoluteTimeGetCurrent() - start
                 slowest = max(slowest, elapsed); total += elapsed; count += 1
             }
@@ -131,7 +133,9 @@ final class PinyinKanjiLookupTests: XCTestCase {
             let session = type(input)
             XCTAssertEqual(session.candidateSnapshots.first?.text, word, "\(input) → \(session.candidates.prefix(6))")
             XCTAssertEqual(session.candidateSnapshots.first?.source, .pinyinLookup)
-            XCTAssertEqual(session.candidatePresentations.first?.rubyReading.map { !$0.isEmpty }, true)
+            // A false friend (新聞) shows its reading in the note instead.
+            let ruby = session.candidatePresentations.first?.rubyReading
+            XCTAssertEqual(ruby.map { !$0.isEmpty } ?? false, PinyinFalseFriends.shared[word] == nil, input)
         }
         // Both words read jiancha in Mandarin; both come before the engine's own.
         let session = type("jiancha")
@@ -202,6 +206,234 @@ final class PinyinKanjiLookupTests: XCTestCase {
         XCTAssertEqual(session.selectedText, "検察")
         XCTAssertEqual(session.enter(), [.insert("検察")])
         XCTAssertFalse(session.isComposing)
+    }
+
+    func testPinyinShowsTheTypedLettersAndConfirmCommitsThem() throws {
+        for input in ["jingji", "gongsi", "tushuguan", "xinwen"] {
+            let session = type(input)
+            XCTAssertTrue(session.showsPinyinLetters, input)
+            XCTAssertEqual(session.preedit, input)
+            XCTAssertEqual(session.confirm(), [.insert(input)])
+            XCTAssertFalse(session.isComposing)
+        }
+        // Letters stay once shown, through a backspace to a romaji-like prefix.
+        let session = type("jingji")
+        for _ in 0..<4 { _ = session.backspace() }
+        XCTAssertEqual(session.preedit, "ji")
+        XCTAssertEqual(type("jingji").enter(), [.insert("jingji")])
+        // Space still selects the word, which then shows in the preedit.
+        let spaced = type("jingji")
+        _ = spaced.space()
+        let word = try XCTUnwrap(spaced.selectedText)
+        XCTAssertEqual(spaced.preedit, word)
+        XCTAssertEqual(spaced.confirm(), [.insert(word)])
+    }
+
+    func testJapaneseKeepsTheKanaPreedit() throws {
+        for (input, kana) in [("konnnichiha", "こんにちは"), ("kensatsu", "けんさつ"), ("vaiorinn", "ゔぁいおりん"),
+                              ("kencha", "けんちゃ"), ("xtsu", "っ")] {
+            let session = type(input)
+            XCTAssertFalse(session.showsPinyinLetters, input)
+            XCTAssertEqual(session.preedit, kana)
+        }
+        let off = type("jingji", lookup: false)
+        XCTAssertNotEqual(off.preedit, "jingji")
+    }
+
+    func testFalseFriendTableParses() throws {
+        let table = PinyinFalseFriends(text: "# comment\n手紙\t信件\tトイレットペーパー\tといれっとぺーぱー\n先生\t老师\n\nbad\n")
+        XCTAssertEqual(table.count, 2)
+        XCTAssertEqual(table["手紙"]?.equivalent?.surface, "トイレットペーパー")
+        XCTAssertNil(table["先生"]?.equivalent)
+        XCTAssertGreaterThanOrEqual(PinyinFalseFriends.shared.count, 100, "PinyinFalseFriends.tsv is not bundled")
+        XCTAssertEqual(PinyinFalseFriends.shared["公司"]?.equivalent?.surface, "会社")
+    }
+
+    func testFalseFriendNotesItsMeaningAndTheJapaneseWordFollows() throws {
+        for (input, word, equivalent) in [("gongsi", "公司", "会社"), ("shouzhi", "手紙", "トイレットペーパー"),
+                                          ("zhangfu", "丈夫", "夫")] {
+            let session = type(input)
+            let texts = session.candidateSnapshots.map(\.text)
+            let index = try XCTUnwrap(texts.firstIndex(of: word), "\(input) → \(texts.prefix(10))")
+            XCTAssertEqual(texts[index + 1], equivalent, "\(input) → \(texts.prefix(10))")
+            let note = session.candidatePresentations[index], next = session.candidatePresentations[index + 1]
+            XCTAssertNil(note.rubyReading)
+            let meaning = try XCTUnwrap(PinyinFalseFriends.shared[word]?.meaning)
+            XCTAssertTrue(note.annotation?.contains(meaning) == true, "\(note.annotation ?? "nil")")
+            XCTAssertEqual(session.candidateSnapshots[index + 1].source, .pinyinLookup)
+            XCTAssertNil(next.rubyReading)
+            XCTAssertNotNil(next.annotation)
+            XCTAssertEqual(texts.filter { $0 == equivalent }.count, 1)
+        }
+        // Choosing the Japanese word commits it like any looked-up word.
+        let session = type("gongsi")
+        let token = try XCTUnwrap(session.candidatePresentations.first { $0.text == "会社" }?.selectionToken)
+        XCTAssertEqual(session.chooseCandidate(token), [.insert("会社")])
+        XCTAssertFalse(session.isComposing)
+        // Words outside the table keep the ruby.
+        XCTAssertNotNil(type("tushuguan").candidatePresentations.first?.rubyReading)
+    }
+
+    // MARK: Word by word
+
+    private func choose(_ word: String, in session: KeyboardSession, file: StaticString = #filePath, line: UInt = #line) throws -> [KeyboardEdit] {
+        let presentation = try XCTUnwrap(session.candidatePresentations.first { $0.text == word },
+                                         "\(word) not in \(session.candidates.prefix(10))", file: file, line: line)
+        return session.chooseCandidate(try XCTUnwrap(presentation.selectionToken, file: file, line: line))
+    }
+
+    func testPrefixMatchesTakeTheLongestPinyinBeginning() throws {
+        let matches = try lookup().prefixMatches(for: "jingjiwenti")
+        let first = try XCTUnwrap(matches.first)
+        XCTAssertEqual(first.letterCount, 6)
+        XCTAssertTrue(matches.contains { $0.surface == "経済" }, "\(matches.prefix(6).map(\.surface))")
+        XCTAssertTrue(matches.allSatisfy { $0.letterCount <= 11 })
+        // A whole word is no prefix, and one character is too short a word.
+        XCTAssertFalse(try lookup().prefixMatches(for: "jingji").contains { $0.letterCount == 6 })
+        XCTAssertFalse(try lookup().prefixMatches(for: "zhongx").contains { $0.surface.count < 2 })
+    }
+
+    func testARunOfPinyinIsChosenWordByWord() throws {
+        let session = type("jingjiwenti")
+        XCTAssertEqual(session.preedit, "jingjiwenti")
+        XCTAssertEqual(session.candidateSnapshots.first?.text, "経済", "\(session.candidates.prefix(8))")
+        XCTAssertEqual(session.candidateSnapshots.first?.fullConsumption, false)
+        XCTAssertEqual(try choose("経済", in: session), [.insert("経済")])
+        XCTAssertTrue(session.isComposing)
+        XCTAssertEqual(session.preedit, "wenti")
+        XCTAssertTrue(session.showsPinyinLetters)
+        XCTAssertEqual(session.candidateSnapshots.first?.text, "問題", "\(session.candidates.prefix(8))")
+        XCTAssertEqual(try choose("問題", in: session), [.insert("問題")])
+        XCTAssertFalse(session.isComposing)
+        XCTAssertNil(session.preedit)
+
+        let music = type("jingjiyinyue")
+        XCTAssertEqual(try choose("経済", in: music), [.insert("経済")])
+        XCTAssertEqual(music.preedit, "yinyue")
+        XCTAssertEqual(music.candidateSnapshots.first?.text, "音楽")
+        // A whole word for all the letters is offered whole, not split.
+        let china = type("zhongguojingji")
+        XCTAssertEqual(china.candidateSnapshots.first?.text, "中国経済")
+        XCTAssertTrue(china.candidateSnapshots.filter { $0.source == .pinyinLookup }.allSatisfy(\.fullConsumption))
+    }
+
+    func testSpaceShowsThePrefixWordWithTheRestAsTyped() throws {
+        let session = type("jingjiwenti")
+        _ = session.space()
+        XCTAssertEqual(session.selectedText, "経済")
+        XCTAssertEqual(session.preedit, "経済wenti")
+        XCTAssertEqual(session.enter(), [.insert("経済")])
+        XCTAssertEqual(session.preedit, "wenti")
+        // Backspace edits the remaining letters one by one.
+        _ = session.backspace()
+        XCTAssertEqual(session.preedit, "went")
+        // 確定 commits the remaining letters as typed.
+        XCTAssertEqual(session.confirm(), [.insert("went")])
+        XCTAssertFalse(session.isComposing)
+    }
+
+    func testPinyinShownBeforeLetsAPrefixFollow() throws {
+        // tushuguan showed letters, so tushuguank… goes on as pinyin.
+        let session = type("tushuguankaimen")
+        XCTAssertTrue(session.showsPinyinLetters)
+        XCTAssertEqual(session.candidateSnapshots.first?.text, "図書館", "\(session.candidates.prefix(8))")
+        XCTAssertEqual(try choose("図書館", in: session), [.insert("図書館")])
+        XCTAssertEqual(session.preedit, "kaimen")
+        // Without that context the same letters are Japanese.
+        let plain = type("kaimen")
+        XCTAssertFalse(plain.showsPinyinLetters)
+        XCTAssertFalse(plain.candidateSnapshots.contains { !$0.fullConsumption && $0.source == .pinyinLookup })
+    }
+
+    func testChoosingAPrefixTeachesNothingAndLeavesNoUndo() throws {
+        let session = type("jingjiwenti")
+        XCTAssertNil(session.candidateSnapshots.first?.preferenceScope)
+        _ = try choose("経済", in: session)
+        _ = try choose("問題", in: session)
+        XCTAssertFalse(type("keizai", lookup: false).candidates.isEmpty)
+        let again = type("jingjiwenti", lookup: false)
+        XCTAssertFalse(again.candidates.contains("経済"))
+    }
+
+    // MARK: Japanese input stays Japanese
+
+    /// Everyday Japanese typed in romaji, with words and sentences whose
+    /// letters also spell pinyin syllables (ji, jin, shi, an, ian…).
+    static let japaneseInputs = [
+        "kaishawoyameru", "watashihagakuseidesu", "kyouhaiitenkidesune", "ashitaaimasenka", "shinbunwoyomu",
+        "denwabangou", "toshokandebenkyousuru", "jinjabukyoku", "jinjiidou", "shianwomegurasu", "kianwotsukuru",
+        "jikanganai", "jidousha", "shigotowoshiteimasu", "nihongonobenkyou", "konbanhananiwotabemasuka",
+        "sumimasen", "arigatougozaimasu", "ohayougozaimasu", "yoroshikuonegaishimasu", "kanjiwokaku",
+        "ningen", "tenki", "gaikoku", "shanhai", "chuugoku", "pekin", "hanbaagaa", "kounyuu", "tenpura",
+        "henshuu", "senshu", "genki", "kinjo", "shinjuku", "ginza", "kyoto", "tanin", "jiken", "gian", "kian",
+        "shian", "anzen", "anshin", "renai", "deshou", "nanjinisuru", "vaiorinn", "xyaku", "maxtsutaku", "toukyouekimadeikimasu", "denshawonorikaeru", "maxtuta", "kaxtuta",
+    ]
+
+    private func readings(_ resource: String, key: String) throws -> [String] {
+        let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: resource, withExtension: "json"))
+        let object = try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any]
+        let cases = try XCTUnwrap(object?["cases"] as? [[String: Any]])
+        return cases.compactMap { $0[key] as? String }
+    }
+
+    /// Lookup on or off, every keystroke of Japanese input shows the same
+    /// preedit and the same Japanese candidates, and no word for a beginning
+    /// of the letters is ever offered.
+    private func assertJapaneseUnchanged(_ input: String, file: StaticString = #filePath, line: UInt = #line) -> Bool {
+        // Each session types on its own, as a user would.
+        let off = session(lookup: false)
+        var expected: [(preedit: String?, candidates: [String])] = []
+        for letter in input { _ = off.type(String(letter)); expected.append((off.preedit, off.candidates)) }
+        let on = session()
+        for (letter, expected) in zip(input, expected) {
+            _ = on.type(String(letter))
+            let prefixWord = on.candidateSnapshots.first { $0.source == .pinyinLookup && !$0.remainingComposition.isEmpty }
+            let japanese = on.candidateSnapshots.filter { $0.source != .pinyinLookup }.map(\.text)
+            guard on.preedit == expected.preedit, prefixWord == nil, !on.showsPinyinLetters,
+                  on.candidateSnapshots.first?.source != .pinyinLookup else {
+                XCTFail("\(input) at \(on.raw): preedit \(on.preedit ?? "nil") vs \(expected.preedit ?? "nil"), "
+                        + "prefix \(prefixWord?.text ?? "none"), first \(on.candidates.prefix(4)) vs \(expected.candidates.prefix(4))",
+                        file: file, line: line)
+                return false
+            }
+            // The engine's own order can vary between runs (面白い/面白え);
+            // that is no lookup effect, so it is only counted.
+            if japanese != expected.candidates { listDifferences += 1 }
+        }
+        // 確定 commits the same text.
+        XCTAssertEqual(on.confirm(), off.confirm(), input, file: file, line: line)
+        return true
+    }
+    private var listDifferences = 0
+
+    func testJapaneseSentencesAreUnchangedByTheLookup() {
+        for input in Self.japaneseInputs { _ = assertJapaneseUnchanged(input) }
+    }
+
+    func testEverydayBenchmarkIsUnchangedByTheLookup() throws {
+        let inputs = try readings("CandidateBenchmarkEveryday", key: "reading").compactMap(KeyboardCandidateBenchmarkTests.romaji)
+        XCTAssertGreaterThan(inputs.count, 200)
+        let failed = inputs.filter { !assertJapaneseUnchanged($0) }
+        print("PINYIN guard everyday: \(inputs.count - failed.count)/\(inputs.count) unchanged, \(listDifferences) later-list differences")
+    }
+
+    func testMixedSoundCorpusIsUnchangedByTheLookup() throws {
+        let inputs = try readings("MixedSoundCorpus", key: "input").compactMap(KeyboardCandidateBenchmarkTests.romaji)
+        XCTAssertGreaterThan(inputs.count, 100)
+        let failed = inputs.filter { !assertJapaneseUnchanged($0) }
+        print("PINYIN guard mixed: \(inputs.count - failed.count)/\(inputs.count) unchanged, \(listDifferences) later-list differences")
+    }
+
+    /// Typing pinyin, then Japanese after a commit, leaves no pinyin state behind.
+    func testPinyinStateEndsWithTheComposition() throws {
+        let session = type("jingjiwenti")
+        _ = try choose("経済", in: session)
+        _ = session.confirm()
+        for letter in "kaishawoyameru" { _ = session.type(String(letter)) }
+        let off = type("kaishawoyameru", lookup: false)
+        XCTAssertFalse(session.showsPinyinLetters)
+        XCTAssertEqual(session.preedit, off.preedit)
+        XCTAssertFalse(session.candidateSnapshots.contains { $0.source == .pinyinLookup && !$0.remainingComposition.isEmpty })
     }
 
     func testOtherCandidatesHaveNoRuby() throws {

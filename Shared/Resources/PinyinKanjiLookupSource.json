@@ -1,17 +1,17 @@
 {
   "schema": 2,
   "output": "PinyinKanjiLookup.bin",
-  "bytes": 1741030,
-  "sha256": "9e40fea85b85ef0c093bafa4700ed45fb0fd259f7b94e7f1f903f9a7e948f884",
+  "bytes": 2535619,
+  "sha256": "ef844d54f48a76ba393fe87e93b4664c506de261e662778ae7a81a0237da496b",
   "counts": {
-    "words": 81295,
-    "aligned": 73990,
-    "pinyinOnly": 7305,
-    "dropped": 79,
-    "characters": 4482,
-    "segments": 2573,
-    "spellings": 4443,
-    "nodes": 124113
+    "words": 125381,
+    "aligned": 116141,
+    "pinyinOnly": 9240,
+    "dropped": 99,
+    "characters": 4701,
+    "segments": 2716,
+    "spellings": 4664,
+    "nodes": 190993
   },
   "sources": {
     "lexicon": {
@@ -35,7 +35,7 @@
         "dictionary09.txt": "4e5fcd4cbfbf11395166a37b506f547fc54d20edc0884f5184ecd3fc705f0d9a",
         "id.def": "07a05a268c3783b7e02b36e4aa591555a2dd19a1f3c93891576740761c154f2d"
       },
-      "use": "part-of-speech ids: proper nouns downweighted, names and fragments dropped"
+      "use": "common words the lexicon leaves out; part-of-speech ids: proper nouns downweighted, names and fragments dropped"
     },
     "unihan": {
       "url": "https://www.unicode.org/Public/17.0.0/ucd/Unihan.zip",
@@ -71,6 +71,7 @@
   "policy": {
     "maximumCost": 9000,
     "maximumWordLength": 8,
+    "extraWords": "full Mozc dictionary words outside the lexicon, cost <= 7000, at most 2 kana",
     "properNounPenalty": {
       "1920": 1500,
       "1924": 1000,

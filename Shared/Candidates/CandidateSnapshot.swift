@@ -41,6 +41,8 @@ nonisolated struct CandidateSnapshot: Sendable {
     var explicitScope = false
     var displaySurface: String? = nil
     var widthVariant: CandidateWidthVariant? = nil
+    /// Looked-up words only: a false friend's meaning, or its Japanese equivalent.
+    var lookupNote: PinyinLookupNote? = nil
     var scopeFullConsumption: Bool { scopeReading.isEmpty ? fullConsumption : reading == scopeReading }
     var orthographyScore = 0.0
     var features = CandidateScoreFeatures()
@@ -77,12 +79,23 @@ nonisolated struct CandidateSnapshot: Sendable {
     var hasPersonalLearning: Bool { source == .rememberedConversion || hasLearningEvidence || userPreferenceScore != 0 }
     var presentation: CandidatePresentation {
         .init(text: text, source: source, consumedInputCount: consumedInputCount, correction: correction,
-            detailAnnotation: widthVariant.map { fullConsumption ? $0.annotation : String(localized: "\($0.annotation) · 部分转换") }
+            detailAnnotation: lookupNoteText ?? widthVariant.map { fullConsumption ? $0.annotation : String(localized: "\($0.annotation) · 部分转换") }
                 ?? (source == .specialConversion ? String(localized: "格式转换") : source == .emoji ? String(localized: "表情")
                 : source == .userDictionary ? "用户词典"
                 : source == .rememberedConversion ? String(localized: "个人记忆")
                 : !fullConsumption ? String(localized: "\(Self.hiraganaAnnotation(reading)) · 部分转换") : nil),
-            rubyReading: source == .pinyinLookup ? Self.hiraganaAnnotation(reading) : nil)
+            rubyReading: source == .pinyinLookup && lookupNote == nil ? Self.hiraganaAnnotation(reading) : nil)
+    }
+
+    /// A noted word shows its reading in the note line instead of as ruby.
+    private var lookupNoteText: String? {
+        lookupNote.map {
+            let reading = Self.hiraganaAnnotation(reading)
+            switch $0 {
+            case .falseFriend(let meaning): return String(localized: "\(reading) · 日语义：\(meaning)")
+            case .japaneseEquivalent: return String(localized: "\(reading) · 日语说法")
+            }
+        }
     }
 
     /// Presentations are rebuilt for every published list. A plain scalar shift

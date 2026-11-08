@@ -9,7 +9,8 @@ jiansatsu and kencha all reach it). See Shared/Chinese/PinyinKanjiLookup.swift.
 
 Sources (pinned; network required unless the cache already holds them):
 - Mozc dictionary_oss at the revision in DictionarySource.json (BSD-3-Clause):
-  part-of-speech ids, to downweight proper nouns and drop personal names.
+  common words the shipped lexicon leaves out, and part-of-speech ids, to
+  downweight proper nouns and drop personal names.
 - Unicode Unihan 17.0.0 (Unicode License v3): kMandarin, kXHC1983, kTGHZ2013
   (modern readings) and kHanyuPinyin (historical readings, ranked lower).
 - OpenCC (Apache-2.0) JPShinjitaiCharacters and TSCharacters: Japanese
@@ -60,6 +61,13 @@ PROPER_PENALTY = {
 }
 PERSON_NAMES = {1921, 1922, 1923}
 MAX_COST = 9000
+# Words the shipped lexicon leaves out (it keeps a reading's six best surfaces,
+# and only readings whose best word is common) come from the full Mozc
+# dictionary up to this cost: 合作, 答案, 夢想, 病人, 工廠. Above it, Mozc's
+# web-derived entries turn into Chinese phrases (什麼, 謝謝, 安全的).
+EXTRA_MAX_COST = 7000
+# More kana than this in an extra word is a phrase (お伺いを立てる), not a word.
+EXTRA_MAX_KANA = 2
 MAX_WORD_LENGTH = 8
 # Kokuji with readings in Chinese dictionaries that Chinese readers would not
 # know them by; other kokuji have only an editorial kMandarin and are caught by
@@ -362,22 +370,40 @@ NUMERALS = set("〇零一二三四五六七八九十百千万億兆京垓秭穣�
 
 
 def load_words(mozc, fragments, numbers):
+    """(surface, reading, cost, proper noun) for the shipped lexicon's kanji
+    words, plus common words from the full Mozc dictionary that it leaves out."""
+    def word_cost(surface, reading, fallback):
+        if not (1 <= len(surface) <= MAX_WORD_LENGTH) or not any(is_kanji(c) for c in surface):
+            return None, False
+        if not all(is_kanji(c) or is_hiragana(c) or is_katakana(c) or c in "々ヶ" for c in surface):
+            return None, False
+        # A counted word (三ヶ月, 一日, 二人) is 名詞,数 in Mozc but is a real
+        # word; only bare numerals (澗, 三百) stay dropped.
+        dropped = fragments - numbers if any(is_kanji(c) and c not in NUMERALS for c in surface) else fragments
+        return effective_cost(mozc.get((reading, surface), []), fallback, dropped)
+
     words = []
+    seen = set()
     for line in (RESOURCES / "JapaneseLexicon.tsv").read_text(encoding="utf-8").splitlines():
         fields = line.split("\t")
         reading = fields[0]
         for surface, cost in zip(fields[1::2], fields[2::2]):
-            if not (1 <= len(surface) <= MAX_WORD_LENGTH) or not any(is_kanji(c) for c in surface):
-                continue
-            if not all(is_kanji(c) or is_hiragana(c) or is_katakana(c) or c in "々ヶ" for c in surface):
-                continue
-            # A counted word (三ヶ月, 一日, 二人) is 名詞,数 in Mozc but is a real
-            # word; only bare numerals (澗, 三百) stay dropped.
-            dropped = fragments - numbers if any(is_kanji(c) and c not in NUMERALS for c in surface) else fragments
-            value, proper = effective_cost(mozc.get((reading, surface), []), int(cost), dropped)
+            seen.add((reading, surface))
+            value, proper = word_cost(surface, reading, int(cost))
             if value is None or value > MAX_COST:
                 continue
             words.append((surface, reading, value, proper))
+    for reading, surface in sorted(mozc):
+        # Single kanji stay as the lexicon has them: they also extend the
+        # reading inventory used for alignment.
+        if len(surface) < 2 or (reading, surface) in seen or not all(is_hiragana(c) or c == "ー" for c in reading):
+            continue
+        if sum(is_hiragana(c) or is_katakana(c) for c in surface) > EXTRA_MAX_KANA:
+            continue
+        value, proper = word_cost(surface, reading, None)
+        if value is None or value > EXTRA_MAX_COST:
+            continue
+        words.append((surface, reading, value, proper))
     return words
 
 
@@ -680,7 +706,7 @@ def main():
         "sources": {
             "lexicon": {"file": "JapaneseLexicon.tsv", "sha256": sha256((RESOURCES / "JapaneseLexicon.tsv").read_bytes())},
             "mozc": {"repository": "https://github.com/google/mozc/tree/" + revision + "/src/data/dictionary_oss", "revision": revision, "license": "BSD-3-Clause (Mozc); dictionary data under the NAIST IPAdic and ICOT terms in the Mozc LICENSE", "files": mozc_hashes,
-                     "use": "part-of-speech ids: proper nouns downweighted, names and fragments dropped"},
+                     "use": "common words the lexicon leaves out; part-of-speech ids: proper nouns downweighted, names and fragments dropped"},
             "unihan": {"url": UNIHAN_URL, "version": "17.0.0", "license": "Unicode-3.0", "sha256": sha256(unihan_data),
                        "fields": ["kMandarin", "kXHC1983", "kTGHZ2013", "kHanyuPinyin (secondary)"]},
             "opencc": {"repository": "https://github.com/BYVoid/OpenCC", "commit": OPENCC_COMMIT, "license": "Apache-2.0",
@@ -692,6 +718,7 @@ def main():
         },
         "policy": {
             "maximumCost": MAX_COST, "maximumWordLength": MAX_WORD_LENGTH,
+            "extraWords": f"full Mozc dictionary words outside the lexicon, cost <= {EXTRA_MAX_COST}, at most {EXTRA_MAX_KANA} kana",
             "properNounPenalty": {str(k): v for k, v in PROPER_PENALTY.items()}, "personalNames": "dropped",
             "fragments": "dropped: bare numerals (counted words such as 三ヶ月 kept), affixes, particles, inflected verb/adjective stems",
             "japaneseOnlyCharacters": "".join(sorted(JAPANESE_ONLY)) + " and characters with only kMandarin",
