@@ -55,3 +55,9 @@ __pycache__/
 
 # Candidate benchmark corpora built from external data, and reports
 /Artifacts/CandidateBenchmark/
+
+# Opened from its sealed copy at build time
+/Shared/Resources/LearningExclusions.bin
+
+# Reviewed Rime downweight list; only its hashes (rime_downweights.sha256) are committed.
+/Scripts/rime_downweights.txt

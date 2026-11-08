@@ -1,0 +1,9 @@
+Tatoeba Mandarin sentences (CC BY 2.0 FR)
+Project: https://tatoeba.org
+Source: https://downloads.tatoeba.org/exports/per_language/cmn/cmn_sentences.tsv.bz2 (export of 2026-11-07,
+SHA-256 262a48cacb7693f6e47a2c4c42f216a5c45dd28b9b62014b159628cc908e8fcc)
+License: CC BY 2.0 FR https://creativecommons.org/licenses/by/2.0/fr/
+Vime modifications: counted common short runs of words, such as 好的, into Scripts/rime_collocations.txt and
+added them to Vime's Rime pinyin dictionary by Scripts/build_rime_dicts.py; no sentence is included.
+
+

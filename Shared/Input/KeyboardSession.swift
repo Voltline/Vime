@@ -70,10 +70,26 @@ final class KeyboardSession: KeyboardInputSession {
         liveSurfaces = [:]
         if isComposing { refresh(); onCandidatesChange?() }
     }
-    private var convertsLive: Bool { liveConversion && mode == .hiragana }
+    /// Letters shown as pinyin are not romaji, so there is nothing to convert live.
+    private var convertsLive: Bool { liveConversion && mode == .hiragana && !showsPinyinLetters }
     /// Live text by reading, for this composition only. While a result is
     /// pending, the longest known prefix keeps its conversion on screen.
     private var liveSurfaces: [String: String] = [:]
+    /// 中日混输: kanji words typed by their Mandarin reading, or a per-character
+    /// mix of pinyin and romaji, join the candidates (PinyinLookupCandidates).
+    /// Off until the view sets it from KeyboardPreferences.pinyinLookupInJapanese,
+    /// so headless and test sessions keep the plain Japanese list. A change
+    /// refreshes the composition, except while a candidate is selected: that
+    /// list is frozen until the user commits or edits.
+    var pinyinLookupEnabled = false {
+        didSet {
+            guard oldValue != pinyinLookupEnabled, isComposing, selectedIndex == nil else { return }
+            refresh(); onCandidatesChange?()
+        }
+    }
+    func setPinyinLookupEnabled(_ enabled: Bool) { pinyinLookupEnabled = enabled }
+    /// The bundled table unless a test supplies another.
+    var pinyinLookup: PinyinKanjiLookup? = PinyinKanjiLookup.shared
     var reconvertibleCommit: (text: String, reading: String)? {
         guard !isComposing, let commit = undoableCommit else { return nil }
         return (commit.text, PreeditPresentation.kana(for: commit.reading, mode: mode))
@@ -180,10 +196,30 @@ final class KeyboardSession: KeyboardInputSession {
     var composition: String { PreeditPresentation.kana(for: composing, mode: mode) }
     var preedit: String? {
         if let live = livePreedit { return live }
-        let selection = selectedIndex.map {
-            candidateSnapshots[$0].text + PreeditPresentation.kana(for: candidateSnapshots[$0].remainingComposition, mode: mode)
+        let selection = selectedIndex.map { index -> String in
+            let snapshot = candidateSnapshots[index]
+            // A looked-up word for the first letters leaves the rest as typed.
+            if snapshot.source == .pinyinLookup, let rest = PinyinLookupCandidates.typedLetters(snapshot.remainingComposition) {
+                return snapshot.text + rest
+            }
+            return snapshot.text + PreeditPresentation.kana(for: snapshot.remainingComposition, mode: mode)
         }
+        if selection == nil, showsPinyinLetters { return raw }
         return PreeditPresentation.text(for: composing, mode: mode, selected: selection)
+    }
+    /// Letters typed as pinyin show as typed (jingji, not じんgじ), and 確定
+    /// commits them, as Return does in Chinese IMEs; Space still picks a word.
+    /// Once shown, letters stay for the rest of the composition, so the
+    /// preedit does not flip back to kana on the next key or backspace.
+    var showsPinyinLetters: Bool {
+        guard pinyinLookupEnabled, pinyinLookup != nil, mode != .english, conversionLength == nil, isComposing,
+              PinyinLookupCandidates.typedLetters(composing) != nil else { return false }
+        return pinyinLettersLatched || PinyinLookupCandidates.showsLetters(composing: composing,
+            lookupLeads: candidateSnapshots.first?.source == .pinyinLookup)
+    }
+    private var pinyinLettersLatched = false
+    private func latchPinyinLetters() {
+        pinyinLettersLatched = isComposing && showsPinyinLetters
     }
     var selectedText: String? { selectedIndex.map { candidateSnapshots[$0].text } }
 
@@ -339,7 +375,14 @@ final class KeyboardSession: KeyboardInputSession {
             return [.deleteBackward]
         }
         conversionLength = nil
-        composing.deleteBackwardFromCursorPosition(count: 1)
+        if showsPinyinLetters {
+            // Shown letters delete one letter, not the kana they made.
+            let letters = raw.dropLast()
+            composing = ComposingText()
+            for letter in letters { RomajiConverter.insert(String(letter), into: &composing) }
+        } else {
+            composing.deleteBackwardFromCursorPosition(count: 1)
+        }
         refresh()
         return []
     }
@@ -407,6 +450,28 @@ final class KeyboardSession: KeyboardInputSession {
         let reading = composing
         selectionLog.debug("Selection revision=\(self.revision) rank=\(index + 1) consumedKana=\(snapshot.consumedReadingCount) remainingKana=\(snapshot.remainingComposition.convertTarget.count) full=\(snapshot.fullConsumption) source=\(snapshot.source.rawValue, privacy: .public)")
         finishLearningFeedback()
+        if snapshot.source == .pinyinLookup {
+            // The word's reading is not the typed kana (jiancha is じあんちゃ,
+            // 検察 is けんさつ), so neither Japanese learning nor preference
+            // memory sees this commit: either would pair the wrong reading.
+            committedLeftContext = String((committedLeftContext + snapshot.text).suffix(96))
+            guard !snapshot.remainingComposition.isEmpty else {
+                reset(preservingContext: true)
+                requestSuggestions()
+                undoableCommit = (snapshot.text, reading)
+                return [.insert(snapshot.text)]
+            }
+            // A word for the first letters (jingji of jingjiwenti): the rest
+            // stays as typed pinyin and is looked up next.
+            engine?.reset(preservingContext: true)
+            worker?.reset(preservingContext: true)
+            undoableCommit = nil
+            conversionLength = nil
+            composing = snapshot.remainingComposition
+            pinyinLettersLatched = true
+            refresh(leftContextOverride: committedLeftContext)
+            return [.insert(snapshot.text)]
+        }
         if let event = beginLearningFeedback(text: snapshot.text, rank: index, kind: feedbackKind) {
             engine?.stageSelection(snapshot, event: event)
             worker?.stageSelection(snapshot, event: event)
@@ -534,7 +599,8 @@ final class KeyboardSession: KeyboardInputSession {
         // A live preedit still waiting for its result commits what it shows,
         // with a trailing n read as ん like the kana fallback.
         let live = livePreedit.map { PreeditPresentation.endsWithPendingN(composing) && $0.hasSuffix("n") ? String($0.dropLast()) + "ん" : $0 }
-        let text = selectedText ?? live ?? PreeditPresentation.kana(for: PreeditPresentation.finalized(composing), mode: mode)
+        let text = showsPinyinLetters ? raw
+            : selectedText ?? live ?? PreeditPresentation.kana(for: PreeditPresentation.finalized(composing), mode: mode)
         committedLeftContext = String((committedLeftContext + text).suffix(96))
         reset(preservingContext: true)
         requestSuggestions()
@@ -603,6 +669,7 @@ final class KeyboardSession: KeyboardInputSession {
         expandedCandidates = false
         liveSurfaces = [:]
         composing = ComposingText()
+        pinyinLettersLatched = false
         if !preservingContext { committedLeftContext = "" }
         engine?.reset(preservingContext: preservingContext)
         worker?.reset(preservingContext: preservingContext)
@@ -759,6 +826,17 @@ final class KeyboardSession: KeyboardInputSession {
         onCandidatesChange?()
     }
 
+    /// The engine's list for the current composition, with words found by
+    /// their Mandarin reading placed by PinyinLookupCandidates' tier rule. A
+    /// range-limited conversion converts only part of the reading, so it
+    /// gets none. The lookup takes well under a millisecond.
+    private func addingPinyinLookup(to values: [CandidateSnapshot], revision: Int) -> [CandidateSnapshot] {
+        guard pinyinLookupEnabled, mode != .english, conversionLength == nil, isComposing,
+              let pinyinLookup else { return values }
+        return PinyinLookupCandidates.merge(values, composing: composing, revision: revision, lookup: pinyinLookup,
+                                            pinyinContext: pinyinLettersLatched)
+    }
+
     private func refresh(boundary: Bool = false, leftContextOverride: String? = nil, startedAt: TimeInterval? = nil) {
         candidateRequestStartedAt = startedAt ?? KeyboardPerformance.start()
         revision += 1
@@ -791,8 +869,11 @@ final class KeyboardSession: KeyboardInputSession {
                 candidateSnapshots = engine?.addingPrefixCandidates(to: candidateSnapshots, for: composing,
                     katakana: mode == .katakana, revision: revision) ?? candidateSnapshots
             }
-            candidateSnapshots = liveOrdered(candidateSnapshots)
+            // Live order first: a looked-up word placed ahead of it then
+            // shows letters, which turns live conversion off.
+            candidateSnapshots = addingPinyinLookup(to: liveOrdered(candidateSnapshots), revision: revision)
             candidateListGeneration += 1
+            latchPinyinLetters()
             rememberLiveSurface()
             return
         }
@@ -808,7 +889,9 @@ final class KeyboardSession: KeyboardInputSession {
         candidateRequestCount += 1
         let requestedRevision = revision
         let requestedInput = raw
-        let continuity = candidateSnapshots.first.map { CandidateContinuity(surface: $0.text, reading: $0.reading, input: lastPublishedInput) }
+        // A word found by its Mandarin reading has another reading; the
+        // engine's own first choice is what it should keep stable.
+        let continuity = candidateSnapshots.first(where: { $0.source != .pinyinLookup }).map { CandidateContinuity(surface: $0.text, reading: $0.reading, input: lastPublishedInput) }
         worker.candidates(for: boundary ? PreeditPresentation.finalized(composing) : composing,
                           katakana: mode == .katakana, revision: requestedRevision, leftContext: leftContext, continuity: continuity,
                           ranking: candidateRanking, conversionLength: conversionLength, expanded: expandedCandidates) { [weak self] values, resultReadyAt, supplementary in
@@ -845,14 +928,16 @@ final class KeyboardSession: KeyboardInputSession {
             // remain valid because existing text/consumption/index cannot change.
             guard candidateSnapshots.map(\.presentation) != oldPresentations else { return }
         } else {
-            candidateSnapshots = liveOrdered(values)
+            // Supplements keep these in place like any other choice.
+            candidateSnapshots = addingPinyinLookup(to: liveOrdered(values), revision: requestedRevision)
             candidateListGeneration += 1
+            latchPinyinLetters()
             rememberLiveSurface()
         }
         if !supplementary {
-            if pendingSpaces > 0, !values.isEmpty {
-                let first = liveCandidate != nil && values.count > 1 ? 1 : 0
-                selectedIndex = (pendingSpaces - 1 + first) % values.count
+            if pendingSpaces > 0, !candidateSnapshots.isEmpty {
+                let first = liveCandidate != nil && candidateSnapshots.count > 1 ? 1 : 0
+                selectedIndex = (pendingSpaces - 1 + first) % candidateSnapshots.count
             }
             pendingSpaces = 0
             // A Return pressed before this result commits what it now shows.

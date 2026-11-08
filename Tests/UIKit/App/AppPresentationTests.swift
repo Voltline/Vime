@@ -55,6 +55,11 @@ final class AppPresentationTests: XCTestCase {
         XCTAssertEqual(status.modelShortVersion, "4.2")
     }
 
+    func testPreviewHoldDescribesTheTime() {
+        XCTAssertEqual(Vime.KeyboardFeedbackSettingsView.previewHoldDescription(0), String(localized: "松手即消失"))
+        XCTAssertEqual(Vime.KeyboardFeedbackSettingsView.previewHoldDescription(0.15), String(localized: "\(150) 毫秒"))
+    }
+
     func testSettingsSummaryDescribesRankingFeelAndSymbols() {
         var summary = Self.settingsSummary(status: nil)
         XCTAssertEqual(summary.rankingValue, "待使用")
@@ -214,7 +219,7 @@ final class AppPresentationTests: XCTestCase {
     }
     func testBundledComponentNoticesCoverOriginalBytesAndPolicyLoadsOffline() async throws {
         let catalog = try Vime.LicenseCatalog()
-        XCTAssertEqual(catalog.components.count, 14)
+        XCTAssertEqual(catalog.components.count, 32)
         let url = try XCTUnwrap(Bundle.main.url(forResource: "ThirdPartyNotices", withExtension: "txt"))
         let original = try String(contentsOf: url, encoding: .utf8)
         var sections: [(String.Index, String)] = []
@@ -257,6 +262,7 @@ final class AppPresentationTests: XCTestCase {
                              ("定制", AnyView(Vime.KeyboardSkinsView().environmentObject(Vime.AppRouter()))),
                              ("定制-大字", AnyView(Vime.KeyboardSkinsView().environmentObject(Vime.AppRouter()).environment(\.dynamicTypeSize, .accessibility1))),
                              ("定制-深色", AnyView(Vime.KeyboardSkinsView().environmentObject(Vime.AppRouter()).environment(\.colorScheme, .dark))),
+                             ("转换与联想", AnyView(Vime.KeyboardInputSettingsView())),
                              ("学习与隐私", AnyView(Vime.KeyboardDataPrivacyView())),
                              ("学习与隐私-大字", AnyView(Vime.KeyboardDataPrivacyView().environment(\.dynamicTypeSize, .accessibility1))),
                              ("剪贴板设置", AnyView(Vime.KeyboardClipboardSettingsView())),

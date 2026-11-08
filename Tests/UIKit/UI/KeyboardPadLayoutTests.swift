@@ -221,6 +221,43 @@ final class KeyboardPadLayoutTests: XCTestCase {
         }
     }
 
+    /// Home-button iPhones and the Duo have no system globe bar, so the keyboard
+    /// draws its own globe. It goes in the toolbar, not in a footer band.
+    func testPhoneWithoutSystemGlobeBarPutsTheGlobeInTheToolbar() throws {
+        for (width, compact) in [(CGFloat(375), false), (466, false), (667, true)] {
+            let suite = "VimePadLayoutTests." + UUID().uuidString
+            suites.append(suite)
+            let preferences = KeyboardPreferences(defaults: UserDefaults(suiteName: suite)!)
+            preferences.phraseSuggestions = false
+            let session = KeyboardSession()
+            let keyboard = KeyboardView(frame: .zero, session: session, preferences: preferences)
+            defer { keyboard.stopInteractions() }
+            keyboard.compact = compact; keyboard.showsFooter = false; keyboard.needsGlobe = true
+            keyboard.frame = CGRect(x: 0, y: 0, width: width, height: keyboard.preferredHeight(for: width))
+            keyboard.layoutIfNeeded()
+            let metrics = KeyboardMetrics(width: width, compact: compact, showsFooter: false)
+            XCTAssertEqual(metrics.footerHeight, 0)
+            XCTAssertEqual(keyboard.preferredHeight(for: width), metrics.height, accuracy: 0.001, "No band below the keys")
+
+            let globe = try XCTUnwrap(descendants(keyboard).first { $0.accessibilityLabel == "切换系统键盘" } as? UIButton)
+            let brand = try button("vime.brand.settings", in: keyboard)
+            XCTAssertFalse(globe.isHidden)
+            let slot = metrics.leadingToolbarFrame(index: 0)
+            XCTAssertEqual(globe.frame.minX, slot.minX, accuracy: 0.001)
+            XCTAssertEqual(globe.frame.midY, slot.midY, accuracy: 0.001)
+            XCTAssertEqual(globe.frame.width, slot.width, accuracy: 0.001)
+            XCTAssertEqual(brand.frame.minX, metrics.leadingToolbarFrame(index: 1).minX, accuracy: 0.001)
+            XCTAssertLessThanOrEqual(globe.frame.maxY, keyboard.header.frame.maxY)
+            XCTAssertTrue(keyboard.hitTest(CGPoint(x: globe.frame.midX, y: globe.frame.midY), with: nil) === globe)
+
+            _ = session.type("nihongo"); session.onCandidatesChange?(); keyboard.layoutIfNeeded()
+            let strip = frame(try view("vime.candidates", in: keyboard), in: keyboard)
+            XCTAssertFalse(globe.isHidden, "The globe stays available while composing")
+            XCTAssertGreaterThanOrEqual(strip.minX - globe.frame.midX, 22, "Candidates never cover the globe")
+            capture(keyboard, name: "phone-\(Int(width))-toolbar-globe")
+        }
+    }
+
     func testPhoneLayoutIsUnchangedAtIPadWidthsWithoutTheIPadFlag() {
         for width in [CGFloat(375), 440, 1032] {
             let phone = KeyboardMetrics(width: width, compact: false, showsFooter: false)

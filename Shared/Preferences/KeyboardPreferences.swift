@@ -26,7 +26,8 @@ struct KeyboardPreferences {
         FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroup) != nil ? UserDefaults(suiteName: appGroup) : nil
     }
     private static let sharedKeys = ["vime.sound", "vime.hapticLevel", "vime.hapticIntensity", "vime.nineKeyNumbers", "vime.kanaLayout",
-        "vime.prolongedKey", "vime.previews", "vime.theme", "vime.candidateRanking", "vime.phraseSuggestions", "vime.clipboardSuggestions", "vime.autoPairBrackets", "vime.autoCapitalize", "vime.doubleSpacePeriod", "vime.undoConversionOnBackspace", "vime.fullWidthSpace", "vime.liveConversion", "vime.textReplacements", "vime.englishCompletion", "vime.oneHanded", "vime.customSkinID", "vime.skinRevision", "vime.numberSymbols"]
+        "vime.prolongedKey", "vime.previews", "vime.previewHold", "vime.theme", "vime.candidateRanking", "vime.phraseSuggestions", "vime.clipboardSuggestions", "vime.autoPairBrackets", "vime.autoCapitalize", "vime.doubleSpacePeriod", "vime.undoConversionOnBackspace", "vime.fullWidthSpace", "vime.liveConversion", "vime.textReplacements", "vime.englishCompletion", "vime.oneHanded", "vime.customSkinID", "vime.skinRevision", "vime.numberSymbols", "vime.inputLanguage",
+        "vime.chineseInputEnabled", "vime.pinyinLookupInJapanese"]
     var store: UserDefaults { defaults }
     struct Snapshot: Equatable {
         let heightFactor: Double
@@ -36,6 +37,7 @@ struct KeyboardPreferences {
         let kanaLayout: Bool
         let prolongedKey: Bool
         let previews: Bool
+        let previewHold: Double
         let theme: KeyboardTheme
         let customSkinID: String
         let skinRevision: Int
@@ -54,16 +56,24 @@ struct KeyboardPreferences {
         let numberSymbols: [String]
         let neuralRetryID: String?
         let learningResetID: String?
+        let inputLanguage: KeyboardInputLanguage
+        let chineseInputEnabled: Bool
+        let pinyinLookupInJapanese: Bool
     }
     var snapshot: Snapshot {
         Snapshot(heightFactor: heightFactor, sound: sound, hapticIntensity: hapticIntensity,
             nineKeyNumbers: nineKeyNumbers, kanaLayout: kanaLayout, prolongedKey: prolongedKey, previews: previews,
+            previewHold: previewHold,
             theme: theme, customSkinID: customSkinID, skinRevision: skinRevision, candidateRanking: candidateRanking, phraseSuggestions: phraseSuggestions,
             clipboardSuggestions: clipboardSuggestions, autoPairBrackets: autoPairBrackets,
             autoCapitalize: autoCapitalize, doubleSpacePeriod: doubleSpacePeriod,
             undoConversionOnBackspace: undoConversionOnBackspace, fullWidthSpace: fullWidthSpace, liveConversion: liveConversion, textReplacements: textReplacements,
             englishCompletion: englishCompletion, oneHanded: oneHanded, numberSymbols: numberSymbols,
-            neuralRetryID: neuralRetryID, learningResetID: learningResetRequests.requestID)
+            neuralRetryID: neuralRetryID,
+            learningResetID: [learningResetRequests.requestID, learningResetRequests.chinese.requestID]
+                .map { $0 ?? "" }.joined(separator: "|"),
+            inputLanguage: inputLanguage, chineseInputEnabled: chineseInputEnabled,
+            pinyinLookupInJapanese: pinyinLookupInJapanese)
     }
     var heightFactor: Double {
         get {
@@ -93,6 +103,28 @@ struct KeyboardPreferences {
         get { defaults.object(forKey: "vime.nineKeyNumbers") as? Bool ?? true }
         nonmutating set { defaults.set(newValue, forKey: "vime.nineKeyNumbers") }
     }
+    /// The keyboard's primary language. Chinese needs the bundled Rime data
+    /// and Chinese input turned on; while it is off, a stored Chinese reads
+    /// as Japanese and comes back when Chinese input is turned on again.
+    var inputLanguage: KeyboardInputLanguage {
+        get {
+            let stored = KeyboardInputLanguage(rawValue: defaults.string(forKey: "vime.inputLanguage") ?? "") ?? .japanese
+            return stored == .chinese && !chineseInputEnabled ? .japanese : stored
+        }
+        nonmutating set { defaults.set(newValue.rawValue, forKey: "vime.inputLanguage") }
+    }
+    /// Offers Chinese pinyin input. Off, the keyboard is Japanese and English
+    /// only, as before Chinese input, and never starts the Rime engine.
+    var chineseInputEnabled: Bool {
+        get { defaults.object(forKey: "vime.chineseInputEnabled") as? Bool ?? true }
+        nonmutating set { defaults.set(newValue, forKey: "vime.chineseInputEnabled") }
+    }
+    /// Japanese mode: a kanji word's Mandarin pinyin, alone or mixed with
+    /// romaji, also finds it. Part of Chinese input, so false while that is off.
+    var pinyinLookupInJapanese: Bool {
+        get { chineseInputEnabled && (defaults.object(forKey: "vime.pinyinLookupInJapanese") as? Bool ?? true) }
+        nonmutating set { defaults.set(newValue, forKey: "vime.pinyinLookupInJapanese") }
+    }
     /// Japanese letters on a 12-key flick pad instead of romaji QWERTY.
     var kanaLayout: Bool {
         get { defaults.object(forKey: "vime.kanaLayout") as? Bool ?? false }
@@ -116,6 +148,15 @@ struct KeyboardPreferences {
     var previews: Bool {
         get { defaults.object(forKey: "vime.previews") as? Bool ?? true }
         nonmutating set { defaults.set(newValue, forKey: "vime.previews") }
+    }
+    /// Seconds a key preview stays after the finger lifts.
+    static let previewHoldRange: ClosedRange<Double> = 0...0.5
+    var previewHold: Double {
+        get { Self.clampedPreviewHold(defaults.object(forKey: "vime.previewHold") as? Double ?? 0) }
+        nonmutating set { defaults.set(Self.clampedPreviewHold(newValue), forKey: "vime.previewHold") }
+    }
+    static func clampedPreviewHold(_ value: Double) -> Double {
+        value.isFinite ? min(previewHoldRange.upperBound, max(previewHoldRange.lowerBound, value)) : 0
     }
     var theme: KeyboardTheme {
         get { KeyboardTheme(rawValue: defaults.string(forKey: "vime.theme") ?? "") ?? .system }

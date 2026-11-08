@@ -1,0 +1,16 @@
+# English words for mixed input in vime_pinyin, which lists this schema as a
+# dependency so that its dictionary is compiled with a plain speller, without
+# pinyin abbreviations. Scripts/build_rime_dicts.py generates the dictionary.
+schema:
+  schema_id: vime_english
+  name: Vime English
+  version: "1"
+engine:
+  translators:
+    - table_translator
+speller:
+  alphabet: zyxwvutsrqponmlkjihgfedcba
+  delimiter: " '"
+translator:
+  dictionary: vime_english
+  enable_completion: false
