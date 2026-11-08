@@ -4,7 +4,7 @@
 
 ![Platform](https://img.shields.io/badge/platform-iOS%2018%2B-blue) ![Swift](https://img.shields.io/badge/Swift-UIKit%20%2B%20SwiftUI-orange) ![License](https://img.shields.io/badge/license-GPL--3.0--or--later-green)
 
-Vime 是一款完全离线的 iOS 日语输入法。它支持罗马字 QWERTY 和假名九宫格两种布局，平假名、片假名和英文可以随时切换。假名汉字转换基于 [azooKey](https://github.com/azooKey/AzooKeyKanaKanjiConverter) 词典引擎，再由设备上的小型 Core ML 语言模型对候选重新排序，并在确认文字后给出下一词联想。转换、纠错、学习和联想都在本机完成，输入内容不会上传。
+Vime 是一款完全离线的 iOS 日语输入法，也可以用拼音输入简体或繁体中文。它支持罗马字 QWERTY 和假名九宫格两种布局，平假名、片假名和英文可以随时切换。假名汉字转换基于 [azooKey](https://github.com/azooKey/AzooKeyKanaKanjiConverter) 词典引擎，再由设备上的小型 Core ML 语言模型对候选重新排序，并在确认文字后给出下一词联想。中文拼音输入基于 [librime](https://github.com/rime/librime)。转换、纠错、学习和联想都在本机完成，输入内容不会上传。
 
 主 App 负责启用引导、试打练习、外观定制和各项设置；系统键盘扩展可在任何支持第三方键盘的 App 中使用。
 
@@ -22,10 +22,21 @@ Vime 是一款完全离线的 iOS 日语输入法。它支持罗马字 QWERTY �
 
 - **整句与分段转换**：展开候选后用 `−` / `+` 调整前段范围，确认前段后继续转换后段，正文只写入已确认的部分。
 - **撤销转换**：确认转换后，点候选栏开头的 ↩ 即可回到读音重新选择；也可在设置中改为按退格撤销。
+- **实时转换**（ライブ変換，默认关闭）：输入时直接显示转换结果，不用按空格；空格切换到下一个候选（次候補），回车会等结果出来再确认。可在设置或键盘快捷设置中开关。
 - **智能排序**：azooKey 生成候选，再由本地语言模型（INT8、仅 CPU）结合上文重新打分；也可改用纯词典排序。
 - **下一词联想**：确认文字后，空闲的候选栏会显示后续词，点击即可接着输入。
 - **纠错候选**：邻键误触、近音和有限的多音错误以候选形式出现，只有你选中时才会采用。
+- **日语中用拼音查词**（中日混输）：日语模式下按汉语拼音也能找到日语汉字词，例如 `jiancha` → 検察，拼音和罗马字也可以混着打；候选上方会标注假名读音。意思与中文不同的词（如 手紙）会注明它在日语里的意思，并在后面给出中文意思对应的日语词。可在设置中关闭。
 - **格式候选**：半角片假名（ｶﾞｯｺｳ）和全角英数字（ａｂｃ１２３）。
+
+### 中文输入
+
+- **拼音输入**：基于 librime 的全拼输入，支持整句输入、只打声母的简拼和未打完音节的补全，也能识别常见的邻键误触和字母顺序打反。
+- **中英混输**：同一串输入里可以直接打英文单词。
+- **简繁切换**：点工具栏上的「简 / 繁」按钮即可切换，繁体由 OpenCC 转换。
+- **中日切换**：上滑语言键即可在日语和中文之间切换，也可以在设置中选择；不需要时可在设置中关闭中文输入。
+- **本机学习**：选过的词会排得更靠前；上屏后马上按退格删掉，这次的学习也会一并撤销。中文学习记录可以单独清空。
+- 词库由多个开源词表和词频数据生成，来源见第三方声明。
 
 ### 效率工具
 
@@ -38,7 +49,7 @@ Vime 是一款完全离线的 iOS 日语输入法。它支持罗马字 QWERTY �
 ### 个性化
 
 - 内置多种外观，可自建皮肤：背景、按键图片和配色均可设置，以 `.vimeskin` 文件导入导出。
-- 键盘高度可拖动调节，按键声音和连续可调的振动强度。
+- 键盘高度可拖动调节，按键声音和连续可调的振动强度；按键预览的停留时间可在 0–500 毫秒之间调节。
 - 在本机学习你的选词习惯：长按候选可删除这个词的学习记录，也可随时一键清空。
 - **无障碍**：支持 VoiceOver（九宫格滑动和上滑符号可通过自定操作输入）、最大辅助功能字号、粗体文本和增强对比度。
 
@@ -73,11 +84,13 @@ Vime 是一款完全离线的 iOS 日语输入法。它支持罗马字 QWERTY �
 | 回车 / 確定 | 确认已选候选或当前假名；没有输入中的文字时执行宿主 App 的回车动作 |
 | 退格 / 长按退格 | 删除一个字符 / 连续删除 |
 | `あ` / `ア`、日英键 | 切换平片假名，或切换日英输入 |
+| 上滑语言键 | 在日语和中文之间切换 |
+| `简` / `繁` | 中文模式下切换简体和繁体 |
 | 字母上滑、横滑按键区、长按空格拖动 | 输入符号、移动光标 |
 | 数字键、表情键 | 打开数字页、分类符号或 Emoji 面板 |
-| 左上角 Vime 标志 | 快捷设置：剪贴板历史、声音与振动、数字布局 |
+| 左上角 Vime 标志 | 快捷设置：剪贴板历史、声音与振动、数字布局、实时转换、单手模式、输入语言 |
 
-候选质量受词典、上下文和查询时间预算影响，不保证每个词或每种误输入都能得到理想结果。目前不提供中文输入，也没有 macOS 版。
+候选质量受词典、上下文和查询时间预算影响，不保证每个词或每种误输入都能得到理想结果。目前没有 macOS 版。
 
 ## 隐私
 
@@ -93,7 +106,7 @@ Vime 是一款完全离线的 iOS 日语输入法。它支持罗马字 QWERTY �
 | `Keyboard/` | 键盘扩展入口 `KeyboardViewController` |
 | `Shared/` | App 与扩展共用：输入会话、候选引擎、语言模型、键盘 UI、设置和资源 |
 | `Tests/` | 引擎、候选、会话、UI 组件和扩展的 XCTest |
-| `Dependencies/` | 内置的 SentencePiece 分词器 |
+| `Dependencies/` | 内置的 SentencePiece 分词器，以及中文输入用的 librime（`VimeRime`） |
 | `Scripts/` | 资源生成、模型和 App 资源校验、可复现测试脚本 |
 | `Docs/` | 使用指南、开发流程和架构文档 |
 
@@ -118,4 +131,4 @@ python3 Scripts/validate_app_resources.py
 
 ## 许可与致谢
 
-Vime 以 [GPL-3.0-or-later](LICENSE) 许可发布，并依 GPLv3 第 7 条附加一项额外许可，允许在 App Store 等应用商店分发，条件是同时提供对应源代码，见 [LICENSE-EXCEPTION](LICENSE-EXCEPTION)。2026-10-22 之前的版本仍以 GPL-2.0-only 发布。随附的 [VimeML](https://github.com/Voltline/VimeML) 日语模型采用相同许可，训练语料的署名见第三方声明。假名汉字转换使用 [AzooKeyKanaKanjiConverter](https://github.com/azooKey/AzooKeyKanaKanjiConverter)，分词使用 [SentencePiece](https://github.com/google/sentencepiece)。第三方代码与数据的许可、致谢和来源见 [ThirdPartyNotices.txt](Shared/Resources/ThirdPartyNotices.txt)、[SentencePiece LICENSE](Dependencies/VimeSentencePiece/LICENSE) 和 [语言资源来源清单](Shared/Resources/LanguageResourceSources.json)，App 内「设置 → 关于 Vime → 开源组件与许可」也可查看完整原文。
+Vime 以 [GPL-3.0-or-later](LICENSE) 许可发布，并依 GPLv3 第 7 条附加一项额外许可，允许在 App Store 等应用商店分发，条件是同时提供对应源代码，见 [LICENSE-EXCEPTION](LICENSE-EXCEPTION)。2026-10-22 之前的版本仍以 GPL-2.0-only 发布。随附的 [VimeML](https://github.com/Voltline/VimeML) 日语模型采用相同许可，训练语料的署名见第三方声明。假名汉字转换使用 [AzooKeyKanaKanjiConverter](https://github.com/azooKey/AzooKeyKanaKanjiConverter)，分词使用 [SentencePiece](https://github.com/google/sentencepiece)。中文输入使用 [librime](https://github.com/rime/librime) 和 [OpenCC](https://github.com/BYVoid/OpenCC)，拼音词库含 CC BY-SA 4.0 数据，并以同一许可分发。第三方代码与数据的许可、致谢和来源见 [ThirdPartyNotices.txt](Shared/Resources/ThirdPartyNotices.txt)、[SentencePiece LICENSE](Dependencies/VimeSentencePiece/LICENSE) 和 [语言资源来源清单](Shared/Resources/LanguageResourceSources.json)，App 内「设置 → 关于 Vime → 开源组件与许可」也可查看完整原文。
