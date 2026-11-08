@@ -1,10 +1,10 @@
 __build_info:
   rime_version: vime
   timestamps:
-    default: 1794057789
+    default: 1794103026
     default.custom: 0
     vime_pinyin.custom: 0
-    vime_pinyin.schema: 1794057789
+    vime_pinyin.schema: 1794103026
 engine:
   filters:
     - uniquifier

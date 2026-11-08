@@ -216,27 +216,51 @@
     "noticeFile": "cedict"
   },
   {
-    "id": "jieba",
-    "name": "jieba",
+    "id": "tencent",
+    "name": "Tencent AI Lab Embedding Corpus",
+    "use": "中文词语与词频排序",
+    "category": "语言与表情数据",
+    "license": "CC BY 3.0",
+    "copyright": "Tencent AI Lab",
+    "source": "https://ai.tencent.com/ailab/nlp/en/embedding.html",
+    "revision": "v0.2.0",
+    "modified": "只取词表及其顺序，不含词向量；取前 40 万个二至六字词编入拼音词库",
+    "noticeFile": "tencent"
+  },
+  {
+    "id": "essay",
+    "name": "rime-essay-simp",
     "use": "中文词频",
     "category": "语言与表情数据",
-    "license": "MIT",
-    "copyright": "Sun Junyi",
-    "source": "https://github.com/fxsjy/jieba",
-    "revision": "67fa2e36e72f69d9134b8a1037b83fbb070b9775",
-    "modified": "取 dict.txt 的词频，计算候选词的排序",
-    "noticeFile": "jieba"
+    "license": "LGPL-3.0",
+    "copyright": "RIME Developers",
+    "source": "https://github.com/rime/rime-essay-simp",
+    "revision": "dc06d4c96ae72ad46b29e3aa824a5d1e8f721fd0",
+    "modified": "取词语与词频，计算候选词的排序",
+    "noticeFile": "essay"
+  },
+  {
+    "id": "changyong",
+    "name": "现代汉语常用词表",
+    "use": "常用词语、读音与排序",
+    "category": "语言与表情数据",
+    "license": "None stated",
+    "copyright": "Ministry of Education of China (2008); transcribed by indiejoseph",
+    "source": "https://gist.github.com/indiejoseph/eae09c673460aa0b56db",
+    "revision": "ac66c1900b048e3c72a4388b2304893ca3b9a571",
+    "modified": "取词语、读音与词序，编入拼音词库",
+    "noticeFile": "changyong"
   },
   {
     "id": "wordfreq",
     "name": "wordfreq",
-    "use": "中英文词频",
+    "use": "英文词频",
     "category": "语言与表情数据",
     "license": "CC BY-SA 4.0",
     "copyright": "Robyn Speer",
     "source": "https://github.com/rspeer/wordfreq",
     "revision": "912caf64b657478d1dff1138efdc078947d54bb1",
-    "modified": "取中文与英文词频数据，计算候选词的排序",
+    "modified": "取英文词频数据，计算英文候选词的排序",
     "noticeFile": "wordfreq"
   },
   {

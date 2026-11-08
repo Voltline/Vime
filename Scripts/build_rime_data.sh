@@ -6,7 +6,7 @@
 # The schemas live in Dependencies/VimeRime/Schema. Scripts/build_rime_dicts.py
 # generates the pinyin and English dictionaries from sources pinned to a commit
 # or a SHA-256 and writes SOURCE.txt; Dependencies/VimeRime/UPSTREAM.md lists
-# them with their licenses. The first run downloads about 35 MB into the cache
+# them with their licenses. The first run downloads about 150 MB into the cache
 # (default /private/tmp/vime-rime-sources; set HTTPS_PROXY if needed), and later
 # runs work offline from it. The same sources give the same dictionaries.
 #

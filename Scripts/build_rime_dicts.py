@@ -23,10 +23,18 @@ Sources and licenses:
       polyphonic character's weight between its readings.
   mozillazg/phrase-pinyin-data (MIT): phrase readings (pinyin.txt), so a
       polyphonic character inside a word gets the word's reading. Its
-      cc_cedict.txt, derived from CC-CEDICT (CC BY-SA 4.0), adds readings and
-      words the MIT list lacks.
-  fxsjy/jieba dict.txt (MIT): words with corpus counts.
-  rspeer/wordfreq (data CC BY-SA 4.0): Chinese and English word frequencies.
+      cc_cedict.txt, derived from CC-CEDICT (CC BY-SA 4.0), adds readings the
+      MIT list lacks.
+  Tencent AI Lab Embedding Corpus for Chinese Words and Phrases v0.2.0 (CC BY
+      3.0): its 12 million words and phrases in order of frequency on the web,
+      the main vocabulary and frequency source (its top 400,000 words of two
+      to six characters). Tencent no longer hosts it;
+      the vocabulary file is taken from a mirror pinned by SHA-256.
+  rime/rime-essay-simp (LGPL-3.0): word counts of Rime's default vocabulary.
+  现代汉语常用词表 (2008) as a word list with readings and frequency ranks
+      (gist indiejoseph/eae09c673460aa0b56db; no license stated): readings,
+      and frequencies from a balanced corpus.
+  rspeer/wordfreq (data CC BY-SA 4.0): English word frequencies.
   en-wl/wordlist, the English Speller Database formerly SCOWL (MIT-like): the
       English vocabulary up to size 70 and its capitalization.
   Tatoeba Mandarin sentences (CC BY 2.0 FR): short runs of words common in
@@ -63,7 +71,7 @@ SOURCES = {
     "pinyin-data": ("mozillazg/pinyin-data", "fe29ad32bdf352b31a02b9936e537f575432e9a6", "2026-11-01", "MIT"),
     "phrase-pinyin-data": ("mozillazg/phrase-pinyin-data", "4afa3226ce53c9138b939e83c3bb294dbe0da511", "2026-11-01",
                            "MIT; cc_cedict.txt CC BY-SA 4.0"),
-    "jieba": ("fxsjy/jieba", "67fa2e36e72f69d9134b8a1037b83fbb070b9775", "2020-02-15", "MIT"),
+    "essay": ("rime/rime-essay-simp", "dc06d4c96ae72ad46b29e3aa824a5d1e8f721fd0", "2022-01-14", "LGPL-3.0"),
     "wordfreq": ("rspeer/wordfreq", "912caf64b657478d1dff1138efdc078947d54bb1", "2025-01-04", "data CC BY-SA 4.0"),
     "wordlist": ("en-wl/wordlist", "1e5b7d3a72f47a71da5d28686c1dd4b397178485", "2026-06-24", "MIT-like"),
 }
@@ -72,8 +80,7 @@ FILES = {
     "mandarin": ("pinyin-data", "kMandarin_8105.txt"),
     "phrases": ("phrase-pinyin-data", "pinyin.txt"),
     "cedict": ("phrase-pinyin-data", "cc_cedict.txt"),
-    "jieba": ("jieba", "jieba/dict.txt"),
-    "wordfreq_zh": ("wordfreq", "wordfreq/data/large_zh.msgpack.gz"),
+    "essay": ("essay", "essay-zh-hans.txt"),
     "wordfreq_en": ("wordfreq", "wordfreq/data/large_en.msgpack.gz"),
     "scowl": ("wordlist", "data/scowl-pre.txt"),
 }
@@ -82,6 +89,22 @@ FILES = {
 # --refresh-tatoeba downloads the current export and counts again.
 TATOEBA = ("https://downloads.tatoeba.org/exports/per_language/cmn/cmn_sentences.tsv.bz2", "CC BY 2.0 FR")
 COLLOCATIONS = Path(__file__).resolve().parent / "rime_collocations.txt"
+# Spam from Tencent's web text (porn and gambling site names and the like),
+# reviewed by hand; these words drop to the lowest word frequency. The
+# reviewed list itself (DOWNWEIGHTS, one word per line, a tab and the
+# category) stays out of the repository; only salted hashes of its words are
+# committed (DOWNWEIGHT_HASHES), which is all the build needs to match them.
+# After editing the list, run --hash-downweights.
+DOWNWEIGHTS = Path(__file__).resolve().parent / "rime_downweights.txt"
+DOWNWEIGHT_HASHES = Path(__file__).resolve().parent / "rime_downweights.sha256"
+DOWNWEIGHT_SALT = "vime-rime-downweight:"
+TENCENT = ("https://huggingface.co/conanyu/tencent-ailab-embedding-zh-d200-v0.2.0-optim/resolve/"
+           "26b432a69cca98e291a76b6e8e8890f3527b67b5/tencent-ailab-embedding-zh-d200-v0.2.0-key.txt",
+           "v0.2.0 vocabulary", "9f4de2a6fcdd79692f172b6cf65078ced619919fd60e80c031f61bf13ac5e58a", "CC BY 3.0")
+CHANGYONG = ("https://gist.githubusercontent.com/indiejoseph/eae09c673460aa0b56db/raw/"
+             "b3a10af0119b28514cfc694485a317b272f3ab1a/%E7%8E%B0%E4%BB%A3%E6%B1%89%E8%AF%AD%E5%B8%B8%E7%94%A8%E8%AF%8D%E8%A1%A8.txt",
+             "gist revision ac66c1900b048e3c72a4388b2304893ca3b9a571",
+             "8e16b3e1c40593bfa81e18f285ecc830a349629877d45bdd033c2dd5b77783cb", "no license stated")
 UNIHAN = ("https://www.unicode.org/Public/18.0.0/ucd/Unihan.zip", "Unicode 18.0.0",
           "4c93ea9c1f636451729a840978f1667a53886af37ba854fdcce109721c63d43e", "Unicode License V3")
 
@@ -95,12 +118,21 @@ IN_WORD_SHARE = 0.02
 # Frequencies (per 1e8 words) for entries no corpus counts.
 FLOOR_WORD = 0.3
 FLOOR_CHAR = 0.05
-# wordfreq's share in a frequency both lists have: it counts subtitles and
-# social media, so it is closer to what people type than jieba's news corpus.
-WORDFREQ_SHARE = 0.7
-# A word only wordfreq has is often a tokenizer fragment such as 号的, so it
-# needs a reading from the phrase lists, and it counts at half.
+# The frequency of the most common character (的): its weight stays below the
+# 1e8 that learned words reach.
+TOP_FREQUENCY = 2.8e6
+# Each source's share in the logarithm of a frequency several give. Tencent's
+# web text is closest to what people type; essay is curated; the 2008 list
+# comes from a balanced but more formal corpus.
+SOURCE_SHARES = {"tencent": 0.5, "essay": 0.35, "changyong": 0.15}
+# Tencent words beyond this rank (among Chinese entries) are left out unless
+# another source lists them, as are longer ones.
+TENCENT_LIMIT = 400_000
+TENCENT_LENGTH = 6
 MAX_WORD_LENGTH = 10
+# A word no phrase list reads takes its characters' readings only where one
+# reading has this share of the character's use.
+DOMINANT_READING = 0.9
 # Tatoeba runs of words: at most this many characters, seen this often, with
 # this share of their frequency in the sentences.
 COLLOCATION_LENGTH = 4
@@ -271,14 +303,60 @@ def load_phrases(key, cache, charset, valid):
     return phrases
 
 
-def load_jieba(cache):
+def load_essay(cache):
+    """Word -> frequency from essay's counts, scaled so the most common entry
+    has TOP_FREQUENCY."""
     counts = {}
-    for line in lines(source("jieba", cache)):
-        parts = line.split()
-        if len(parts) >= 2:
+    for line in lines(source("essay", cache)):
+        parts = line.split("\t")
+        if len(parts) == 2 and parts[1].isdigit():
             counts[parts[0]] = counts.get(parts[0], 0) + int(parts[1])
-    total = sum(counts.values())
-    return {word: count * 1e8 / total for word, count in counts.items()}
+    top = max(counts.values())
+    return {word: count * TOP_FREQUENCY / top for word, count in counts.items()}
+
+
+def load_tencent(cache, charset):
+    """Chinese words in Tencent's frequency order."""
+    words, seen = [], set()
+    for raw in fetch(TENCENT[0], cache, TENCENT[2]).split(b"\n"):
+        word = raw.decode("gb18030", "replace").strip()
+        if word and word not in seen and all(c in charset for c in word):
+            seen.add(word)
+            words.append(word)
+    return words
+
+
+def numbered_syllable(text):
+    """Pinyin with a tone number (lv4, nue4, Zhong1) -> Rime spelling."""
+    text = re.sub(r"[0-9]", "", text.strip().lower()).replace("u:", "v")
+    return re.sub(r"^([nl])ue$", r"\1ve", text) or None
+
+
+def load_changyong(cache, charset, valid):
+    """Word -> (readings, frequency rank) from 现代汉语常用词表."""
+    table = {}
+    for line in fetch(CHANGYONG[0], cache, CHANGYONG[2]).decode("utf-8").splitlines():
+        parts = line.strip().split("\t")
+        if len(parts) != 3 or not parts[2].isdigit() or any(c not in charset for c in parts[0]):
+            continue
+        word, spelled = parts[0], [numbered_syllable(v) for v in parts[1].split("'")]
+        readings, rank = table.get(word, ([], int(parts[2])))
+        if len(spelled) == len(word) and all(v in valid for v in spelled):
+            reading = " ".join(spelled)
+            if reading not in readings:
+                readings.append(reading)
+        table[word] = (readings, min(rank, int(parts[2])))
+    return table
+
+
+def rank_scale(ranked, reference):
+    """Maps a frequency rank to the frequency of the word with that rank in
+    `reference` (word -> frequency), so ranked lists share essay's scale.
+    Ranks past the reference follow Zipf's law from its last word."""
+    values = sorted(reference.values(), reverse=True)
+    last = len(values)
+    return {word: values[rank] if rank < last else values[-1] * last / (rank + 1)
+            for rank, word in enumerate(ranked)}
 
 
 def weight(frequency):
@@ -297,18 +375,30 @@ def build_chinese(cache, refresh_tatoeba=False):
             del readings[char]  # only m, n or ng
     phrases = load_phrases("phrases", cache, charset, valid)
     cedict = load_phrases("cedict", cache, charset, valid)
-    jieba = load_jieba(cache)
-    wordfreq = wordfreq_table(source("wordfreq_zh", cache))
+    essay = load_essay(cache)
+    tencent_order = load_tencent(cache, charset)
+    changyong = load_changyong(cache, charset, valid)
+    # Characters and words each follow their own order in the ranked lists.
+    sources = {"essay": essay}
+    for name, ranked in (("tencent", tencent_order),
+                         ("changyong", sorted(changyong, key=lambda w: changyong[w][1]))):
+        scaled = {}
+        for single in (True, False):
+            subset = [w for w in ranked if (len(w) == 1) == single]
+            reference = {w: f for w, f in essay.items() if (len(w) == 1) == single}
+            scaled.update(rank_scale(subset, reference))
+        sources[name] = scaled
+    tencent_rank = {}
+    for word in tencent_order:
+        if len(word) > 1:
+            tencent_rank[word] = len(tencent_rank)
 
-    def frequency(word, known=True):
-        j, w = jieba.get(word), wordfreq.get(word)
-        if j and w:
-            return math.exp((1 - WORDFREQ_SHARE) * math.log(j) + WORDFREQ_SHARE * math.log(w))
-        if j:
-            return j
-        if w and known:
-            return w / 2
-        return None
+    def frequency(word):
+        found = {name: table[word] for name, table in sources.items() if word in table}
+        if not found:
+            return None
+        total = sum(SOURCE_SHARES[name] for name in found)
+        return math.exp(sum(SOURCE_SHARES[name] * math.log(f) for name, f in found.items()) / total)
 
     def share(char):
         """Reading -> share of the character's standalone use."""
@@ -323,27 +413,51 @@ def build_chinese(cache, refresh_tatoeba=False):
         return {s: 0.85 if s == main else rest for s in values}
 
     best = {char: max(share(char).items(), key=lambda item: item[1])[0] for char in readings if readings[char]}
+    dominant = {char: reading for char in readings for reading, value in share(char).items()
+                if len(readings[char]) == 1 or value >= DOMINANT_READING}
 
-    # Words with their readings: phrase data first, then CC-CEDICT, then the
-    # characters' most common readings.
+    def known_readings(word):
+        return phrases.get(word) or (changyong[word][0] if word in changyong else None) or cedict.get(word)
+
+    def inferred_reading(word):
+        """Readings of the longest listed words inside `word`, and of
+        characters with one dominant reading in between; None when a
+        character's reading stays open."""
+        parts, start = [], 0
+        while start < len(word):
+            for end in range(min(len(word), start + MAX_WORD_LENGTH), start + 1, -1):
+                found = known_readings(word[start:end])
+                if found:
+                    parts.append(found[0])
+                    start = end
+                    break
+            else:
+                if word[start] not in dominant:
+                    return None
+                parts.append(dominant[word[start]])
+                start += 1
+        return " ".join(parts)
+
+    # Words: every word a frequency source lists, with readings from the
+    # phrase lists, else inferred from its parts.
+    downweighted = downweight_hashes()
     words = {}
-    candidates = set(phrases) | set(cedict)
-    candidates |= {w for w in jieba if 2 <= len(w) <= MAX_WORD_LENGTH and all(c in charset for c in w)}
-    candidates |= {w for w in wordfreq if 2 <= len(w) <= MAX_WORD_LENGTH and all(c in charset for c in w)}
+    candidates = {w for w in essay if len(w) > 1} | {w for w in changyong if len(w) > 1}
+    # Two-character words only Tencent has are mostly names, typos and
+    # fragments (泥嚎, 我门); a phrase list must know them too.
+    candidates |= {w for w, rank in tencent_rank.items() if rank < TENCENT_LIMIT and len(w) <= TENCENT_LENGTH
+                   and (len(w) > 2 or w in phrases or w in cedict)}
     for word in candidates:
         if len(word) > MAX_WORD_LENGTH:
             continue
-        known = phrases.get(word) or cedict.get(word)
-        f = frequency(word, bool(known))
-        if f is None and not known:
-            continue
-        if known:
-            spellings = known
-        elif all(c in best for c in word):
-            spellings = [" ".join(best[c] for c in word)]
-        else:
-            continue
-        words[word] = (spellings, f if f is not None else FLOOR_WORD)
+        spellings = known_readings(word)
+        if not spellings:
+            reading = inferred_reading(word)
+            if not reading:
+                continue
+            spellings = [reading]
+        f = frequency(word)
+        words[word] = (spellings, FLOOR_WORD if downweight_hash(word) in downweighted else f)
 
     # Characters: standalone frequency plus a share of their use in words,
     # split between readings.
@@ -373,7 +487,11 @@ def build_chinese(cache, refresh_tatoeba=False):
         if text in words:
             words[text] = (words[text][0], max(f, words[text][1]))
         else:
-            words[text] = ([" ".join(words[w][0][0] if len(w) > 1 else best[w] for w in gram)], f)
+            # Parts the vocabulary no longer lists are read like any word.
+            parts = [words[w][0][0] if w in words else best[w] if len(w) == 1 else inferred_reading(w)
+                     for w in gram]
+            if all(parts):
+                words[text] = ([" ".join(parts)], f)
     for word, (spellings, f) in words.items():
         for spelled in spellings:
             entries[word, spelled] = f / len(spellings)
@@ -552,13 +670,45 @@ def write_dict(path, name, header, entries):
             out.write(f"{text}\t{code}\t{w:.6g}\n")
 
 
+def downweight_hash(word):
+    """The first 64 bits of the salted SHA-256 of the word, in hex."""
+    return hashlib.sha256((DOWNWEIGHT_SALT + word).encode("utf-8")).hexdigest()[:16]
+
+
+def downweight_hashes():
+    return {line for line in DOWNWEIGHT_HASHES.read_text(encoding="utf-8").splitlines()
+            if line and not line.startswith("#")}
+
+
+def hash_downweights():
+    """Writes DOWNWEIGHT_HASHES from the reviewed list, sorted so the file
+    keeps neither the list's order nor its categories."""
+    words = {line.split("\t")[0] for line in DOWNWEIGHTS.read_text(encoding="utf-8").splitlines()
+             if line and not line.startswith("#")}
+    hashes = sorted({downweight_hash(word) for word in words})
+    assert len(hashes) == len(words), "hash collision"
+    DOWNWEIGHT_HASHES.write_text(
+        "# Salted SHA-256 (first 64 bits) of the words build_rime_dicts.py drops to\n"
+        "# the lowest frequency: web spam from the Tencent vocabulary, reviewed by\n"
+        "# hand. Generated by build_rime_dicts.py --hash-downweights.\n"
+        + "".join(h + "\n" for h in hashes), encoding="utf-8")
+    print(f"{len(hashes)} downweighted words hashed", file=sys.stderr)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("output", type=Path)
+    parser.add_argument("output", type=Path, nargs="?")
+    parser.add_argument("--hash-downweights", action="store_true",
+                        help=f"write {DOWNWEIGHT_HASHES.name} from the reviewed {DOWNWEIGHTS.name}, then stop")
     parser.add_argument("--cache", type=Path, default=Path("/private/tmp/vime-rime-sources"))
     parser.add_argument("--refresh-tatoeba", action="store_true",
                         help=f"count the current Tatoeba export again into {COLLOCATIONS.name}")
     args = parser.parse_args()
+    if args.hash_downweights:
+        hash_downweights()
+        return
+    if args.output is None:
+        parser.error("output is required")
     args.output.mkdir(parents=True, exist_ok=True)
     chinese, valid = build_chinese(args.cache, args.refresh_tatoeba)
     english = build_english(args.cache, valid)
@@ -574,6 +724,8 @@ def main():
         for name, (repo, commit, date, license_name) in SOURCES.items():
             out.write(f"{repo} {commit} {date} ({license_name})\n")
         out.write(f"Unihan {UNIHAN[1]} {UNIHAN[0]} sha256 {UNIHAN[2]} ({UNIHAN[3]})\n")
+        out.write(f"Tencent AI Lab Embedding Corpus {TENCENT[1]} {TENCENT[0]} sha256 {TENCENT[2]} ({TENCENT[3]})\n")
+        out.write(f"现代汉语常用词表 {CHANGYONG[1]} {CHANGYONG[0]} sha256 {CHANGYONG[2]} ({CHANGYONG[3]})\n")
         out.write(f"Tatoeba {collocation_source()} via Scripts/{COLLOCATIONS.name} ({TATOEBA[1]})\n")
     print(f"{len(chinese)} Chinese entries, {len(english)} English words", file=sys.stderr)
 

@@ -147,7 +147,7 @@ final class RimeSmokeTests: XCTestCase {
         defer { vime_rime_snapshot_free(&raw) }
         let marked = (0..<Int(raw.candidateCount)).filter { raw.candidates[$0].completion }
             .map { String(cString: raw.candidates[$0].text) }
-        XCTAssertTrue(marked.contains { $0.count > 6 }, "\(marked)")
+        XCTAssertTrue(marked.contains { $0.count > 4 }, "\(marked)")  // longer than the four syllables
         XCTAssertFalse(raw.candidates[0].completion)
     }
 

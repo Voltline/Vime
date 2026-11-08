@@ -1467,6 +1467,35 @@
         }
       }
     },
+    "中文词语与词频排序": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chinese words and their frequency order"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中国語の語彙と頻度順"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "중국어 단어와 빈도 순위"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中文詞語與詞頻排序"
+          }
+        }
+      }
+    },
     "中日混输的日语词语与读音": {
       "extractionState": "manual",
       "localizations": {
@@ -2989,6 +3018,122 @@
           "stringUnit": {
             "state": "translated",
             "value": "切換大小寫"
+          }
+        }
+      }
+    },
+    "取英文词频数据，计算英文候选词的排序": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "English word frequency data, used to rank English candidates"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "英語の語頻度データを取り、英語候補の順位を計算"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "영어 단어 빈도 데이터로 영어 후보 순위를 계산"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取英文詞頻數據，計算英文候選詞的排序"
+          }
+        }
+      }
+    },
+    "取词语、读音与词序，编入拼音词库": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Words, readings and their order, added to the pinyin dictionary"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "語、読みと語順を取り、ピンイン辞書に収録"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "단어, 독음과 순서를 병음 사전에 수록"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取詞語、讀音與詞序，編入拼音詞庫"
+          }
+        }
+      }
+    },
+    "取词语与词频，计算候选词的排序": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Words and their counts, used to rank candidates"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "語とその頻度を取り、候補の順位を計算"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "단어와 빈도로 후보 순위를 계산"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取詞語與詞頻，計算候選詞的排序"
+          }
+        }
+      }
+    },
+    "只取词表及其顺序，不含词向量；取前 40 万个二至六字词编入拼音词库": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only the word list and its order, no vectors; the 400,000 most frequent words of two to six characters are added to the pinyin dictionary"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "語彙リストとその順序のみを使用し、単語ベクトルは含みません。上位 40 万語の 2〜6 文字語をピンイン辞書に収録"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "단어 목록과 순서만 사용하며 단어 벡터는 포함하지 않습니다. 상위 40만 개의 2~6자 단어를 병음 사전에 수록"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "只取詞表及其順序，不含詞向量；取前 40 萬個二至六字詞編入拼音詞庫"
           }
         }
       }
@@ -5796,6 +5941,35 @@
           "stringUnit": {
             "state": "translated",
             "value": "常用符號"
+          }
+        }
+      }
+    },
+    "常用词语、读音与排序": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Common words, readings and order"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "常用語、読みと順位"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "상용 단어, 독음과 순위"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "常用詞語、讀音與排序"
           }
         }
       }
@@ -11702,6 +11876,35 @@
         }
       }
     },
+    "英文词频": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "English word frequencies"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "英語の語頻度"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "영어 단어 빈도"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "英文詞頻"
+          }
+        }
+      }
+    },
     "英文输入": {
       "localizations": {
         "en": {
@@ -14933,93 +15136,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "中文詞頻"
-          }
-        }
-      }
-    },
-    "取 dict.txt 的词频，计算候选词的排序": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Word counts from dict.txt, used to rank candidates"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "dict.txt の語頻度を取り、候補の順位を計算"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "dict.txt의 단어 빈도로 후보 순위를 계산"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "取 dict.txt 的詞頻，計算候選詞的排序"
-          }
-        }
-      }
-    },
-    "中英文词频": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Chinese and English word frequencies"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "中国語と英語の語頻度"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "중국어와 영어 단어 빈도"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "中英文詞頻"
-          }
-        }
-      }
-    },
-    "取中文与英文词频数据，计算候选词的排序": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Chinese and English word frequency data, used to rank candidates"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "中国語と英語の語頻度データを取り、候補の順位を計算"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "중국어와 영어 단어 빈도 데이터로 후보 순위를 계산"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "取中文與英文詞頻資料，計算候選詞的排序"
           }
         }
       }

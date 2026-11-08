@@ -58,3 +58,6 @@ __pycache__/
 
 # Opened from its sealed copy at build time
 /Shared/Resources/LearningExclusions.bin
+
+# Reviewed Rime downweight list; only its hashes (rime_downweights.sha256) are committed.
+/Scripts/rime_downweights.txt

@@ -1,11 +1,11 @@
 wordfreq data (CC BY-SA 4.0)
 Source: https://github.com/rspeer/wordfreq
 Revision: 912caf64b657478d1dff1138efdc078947d54bb1
-Files: wordfreq/data/large_zh.msgpack.gz, wordfreq/data/large_en.msgpack.gz (word frequencies)
+Files: wordfreq/data/large_en.msgpack.gz (English word frequencies)
 License: CC BY-SA 4.0 https://creativecommons.org/licenses/by-sa/4.0/ (data); the wordfreq code, which Vime does
 not include, is under the Apache License 2.0.
 Vime modifications: generated, with the other sources listed in Dependencies/VimeRime/UPSTREAM.md,
-into Vime's Rime pinyin and English dictionaries by Scripts/build_rime_dicts.py. The generated dictionaries
+into Vime's Rime English dictionary by Scripts/build_rime_dicts.py. The generated dictionaries
 are distributed under CC BY-SA 4.0. The application code has a separate license.
 
 wordfreq is by Robyn Speer. Its NOTICE.md at the revision above follows.

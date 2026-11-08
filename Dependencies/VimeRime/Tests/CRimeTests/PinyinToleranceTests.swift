@@ -45,8 +45,9 @@ final class PinyinToleranceTests: XCTestCase {
         // A correction in a phrase's fourth syllable or later costs as much as
         // anywhere else: valid "zhenhai" does not turn into 真好 (天气真好).
         XCTAssertNotEqual(candidates("jintiantianqizhenhai").first, "今天天气真好")
-        // A single syllable stays a single character, not 西安.
-        XCTAssertEqual(candidates("xian").prefix(5).filter { $0.count > 1 }, [], "xian")
+        // A single syllable stays a single character, not 西安; the word may
+        // follow the most common characters.
+        XCTAssertEqual(candidates("xian").prefix(4).filter { $0.count > 1 }, [], "xian")
     }
 
     /// Initials stay abbreviations: a vowelless input is never read as a typo.

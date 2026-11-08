@@ -1,0 +1,15 @@
+Tencent AI Lab Embedding Corpus for Chinese Words and Phrases, v0.2.0 vocabulary (CC BY 3.0)
+Copyright Tencent AI Lab.
+Project: https://ai.tencent.com/ailab/nlp/en/embedding.html
+Source: tencent-ailab-embedding-zh-d200-v0.2.0-key.txt, the word list of the d200 v0.2.0 release, from
+https://huggingface.co/conanyu/tencent-ailab-embedding-zh-d200-v0.2.0-optim at revision
+26b432a69cca98e291a76b6e8e8890f3527b67b5 (SHA-256 9f4de2a6fcdd79692f172b6cf65078ced619919fd60e80c031f61bf13ac5e58a).
+Only the words and their order are used; no vectors are included.
+License: CC BY 3.0 https://creativecommons.org/licenses/by/3.0/
+Reference: Yan Song, Shuming Shi, Jing Li, Haisong Zhang. Directional Skip-Gram: Explicitly Distinguishing Left and
+Right Context for Word Embeddings. NAACL 2018.
+Vime modifications: took the 400,000 most frequent words of two to six characters, ranked them on the frequency scale of
+rime-essay-simp, and generated them, with the other sources listed in Dependencies/VimeRime/UPSTREAM.md, into Vime's
+Rime pinyin dictionary by Scripts/build_rime_dicts.py.
+
+
