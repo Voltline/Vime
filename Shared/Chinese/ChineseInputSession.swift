@@ -28,6 +28,7 @@ final class ChineseInputSession: KeyboardInputSession {
     private var generation = 0
     private var presentations: [CandidatePresentation] = []
     private var expanded = false
+    private var traditional = false
     /// The last thing that reached the host was a Rime commit, so BackSpace
     /// deleting it also takes back what Rime learned from it.
     private var commitIsForgettable = false
@@ -69,8 +70,10 @@ final class ChineseInputSession: KeyboardInputSession {
     // MARK: State
 
     var inputTraits: KeyboardInputTraits {
-        KeyboardInputTraits(language: english ? .english : .chinese, modeLabel: KeyboardInputLanguage.chinese.accessibilityName,
-            alternateLanguage: english ? .chinese : .english, compositionInputSymbols: ["'"],
+        KeyboardInputTraits(language: english ? .english : .chinese, modeLabel: traditional ? "繁" : "简",
+            alternateLanguage: english ? .chinese : .english,
+            supportsPrimaryVariant: !english, traditionalChinese: traditional,
+            primaryVariantAccessibilityLabel: String(localized: "切换简体和繁体"), compositionInputSymbols: ["'"],
             comma: english ? "," : "，", period: english ? "." : "。")
     }
     var isComposing: Bool { !english && (state.isComposing || !echo.isEmpty) }
@@ -162,8 +165,19 @@ final class ChineseInputSession: KeyboardInputSession {
         return []
     }
 
-    func togglePrimaryVariant() -> [KeyboardEdit] { [] }
+    /// The 简/繁 button, where Japanese has the kana toggle.
+    func togglePrimaryVariant() -> [KeyboardEdit] {
+        guard !english else { return [] }
+        setTraditionalChinese(!traditional)
+        return []
+    }
     func updateIntelligence(ranking: CandidateRankingMode, suggestionsEnabled: Bool) {}
+
+    func setTraditionalChinese(_ enabled: Bool) {
+        guard enabled != traditional else { return }
+        traditional = enabled
+        enqueue(.setTraditional(enabled))
+    }
 
     func setExpandedCandidates(_ enabled: Bool) {
         guard enabled != expanded else { return }

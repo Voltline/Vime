@@ -294,20 +294,59 @@ final class KeyboardLanguageSwitchTests: XCTestCase {
         XCTAssertEqual(control.selectedSegmentIndex, 1)
     }
 
-    func testUndoMovesBesideCloseWhenChineseHidesTheKanaToggle() throws {
+    func testChineseShowsTheScriptToggleWhereJapaneseHasTheKanaToggle() throws {
         let (keyboard, preferences) = try keyboard()
         keyboard.canUndoLineDeletion = true
         keyboard.layoutIfNeeded()
         let metrics = KeyboardMetrics(width: 440, compact: keyboard.compact, showsFooter: keyboard.showsFooter, pad: keyboard.pad)
         XCTAssertFalse(keyboard.modeButton.isHidden)
-        XCTAssertFalse(keyboard.undoButton.isHidden)
         XCTAssertEqual(keyboard.undoButton.frame, metrics.trailingToolbarFrame(index: 2))
         preferences.inputLanguage = .chinese
         keyboard.reloadPreferences()
         keyboard.layoutIfNeeded()
+        XCTAssertFalse(keyboard.modeButton.isHidden)
+        XCTAssertEqual(keyboard.modeButton.title(for: .normal), "简")
+        XCTAssertEqual(keyboard.modeButton.frame, metrics.trailingToolbarFrame(index: 1))
+        XCTAssertEqual(keyboard.undoButton.frame, metrics.trailingToolbarFrame(index: 2))
+
+        // English inside Chinese has no script to switch.
+        let chinese = try XCTUnwrap(keyboard.session as? ChineseInputSession)
+        keyboard.apply(chinese.activateEnglish())
+        keyboard.layoutIfNeeded()
         XCTAssertTrue(keyboard.modeButton.isHidden)
-        XCTAssertFalse(keyboard.undoButton.isHidden)
         XCTAssertEqual(keyboard.undoButton.frame, metrics.trailingToolbarFrame(index: 1), "no empty slot before the close button")
+    }
+
+    func testTheScriptToggleSwitchesBetweenSimplifiedAndTraditional() throws {
+        let (keyboard, preferences) = try keyboard()
+        preferences.traditionalChinese = false
+        preferences.inputLanguage = .chinese
+        keyboard.reloadPreferences()
+        let chinese = try XCTUnwrap(keyboard.session as? ChineseInputSession)
+        XCTAssertEqual(keyboard.modeButton.accessibilityLabel, String(localized: "切换简体和繁体"))
+
+        keyboard.modeButton.sendActions(for: .touchUpInside)
+        XCTAssertTrue(preferences.traditionalChinese)
+        XCTAssertEqual(keyboard.modeButton.title(for: .normal), "繁")
+        keyboard.apply(chinese.type("zhongguo"))
+        waitUntilCurrent(chinese)
+        XCTAssertEqual(chinese.candidatePresentations.first?.text, "中國")
+        chinese.reset()
+
+        keyboard.modeButton.sendActions(for: .touchUpInside)
+        XCTAssertFalse(preferences.traditionalChinese)
+        XCTAssertEqual(keyboard.modeButton.title(for: .normal), "简")
+        keyboard.apply(chinese.type("zhongguo"))
+        waitUntilCurrent(chinese)
+        XCTAssertEqual(chinese.candidatePresentations.first?.text, "中国")
+        chinese.reset()
+
+        // The choice is kept for the next keyboard.
+        preferences.traditionalChinese = true
+        let next = KeyboardView(frame: CGRect(x: 0, y: 0, width: 440, height: 350),
+                                session: KeyboardView.session(for: .chinese), preferences: preferences)
+        next.layoutIfNeeded()
+        XCTAssertEqual(next.modeButton.title(for: .normal), "繁")
     }
 
     private func languageKey(in keyboard: KeyboardView) throws -> KeyboardKey {

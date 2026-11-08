@@ -3165,6 +3165,34 @@
         }
       }
     },
+    "切换简体和繁体": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switch between Simplified and Traditional"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "簡体字と繁体字を切り替え"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "간체와 번체 전환"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "切換簡體和繁體"
+          }
+        }
+      }
+    },
     "切换大小写": {
       "localizations": {
         "en": {

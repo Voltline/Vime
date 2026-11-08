@@ -39,7 +39,8 @@ def is_test(rel: Path) -> bool:
 
 
 def patch_learning_filter(memory: Path):
-    """Lets Bridge.cc veto learning a commit (vime_rime_set_learning_filter)."""
+    """Lets Bridge.cc veto learning a commit (vime_rime_set_learning_filter),
+    by its shown text and by the words underneath it."""
     text = memory.read_text()
     hook = ("void Memory::OnCommit(Context* ctx) {\n"
             "  if (!user_dict_ || user_dict_->readonly())\n    return;\n")
@@ -47,10 +48,21 @@ def patch_learning_filter(memory: Path):
     text = text.replace("namespace rime {\n",
                         'extern "C" bool (*vime_rime_learning_filter)(const char*);\n\nnamespace rime {\n', 1)
     text = text.replace(hook, hook +
-                        "  // Vime: skip commits the app does not want learned.\n"
-                        "  if (vime_rime_learning_filter &&\n"
-                        "      !vime_rime_learning_filter(ctx->GetCommitText().c_str()))\n"
-                        "    return;\n")
+                        "  // Vime: skip commits the app does not want learned. A filter such as\n"
+                        "  // the simplifier changes the shown text, so the words underneath are\n"
+                        "  // checked too.\n"
+                        "  if (vime_rime_learning_filter) {\n"
+                        "    string genuine;\n"
+                        "    for (const Segment& seg : ctx->composition()) {\n"
+                        "      if (auto cand = seg.GetSelectedCandidate())\n"
+                        "        genuine += Candidate::GetGenuineCandidate(cand)->text();\n"
+                        "      else\n"
+                        "        genuine += ctx->input().substr(seg.start, seg.end - seg.start);\n"
+                        "    }\n"
+                        "    if (!vime_rime_learning_filter(ctx->GetCommitText().c_str()) ||\n"
+                        "        !vime_rime_learning_filter(genuine.c_str()))\n"
+                        "      return;\n"
+                        "  }\n")
     memory.write_text(text)
 
 

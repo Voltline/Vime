@@ -47,6 +47,11 @@ void vime_rime_stop(void);
 /// Meant for the build machine, not for the keyboard.
 bool vime_rime_build(const char *shared, const char *user, const char *staging);
 
+/// Compiles an OpenCC text dictionary into the binary form (.ocd2) that
+/// the conversion configs in the shared data's opencc folder load.
+/// Meant for the build machine, not for the keyboard.
+bool vime_opencc_build_dictionary(const char *text, const char *binary);
+
 /// Called on the engine's thread before a commit is learned; returning false
 /// keeps the user dictionary unchanged. The text is the whole commit.
 typedef bool (*VimeRimeLearningFilter)(const char *text);
@@ -64,6 +69,8 @@ void vime_rime_clear(VimeRimeSession session);
 /// Commits the whole composition with its current selections.
 bool vime_rime_commit_composition(VimeRimeSession session);
 bool vime_rime_is_composing(VimeRimeSession session);
+/// Turns a schema option on or off, such as the simplifier's.
+void vime_rime_set_option(VimeRimeSession session, const char *option, bool value);
 
 VimeRimeSnapshot vime_rime_snapshot(VimeRimeSession session, int32_t candidateLimit);
 void vime_rime_snapshot_free(VimeRimeSnapshot *snapshot);

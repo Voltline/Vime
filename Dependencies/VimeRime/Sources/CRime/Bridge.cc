@@ -15,6 +15,8 @@
 #include <rime/setup.h>
 #include <rime_api.h>
 
+#include <DictConverter.hpp>
+
 extern "C" bool (*vime_rime_learning_filter)(const char *) = nullptr;
 
 namespace {
@@ -86,6 +88,13 @@ bool vime_rime_build(const char *shared, const char *user, const char *staging) 
     });
 }
 
+bool vime_opencc_build_dictionary(const char *text, const char *binary) {
+    return guarded([&] {
+        opencc::ConvertDictionary(text, binary, "text", "ocd2");
+        return true;
+    });
+}
+
 void vime_rime_set_learning_filter(VimeRimeLearningFilter filter) {
     vime_rime_learning_filter = filter;
 }
@@ -129,6 +138,10 @@ bool vime_rime_is_composing(VimeRimeSession session) {
         const char *input = api()->get_input(session);
         return input && *input;
     });
+}
+
+void vime_rime_set_option(VimeRimeSession session, const char *option, bool value) {
+    guarded([&] { api()->set_option(session, option, value); return true; });
 }
 
 VimeRimeSnapshot vime_rime_snapshot(VimeRimeSession session, int32_t candidateLimit) {

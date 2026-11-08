@@ -50,6 +50,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         session.setFullWidthSpace(next.fullWidthSpace)
         session.setLiveConversion(next.liveConversion)
         session.setPinyinLookupEnabled(next.pinyinLookupInJapanese)
+        session.setTraditionalChinese(next.traditionalChinese)
         applyNeuralRetry()
         if next.learningResetID != previous?.learningResetID {
             session.reset()
@@ -116,6 +117,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         session.setUndoesCommitOnBackspace(preferences.undoConversionOnBackspace)
         session.setFullWidthSpace(preferences.fullWidthSpace)
         session.setPinyinLookupEnabled(preferences.pinyinLookupInJapanese)
+        session.setTraditionalChinese(preferences.traditionalChinese)
         session.setLiveConversion(preferences.liveConversion)
         applyNeuralRetry()
         session.onCommittedEdits = { [weak self] batch in
