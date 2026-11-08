@@ -55,6 +55,11 @@ final class AppPresentationTests: XCTestCase {
         XCTAssertEqual(status.modelShortVersion, "4.2")
     }
 
+    func testPreviewHoldDescribesTheTime() {
+        XCTAssertEqual(Vime.KeyboardFeedbackSettingsView.previewHoldDescription(0), String(localized: "松手即消失"))
+        XCTAssertEqual(Vime.KeyboardFeedbackSettingsView.previewHoldDescription(0.15), String(localized: "\(150) 毫秒"))
+    }
+
     func testSettingsSummaryDescribesRankingFeelAndSymbols() {
         var summary = Self.settingsSummary(status: nil)
         XCTAssertEqual(summary.rankingValue, "待使用")

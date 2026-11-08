@@ -26,7 +26,7 @@ struct KeyboardPreferences {
         FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroup) != nil ? UserDefaults(suiteName: appGroup) : nil
     }
     private static let sharedKeys = ["vime.sound", "vime.hapticLevel", "vime.hapticIntensity", "vime.nineKeyNumbers", "vime.kanaLayout",
-        "vime.prolongedKey", "vime.previews", "vime.theme", "vime.candidateRanking", "vime.phraseSuggestions", "vime.clipboardSuggestions", "vime.autoPairBrackets", "vime.autoCapitalize", "vime.doubleSpacePeriod", "vime.undoConversionOnBackspace", "vime.fullWidthSpace", "vime.textReplacements", "vime.englishCompletion", "vime.oneHanded", "vime.customSkinID", "vime.skinRevision", "vime.numberSymbols", "vime.inputLanguage",
+        "vime.prolongedKey", "vime.previews", "vime.previewHold", "vime.theme", "vime.candidateRanking", "vime.phraseSuggestions", "vime.clipboardSuggestions", "vime.autoPairBrackets", "vime.autoCapitalize", "vime.doubleSpacePeriod", "vime.undoConversionOnBackspace", "vime.fullWidthSpace", "vime.textReplacements", "vime.englishCompletion", "vime.oneHanded", "vime.customSkinID", "vime.skinRevision", "vime.numberSymbols", "vime.inputLanguage",
         "vime.chineseInputEnabled", "vime.pinyinLookupInJapanese"]
     var store: UserDefaults { defaults }
     struct Snapshot: Equatable {
@@ -37,6 +37,7 @@ struct KeyboardPreferences {
         let kanaLayout: Bool
         let prolongedKey: Bool
         let previews: Bool
+        let previewHold: Double
         let theme: KeyboardTheme
         let customSkinID: String
         let skinRevision: Int
@@ -61,6 +62,7 @@ struct KeyboardPreferences {
     var snapshot: Snapshot {
         Snapshot(heightFactor: heightFactor, sound: sound, hapticIntensity: hapticIntensity,
             nineKeyNumbers: nineKeyNumbers, kanaLayout: kanaLayout, prolongedKey: prolongedKey, previews: previews,
+            previewHold: previewHold,
             theme: theme, customSkinID: customSkinID, skinRevision: skinRevision, candidateRanking: candidateRanking, phraseSuggestions: phraseSuggestions,
             clipboardSuggestions: clipboardSuggestions, autoPairBrackets: autoPairBrackets,
             autoCapitalize: autoCapitalize, doubleSpacePeriod: doubleSpacePeriod,
@@ -145,6 +147,15 @@ struct KeyboardPreferences {
     var previews: Bool {
         get { defaults.object(forKey: "vime.previews") as? Bool ?? true }
         nonmutating set { defaults.set(newValue, forKey: "vime.previews") }
+    }
+    /// Seconds a key preview stays after the finger lifts.
+    static let previewHoldRange: ClosedRange<Double> = 0...0.5
+    var previewHold: Double {
+        get { Self.clampedPreviewHold(defaults.object(forKey: "vime.previewHold") as? Double ?? 0) }
+        nonmutating set { defaults.set(Self.clampedPreviewHold(newValue), forKey: "vime.previewHold") }
+    }
+    static func clampedPreviewHold(_ value: Double) -> Double {
+        value.isFinite ? min(previewHoldRange.upperBound, max(previewHoldRange.lowerBound, value)) : 0
     }
     var theme: KeyboardTheme {
         get { KeyboardTheme(rawValue: defaults.string(forKey: "vime.theme") ?? "") ?? .system }

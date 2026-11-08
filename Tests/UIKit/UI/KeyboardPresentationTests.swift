@@ -383,6 +383,60 @@ final class KeyboardPresentationTests: XCTestCase {
         XCTAssertEqual(session.raw, "nihongoq")
     }
 
+    func testReleasedPreviewStaysForTheChosenTimeThenHides() throws {
+        let session = KeyboardSession()
+        let keyboard = KeyboardView(frame: CGRect(x: 0, y: 0, width: 440, height: 350), session: session)
+        let window = UIWindow(frame: UIScreen.main.bounds)
+        window.rootViewController = UIViewController()
+        window.rootViewController?.view.addSubview(keyboard); window.isHidden = false
+        defer { keyboard.stopInteractions(); window.isHidden = true }
+        keyboard.layoutIfNeeded()
+        let surface = try XCTUnwrap(descendants(keyboard).compactMap { $0 as? KeyboardTouchSurface }.first)
+        let regions = surface.regions
+        let q = try XCTUnwrap(regions.first { $0.key.accessibilityIdentifier == "vime.key.q" })
+        let w = try XCTUnwrap(regions.first { $0.key.accessibilityIdentifier == "vime.key.w" })
+        let previews = { self.descendants(keyboard).filter { $0.accessibilityIdentifier == "vime.swipe.preview" } }
+        for key in [q.key, w.key] { key.showsPreview = true; key.previewHold = 0.2 }
+        let p = CGPoint(x: q.body.midX, y: q.body.midY)
+        surface.beginPress(id: 1, at: p)
+        surface.endPress(id: 1, at: p)
+        XCTAssertEqual(session.raw, "q", "the character is typed on release, not delayed")
+        XCTAssertEqual(previews().count, 1, "the bubble stays after a quick tap")
+        XCTAssertTrue(q.key.isHoldingPreview)
+        // Pressing the same key again reuses the bubble.
+        surface.beginPress(id: 2, at: p)
+        XCTAssertEqual(previews().count, 1)
+        XCTAssertFalse(q.key.isHoldingPreview)
+        surface.endPress(id: 2, at: p)
+        RunLoop.main.run(until: Date().addingTimeInterval(0.35))
+        XCTAssertTrue(previews().isEmpty, "the bubble hides once the time is up")
+        XCTAssertFalse(q.key.isHoldingPreview)
+        // A cancelled press hides at once.
+        let wp = CGPoint(x: w.body.midX, y: w.body.midY)
+        surface.beginPress(id: 3, at: wp)
+        keyboard.stopInteractions()
+        XCTAssertTrue(previews().isEmpty)
+        // 0 keeps the old behaviour: gone on release.
+        q.key.previewHold = 0
+        surface.beginPress(id: 4, at: p)
+        surface.endPress(id: 4, at: p)
+        XCTAssertTrue(previews().isEmpty)
+    }
+
+    func testPreviewHoldIsClampedAndReachesTheKeys() throws {
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: "PreviewHold-\(UUID().uuidString)"))
+        let prefs = KeyboardPreferences(defaults: defaults)
+        XCTAssertEqual(prefs.previewHold, 0, "unchanged for existing users")
+        prefs.previewHold = 2
+        XCTAssertEqual(prefs.previewHold, KeyboardPreferences.previewHoldRange.upperBound)
+        prefs.previewHold = -1
+        XCTAssertEqual(prefs.previewHold, 0)
+        prefs.previewHold = .nan
+        XCTAssertEqual(prefs.previewHold, 0)
+        prefs.previewHold = 0.15
+        XCTAssertEqual(prefs.snapshot.previewHold, 0.15)
+    }
+
     func testSymbolTopSpacingInInputViewSurvivesReopenAndResize() throws {
         let keyboard = KeyboardView(frame: CGRect(x: 0, y: 0, width: 440, height: 350), session: KeyboardSession())
         let input = AttachedInputView(keyboard: keyboard)

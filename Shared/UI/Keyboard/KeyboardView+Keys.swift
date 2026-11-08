@@ -181,6 +181,7 @@ extension KeyboardView {
                         self.apply(self.session.type(upper ? value.uppercased() : value))
                     }
                     item.0.showsPreview = previewsEnabled
+                    item.0.previewHold = previewHold
                     item.0.accessibilityIdentifier = "vime.key." + value
                     item.0.hint = Self.letterHints[value]
                     item.0.alternateTitle = Self.letterHints[value]

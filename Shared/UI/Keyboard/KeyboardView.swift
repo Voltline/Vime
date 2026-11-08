@@ -66,8 +66,8 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         if next.autoCapitalize != previous?.autoCapitalize { updateAutoCapitalization() }
         if next.textReplacements != previous?.textReplacements { applyTextReplacements() }
         else if next.englishCompletion != previous?.englishCompletion { refresh() }
-        if next.previews != previous?.previews {
-            for key in letterKeys { key.showsPreview = next.previews }
+        if next.previews != previous?.previews || next.previewHold != previous?.previewHold {
+            for key in letterKeys { key.showsPreview = next.previews; key.previewHold = next.previewHold }
         }
         if next.theme != previous?.theme || next.customSkinID != previous?.customSkinID || next.skinRevision != previous?.skinRevision { applyTheme() }
         settingsPanel?.update(hasFullAccess: hasFullAccess, neuralPaused: session.neuralModeSuspendedForMemoryPressure)
@@ -208,6 +208,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         }
     }
     var previewsEnabled: Bool { preferences.previews }
+    var previewHold: TimeInterval { preferences.previewHold }
     var impactGenerators: [Int: UIImpactFeedbackGenerator] = [:]
     let header = UIView()
     let candidateScroll = UIScrollView()

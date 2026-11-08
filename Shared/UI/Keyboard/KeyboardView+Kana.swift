@@ -11,6 +11,7 @@ extension KeyboardView {
             item.0.flickAction = { [weak self] in self?.typeKana(key: index, flick: $0) }
             item.0.action = { [weak self] in self?.typeKana(key: index, flick: .center) }
             item.0.showsPreview = previewsEnabled
+            item.0.previewHold = previewHold
             item.0.accessibilityIdentifier = "vime.kana." + KeyboardKanaLayout.identifiers[index]
             letterKeys.append(item.0)
             return item

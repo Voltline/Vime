@@ -438,6 +438,34 @@
         }
       }
     },
+    "%lld 毫秒": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld ms"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld ミリ秒"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lldms"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld 毫秒"
+          }
+        }
+      }
+    },
     "1. 打开 iPhone 的“设置”。": {
       "localizations": {
         "en": {
@@ -8930,6 +8958,34 @@
         }
       }
     },
+    "松手即消失": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hide on Release"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "指を離すとすぐ消える"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "손을 떼면 바로 사라짐"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "放開即消失"
+          }
+        }
+      }
+    },
     "松手清空": {
       "localizations": {
         "en": {
@@ -14770,6 +14826,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "靠近關閉、中、強時放開會吸附，檔位之間可連續調整\n聲音與震動需要允許完整取用\n靜音時不播放按鍵聲，震動效果以實際裝置為準"
+          }
+        }
+      }
+    },
+    "预览停留时间": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preview Duration"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ポップアップの表示時間"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "미리보기 표시 시간"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "預覽停留時間"
           }
         }
       }
