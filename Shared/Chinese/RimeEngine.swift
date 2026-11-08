@@ -42,9 +42,6 @@ nonisolated final class RimeEngine: @unchecked Sendable {
         case finishLearning
         /// How many candidates later states carry.
         case setCandidateLimit(Int)
-        /// Traditional characters through the schema's simplifier; an open
-        /// composition is looked up again so its candidates follow.
-        case setTraditional(Bool)
     }
 
     static let candidateLimit = 60
@@ -63,8 +60,6 @@ nonisolated final class RimeEngine: @unchecked Sendable {
     private var session: VimeRimeSession = 0
     private var sessionStart = 0
     private var limit = RimeEngine.candidateLimit
-    /// Set again on every new session, which starts with options off.
-    private var traditional = false
     /// Rime's index for each candidate the last state shows.
     private var shown: [Int] = []
 
@@ -131,15 +126,6 @@ nonisolated final class RimeEngine: @unchecked Sendable {
             // Escape outside a composition is unhandled, which closes the transaction.
             if !vime_rime_is_composing(session) { _ = vime_rime_process_key(session, 0xFF1B, 0) }
         case .setCandidateLimit(let value): limit = max(1, value)
-        case .setTraditional(let value):
-            traditional = value
-            vime_rime_set_option(session, "traditionalization", value)
-            if vime_rime_is_composing(session) {
-                var raw = vime_rime_snapshot(session, 0)
-                let input = raw.input.map { String(cString: $0) }
-                vime_rime_snapshot_free(&raw)
-                if let input { _ = vime_rime_set_input(session, input) }
-            }
         }
         var state = snapshot()
         state.duration = clock.now - start
@@ -153,7 +139,6 @@ nonisolated final class RimeEngine: @unchecked Sendable {
         if session != 0, sessionStart == started { return true }
         session = vime_rime_create_session()
         sessionStart = started
-        if session != 0, traditional { vime_rime_set_option(session, "traditionalization", true) }
         return session != 0
     }
 

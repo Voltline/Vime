@@ -109,8 +109,6 @@ protocol KeyboardInputSession: AnyObject {
     func setLiveConversion(_ enabled: Bool)
     /// Japanese mode also offers kanji words typed by their Mandarin reading.
     func setPinyinLookupEnabled(_ enabled: Bool)
-    /// Chinese mode shows traditional characters.
-    func setTraditionalChinese(_ enabled: Bool)
     /// The conversion just committed, which the toolbar offers to reconvert.
     var reconvertibleCommit: (text: String, reading: String)? { get }
     /// Deletes that conversion and restores its reading.
@@ -137,7 +135,6 @@ extension KeyboardInputSession {
     func setFullWidthSpace(_ enabled: Bool) {}
     func setLiveConversion(_ enabled: Bool) {}
     func setPinyinLookupEnabled(_ enabled: Bool) {}
-    func setTraditionalChinese(_ enabled: Bool) {}
     var reconvertibleCommit: (text: String, reading: String)? { nil }
     func reconvertCommit() -> [KeyboardEdit] { [] }
     func forgettableCandidate(_ token: CandidateSelectionToken) -> String? { nil }

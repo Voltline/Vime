@@ -1,13 +1,12 @@
 __build_info:
   rime_version: vime
   timestamps:
-    default: 1794120337
+    default: 1794103026
     default.custom: 0
     vime_pinyin.custom: 0
-    vime_pinyin.schema: 1794120337
+    vime_pinyin.schema: 1794103026
 engine:
   filters:
-    - simplifier
     - uniquifier
   processors:
     - speller
@@ -35,9 +34,6 @@ schema:
   name: "Vime 拼音"
   schema_id: vime_pinyin
   version: 1
-simplifier:
-  opencc_config: s2t.json
-  option_name: traditionalization
 speller:
   algebra:
     - "erase/^hm$/"
