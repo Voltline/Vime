@@ -66,7 +66,9 @@ struct KeyboardPreferences {
             autoCapitalize: autoCapitalize, doubleSpacePeriod: doubleSpacePeriod,
             undoConversionOnBackspace: undoConversionOnBackspace, fullWidthSpace: fullWidthSpace, textReplacements: textReplacements,
             englishCompletion: englishCompletion, oneHanded: oneHanded, numberSymbols: numberSymbols,
-            neuralRetryID: neuralRetryID, learningResetID: learningResetRequests.requestID,
+            neuralRetryID: neuralRetryID,
+            learningResetID: [learningResetRequests.requestID, learningResetRequests.chinese.requestID]
+                .map { $0 ?? "" }.joined(separator: "|"),
             inputLanguage: inputLanguage, chineseInputEnabled: chineseInputEnabled,
             pinyinLookupInJapanese: pinyinLookupInJapanese)
     }

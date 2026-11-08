@@ -45,7 +45,20 @@ final class RimeEngineTests: XCTestCase {
 
     func testLearningResetDeletesTheUserDictionary() throws {
         let defaults = try XCTUnwrap(UserDefaults(suiteName: "RimeEngineTests-\(UUID().uuidString)"))
+        try assertResetDeletesTheUserDictionary(KeyboardLearningResetRequests(defaults: defaults), reset: { $0.request() })
+    }
+
+    func testChineseLearningResetLeavesTheJapaneseRequestAlone() throws {
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: "RimeEngineTests-\(UUID().uuidString)"))
         let requests = KeyboardLearningResetRequests(defaults: defaults)
+        try assertResetDeletesTheUserDictionary(requests, reset: { $0.chinese.request() })
+        XCTAssertFalse(requests.chinese.isPending)
+        XCTAssertNil(requests.requestID)
+        XCTAssertFalse(requests.isPending)
+    }
+
+    private func assertResetDeletesTheUserDictionary(_ requests: KeyboardLearningResetRequests,
+                                                     reset: (KeyboardLearningResetRequests) -> Void) throws {
         let engine = RimeEngine(data: try XCTUnwrap(RimeEngine.bundledData), userDirectory: Self.user, resetRequests: requests)
         func rank() -> Int? {
             let index = engine.sendAndWait(.type("shi")).candidates.firstIndex { $0.text == "式" }
@@ -59,10 +72,11 @@ final class RimeEngineTests: XCTestCase {
             _ = engine.sendAndWait(.finishLearning)
         }
         XCTAssertLessThan(try XCTUnwrap(rank()), before)
-        requests.request()
+        reset(requests)
         _ = engine.sendAndWait(.clear)
         XCTAssertEqual(rank(), before)
         XCTAssertNil(requests.pendingID(for: "rime." + Self.user.lastPathComponent))
+        XCTAssertNil(requests.chinese.pendingID(for: "rime." + Self.user.lastPathComponent))
     }
 
     func testCommandsRunInOrder() throws {

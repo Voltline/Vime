@@ -65,7 +65,8 @@ nonisolated final class RimeEngine: @unchecked Sendable {
 
     /// `userDirectory` holds the user dictionary. The first engine in a
     /// process decides it; Rime cannot switch directories while running.
-    /// A pending request in `resetRequests` deletes what was learned there.
+    /// A pending request in `resetRequests`, or in its `chinese` requests,
+    /// deletes what was learned there.
     init(data: URL, userDirectory: URL, resetRequests: KeyboardLearningResetRequests = KeyboardLearningResetRequests()) {
         self.data = data
         self.userDirectory = userDirectory
@@ -151,15 +152,20 @@ nonisolated final class RimeEngine: @unchecked Sendable {
     private static func start(data: URL, userDirectory: URL, resetRequests: KeyboardLearningResetRequests?) -> Int? {
         startLock.lock(); defer { startLock.unlock() }
         let store = "rime." + userDirectory.lastPathComponent
-        let reset = resetRequests?.pendingID(for: store)
-        if startedUserDirectory != nil, reset == nil { return startCount }
-        if let reset {
+        // A reset of every language or of Chinese alone.
+        let resets = [resetRequests, resetRequests?.chinese].compactMap { requests in
+            requests.flatMap { requests in requests.pendingID(for: store).map { (requests, $0) } }
+        }
+        if startedUserDirectory != nil, resets.isEmpty { return startCount }
+        if !resets.isEmpty {
             if startedUserDirectory != nil {
                 vime_rime_stop()
                 startedUserDirectory = nil
             }
-            // A failed deletion leaves the request for a later try.
-            if deleteUserDictionaries(in: userDirectory) { resetRequests?.complete(reset, for: store) }
+            // A failed deletion leaves the requests for a later try.
+            if deleteUserDictionaries(in: userDirectory) {
+                for (requests, id) in resets { requests.complete(id, for: store) }
+            }
         }
         try? FileManager.default.createDirectory(at: userDirectory, withIntermediateDirectories: true)
         guard vime_rime_start(data.path, userDirectory.path) else { return nil }

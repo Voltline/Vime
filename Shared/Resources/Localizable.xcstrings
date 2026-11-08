@@ -1130,6 +1130,35 @@
         }
       }
     },
+    "上次中文清空已完成。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The last Chinese reset is complete."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "前回の中国語の消去は完了しました。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "지난 중국어 초기화가 완료되었습니다."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "上次中文清空已完成。"
+          }
+        }
+      }
+    },
     "上次清空已完成。键盘会重新学习输入习惯；用户词典、剪贴板历史和皮肤保留。": {
       "localizations": {
         "en": {
@@ -1326,6 +1355,35 @@
         }
       }
     },
+    "下次打开键盘时清空拼音输入学到的词语偏好，此操作无法撤销。日语学习、用户词典、剪贴板历史和皮肤不会删除。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The next time the keyboard opens, it clears the word preferences learned from pinyin input. This can't be undone. Japanese learning, the user dictionary, clipboard history and skins are not deleted."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "次にキーボードを開いたときに、ピンイン入力で学習した語の好みを消去します。この操作は取り消せません。日本語の学習、ユーザ辞書、クリップボード履歴、スキンは削除されません。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "다음에 키보드를 열 때 병음 입력으로 학습한 단어 선호를 지웁니다. 이 작업은 취소할 수 없습니다. 일본어 학습, 사용자 사전, 클립보드 기록과 스킨은 삭제되지 않습니다."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下次打開鍵盤時清空拼音輸入學到的詞語偏好，此操作無法復原。日語學習、使用者詞典、剪貼簿記錄和外觀不會刪除。"
+          }
+        }
+      }
+    },
     "下次打开键盘时清空词语偏好和转换学习，此操作无法撤销。用户词典、剪贴板历史和皮肤不会删除。": {
       "localizations": {
         "en": {
@@ -1463,6 +1521,35 @@
           "stringUnit": {
             "state": "translated",
             "value": "中文拼音輸入引擎"
+          }
+        }
+      }
+    },
+    "中文清空请求已保存，下次打开键盘时执行。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The Chinese reset is saved and runs the next time the keyboard opens."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中国語の消去リクエストを保存しました。次にキーボードを開いたときに実行されます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "중국어 초기화 요청을 저장했습니다. 다음에 키보드를 열 때 실행됩니다."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中文清空請求已儲存，下次打開鍵盤時執行。"
           }
         }
       }
@@ -3134,6 +3221,35 @@
           "stringUnit": {
             "state": "translated",
             "value": "只取詞表及其順序，不含詞向量；取前 40 萬個二至六字詞編入拼音詞庫"
+          }
+        }
+      }
+    },
+    "只重置拼音的词语偏好，日语学习保留": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resets pinyin word preferences only; Japanese learning is kept"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ピンインの語の好みだけをリセット。日本語の学習は保持されます"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "병음 단어 선호만 초기화하며 일본어 학습은 유지됩니다"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "只重設拼音的詞語偏好，日語學習保留"
           }
         }
       }
@@ -9625,6 +9741,64 @@
           "stringUnit": {
             "state": "translated",
             "value": "清除"
+          }
+        }
+      }
+    },
+    "清空中文学习记录": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear Chinese Learning"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中国語の学習記録を消去"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "중국어 학습 기록 지우기"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "清空中文學習記錄"
+          }
+        }
+      }
+    },
+    "清空中文学习记录？": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear Chinese learning?"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中国語の学習記録を消去しますか？"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "중국어 학습 기록을 지울까요?"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "清空中文學習記錄？"
           }
         }
       }

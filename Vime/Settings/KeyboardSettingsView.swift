@@ -579,12 +579,24 @@ private struct AppHapticScale: UIViewRepresentable {
 
 struct KeyboardDataPrivacyView: View {
     @State private var confirmLearningReset = false
+    @State private var confirmChineseLearningReset = false
     @AppStorage private var resetRequest: String
     @AppStorage private var resetCompleted: String
+    @AppStorage private var chineseResetRequest: String
+    @AppStorage private var chineseResetCompleted: String
+    @AppStorage private var chineseInput: Bool
     init() {
-        let store = KeyboardPreferences().store
+        let prefs = KeyboardPreferences(), store = prefs.store, chinese = prefs.learningResetRequests.chinese
         _resetRequest = AppStorage(wrappedValue: "", "vime.learningReset.request", store: store)
         _resetCompleted = AppStorage(wrappedValue: "", "vime.learningReset.completed", store: store)
+        _chineseResetRequest = AppStorage(wrappedValue: "", chinese.requestKey, store: store)
+        _chineseResetCompleted = AppStorage(wrappedValue: "", chinese.completedKey, store: store)
+        _chineseInput = AppStorage(wrappedValue: prefs.chineseInputEnabled, "vime.chineseInputEnabled", store: store)
+    }
+    private var chineseLearningResetMessage: String? {
+        if chineseResetRequest.isEmpty { return nil }
+        if chineseResetRequest != chineseResetCompleted { return String(localized: "中文清空请求已保存，下次打开键盘时执行。") }
+        return String(localized: "上次中文清空已完成。")
     }
     private var learningResetMessage: String {
         if resetRequest.isEmpty { return String(localized: "清空后将重新学习输入习惯。用户词典、剪贴板历史和皮肤会保留。") }
@@ -610,9 +622,19 @@ struct KeyboardDataPrivacyView: View {
                     Button { confirmLearningReset = true } label: {
                         AppSettingsActionRow(title: "清空学习记录", subtitle: "重置词语偏好与转换学习", symbol: "arrow.counterclockwise")
                     }.accessibilityIdentifier("vime.privacy.resetLearning")
+                    if chineseInput {
+                        Divider().padding(.leading, 52)
+                        Button { confirmChineseLearningReset = true } label: {
+                            AppSettingsActionRow(title: "清空中文学习记录", subtitle: "只重置拼音的词语偏好，日语学习保留", symbol: "arrow.counterclockwise.circle")
+                        }.accessibilityIdentifier("vime.privacy.resetChineseLearning")
+                    }
                 }
                 Text(learningResetMessage)
                     .font(.footnote).foregroundStyle(.secondary)
+                if chineseInput, let chineseLearningResetMessage {
+                    Text(chineseLearningResetMessage)
+                        .font(.footnote).foregroundStyle(.secondary)
+                }
             }
 
             VStack(alignment: .leading, spacing: 10) {
@@ -654,6 +676,12 @@ struct KeyboardDataPrivacyView: View {
             Button("取消", role: .cancel) {}
         } message: {
             Text("下次打开键盘时清空词语偏好和转换学习，此操作无法撤销。用户词典、剪贴板历史和皮肤不会删除。")
+        }
+        .confirmationDialog("清空中文学习记录？", isPresented: $confirmChineseLearningReset, titleVisibility: .visible) {
+            Button("清空中文学习记录", role: .destructive) { KeyboardPreferences().learningResetRequests.chinese.request() }
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text("下次打开键盘时清空拼音输入学到的词语偏好，此操作无法撤销。日语学习、用户词典、剪贴板历史和皮肤不会删除。")
         }
     }
 }
