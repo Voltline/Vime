@@ -40,3 +40,4 @@ at the lowest word frequency.
 | [en-wl/wordlist](https://github.com/en-wl/wordlist) (ESDB, formerly SCOWL) | `1e5b7d3a72f47a71da5d28686c1dd4b397178485 2026-06-24` | MIT-like | English words up to size 70 and their casing |
 | [Unihan](https://www.unicode.org/Public/18.0.0/ucd/Unihan.zip) `kHanyuPinlu` | Unicode 18.0.0, SHA-256 `4c93ea9c…` | Unicode License V3 | how often each reading of a character occurs |
 | [Tatoeba](https://tatoeba.org) Mandarin sentences | export of 2026-11-07, SHA-256 `262a48ca…` | CC BY 2.0 FR | common short phrases such as 好的, counted into `Scripts/rime_collocations.txt` because Tatoeba keeps no old exports |
+| [OpenCC](https://github.com/BYVoid/OpenCC) `STPhrases.txt`, `STCharacters.txt` in `OpenCC/` | same commit as the code above | Apache-2.0 | simplified to traditional characters (`s2t.json`, without the regional phrase list), compiled to `opencc/*.ocd2` |

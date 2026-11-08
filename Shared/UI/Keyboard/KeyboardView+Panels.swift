@@ -83,6 +83,10 @@ extension KeyboardView {
 
     @objc func toggleKana() {
         apply(session.togglePrimaryVariant())
+        let traits = session.inputTraits
+        if traits.language == .chinese, traits.traditionalChinese != preferences.traditionalChinese {
+            preferences.traditionalChinese = traits.traditionalChinese
+        }
         rebuildKeys()
     }
 

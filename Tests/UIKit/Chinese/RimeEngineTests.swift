@@ -79,6 +79,27 @@ final class RimeEngineTests: XCTestCase {
         XCTAssertNil(requests.chinese.pendingID(for: "rime." + Self.user.lastPathComponent))
     }
 
+    func testTraditionalCharactersFollowTheOption() throws {
+        let engine = try engine()
+        defer { _ = engine.sendAndWait(.setTraditional(false)); _ = engine.sendAndWait(.clear) }
+        XCTAssertEqual(engine.sendAndWait(.type("toufa")).candidates.first?.text, "头发")
+        // Turning it on while composing looks the same input up again.
+        let shown = engine.sendAndWait(.setTraditional(true))
+        XCTAssertEqual(shown.input, "toufa")
+        XCTAssertEqual(shown.candidates.first?.text, "頭髮")
+        XCTAssertEqual(engine.sendAndWait(.select(0)).commit, "頭髮")
+        XCTAssertEqual(engine.sendAndWait(.type("zhongguo")).candidates.first?.text, "中國")
+        _ = engine.sendAndWait(.clear)
+        XCTAssertTrue(engine.sendAndWait(.setTraditional(false)).candidates.isEmpty)
+        XCTAssertEqual(engine.sendAndWait(.type("zhongguo")).candidates.first?.text, "中国")
+        _ = engine.sendAndWait(.clear)
+        // A new session, as after Rime restarts, starts traditional again.
+        let other = try self.engine()
+        _ = other.sendAndWait(.setTraditional(true))
+        XCTAssertEqual(other.sendAndWait(.type("zhongguo")).candidates.first?.text, "中國")
+        _ = other.sendAndWait(.clear)
+    }
+
     func testCommandsRunInOrder() throws {
         let engine = try engine()
         let done = expectation(description: "all commands")
