@@ -294,63 +294,6 @@ final class KeyboardLanguageSwitchTests: XCTestCase {
         XCTAssertEqual(control.selectedSegmentIndex, 1)
     }
 
-    func testTheSettingsPanelPicksTraditionalChinese() throws {
-        let (keyboard, preferences) = try keyboard()
-        preferences.traditionalChinese = false
-        keyboard.createSettingsPanel()
-        let panel = try XCTUnwrap(keyboard.settingsPanel)
-        let control = try XCTUnwrap(descendants(panel).compactMap { $0 as? UISegmentedControl }
-            .first { $0.accessibilityIdentifier == "vime.setting.inputLanguage" })
-        XCTAssertEqual(control.numberOfSegments, 3)
-        control.selectedSegmentIndex = 2
-        control.sendActions(for: .valueChanged)
-        let chinese = try XCTUnwrap(keyboard.session as? ChineseInputSession)
-        XCTAssertEqual(preferences.inputLanguage, .chinese)
-        XCTAssertTrue(preferences.traditionalChinese)
-        keyboard.apply(chinese.type("zhongguo"))
-        waitUntilCurrent(chinese)
-        XCTAssertEqual(chinese.candidatePresentations.first?.text, "中國")
-
-        // Simplified again while composing: the same input is looked up again.
-        control.selectedSegmentIndex = 1
-        control.sendActions(for: .valueChanged)
-        XCTAssertTrue(keyboard.session === chinese)
-        XCTAssertFalse(preferences.traditionalChinese)
-        let deadline = Date().addingTimeInterval(10)
-        while chinese.candidatePresentations.first?.text != "中国" && Date() < deadline {
-            RunLoop.main.run(until: Date().addingTimeInterval(0.01))
-        }
-        XCTAssertEqual(chinese.candidatePresentations.first?.text, "中国")
-        chinese.reset()
-
-        // Japanese keeps the chosen script for the next time Chinese is picked.
-        preferences.traditionalChinese = true
-        control.selectedSegmentIndex = 0
-        control.sendActions(for: .valueChanged)
-        XCTAssertEqual(preferences.inputLanguage, .japanese)
-        XCTAssertTrue(preferences.traditionalChinese)
-        keyboard.settingsPanel?.update(hasFullAccess: true, neuralPaused: false)
-        XCTAssertEqual(control.selectedSegmentIndex, 0)
-        XCTAssertEqual(KeyboardSettingsPanel.languageIndex(.chinese, traditional: true), 2)
-        XCTAssertEqual(KeyboardSettingsPanel.languageIndex(.chinese, traditional: false), 1)
-        XCTAssertEqual(KeyboardSettingsPanel.languageIndex(.japanese, traditional: true), 0)
-    }
-
-    func testTraditionalChineseFollowsThePhoneLanguageUntilChosen() throws {
-        for language in ["zh-Hant-TW", "zh-Hant", "zh-TW", "zh-HK", "zh-Hant-CN"] {
-            XCTAssertTrue(KeyboardPreferences.prefersTraditionalChinese([language, "en"]), language)
-        }
-        for language in ["zh-Hans-CN", "zh-CN", "zh-Hans-HK", "ja-JP", "en-TW", "ko"] {
-            XCTAssertFalse(KeyboardPreferences.prefersTraditionalChinese([language, "zh-Hant"]), language)
-        }
-        XCTAssertFalse(KeyboardPreferences.prefersTraditionalChinese([]))
-        let preferences = KeyboardPreferences(defaults: try XCTUnwrap(UserDefaults(suiteName: suite)))
-        XCTAssertEqual(preferences.traditionalChinese, KeyboardPreferences.prefersTraditionalChinese(Locale.preferredLanguages))
-        preferences.traditionalChinese = !preferences.traditionalChinese
-        XCTAssertNotEqual(preferences.traditionalChinese, KeyboardPreferences.prefersTraditionalChinese(Locale.preferredLanguages))
-        XCTAssertEqual(preferences.snapshot.traditionalChinese, preferences.traditionalChinese)
-    }
-
     func testUndoMovesBesideCloseWhenChineseHidesTheKanaToggle() throws {
         let (keyboard, preferences) = try keyboard()
         keyboard.canUndoLineDeletion = true

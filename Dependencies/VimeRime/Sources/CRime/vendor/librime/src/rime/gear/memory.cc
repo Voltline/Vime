@@ -130,21 +130,10 @@ bool Memory::ProcessSegmentOnCommit(CommitEntry& commit_entry,
 void Memory::OnCommit(Context* ctx) {
   if (!user_dict_ || user_dict_->readonly())
     return;
-  // Vime: skip commits the app does not want learned. A filter such as
-  // the simplifier changes the shown text, so the words underneath are
-  // checked too.
-  if (vime_rime_learning_filter) {
-    string genuine;
-    for (const Segment& seg : ctx->composition()) {
-      if (auto cand = seg.GetSelectedCandidate())
-        genuine += Candidate::GetGenuineCandidate(cand)->text();
-      else
-        genuine += ctx->input().substr(seg.start, seg.end - seg.start);
-    }
-    if (!vime_rime_learning_filter(ctx->GetCommitText().c_str()) ||
-        !vime_rime_learning_filter(genuine.c_str()))
-      return;
-  }
+  // Vime: skip commits the app does not want learned.
+  if (vime_rime_learning_filter &&
+      !vime_rime_learning_filter(ctx->GetCommitText().c_str()))
+    return;
   StartSession();
   CommitEntry commit_entry(this);
   for (auto& seg : ctx->composition()) {
