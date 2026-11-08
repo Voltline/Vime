@@ -50,6 +50,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         session.setFullWidthSpace(next.fullWidthSpace)
         session.setLiveConversion(next.liveConversion)
         session.setPinyinLookupEnabled(next.pinyinLookupInJapanese)
+        session.setTraditionalChinese(next.traditionalChinese)
         applyNeuralRetry()
         if next.learningResetID != previous?.learningResetID {
             session.reset()
@@ -98,7 +99,8 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         let glyph = target == .chinese ? "中" : "あ"
         key.hint = glyph
         key.alternateTitle = glyph
-        key.alternateAccessibilityName = target == .chinese ? String(localized: "切换到简体中文") : String(localized: "切换到日语")
+        key.alternateAccessibilityName = target == .chinese
+            ? (preferences.traditionalChinese ? String(localized: "切换到繁体中文") : String(localized: "切换到简体中文")) : String(localized: "切换到日语")
         key.alternateAction = { [weak self] in self?.switchInputLanguage(to: target) }
     }
 
@@ -116,6 +118,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         session.setUndoesCommitOnBackspace(preferences.undoConversionOnBackspace)
         session.setFullWidthSpace(preferences.fullWidthSpace)
         session.setPinyinLookupEnabled(preferences.pinyinLookupInJapanese)
+        session.setTraditionalChinese(preferences.traditionalChinese)
         session.setLiveConversion(preferences.liveConversion)
         applyNeuralRetry()
         session.onCommittedEdits = { [weak self] batch in

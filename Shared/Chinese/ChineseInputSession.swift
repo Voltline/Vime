@@ -28,6 +28,7 @@ final class ChineseInputSession: KeyboardInputSession {
     private var generation = 0
     private var presentations: [CandidatePresentation] = []
     private var expanded = false
+    private var traditional = false
     /// The last thing that reached the host was a Rime commit, so BackSpace
     /// deleting it also takes back what Rime learned from it.
     private var commitIsForgettable = false
@@ -164,6 +165,12 @@ final class ChineseInputSession: KeyboardInputSession {
 
     func togglePrimaryVariant() -> [KeyboardEdit] { [] }
     func updateIntelligence(ranking: CandidateRankingMode, suggestionsEnabled: Bool) {}
+
+    func setTraditionalChinese(_ enabled: Bool) {
+        guard enabled != traditional else { return }
+        traditional = enabled
+        enqueue(.setTraditional(enabled))
+    }
 
     func setExpandedCandidates(_ enabled: Bool) {
         guard enabled != expanded else { return }

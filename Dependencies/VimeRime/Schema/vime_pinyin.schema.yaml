@@ -20,7 +20,13 @@ engine:
     - script_translator
     - table_translator@english
   filters:
+    - simplifier
     - uniquifier
+# Traditional characters while the app sets this option (OpenCC s2t, in the
+# data's opencc folder). Learning stays on the simplified words underneath.
+simplifier:
+  opencc_config: s2t.json
+  option_name: traditionalization
 speller:
   alphabet: zyxwvutsrqponmlkjihgfedcba
   initials: zyxwvutsrqponmlkjihgfedcba

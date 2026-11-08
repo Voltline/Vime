@@ -14,8 +14,10 @@ final class KeyboardSettingsPanel: UIScrollView {
     private let accessibleNumbers = UIStackView()
     private let oneHanded = UISegmentedControl(items: [String(localized: "关闭"), String(localized: "靠左"), String(localized: "靠右")])
     private var oneHandedGroup: UIView?
-    private static let languages: [KeyboardInputLanguage] = [.japanese, .chinese]
-    private let inputLanguage = UISegmentedControl(items: [String(localized: "日语"), String(localized: "简体中文")])
+    /// Japanese, then Chinese in simplified and in traditional characters.
+    private static let languages: [(language: KeyboardInputLanguage, traditional: Bool)] = [
+        (.japanese, false), (.chinese, false), (.chinese, true)]
+    private let inputLanguage = UISegmentedControl(items: [String(localized: "日语"), String(localized: "简体"), String(localized: "繁体")])
     private var inputLanguageGroup: UIView?
     private var numberChoices: [UIButton] = []
     private let notice = UILabel()
@@ -179,7 +181,9 @@ final class KeyboardSettingsPanel: UIScrollView {
         inputLanguage.setContentHuggingPriority(.required, for: .horizontal)
         inputLanguage.addAction(UIAction { [weak self] _ in
             guard let self, Self.languages.indices.contains(self.inputLanguage.selectedSegmentIndex) else { return }
-            self.onInputLanguageChange?(Self.languages[self.inputLanguage.selectedSegmentIndex])
+            let choice = Self.languages[self.inputLanguage.selectedSegmentIndex]
+            if choice.language == .chinese { self.preferences.traditionalChinese = choice.traditional }
+            self.onInputLanguageChange?(choice.language)
         }, for: .valueChanged)
         let inputLanguageGroup = group(row(symbol: "globe", content: [label(String(localized: "输入语言")), inputLanguage],
             height: 48, adaptive: true))
@@ -218,6 +222,10 @@ final class KeyboardSettingsPanel: UIScrollView {
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
+    static func languageIndex(_ language: KeyboardInputLanguage, traditional: Bool) -> Int {
+        languages.firstIndex { $0.language == language && ($0.language != .chinese || $0.traditional == traditional) } ?? 0
+    }
+
     func setContentMargins(left: CGFloat, right: CGFloat) {
         horizontal[0].constant = left; horizontal[1].constant = -right
         horizontal[2].constant = -left - right
@@ -228,7 +236,7 @@ final class KeyboardSettingsPanel: UIScrollView {
         liveConversion.isOn = preferences.liveConversion
         updateNumberSelection()
         oneHanded.selectedSegmentIndex = KeyboardOneHandedSide.allCases.firstIndex(of: preferences.oneHanded) ?? 0
-        inputLanguage.selectedSegmentIndex = Self.languages.firstIndex(of: preferences.inputLanguage) ?? 0
+        inputLanguage.selectedSegmentIndex = Self.languageIndex(preferences.inputLanguage, traditional: preferences.traditionalChinese)
         if !haptics.isAdjusting {
             haptics.setIntensity(preferences.hapticIntensity)
             hapticValue.text = HapticIntensity.description(preferences.hapticIntensity)

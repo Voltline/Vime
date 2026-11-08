@@ -2,12 +2,12 @@ import XCTest
 
 /// The test bundle's principal class. Keyboards built from stored settings
 /// read the App Group, which a simulator keeps between runs; the input
-/// language is pinned to Japanese, with Chinese input on and live conversion
-/// off (it changes what typing shows), for the run and all three are
-/// restored afterwards.
+/// language is pinned to Japanese, with Chinese input on in simplified
+/// characters and live conversion off (it changes what typing shows), for
+/// the run and all are restored afterwards.
 @objc(VimeTestEnvironment)
 final class VimeTestEnvironment: NSObject, XCTestObservation {
-    private static let pinnedKeys = ["vime.inputLanguage", "vime.chineseInputEnabled", "vime.liveConversion"]
+    private static let pinnedKeys = ["vime.inputLanguage", "vime.chineseInputEnabled", "vime.liveConversion", "vime.traditionalChinese"]
     private var stored: [String: Any] = [:]
 
     override init() {
@@ -22,6 +22,7 @@ final class VimeTestEnvironment: NSObject, XCTestObservation {
             preferences.inputLanguage = .japanese
             preferences.chineseInputEnabled = true
             preferences.liveConversion = false
+            preferences.traditionalChinese = false
         }
     }
 
