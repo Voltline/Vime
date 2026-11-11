@@ -113,6 +113,8 @@ protocol KeyboardInputSession: AnyObject {
     func setPinyinLookupEnabled(_ enabled: Bool)
     /// Chinese mode shows traditional characters.
     func setTraditionalChinese(_ enabled: Bool)
+    /// Chinese mode lets the Chinese model reorder candidates while smart ranking is on.
+    func setChineseLanguageModel(_ enabled: Bool)
     /// The conversion just committed, which the toolbar offers to reconvert.
     var reconvertibleCommit: (text: String, reading: String)? { get }
     /// Deletes that conversion and restores its reading.
@@ -140,6 +142,7 @@ extension KeyboardInputSession {
     func setLiveConversion(_ enabled: Bool) {}
     func setPinyinLookupEnabled(_ enabled: Bool) {}
     func setTraditionalChinese(_ enabled: Bool) {}
+    func setChineseLanguageModel(_ enabled: Bool) {}
     var reconvertibleCommit: (text: String, reading: String)? { nil }
     func reconvertCommit() -> [KeyboardEdit] { [] }
     func forgettableCandidate(_ token: CandidateSelectionToken) -> String? { nil }

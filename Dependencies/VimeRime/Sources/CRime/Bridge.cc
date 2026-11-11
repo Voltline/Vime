@@ -174,9 +174,11 @@ VimeRimeSnapshot vime_rime_snapshot(VimeRimeSession session, int32_t candidateLi
         if (!snapshot.candidates) return true;
         // The C API leaves out a candidate's type, so read it from the menu.
         rime::an<rime::Menu> menu;
+        size_t inputLength = 0;
         if (auto owner = rime::Service::instance().GetSession(session)) {
             rime::Context *ctx = owner->context();
             if (ctx && ctx->HasMenu()) menu = ctx->composition().back().menu;
+            if (ctx) inputLength = ctx->input().length();
         }
         RimeCandidateListIterator iterator = {};
         if (api()->candidate_list_begin(session, &iterator)) {
@@ -185,8 +187,13 @@ VimeRimeSnapshot vime_rime_snapshot(VimeRimeSession session, int32_t candidateLi
                 out.text = copy(iterator.candidate.text);
                 out.comment = copy(iterator.candidate.comment);
                 if (menu) {
-                    if (auto candidate = menu->GetCandidateAt(size_t(snapshot.candidateCount)))
-                        out.completion = rime::Candidate::GetGenuineCandidate(candidate)->type() == "completion";
+                    if (auto candidate = menu->GetCandidateAt(size_t(snapshot.candidateCount))) {
+                        auto genuine = rime::Candidate::GetGenuineCandidate(candidate);
+                        out.completion = genuine->type() == "completion";
+                        out.userPhrase = genuine->type() == "user_phrase" || genuine->type() == "user_table";
+                        out.coversInput = candidate->end() >= inputLength;
+                        if (genuine->text() != iterator.candidate.text) out.genuine = copy(genuine->text().c_str());
+                    }
                 }
                 ++snapshot.candidateCount;
             }
@@ -205,6 +212,7 @@ void vime_rime_snapshot_free(VimeRimeSnapshot *snapshot) {
     for (int32_t i = 0; i < snapshot->candidateCount; ++i) {
         std::free(snapshot->candidates[i].text);
         std::free(snapshot->candidates[i].comment);
+        std::free(snapshot->candidates[i].genuine);
     }
     std::free(snapshot->candidates);
     *snapshot = {};

@@ -27,11 +27,25 @@ final class ChineseInputSession: KeyboardInputSession {
     private var era = 0
     private var generation = 0
     private var presentations: [CandidatePresentation] = []
+    /// Display order of the shown candidates, as indices into Rime's list.
+    private var order: [Int] = []
+    /// Rime's candidates waiting for the model before they show.
+    private var ranking: (request: ChineseCandidateRanking.Request, candidates: [RimeCandidate])?
+    private var candidateRanking: CandidateRankingMode = .languageModel
+    private var chineseModelEnabled = true
+    /// Whether the excluded-terms list applies, read once per composition.
+    private var exclusionsActive = LearningExclusionPolicy.isActive()
     private var expanded = false
     private var traditional = false
     /// The last thing that reached the host was a Rime commit, so BackSpace
     /// deleting it also takes back what Rime learned from it.
     private var commitIsForgettable = false
+    /// Opt-in profiling only (nil otherwise): when the latest key was typed,
+    /// until its candidates show, and when the waiting for the model began.
+    private var inputStartedAt: TimeInterval?
+    private var typedAt: TimeInterval?
+    private var rankingStartedAt: TimeInterval?
+    private(set) var candidateInitialRequestStartedAt: TimeInterval?
 
     var onCandidatesChange: (() -> Void)?
     var onCommittedEdits: ((KeyboardCommitBatch) -> Void)?
@@ -92,7 +106,7 @@ final class ChineseInputSession: KeyboardInputSession {
     var stripPresentations: [CandidatePresentation] { candidatePresentations }
     var showsStrip: Bool { !candidatePresentations.isEmpty }
     /// Old candidates stay visible while commands run but cannot be chosen.
-    var candidatesAreCurrent: Bool { received == sent }
+    var candidatesAreCurrent: Bool { received == sent && ranking == nil }
     var selectedIndex: Int? { nil }
     var candidateResultReadyAt: TimeInterval? { nil }
 
@@ -103,6 +117,8 @@ final class ChineseInputSession: KeyboardInputSession {
         let pinyin = text.unicodeScalars.allSatisfy { ("a"..."z").contains($0) || ($0 == "'" && isComposing) }
         guard pinyin, !text.isEmpty else { return insertLiteral(text) }
         commitIsForgettable = false
+        inputStartedAt = KeyboardPerformance.start()
+        typedAt = inputStartedAt
         echo += text
         enqueue(.type(text), echo: text.count)
         return []
@@ -118,7 +134,11 @@ final class ChineseInputSession: KeyboardInputSession {
     }
 
     func space() -> [KeyboardEdit] {
-        if isComposing { enqueue(.space); return [] }
+        if isComposing {
+            // Space takes the first candidate shown, which the model may have moved.
+            if candidatesAreCurrent, let first = order.first, first != 0 { enqueue(.select(first)) } else { enqueue(.space) }
+            return []
+        }
         commitIsForgettable = false
         return settle() + [.insert(" ")]
     }
@@ -145,8 +165,8 @@ final class ChineseInputSession: KeyboardInputSession {
 
     func chooseCandidate(_ token: CandidateSelectionToken) -> [KeyboardEdit] {
         guard token.sessionID == sessionID, token.generation == generation, token.kind == .composition,
-              candidatesAreCurrent, isComposing, presentations.indices.contains(token.index) else { return [] }
-        enqueue(.select(token.index))
+              candidatesAreCurrent, isComposing, order.indices.contains(token.index) else { return [] }
+        enqueue(.select(order[token.index]))
         return []
     }
 
@@ -171,7 +191,46 @@ final class ChineseInputSession: KeyboardInputSession {
         setTraditionalChinese(!traditional)
         return []
     }
-    func updateIntelligence(ranking: CandidateRankingMode, suggestionsEnabled: Bool) {}
+    func updateIntelligence(ranking: CandidateRankingMode, suggestionsEnabled: Bool) {
+        let wasRanking = usesModel
+        candidateRanking = ranking
+        modelRankingChanged(from: wasRanking)
+    }
+
+    func setChineseLanguageModel(_ enabled: Bool) {
+        let wasRanking = usesModel
+        chineseModelEnabled = enabled
+        modelRankingChanged(from: wasRanking)
+    }
+
+    /// The model reorders candidates: smart ranking and the Chinese model are
+    /// both on, and memory pressure has not paused it.
+    private var usesModel: Bool { candidateRanking == .languageModel && chineseModelEnabled }
+    var neuralModeSuspendedForMemoryPressure: Bool {
+        usesModel && JapaneseCandidateWorker.LanguageModelStorage.shared.isSuspended
+    }
+
+    private func modelRankingChanged(from wasRanking: Bool) {
+        guard usesModel != wasRanking else { return }
+        if usesModel { JapaneseCandidateWorker.LanguageModelStorage.shared.setSuspended(false) }
+        else { finishRanking(scores: nil); ChineseCandidateRanking.release() }
+    }
+
+    func retryLanguageModel(requestID: String) {
+        guard usesModel, JapaneseCandidateWorker.LanguageModelStorage.shared.retry(requestID: requestID) else { return }
+        onCandidatesChange?()
+    }
+
+    func handleMemoryPressure() {
+        finishRanking(scores: nil)
+        JapaneseCandidateWorker.LanguageModelStorage.shared.setSuspended(true)
+        ChineseCandidateRanking.release()
+    }
+
+    /// The model stays loaded while hidden, as Japanese's does.
+    func releaseInactiveResources() {
+        finishRanking(scores: nil)
+    }
 
     func setTraditionalChinese(_ enabled: Bool) {
         guard enabled != traditional else { return }
@@ -190,6 +249,8 @@ final class ChineseInputSession: KeyboardInputSession {
         era += 1
         echo = ""
         commitIsForgettable = false
+        exclusionsActive = LearningExclusionPolicy.isActive()
+        typedAt = nil
         publish(RimeState())
         enqueue(.clear)
         enqueue(.finishLearning)
@@ -198,7 +259,10 @@ final class ChineseInputSession: KeyboardInputSession {
 
     func didApplyEdits(_ edits: [KeyboardEdit]) {}
     func invalidateLearningFeedback() {}
-    func takeInputTiming() -> TimeInterval? { nil }
+    func takeInputTiming() -> TimeInterval? {
+        defer { inputStartedAt = nil }
+        return inputStartedAt
+    }
 
     // MARK: Engine results
 
@@ -236,7 +300,7 @@ final class ChineseInputSession: KeyboardInputSession {
         let edits = receive()
         guard received != pending else { return }
         if !edits.isEmpty { onCommittedEdits?(KeyboardCommitBatch(hostEpoch: hostEpoch, edits: edits)) }
-        onCandidatesChange?()
+        announceCandidates()
     }
 
     /// Applies every result that has arrived, in command order.
@@ -258,12 +322,72 @@ final class ChineseInputSession: KeyboardInputSession {
     }
 
     private func publish(_ next: RimeState) {
-        let candidatesChanged = next.candidates != state.candidates || presentations.isEmpty != next.candidates.isEmpty
+        let previous = ranking?.candidates ?? state.candidates
+        let candidatesChanged = next.candidates != previous || presentations.isEmpty != next.candidates.isEmpty
         state = next
         guard candidatesChanged else { return }
+        ranking?.request.cancel()
+        ranking = nil
+        let context = VimeLanguageModel.sentenceContext(leftContextProvider?() ?? "")
+        let active = exclusionsActive
+        let slots = usesModel ? ChineseCandidateRanking.slots(next.candidates) {
+            LearningExclusionPolicy.allowsLearning($0, active: active)
+        } : []
+        guard slots.count > 1 else { return show(next.candidates, order: Array(next.candidates.indices)) }
+        KeyboardPerformance.record(.candidateModelEligible, since: KeyboardPerformance.start())
+        // A cold model loads for later compositions; this one shows at once.
+        let warm = JapaneseCandidateWorker.LanguageModelStorage.shared.isReady(for: .chinese)
+        let request = ChineseCandidateRanking.Request(
+            deadline: ProcessInfo.processInfo.systemUptime + ChineseCandidateRanking.window)
+        ChineseCandidateRanking.score(slots.map { next.candidates[$0].genuine }, context: context, request: request) {
+            [weak self] scores in
+            guard let self, self.ranking?.request === request else { return }
+            self.finishRanking(scores: scores.map { (slots, $0) })
+        }
+        guard warm else { return show(next.candidates, order: Array(next.candidates.indices)) }
+        ranking = (request, next.candidates)
+        rankingStartedAt = KeyboardPerformance.start()
+        DispatchQueue.main.asyncAfter(deadline: .now() + ChineseCandidateRanking.window) { [weak self] in
+            guard let self, self.ranking?.request === request else { return }
+            self.finishRanking(scores: nil)
+        }
+    }
+
+    /// Shows the candidates waiting for the model, in its order when `scores` came in time.
+    private func finishRanking(scores: (slots: [Int], values: [Double])?) {
+        guard let (request, candidates) = ranking else { return }
+        request.cancel()
+        ranking = nil
+        let order = scores.map { ChineseCandidateRanking.order(count: candidates.count, slots: $0.slots, scores: $0.values) }
+        KeyboardPerformance.record(.chineseRankingWait, since: rankingStartedAt)
+        rankingStartedAt = nil
+        if let order {
+            KeyboardPerformance.record(.candidateModelUsed, since: KeyboardPerformance.start())
+            if order != Array(candidates.indices) {
+                KeyboardPerformance.record(.candidateModelOrderChanged, since: KeyboardPerformance.start())
+            }
+        }
+        show(candidates, order: order ?? Array(candidates.indices))
+        if received == sent { announceCandidates() }
+    }
+
+    /// Tells the keyboard; once the latest key's candidates are final, it
+    /// measures from that key until they can be chosen.
+    private func announceCandidates() {
+        if candidatesAreCurrent, let typedAt {
+            candidateInitialRequestStartedAt = typedAt
+            self.typedAt = nil
+        }
+        defer { candidateInitialRequestStartedAt = nil }
+        onCandidatesChange?()
+    }
+
+    private func show(_ candidates: [RimeCandidate], order: [Int]) {
         generation += 1
-        presentations = next.candidates.enumerated().map { index, candidate in
-            CandidatePresentation(text: candidate.text, source: .conversion, consumedInputCount: 0, correction: nil,
+        self.order = order
+        presentations = order.enumerated().map { index, source in
+            let candidate = candidates[source]
+            return CandidatePresentation(text: candidate.text, source: .conversion, consumedInputCount: 0, correction: nil,
                 selectionToken: CandidateSelectionToken(sessionID: sessionID, generation: generation, index: index, kind: .composition),
                 detailAnnotation: candidate.comment.flatMap { $0.isEmpty ? nil : $0 })
         }

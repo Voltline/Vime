@@ -29,16 +29,25 @@ final class JapaneseCandidateWorker {
     /// Internal visibility also allows deterministic queue-isolation tests.
     nonisolated static let modelQueue = DispatchQueue(
         label: "com.Voltline.Vime.languageModel", qos: .userInitiated, autoreleaseFrequency: .workItem)
-    private nonisolated final class LanguageModelStorage: @unchecked Sendable {
+    /// The keyboard's one language model. The extension cannot hold the
+    /// Japanese and Chinese models together, so asking for the other language
+    /// releases the loaded one first.
+    nonisolated final class LanguageModelStorage: @unchecked Sendable {
+        enum Language: Sendable { case japanese, chinese }
         static let shared = LanguageModelStorage()
         // Readiness and the pressure gate cross queues; model access remains
         // confined to modelQueue. Never wait for cold initialization to publish.
         private let lock = NSLock()
         private var suspended = false
         private var handledRetryID: String?
-        private var ready = false
+        private var readyLanguage: Language?
         var isSuspended: Bool { lock.lock(); defer { lock.unlock() }; return suspended }
-        var isReady: Bool { lock.lock(); defer { lock.unlock() }; return ready && !suspended }
+        /// The Japanese model is loaded and usable.
+        var isReady: Bool { isReady(for: .japanese) }
+        func isReady(for language: Language) -> Bool {
+            lock.lock(); defer { lock.unlock() }
+            return readyLanguage == language && !suspended
+        }
         func setSuspended(_ value: Bool) {
             lock.lock(); suspended = value; lock.unlock()
             KeyboardExtensionStatus.update { $0.modelPaused = value }
@@ -52,30 +61,49 @@ final class JapaneseCandidateWorker {
             KeyboardExtensionStatus.update { $0.modelPaused = false }
             return true
         }
-        private func setReady(_ value: Bool) { lock.lock(); ready = value; lock.unlock() }
+        private func setReady(_ value: Language?) { lock.lock(); readyLanguage = value; lock.unlock() }
         private var cachedModel: VimeLanguageModel?
+        private var cachedLanguage: Language = .japanese
         private var attempted = false
         private var loadCount = 0
         func release() {
             dispatchPrecondition(condition: .onQueue(JapaneseCandidateWorker.modelQueue))
-            setReady(false)
+            setReady(nil)
             cachedModel = nil; attempted = false
+        }
+        /// Releases the model only when it is `language`'s.
+        func release(_ language: Language) {
+            dispatchPrecondition(condition: .onQueue(JapaneseCandidateWorker.modelQueue))
+            if cachedLanguage == language { release() }
         }
         func resourceState(engineLoaded: Bool) -> ResourceState {
             dispatchPrecondition(condition: .onQueue(JapaneseCandidateWorker.modelQueue))
-            return ResourceState(engineLoaded: engineLoaded, modelLoaded: cachedModel != nil,
+            return ResourceState(engineLoaded: engineLoaded, modelLoaded: cachedModel != nil && cachedLanguage == .japanese,
                 modelSuspendedForMemoryPressure: isSuspended, modelLoadCount: loadCount)
         }
-        var model: VimeLanguageModel? {
+        /// The Japanese model.
+        var model: VimeLanguageModel? { model(for: .japanese) }
+        func model(for language: Language) -> VimeLanguageModel? {
             dispatchPrecondition(condition: .onQueue(JapaneseCandidateWorker.modelQueue))
             guard !isSuspended else { return nil }
+            if language != cachedLanguage {
+                release()
+                cachedLanguage = language
+            }
             if !attempted {
                 attempted = true
                 let log = Logger(subsystem: "com.Voltline.Vime", category: "LanguageModel")
                 let started = ProcessInfo.processInfo.systemUptime
                 do {
-                    let model = try VimeLanguageModel.runtime { variant, error in
-                        log.error("Model \(variant.rawValue, privacy: .public) unavailable (\(String(describing: error), privacy: .public)); trying fallback.")
+                    let model = try autoreleasepool {
+                        switch language {
+                        case .japanese:
+                            try VimeLanguageModel.runtime { variant, error in
+                                log.error("Model \(variant.rawValue, privacy: .public) unavailable (\(String(describing: error), privacy: .public)); trying fallback.")
+                            }
+                        case .chinese:
+                            try VimeLanguageModel(variant: .zhV1)
+                        }
                     }
                     loadCount += 1
                     let milliseconds = Int((ProcessInfo.processInfo.systemUptime - started) * 1000)
@@ -85,7 +113,7 @@ final class JapaneseCandidateWorker {
                     // publish the new model or start its first prediction.
                     guard !isSuspended else { return nil }
                     cachedModel = model
-                    setReady(true)
+                    setReady(language)
                     KeyboardExtensionStatus.update { $0.modelVersion = model.modelVersion; $0.modelPaused = false }
                 } catch {
                     log.error("Model unavailable (\(String(describing: error), privacy: .public)); retaining dictionary candidates.")
@@ -559,7 +587,7 @@ final class JapaneseCandidateWorker {
 
     func disableLanguageModel() {
         cancelPending()
-        Self.modelQueue.async { LanguageModelStorage.shared.release() }
+        Self.modelQueue.async { LanguageModelStorage.shared.release(.japanese) }
     }
 
     func handleMemoryPressure() {
