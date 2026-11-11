@@ -4,6 +4,21 @@ import Foundation
 nonisolated struct RimeCandidate: Sendable, Equatable {
     let text: String
     let comment: String?
+    /// The text before the simplifier: simplified even while traditional
+    /// characters show.
+    var genuine: String
+    /// Converts the whole input, not only its first syllables.
+    var coversInput = true
+    /// Learned from earlier input.
+    var userPhrase = false
+
+    init(text: String, comment: String?, genuine: String? = nil, coversInput: Bool = true, userPhrase: Bool = false) {
+        self.text = text
+        self.comment = comment
+        self.genuine = genuine ?? text
+        self.coversInput = coversInput
+        self.userPhrase = userPhrase
+    }
 }
 
 /// What the engine shows after a command. `commit` is text for the host; the
@@ -216,7 +231,8 @@ nonisolated final class RimeEngine: @unchecked Sendable {
             let text = string(candidate.text) ?? ""
             if candidate.completion, !Self.completionFits(text, syllables: syllables) { continue }
             shown.append(index)
-            candidates.append(RimeCandidate(text: text, comment: string(candidate.comment)))
+            candidates.append(RimeCandidate(text: text, comment: string(candidate.comment), genuine: string(candidate.genuine),
+                                            coversInput: candidate.coversInput, userPhrase: candidate.userPhrase))
         }
         return RimeState(input: string(raw.input) ?? "", preedit: preedit,
                          commit: string(raw.commit), candidates: candidates)

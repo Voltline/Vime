@@ -814,6 +814,34 @@
         }
       }
     },
+    "Vime 中文模型 V%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vime Chinese model V%@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vime 中国語モデル V%@"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vime 중국어 모델 V%@"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vime 中文模型 V%@"
+          }
+        }
+      }
+    },
     "Vime 的全部功能都已包含在应用中。赞助完全自愿，不会解锁任何功能、皮肤或其他内容。": {
       "localizations": {
         "en": {
@@ -15279,30 +15307,58 @@
         }
       }
     },
-    "中文使用全拼，学习记录与日语分开保存；智能排序、下一词联想和退格撤销转换目前只用于日语\n切换后，下次打开键盘时生效": {
+    "中文使用全拼，学习记录与日语分开保存；中文智能排序使用本地中文模型调整候选顺序，需同时开启智能排序；下一词联想和退格撤销转换目前只用于日语\n切换后，下次打开键盘时生效": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chinese uses full pinyin and learns separately from Japanese. Smart Ranking, Next-Word Suggestions and Backspace Undoes Conversion apply to Japanese only for now.\nThe change takes effect the next time the keyboard opens."
+            "value": "Chinese uses full pinyin and learns separately from Japanese. Chinese Smart Ranking reorders candidates with an on-device Chinese model and needs Smart Ranking to be on. Next-Word Suggestions and Backspace Undoes Conversion apply to Japanese only for now.\nThe change takes effect the next time the keyboard opens."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "中国語は全拼で入力し、学習記録は日本語とは別に保存します。スマート並べ替え、次の語の予測、削除キーで変換を取り消す機能は現在日本語のみで使えます。\n切り替えは次にキーボードを開いたときに反映されます。"
+            "value": "中国語は全拼で入力し、学習記録は日本語とは別に保存します。中国語スマート並べ替えは端末内の中国語モデルで候補の順番を調整し、スマート並べ替えがオンのときに使われます。次の語の予測と削除キーで変換を取り消す機能は現在日本語のみで使えます。\n切り替えは次にキーボードを開いたときに反映されます。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "중국어는 전체 병음으로 입력하며 학습 기록은 일본어와 따로 저장됩니다. 스마트 순위, 다음 단어 제안, 백스페이스로 변환 취소는 현재 일본어에만 적용됩니다.\n변경 사항은 다음에 키보드를 열 때 적용됩니다."
+            "value": "중국어는 전체 병음으로 입력하며 학습 기록은 일본어와 따로 저장됩니다. 중국어 스마트 순위는 기기 내 중국어 모델로 후보 순서를 조정하며 스마트 순위가 켜져 있어야 합니다. 다음 단어 제안과 백스페이스로 변환 취소는 현재 일본어에만 적용됩니다.\n변경 사항은 다음에 키보드를 열 때 적용됩니다."
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "中文使用全拼，學習記錄與日語分開儲存；智慧排序、下一詞聯想和退格撤銷轉換目前只用於日語\n切換後，下次開啟鍵盤時生效"
+            "value": "中文使用全拼，學習記錄與日語分開儲存；中文智慧排序使用本機中文模型調整候選順序，需同時開啟智慧排序；下一詞聯想和退格撤銷轉換目前只用於日語\n切換後，下次開啟鍵盤時生效"
+          }
+        }
+      }
+    },
+    "中文智能排序": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chinese Smart Ranking"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中国語スマート並べ替え"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "중국어 스마트 순위"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中文智慧排序"
           }
         }
       }

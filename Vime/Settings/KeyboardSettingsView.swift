@@ -387,12 +387,14 @@ struct KeyboardInputSettingsView: View {
     @AppStorage private var inputLanguage: KeyboardInputLanguage
     @AppStorage private var chineseInput: Bool
     @AppStorage private var pinyinLookup: Bool
+    @AppStorage private var chineseModel: Bool
     init() {
         let prefs = KeyboardPreferences()
         _inputLanguage = AppStorage(wrappedValue: prefs.inputLanguage, "vime.inputLanguage", store: prefs.store)
         _chineseInput = AppStorage(wrappedValue: prefs.chineseInputEnabled, "vime.chineseInputEnabled", store: prefs.store)
         // The stored choice, not the effective value, which is false while Chinese input is off.
         _pinyinLookup = AppStorage(wrappedValue: true, "vime.pinyinLookupInJapanese", store: prefs.store)
+        _chineseModel = AppStorage(wrappedValue: prefs.chineseLanguageModel, "vime.chineseLanguageModel", store: prefs.store)
         _ranking = AppStorage(wrappedValue: prefs.candidateRanking, "vime.candidateRanking", store: prefs.store)
         _suggestions = AppStorage(wrappedValue: prefs.phraseSuggestions, "vime.phraseSuggestions", store: prefs.store)
         _undoConversion = AppStorage(wrappedValue: prefs.undoConversionOnBackspace, "vime.undoConversionOnBackspace", store: prefs.store)
@@ -413,10 +415,14 @@ struct KeyboardInputSettingsView: View {
                             Text("日语").tag(KeyboardInputLanguage.japanese)
                             Text("简体中文").tag(KeyboardInputLanguage.chinese)
                         }.accessibilityIdentifier("vime.settings.inputLanguage")
+                        Toggle("中文智能排序", isOn: Binding(get: { chineseModel }, set: { value in
+                            chineseModel = value
+                            if value { KeyboardPreferences().requestNeuralRetry() }
+                        })).accessibilityIdentifier("vime.settings.chineseLanguageModel")
                     }
                 } footer: {
                     if chineseInput {
-                        Text("中文使用全拼，学习记录与日语分开保存；智能排序、下一词联想和退格撤销转换目前只用于日语\n切换后，下次打开键盘时生效")
+                        Text("中文使用全拼，学习记录与日语分开保存；中文智能排序使用本地中文模型调整候选顺序，需同时开启智能排序；下一词联想和退格撤销转换目前只用于日语\n切换后，下次打开键盘时生效")
                     } else {
                         Text("关闭后，键盘只提供日语和英文，也不会加载中文引擎")
                     }

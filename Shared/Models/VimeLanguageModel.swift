@@ -50,21 +50,37 @@ nonisolated final class VimeLanguageModel {
         let compiled_files_sha256: [String: String]
     }
     /// Bundled model generations. V4.2 (8K tokenizer) is the runtime default;
-    /// V2.1 ships alongside it as the fallback resource set.
+    /// V2.1 ships alongside it as the fallback resource set. `zhV1` (VimeML
+    /// vimeml-tiny-zh-v1) is the Chinese keyboard's model, bundled in the
+    /// keyboard extension only; `runtimePreference` is Japanese.
     enum Variant: String, Sendable, CaseIterable {
-        case v21, v42
+        case v21, v42, zhV1
         /// Load order for the keyboard. A later entry is used only when an
         /// earlier set is missing or fails its identity / Core ML checks.
         static let runtimePreference: [Variant] = [.v42, .v21]
         static var runtimeDefault: Variant { runtimePreference[0] }
-        var displayVersion: String { self == .v21 ? "2.1" : "4.2" }
-        var modelResource: String { self == .v21 ? "TinyJapaneseV21INT8" : "TinyJapaneseV42INT8" }
-        var tokenizerResource: String { self == .v21 ? "VimeJapaneseTokenizerV2" : "VimeJapaneseTokenizerV4" }
-        var manifestResource: String { self == .v21 ? "VimeLMManifestV21" : "VimeLMManifestV42" }
-        var format: String { self == .v21 ? "vime_ios_lm_v2" : "vime_ios_lm_v4" }
-        var architecture: String { self == .v21 ? "tiny_gpt_v2" : "tiny_gpt_v4" }
-        var vocabulary: Int { self == .v21 ? 16384 : 8192 }
-        /// V4 reserves 4–6 as conversion markers: never ordinary text input or output.
+        var displayVersion: String {
+            switch self { case .v21: "2.1"; case .v42: "4.2"; case .zhV1: "1" }
+        }
+        var modelResource: String {
+            switch self { case .v21: "TinyJapaneseV21INT8"; case .v42: "TinyJapaneseV42INT8"; case .zhV1: "TinyChineseV1INT8" }
+        }
+        var tokenizerResource: String {
+            switch self { case .v21: "VimeJapaneseTokenizerV2"; case .v42: "VimeJapaneseTokenizerV4"; case .zhV1: "VimeChineseTokenizerV1" }
+        }
+        var manifestResource: String {
+            switch self { case .v21: "VimeLMManifestV21"; case .v42: "VimeLMManifestV42"; case .zhV1: "VimeLMManifestZhV1" }
+        }
+        var format: String {
+            switch self { case .v21: "vime_ios_lm_v2"; case .v42: "vime_ios_lm_v4"; case .zhV1: "vime_ios_lm_zh_v1" }
+        }
+        var architecture: String {
+            switch self { case .v21: "tiny_gpt_v2"; case .v42: "tiny_gpt_v4"; case .zhV1: "tiny_gpt_zh13" }
+        }
+        var vocabulary: Int {
+            switch self { case .v21: 16384; case .v42: 8192; case .zhV1: 12288 }
+        }
+        /// V4 and zh-v1 reserve 4–6 as conversion markers: never ordinary text input or output.
         var reservedTokens: Set<Int32> { self == .v21 ? [] : [4, 5, 6] }
     }
     let tokenizer: VimeSentenceTokenizer

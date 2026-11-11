@@ -2140,6 +2140,28 @@ model license. This app contains no training text.
   https://github.com/nu-dialogue/multi-relational-multi-party-chat-corpus
   Used by V4.2.
 
+VimeML Chinese language model (GPL-3.0-or-later with additional permission)
+Source: https://github.com/Voltline/VimeML
+Model: https://huggingface.co/Voltline/vimeml-tiny-zh-v1
+Bundled in the keyboard extension: zh-v1 TinyChineseV1INT8.mlmodelc,
+VimeChineseTokenizerV1.model and VimeLMManifestZhV1.json.
+Modified: Core ML conversion of the vimeml-tiny-zh-v1 weights with INT8
+block-32 weight compression. The weights, tokenizer and the conversion code
+in the VimeML repository are their corresponding source.
+
+Copyright (C) 2026 Voltline
+
+Licensed under the same terms as the Japanese models above.
+
+Training data attribution. The terms of each corpus are independent of the
+model license. This app contains no training text.
+
+- FineWeb2 (cmn_Hani), Hugging Face, derived from Common Crawl. ODC-By 1.0,
+  also subject to the Common Crawl Terms of Use.
+  https://huggingface.co/datasets/HuggingFaceFW/fineweb-2
+- LCCC-base (Large-scale Cleaned Chinese Conversation), thu-coai. MIT License.
+  https://github.com/thu-coai/CDial-GPT
+
 
 azooKey emoji dictionary (BSD-3-Clause; Unicode License V3)
 Source: https://github.com/azooKey/azooKey_emoji_dictionary_storage

@@ -19,6 +19,14 @@ typedef struct {
     char *comment;
     /// Completes the input past what was typed, such as a longer phrase.
     bool completion;
+    /// The candidate before display filters such as the simplifier, so
+    /// simplified text while traditional characters are shown. NULL when it
+    /// equals `text`.
+    char *genuine;
+    /// Converts the input up to its end, not only a leading part of it.
+    bool coversInput;
+    /// Learned from what the user typed before.
+    bool userPhrase;
 } VimeRimeCandidate;
 
 typedef struct {

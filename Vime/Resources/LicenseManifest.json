@@ -31,7 +31,7 @@
     "license": "GPL v3+*",
     "copyright": "Voltline",
     "source": "https://github.com/Voltline/VimeML",
-    "revision": "V4.2 epoch 20 / V2.1",
+    "revision": "V4.2 epoch 20 / V2.1 / zh-v1",
     "modified": "Core ML INT8 量化编译版本；附 App Store 分发额外许可",
     "noticeFile": "vimeml"
   },

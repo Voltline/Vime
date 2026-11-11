@@ -26,6 +26,8 @@ nonisolated enum KeyboardPerformance {
         case lmScoringPrediction, lmScoringPrefixReuse, lmScoringTokenization, lmScoringTokenReuse
         case suggestionFinalRankingSkipped
         case candidateQueueWait, modelQueueWait, supplementaryQueueWait, learningPersistence, learningLockWait
+        // Chinese: from Rime's new list to showing it, while it waits for the model.
+        case chineseRankingWait
     }
 
     private final class Storage: @unchecked Sendable {
