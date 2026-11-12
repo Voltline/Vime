@@ -11,14 +11,30 @@ nonisolated struct RimeCandidate: Sendable, Equatable {
     var coversInput = true
     /// Learned from earlier input.
     var userPhrase = false
+    /// Several dictionary words joined, not one entry.
+    var sentence = false
+    /// Rime's ranking score; higher is likelier.
+    var quality = 0.0
 
-    init(text: String, comment: String?, genuine: String? = nil, coversInput: Bool = true, userPhrase: Bool = false) {
+    init(text: String, comment: String?, genuine: String? = nil, coversInput: Bool = true, userPhrase: Bool = false,
+         sentence: Bool = false, quality: Double = 0) {
         self.text = text
         self.comment = comment
         self.genuine = genuine ?? text
         self.coversInput = coversInput
         self.userPhrase = userPhrase
+        self.sentence = sentence
+        self.quality = quality
     }
+}
+
+/// A dictionary word that the text so far begins: `text` is what follows.
+nonisolated struct RimeContinuation: Sendable, Equatable {
+    let text: String
+    /// Simplified, as the dictionary has it.
+    let genuine: String
+    /// Rime's syllable code for `genuine`, to continue from it in turn.
+    let code: String
 }
 
 /// What the engine shows after a command. `commit` is text for the host; the
@@ -27,6 +43,10 @@ nonisolated struct RimeState: Sendable, Equatable {
     var input = ""
     var preedit = ""
     var commit: String?
+    /// The last dictionary word of `commit` (simplified) and its syllable
+    /// code, when the commit ended with one.
+    var commitWord: String?
+    var commitCode: String?
     var candidates: [RimeCandidate] = []
     /// Time the engine spent on the command, including a cold start.
     var duration: Duration = .zero
@@ -60,6 +80,12 @@ nonisolated final class RimeEngine: @unchecked Sendable {
         /// Traditional characters through the schema's simplifier; an open
         /// composition is looked up again so its candidates follow.
         case setTraditional(Bool)
+        /// Fuzzy pinyin, through the schema built for these groups; an open
+        /// composition is looked up again.
+        case setFuzzy(FuzzyPinyin)
+        /// Replaces the input with `input` and selects its candidate whose
+        /// simplified text is `text`; nothing changes when there is none.
+        case selectSpelling(input: String, text: String)
     }
 
     static let candidateLimit = 60
@@ -70,7 +96,10 @@ nonisolated final class RimeEngine: @unchecked Sendable {
     /// Bumped when Rime restarts, which ends every session.
     nonisolated(unsafe) private static var startCount = 0
 
-    private let queue = DispatchQueue(label: "com.Voltline.Vime.Rime", qos: .userInitiated)
+    /// Shared by every engine: Rime's sessions live in one process-wide table,
+    /// so an old engine destroying its session must not race a new one.
+    private static let queue = DispatchQueue(label: "com.Voltline.Vime.Rime", qos: .userInitiated)
+    private var queue: DispatchQueue { Self.queue }
     private let data: URL
     private let userDirectory: URL
     private let resetRequests: KeyboardLearningResetRequests
@@ -80,8 +109,16 @@ nonisolated final class RimeEngine: @unchecked Sendable {
     private var limit = RimeEngine.candidateLimit
     /// Set again on every new session, which starts with options off.
     private var traditional = false
+    /// Selected again on every new session, which starts with vime_pinyin.
+    private var fuzzy = FuzzyPinyin()
     /// Rime's index for each candidate the last state shows.
     private var shown: [Int] = []
+    /// A second session for looking up other spellings, so the one being
+    /// typed keeps its composition and selections.
+    private var lookupSession: VimeRimeSession = 0
+    private var lookupStart = 0
+    /// The lookup session's schema and simplifier option, set when they change.
+    private var lookupOptions: (schema: String, traditional: Bool)?
 
     /// `userDirectory` holds the user dictionary. The first engine in a
     /// process decides it; Rime cannot switch directories while running.
@@ -94,8 +131,8 @@ nonisolated final class RimeEngine: @unchecked Sendable {
     }
 
     deinit {
-        let session = session
-        if session != 0 { queue.async { vime_rime_destroy_session(session) } }
+        let sessions = [session, lookupSession].filter { $0 != 0 }
+        if !sessions.isEmpty { queue.async { sessions.forEach(vime_rime_destroy_session) } }
     }
 
     /// Runs `command` after every command sent before it and reports the
@@ -116,6 +153,71 @@ nonisolated final class RimeEngine: @unchecked Sendable {
     /// Runs `command` after every command sent before it and waits.
     func sendAndWait(_ command: Command) -> RimeState {
         queue.sync { run(command) }
+    }
+
+    /// Dictionary words beginning with `word` read as `code` (from a state or
+    /// an earlier continuation), likeliest first; handed to `deliver` on the
+    /// main queue after every command sent before.
+    func continuations(of word: String, code: String, limit: Int,
+                       deliver: @escaping @Sendable ([RimeContinuation]) -> Void) {
+        queue.async { [self] in
+            let found = continuations(word, code: code, limit: limit)
+            DispatchQueue.main.async { deliver(found) }
+        }
+    }
+
+    func continuationsAndWait(of word: String, code: String, limit: Int) -> [RimeContinuation] {
+        queue.sync { continuations(word, code: code, limit: limit) }
+    }
+
+    private func continuations(_ word: String, code: String, limit: Int) -> [RimeContinuation] {
+        guard prepare(checkingReset: false) else { return [] }
+        var raw = vime_rime_continuations(session, word, code, Int32(limit), traditional)
+        defer { vime_rime_continuations_free(&raw) }
+        return (0..<Int(raw.count)).map { index in
+            let item = raw.items[index]
+            return RimeContinuation(text: String(cString: item.text), genuine: String(cString: item.genuine),
+                                    code: String(cString: item.code))
+        }
+    }
+
+    /// Looks each spelling up in a second session and hands its candidates to
+    /// `deliver` on the main queue. One spelling runs per turn on the queue,
+    /// so keys sent meanwhile wait for at most one lookup; once `isCancelled`
+    /// returns true the rest are skipped and nothing is delivered.
+    func lookUp(_ spellings: [String], limit: Int, isCancelled: @escaping @Sendable () -> Bool,
+                deliver: @escaping @Sendable ([(spelling: String, candidates: [RimeCandidate])]) -> Void) {
+        @Sendable func step(_ index: Int, _ found: [(spelling: String, candidates: [RimeCandidate])]) {
+            queue.async { [self] in
+                guard !isCancelled() else { return }
+                guard index < spellings.count else {
+                    if lookupSession != 0 { vime_rime_clear(lookupSession) }
+                    DispatchQueue.main.async { deliver(found) }
+                    return
+                }
+                step(index + 1, found + [(spellings[index], lookUp(spellings[index], limit: limit))])
+            }
+        }
+        step(0, [])
+    }
+
+    private func lookUp(_ spelling: String, limit: Int) -> [RimeCandidate] {
+        guard prepare(checkingReset: false) else { return [] }
+        if lookupSession == 0 || lookupStart != sessionStart {
+            lookupSession = vime_rime_create_session()
+            lookupStart = sessionStart
+            lookupOptions = nil
+            guard lookupSession != 0 else { return [] }
+        }
+        // Follows the typing session's schema and options.
+        if lookupOptions?.schema != fuzzy.schema || lookupOptions?.traditional != traditional {
+            if !vime_rime_select_schema(lookupSession, fuzzy.schema) { _ = vime_rime_select_schema(lookupSession, "vime_pinyin") }
+            vime_rime_set_option(lookupSession, "traditionalization", traditional)
+            lookupOptions = (fuzzy.schema, traditional)
+        }
+        _ = vime_rime_set_input(lookupSession, spelling)
+        let (state, _) = Self.snapshot(lookupSession, limit: limit)
+        return state.candidates
     }
 
     private func run(_ command: Command) -> RimeState {
@@ -149,12 +251,20 @@ nonisolated final class RimeEngine: @unchecked Sendable {
         case .setTraditional(let value):
             traditional = value
             vime_rime_set_option(session, "traditionalization", value)
-            if vime_rime_is_composing(session) {
-                var raw = vime_rime_snapshot(session, 0)
-                let input = raw.input.map { String(cString: $0) }
-                vime_rime_snapshot_free(&raw)
-                if let input { _ = vime_rime_set_input(session, input) }
-            }
+            lookUpAgain(currentInput())
+        case .selectSpelling(let input, let text):
+            let original = currentInput()
+            _ = vime_rime_set_input(session, input)
+            let found = snapshot().candidates.firstIndex { $0.genuine == text && $0.coversInput }
+            if let found { _ = vime_rime_select_candidate(session, shown[found]) }
+            else if let original { _ = vime_rime_set_input(session, original) }
+        case .setFuzzy(let value):
+            guard value != fuzzy else { break }
+            let input = currentInput()
+            fuzzy = value
+            // A new schema starts with options off and nothing typed.
+            selectSchema()
+            lookUpAgain(input)
         }
         var state = snapshot()
         state.duration = clock.now - start
@@ -168,8 +278,26 @@ nonisolated final class RimeEngine: @unchecked Sendable {
         if session != 0, sessionStart == started { return true }
         session = vime_rime_create_session()
         sessionStart = started
-        if session != 0, traditional { vime_rime_set_option(session, "traditionalization", true) }
+        if session != 0 { selectSchema() }
         return session != 0
+    }
+
+    private func selectSchema() {
+        // A missing fuzzy schema (older data) leaves the plain one.
+        if !fuzzy.isEmpty, !vime_rime_select_schema(session, fuzzy.schema) { fuzzy = [] }
+        if fuzzy.isEmpty { _ = vime_rime_select_schema(session, FuzzyPinyin().schema) }
+        vime_rime_set_option(session, "traditionalization", traditional)
+    }
+
+    private func currentInput() -> String? {
+        guard vime_rime_is_composing(session) else { return nil }
+        var raw = vime_rime_snapshot(session, 0)
+        defer { vime_rime_snapshot_free(&raw) }
+        return raw.input.map { String(cString: $0) }
+    }
+
+    private func lookUpAgain(_ input: String?) {
+        if let input { _ = vime_rime_set_input(session, input) }
     }
 
     private static var currentStart: Int {
@@ -219,23 +347,32 @@ nonisolated final class RimeEngine: @unchecked Sendable {
     }
 
     private func snapshot() -> RimeState {
+        let (state, shown) = Self.snapshot(session, limit: limit)
+        self.shown = shown
+        return state
+    }
+
+    /// The session's state and Rime's index for each candidate it shows.
+    private static func snapshot(_ session: VimeRimeSession, limit: Int) -> (RimeState, [Int]) {
         var raw = vime_rime_snapshot(session, Int32(limit))
         defer { vime_rime_snapshot_free(&raw) }
         func string(_ pointer: UnsafeMutablePointer<CChar>?) -> String? { pointer.map { String(cString: $0) } }
         let preedit = string(raw.preedit) ?? ""
-        let syllables = Self.syllableCount(preedit)
-        shown = []
+        let syllables = syllableCount(preedit)
+        var shown: [Int] = []
         var candidates: [RimeCandidate] = []
         for index in 0..<Int(raw.candidateCount) {
             let candidate = raw.candidates[index]
             let text = string(candidate.text) ?? ""
-            if candidate.completion, !Self.completionFits(text, syllables: syllables) { continue }
+            if candidate.completion, !completionFits(text, syllables: syllables) { continue }
             shown.append(index)
             candidates.append(RimeCandidate(text: text, comment: string(candidate.comment), genuine: string(candidate.genuine),
-                                            coversInput: candidate.coversInput, userPhrase: candidate.userPhrase))
+                                            coversInput: candidate.coversInput, userPhrase: candidate.userPhrase,
+                                            sentence: candidate.sentence, quality: candidate.quality))
         }
-        return RimeState(input: string(raw.input) ?? "", preedit: preedit,
-                         commit: string(raw.commit), candidates: candidates)
+        return (RimeState(input: string(raw.input) ?? "", preedit: preedit, commit: string(raw.commit),
+                          commitWord: string(raw.commitWord), commitCode: string(raw.commitCode),
+                          candidates: candidates), shown)
     }
 
     /// Syllables still being typed: Rime separates them with spaces, and text

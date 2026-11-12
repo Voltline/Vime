@@ -27,7 +27,8 @@ struct KeyboardPreferences {
     }
     private static let sharedKeys = ["vime.sound", "vime.hapticLevel", "vime.hapticIntensity", "vime.nineKeyNumbers", "vime.kanaLayout",
         "vime.prolongedKey", "vime.previews", "vime.previewHold", "vime.theme", "vime.candidateRanking", "vime.phraseSuggestions", "vime.clipboardSuggestions", "vime.autoPairBrackets", "vime.autoCapitalize", "vime.doubleSpacePeriod", "vime.undoConversionOnBackspace", "vime.fullWidthSpace", "vime.liveConversion", "vime.textReplacements", "vime.englishCompletion", "vime.oneHanded", "vime.customSkinID", "vime.skinRevision", "vime.numberSymbols", "vime.inputLanguage",
-        "vime.chineseInputEnabled", "vime.pinyinLookupInJapanese", "vime.traditionalChinese", "vime.chineseLanguageModel"]
+        "vime.chineseInputEnabled", "vime.pinyinLookupInJapanese", "vime.traditionalChinese", "vime.chineseLanguageModel",
+        "vime.fuzzyRetroflex", "vime.fuzzyNasal", "vime.fuzzyInitials"]
     var store: UserDefaults { defaults }
     struct Snapshot: Equatable {
         let heightFactor: Double
@@ -61,6 +62,7 @@ struct KeyboardPreferences {
         let pinyinLookupInJapanese: Bool
         let traditionalChinese: Bool
         let chineseLanguageModel: Bool
+        let fuzzyPinyin: FuzzyPinyin
     }
     var snapshot: Snapshot {
         Snapshot(heightFactor: heightFactor, sound: sound, hapticIntensity: hapticIntensity,
@@ -76,7 +78,7 @@ struct KeyboardPreferences {
                 .map { $0 ?? "" }.joined(separator: "|"),
             inputLanguage: inputLanguage, chineseInputEnabled: chineseInputEnabled,
             pinyinLookupInJapanese: pinyinLookupInJapanese, traditionalChinese: traditionalChinese,
-            chineseLanguageModel: chineseLanguageModel)
+            chineseLanguageModel: chineseLanguageModel, fuzzyPinyin: fuzzyPinyin)
     }
     var heightFactor: Double {
         get {
@@ -135,13 +137,18 @@ struct KeyboardPreferences {
         nonmutating set { defaults.set(newValue, forKey: "vime.traditionalChinese") }
     }
     /// Chinese input lets the local Chinese model reorder Rime's candidates.
-    /// Applies only while candidate ranking is the language model.
+    /// Separate from candidateRanking, which is Japanese's.
     var chineseLanguageModel: Bool {
         get { defaults.object(forKey: "vime.chineseLanguageModel") as? Bool ?? true }
         nonmutating set {
             if newValue && !chineseLanguageModel { requestNeuralRetry() }
             defaults.set(newValue, forKey: "vime.chineseLanguageModel")
         }
+    }
+    /// Fuzzy pinyin groups for Chinese input, all off by default.
+    var fuzzyPinyin: FuzzyPinyin {
+        get { FuzzyPinyin.allCases.reduce(into: FuzzyPinyin()) { if defaults.bool(forKey: $1.key) { $0.insert($1) } } }
+        nonmutating set { for group in FuzzyPinyin.allCases { defaults.set(newValue.contains(group), forKey: group.key) } }
     }
     /// Japanese letters on a 12-key flick pad instead of romaji QWERTY.
     var kanaLayout: Bool {

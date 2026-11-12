@@ -14,20 +14,31 @@ What the rules add, in order:
 1. Typos, as Rime corrections (is_correction, log(0.01) per corrected
    syllable). Every syllable of three or more letters gets one QWERTY
    neighbour substitution (zhomg -> zhong, nihai -> nihao) and one swap of two
-   adjacent letters (zaho -> zhao, xain -> xian, zhnog -> zhong). They are
-   first written as temporary keys ending in "~" so later rules leave them
-   alone.
+   adjacent letters (zaho -> zhao, xain -> xian, zhnog -> zhong), and so do
+   a missing letter (shuijao -> shuijiao, zhngguo -> zhongguo) and an extra
+   one, either a key pressed twice (mingtiian) or a neighbour pressed with it
+   (shuijuiao, dianhjua); these two take one more correction penalty, as they
+   change the syllable's length. A typo has three letters or more; one without a
+   vowel is only kept as zhng, chng or shng, so initials such as hsn stay
+   abbreviations. They are first written as temporary keys ending in "~" so
+   later rules leave them alone.
 2. Abbreviations: the initial (and zh/ch/sh), as before, and every prefix of
    two letters or more that is not a syllable itself, so an unfinished
    syllable is understood in the middle of the input too (wodo -> wo dou,
    zhonguo -> zhong guo). Abbreviations only survive when the input has no
    parse in full syllables, so a valid input never sees them.
-3. The ü spellings, as before.
+3. The ü spellings, as before, and the full finals uei, iou and uen that
+   pinyin shortens to ui, iu and un (guei, liou, duen).
 4. The temporary typo keys become real keys. A typo that spells another valid
    syllable (hai for hao) takes four more correction penalties, so in input
    with a typo elsewhere it ranks below the typo's own corrections and stays
    out of the sentence. When full syllables spell the input, Vime's librime
    patch puts every correction after the exact readings and shows two.
+
+--variants DIR also writes the schemas with fuzzy pinyin, which the keyboard
+selects from its settings: vime_pinyin_fuzzy<N>.schema.yaml for N in 1...7, a
+sum of FUZZY groups. Fuzzy spellings (zi for zhi) are Rime fuzz spellings at
+log(0.5), so the exact reading still leads; each syllable takes one of them.
 """
 import argparse
 import re
@@ -79,6 +90,14 @@ ROWS = ["qwertyuiop", "asdfghjkl", "zxcvbnm"]
 # Corrections, at log(0.01) each, that a typo spelling another valid syllable
 # carries.
 TIER2_CORRECTIONS = 5
+# Fuzzy pinyin groups, by bit: (key in the keyboard's settings, rules). A rule
+# writes its result behind "@" so the next ones skip it: one fuzz per syllable.
+FUZZY = [
+    ("retroflex", [r"derive/^([zcs])h([a-z]+)$/@$1$2/fuzz", r"derive/^([zcs])([a-gi-z][a-z]*)$/@$1h$2/fuzz"]),
+    ("nasal", [r"derive/^([a-z]*[aei])n$/@$1ng/fuzz", r"derive/^([a-z]*[aei])ng$/@$1n/fuzz"]),
+    ("initials", [f"derive/^{a}([a-z]*)$/@{b}$1/fuzz" for a, b in
+                  [("n", "l"), ("l", "n"), ("f", "h"), ("h", "f"), ("r", "l"), ("l", "r")]]),
+]
 
 
 def neighbours():
@@ -123,12 +142,28 @@ def rules():
             out.append(f"derive/^([a-z]*){a}([a-z]*)$/$1{b}$2~/correction")
     for k in range(longest - 1):
         out.append(f"derive/^([a-z]{{{k}}})([a-z])([a-z])([a-z]*)$/$1$3$2$4~/correction")
+    # A missing letter, and a letter typed twice.
+    for k in range(longest):
+        out.append(f"derive/^([a-z]{{{k}}})[a-z]([a-z]*)$/$1$2^/correction")
+    for k in range(longest):
+        out.append(f"derive/^([a-z]{{{k}}})([a-z])([a-z]*)$/$1$2$2$3^/correction")
+    # A neighbour pressed together with the letter, before or after it.
+    for a, b in neighbours():
+        out.append(f"derive/^([a-z]*?){a}([a-z]*)$/$1{a}{b}$2^/correction")
+        out.append(f"derive/^([a-z]*?){a}([a-z]*)$/$1{b}{a}$2^/correction")
+        if a in repeated:
+            out.append(f"derive/^([a-z]*){a}([a-z]*)$/$1{a}{b}$2^/correction")
+            out.append(f"derive/^([a-z]*){a}([a-z]*)$/$1{b}{a}$2^/correction")
     # Typos of one or two letters would hit everywhere; vowelless ones would
-    # read initials (hsn) as a word.
-    out.append("erase/^[a-z]{1,2}~$/")
-    out.append("erase/^[bcdfghjklmnpqrstwxyz]+~$/")
+    # read initials (hsn, bsng) as a word. Only zhng, chng and shng stay.
+    out.append("erase/^[a-z]{1,2}[~^]$/")
+    out.append("erase/^(?![zcs]hng[~^])[bcdfghjklmnpqrstwxyz]+[~^]$/")
     # No syllable starts with i, u or v; such keys would only make odd joints.
-    out.append("erase/^[iuv][a-z]*~$/")
+    out.append("erase/^[iuv][a-z]*[~^]$/")
+    # A letter missing or added changes the length of the syllable, which a
+    # slip of the finger does less often: one more correction penalty.
+    out.append("derive/^([a-z]+)\\^$/$1~/correction")
+    out.append("erase/^[a-z]+\\^$/")
     out.append("# 2. Abbreviations: the initial, and unfinished syllables of 2+ letters.")
     out.append("abbrev/^([a-z])[a-z]+$/$1/")
     out.append("abbrev/^([zcs]h)[a-z]+$/$1/")
@@ -140,6 +175,9 @@ def rules():
         "derive/^([jqxy])u([a-z]*)$/$1v$2/",
         "derive/^([nl])ue$/$1ve/",
         "derive/^([jqxy])v([a-z]*)$/$1u$2/",
+        "derive/^([a-z]+)ui$/$1uei/",
+        "derive/^([a-z]+)iu$/$1iou/",
+        "derive/^([bcdghklnprstwz]h?)un$/$1uen/",
     ]
     out.append("# 4. A typo that spells a valid syllable takes four more correction")
     out.append("# penalties (log(1e-10) in all), below other corrections; the rest become keys.")
@@ -154,9 +192,17 @@ def rules():
     return out
 
 
-def render():
+def fuzzy_rules(mask):
+    out = []
+    for bit, (_, group) in enumerate(FUZZY):
+        if mask & (1 << bit):
+            out += group
+    return out + ["xform/^@//"]
+
+
+def render(mask=0):
     lines = [BEGIN]
-    for rule in rules():
+    for rule in rules() + (fuzzy_rules(mask) if mask else []):
         if rule.startswith("#"):
             lines.append(f"    {rule}")
         else:
@@ -168,10 +214,21 @@ def render():
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--check", action="store_true", help="fail if the schema is out of date")
+    parser.add_argument("--variants", type=Path, metavar="DIR", help="write the fuzzy pinyin schemas into DIR")
     args = parser.parse_args()
     text = SCHEMA.read_text()
     start, end = text.index(BEGIN), text.index(END) + len(END)
     updated = text[:start] + render() + text[end:]
+    if args.variants:
+        for mask in range(1, 1 << len(FUZZY)):
+            name = f"vime_pinyin_fuzzy{mask}"
+            variant = text[:start] + render(mask) + text[end:]
+            variant = variant.replace("  schema_id: vime_pinyin\n", f"  schema_id: {name}\n", 1)
+            # Its own spelling index; the words and what was learned are shared.
+            variant = variant.replace("  dictionary: vime_pinyin\n", f"  dictionary: vime_pinyin\n  prism: {name}\n", 1)
+            assert f"schema_id: {name}" in variant and f"prism: {name}" in variant
+            (args.variants / f"{name}.schema.yaml").write_text(variant)
+        return
     if args.check:
         if updated != text:
             sys.exit(f"{SCHEMA} is out of date; run {Path(__file__).name}")

@@ -12,6 +12,7 @@ import Foundation
 final class ChineseInputSession: KeyboardInputSession {
     static let collapsedCandidateLimit = RimeEngine.candidateLimit
     static let expandedCandidateLimit = 300
+    static let suggestionLimit = 12
 
     private let engine: RimeEngine
     private let inbox = RimeResultInbox()
@@ -29,14 +30,34 @@ final class ChineseInputSession: KeyboardInputSession {
     private var presentations: [CandidatePresentation] = []
     /// Display order of the shown candidates, as indices into Rime's list.
     private var order: [Int] = []
+    /// What each shown presentation is: Rime's candidate or a correction.
+    private enum Slot { case rime(Int), correction(Int) }
+    private var slots: [Slot] = []
+    private var shownCandidates: [RimeCandidate] = []
+    /// Phrases for other spellings of the input, when Rime reads it poorly
+    /// (typos across syllables); shown second and third, never first.
+    private var corrections: [(spelling: String, candidate: RimeCandidate)] = []
+    private var correctionInput = ""
+    private var correctionRequest: ChineseCandidateRanking.Request?
+    static let correctionDelay = 0.14
+    static let shownCorrections = 2
     /// Rime's candidates waiting for the model before they show.
     private var ranking: (request: ChineseCandidateRanking.Request, candidates: [RimeCandidate])?
-    private var candidateRanking: CandidateRankingMode = .languageModel
     private var chineseModelEnabled = true
     /// Whether the excluded-terms list applies, read once per composition.
     private var exclusionsActive = LearningExclusionPolicy.isActive()
     private var expanded = false
     private var traditional = false
+    private var fuzzyPinyin = FuzzyPinyin()
+    /// Next-word suggestions: dictionary phrases that begin with the word
+    /// just committed, shown in the strip while nothing is composing.
+    private var suggestionsEnabled = true
+    private var suggestions: [RimeContinuation] = []
+    private var suggestionPresentations: [CandidatePresentation] = []
+    /// Bumped whenever suggestions go away, so late lookups are dropped.
+    private var suggestionGeneration = 0
+    /// The last word of the latest commit, until suggestions are asked for it.
+    private var pendingContinuation: (word: String, code: String)?
     /// The last thing that reached the host was a Rime commit, so BackSpace
     /// deleting it also takes back what Rime learned from it.
     private var commitIsForgettable = false
@@ -103,8 +124,9 @@ final class ChineseInputSession: KeyboardInputSession {
         return KeyboardPreedit(text: text.replacingOccurrences(of: " ", with: Self.syllableGap) + echo)
     }
     var candidatePresentations: [CandidatePresentation] { isComposing ? presentations : [] }
-    var stripPresentations: [CandidatePresentation] { candidatePresentations }
-    var showsStrip: Bool { !candidatePresentations.isEmpty }
+    var stripPresentations: [CandidatePresentation] { isComposing ? presentations : suggestionPresentations }
+    var showsStrip: Bool { !stripPresentations.isEmpty }
+    var suggestionTexts: [String] { isComposing ? [] : suggestionPresentations.map(\.text) }
     /// Old candidates stay visible while commands run but cannot be chosen.
     var candidatesAreCurrent: Bool { received == sent && ranking == nil }
     var selectedIndex: Int? { nil }
@@ -113,6 +135,7 @@ final class ChineseInputSession: KeyboardInputSession {
     // MARK: Commands
 
     func type(_ text: String) -> [KeyboardEdit] {
+        clearSuggestions()
         if english { commitIsForgettable = false; return settle() + [.insert(text)] }
         let pinyin = text.unicodeScalars.allSatisfy { ("a"..."z").contains($0) || ($0 == "'" && isComposing) }
         guard pinyin, !text.isEmpty else { return insertLiteral(text) }
@@ -125,6 +148,7 @@ final class ChineseInputSession: KeyboardInputSession {
     }
 
     func backspace() -> [KeyboardEdit] {
+        clearSuggestions()
         if isComposing { enqueue(.backspace); return [] }
         let edits = settle()
         if isComposing { enqueue(.backspace); return edits }
@@ -134,6 +158,7 @@ final class ChineseInputSession: KeyboardInputSession {
     }
 
     func space() -> [KeyboardEdit] {
+        clearSuggestions()
         if isComposing {
             // Space takes the first candidate shown, which the model may have moved.
             if candidatesAreCurrent, let first = order.first, first != 0 { enqueue(.select(first)) } else { enqueue(.space) }
@@ -144,6 +169,7 @@ final class ChineseInputSession: KeyboardInputSession {
     }
 
     func enter() -> [KeyboardEdit] {
+        clearSuggestions()
         if isComposing { enqueue(.commitInput); return [] }
         commitIsForgettable = false
         return settle() + [.returnKey]
@@ -155,24 +181,32 @@ final class ChineseInputSession: KeyboardInputSession {
         isComposing ? run(.commitComposition) : settle()
     }
 
-    func dismissSuggestions() {}
+    func dismissSuggestions() { clearSuggestions() }
 
     func insertLiteral(_ text: String) -> [KeyboardEdit] {
         let edits = confirmAll()
+        clearSuggestions()
         commitIsForgettable = false
         return edits + [.insert(text)]
     }
 
     func chooseCandidate(_ token: CandidateSelectionToken) -> [KeyboardEdit] {
+        if token.kind == .suggestion { return chooseSuggestion(token) }
         guard token.sessionID == sessionID, token.generation == generation, token.kind == .composition,
-              candidatesAreCurrent, isComposing, order.indices.contains(token.index) else { return [] }
-        enqueue(.select(order[token.index]))
+              candidatesAreCurrent, isComposing, slots.indices.contains(token.index) else { return [] }
+        switch slots[token.index] {
+        case .rime(let index): enqueue(.select(index))
+        case .correction(let index):
+            let (spelling, candidate) = corrections[index]
+            enqueue(.selectSpelling(input: spelling, text: candidate.genuine))
+        }
         return []
     }
 
     func activateEnglish() -> [KeyboardEdit] {
         guard !english else { return [] }
         let edits = confirmAll()
+        clearSuggestions()
         english = true
         hostEpoch += 1
         return edits
@@ -191,10 +225,11 @@ final class ChineseInputSession: KeyboardInputSession {
         setTraditionalChinese(!traditional)
         return []
     }
+    /// Japanese ranking is ignored: Chinese has its own switch,
+    /// setChineseLanguageModel. Next-word suggestions follow the shared one.
     func updateIntelligence(ranking: CandidateRankingMode, suggestionsEnabled: Bool) {
-        let wasRanking = usesModel
-        candidateRanking = ranking
-        modelRankingChanged(from: wasRanking)
+        self.suggestionsEnabled = suggestionsEnabled
+        if !suggestionsEnabled { clearSuggestions() }
     }
 
     func setChineseLanguageModel(_ enabled: Bool) {
@@ -203,9 +238,9 @@ final class ChineseInputSession: KeyboardInputSession {
         modelRankingChanged(from: wasRanking)
     }
 
-    /// The model reorders candidates: smart ranking and the Chinese model are
-    /// both on, and memory pressure has not paused it.
-    private var usesModel: Bool { candidateRanking == .languageModel && chineseModelEnabled }
+    /// The model reorders candidates: Chinese smart ranking is on (Japanese
+    /// ranking is a separate setting), and memory pressure has not paused it.
+    private var usesModel: Bool { chineseModelEnabled }
     var neuralModeSuspendedForMemoryPressure: Bool {
         usesModel && JapaneseCandidateWorker.LanguageModelStorage.shared.isSuspended
     }
@@ -238,6 +273,12 @@ final class ChineseInputSession: KeyboardInputSession {
         enqueue(.setTraditional(enabled))
     }
 
+    func setFuzzyPinyin(_ groups: FuzzyPinyin) {
+        guard groups != fuzzyPinyin else { return }
+        fuzzyPinyin = groups
+        enqueue(.setFuzzy(groups))
+    }
+
     func setExpandedCandidates(_ enabled: Bool) {
         guard enabled != expanded else { return }
         expanded = enabled
@@ -248,6 +289,7 @@ final class ChineseInputSession: KeyboardInputSession {
         if !preservingContext { hostEpoch += 1 }
         era += 1
         echo = ""
+        clearSuggestions()
         commitIsForgettable = false
         exclusionsActive = LearningExclusionPolicy.isActive()
         typedAt = nil
@@ -285,7 +327,9 @@ final class ChineseInputSession: KeyboardInputSession {
         let ticket = RimeResultInbox.Ticket(sequence: sent, era: era, echo: 0)
         // Earlier commands have delivered by the time this one runs.
         inbox.append(ticket, engine.sendAndWait(command))
-        return receive()
+        let edits = receive()
+        requestSuggestions()
+        return edits
     }
 
     /// Waits for commands still running, so host edits keep their order.
@@ -300,7 +344,66 @@ final class ChineseInputSession: KeyboardInputSession {
         let edits = receive()
         guard received != pending else { return }
         if !edits.isEmpty { onCommittedEdits?(KeyboardCommitBatch(hostEpoch: hostEpoch, edits: edits)) }
+        requestSuggestions()
         announceCandidates()
+    }
+
+    // MARK: Next-word suggestions
+
+    private func clearSuggestions() {
+        suggestionGeneration += 1
+        pendingContinuation = nil
+        guard !suggestionPresentations.isEmpty else { return }
+        suggestions = []
+        suggestionPresentations = []
+        generation += 1
+    }
+
+    /// Asks for phrases continuing the latest commit once every command has
+    /// answered and nothing is being typed.
+    private func requestSuggestions() {
+        guard let (word, code) = pendingContinuation, received == sent else { return }
+        pendingContinuation = nil
+        guard suggestionsEnabled, !english, !isComposing else { return }
+        lookUpContinuations(of: word, code: code)
+    }
+
+    private func lookUpContinuations(of word: String, code: String) {
+        let active = exclusionsActive
+        // Text the learning filter excludes gets no suggestions, and suggestions never produce it.
+        guard LearningExclusionPolicy.allowsLearning(word, active: active) else { return }
+        let request = suggestionGeneration
+        engine.continuations(of: word, code: code, limit: Self.suggestionLimit) { [weak self] found in
+            MainActor.assumeIsolated {
+                guard let self, self.suggestionGeneration == request, self.suggestionsEnabled,
+                      !self.english, !self.isComposing else { return }
+                let allowed = found.filter { LearningExclusionPolicy.allowsLearning(word + $0.genuine, active: active) }
+                guard !allowed.isEmpty else { return }
+                self.showSuggestions(allowed)
+            }
+        }
+    }
+
+    private func showSuggestions(_ found: [RimeContinuation]) {
+        generation += 1
+        suggestions = found
+        suggestionPresentations = found.enumerated().map { index, item in
+            CandidatePresentation(text: item.text, source: .contextPrediction, consumedInputCount: 0, correction: nil,
+                selectionToken: CandidateSelectionToken(sessionID: sessionID, generation: generation, index: index, kind: .suggestion))
+        }
+        onCandidatesChange?()
+    }
+
+    /// Inserts a suggestion and offers what may follow it in turn.
+    private func chooseSuggestion(_ token: CandidateSelectionToken) -> [KeyboardEdit] {
+        guard token.sessionID == sessionID, token.generation == generation, !isComposing, !english,
+              suggestions.indices.contains(token.index) else { return [] }
+        let item = suggestions[token.index]
+        let edits = settle()
+        clearSuggestions()
+        commitIsForgettable = false
+        lookUpContinuations(of: item.genuine, code: item.code)
+        return edits + [.insert(item.text)]
     }
 
     /// Applies every result that has arrived, in command order.
@@ -314,6 +417,7 @@ final class ChineseInputSession: KeyboardInputSession {
             if let commit = result.commit, !commit.isEmpty {
                 edits.append(.insert(commit))
                 commitIsForgettable = true
+                pendingContinuation = result.commitWord.flatMap { word in result.commitCode.map { (word, $0) } }
             }
             latest = result
         }
@@ -325,6 +429,7 @@ final class ChineseInputSession: KeyboardInputSession {
         let previous = ranking?.candidates ?? state.candidates
         let candidatesChanged = next.candidates != previous || presentations.isEmpty != next.candidates.isEmpty
         state = next
+        if next.input != correctionInput { clearCorrections() }
         guard candidatesChanged else { return }
         ranking?.request.cancel()
         ranking = nil
@@ -385,12 +490,75 @@ final class ChineseInputSession: KeyboardInputSession {
     private func show(_ candidates: [RimeCandidate], order: [Int]) {
         generation += 1
         self.order = order
-        presentations = order.enumerated().map { index, source in
-            let candidate = candidates[source]
-            return CandidatePresentation(text: candidate.text, source: .conversion, consumedInputCount: 0, correction: nil,
-                selectionToken: CandidateSelectionToken(sessionID: sessionID, generation: generation, index: index, kind: .composition),
-                detailAnnotation: candidate.comment.flatMap { $0.isEmpty ? nil : $0 })
+        shownCandidates = candidates
+        var slots = order.map(Slot.rime)
+        if !corrections.isEmpty, !slots.isEmpty {
+            // A correction moves its phrase up instead of showing it twice.
+            let moved = Set(corrections.map(\.candidate.text))
+            slots.removeAll { if case .rime(let index) = $0 { index != order.first && moved.contains(candidates[index].text) } else { false } }
+            let shown = corrections.indices.filter { corrections[$0].candidate.text != candidates[order[0]].text }
+            slots.insert(contentsOf: shown.map(Slot.correction), at: 1)
         }
+        self.slots = slots
+        presentations = slots.enumerated().map { index, slot in
+            let token = CandidateSelectionToken(sessionID: sessionID, generation: generation, index: index, kind: .composition)
+            switch slot {
+            case .rime(let source):
+                let candidate = candidates[source]
+                return CandidatePresentation(text: candidate.text, source: .conversion, consumedInputCount: 0, correction: nil,
+                    selectionToken: token, detailAnnotation: candidate.comment.flatMap { $0.isEmpty ? nil : $0 })
+            case .correction(let source):
+                let (spelling, candidate) = corrections[source]
+                return CandidatePresentation(text: candidate.text, source: .typoCorrection, consumedInputCount: 0, correction: nil,
+                    selectionToken: token, detailAnnotation: spelling)
+            }
+        }
+        scheduleCorrections()
+    }
+
+    // MARK: Spelling corrections
+
+    private func clearCorrections() {
+        correctionRequest?.cancel()
+        correctionRequest = nil
+        correctionInput = ""
+        corrections = []
+    }
+
+    /// After a short pause, looks other spellings up when Rime reads the
+    /// input poorly; a key typed meanwhile cancels it.
+    private func scheduleCorrections() {
+        let input = state.input
+        guard correctionInput != input, isComposing, echo.isEmpty,
+              PinyinSpellingCorrection.wantsCorrection(input, top: state.candidates.first) else { return }
+        let request = ChineseCandidateRanking.Request(deadline: .infinity)
+        correctionRequest = request
+        correctionInput = input
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.correctionDelay) { [weak self] in
+            guard let self, self.correctionRequest === request, !request.isCancelled else { return }
+            let spellings = PinyinSpellingCorrection.spellings(for: input)
+            guard !spellings.isEmpty else { self.correctionRequest = nil; return }
+            self.engine.lookUp(spellings, limit: 4, isCancelled: { request.isCancelled }) { [weak self] found in
+                MainActor.assumeIsolated { self?.finishCorrections(found, input: input, request: request) }
+            }
+        }
+    }
+
+    private func finishCorrections(_ found: [(spelling: String, candidates: [RimeCandidate])], input: String,
+                                   request: ChineseCandidateRanking.Request) {
+        guard correctionRequest === request, !request.isCancelled, state.input == input else { return }
+        correctionRequest = nil
+        let active = exclusionsActive
+        var seen: Set<String> = []
+        corrections = found.compactMap { item in
+            guard let phrase = PinyinSpellingCorrection.phrase(in: item.candidates),
+                  seen.insert(phrase.text).inserted,
+                  LearningExclusionPolicy.allowsLearning(phrase.genuine, active: active) else { return nil }
+            return (item.spelling, phrase)
+        }.prefix(Self.shownCorrections).map { $0 }
+        guard !corrections.isEmpty, ranking == nil else { return }
+        show(shownCandidates, order: order)
+        if received == sent { onCandidatesChange?() }
     }
 }
 

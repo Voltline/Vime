@@ -94,9 +94,123 @@ speller:
     - derive/^([a-z]{2})([a-z])([a-z])([a-z]*)$/$1$3$2$4~/correction
     - derive/^([a-z]{3})([a-z])([a-z])([a-z]*)$/$1$3$2$4~/correction
     - derive/^([a-z]{4})([a-z])([a-z])([a-z]*)$/$1$3$2$4~/correction
-    - erase/^[a-z]{1,2}~$/
-    - erase/^[bcdfghjklmnpqrstwxyz]+~$/
-    - erase/^[iuv][a-z]*~$/
+    - derive/^([a-z]{0})[a-z]([a-z]*)$/$1$2^/correction
+    - derive/^([a-z]{1})[a-z]([a-z]*)$/$1$2^/correction
+    - derive/^([a-z]{2})[a-z]([a-z]*)$/$1$2^/correction
+    - derive/^([a-z]{3})[a-z]([a-z]*)$/$1$2^/correction
+    - derive/^([a-z]{4})[a-z]([a-z]*)$/$1$2^/correction
+    - derive/^([a-z]{5})[a-z]([a-z]*)$/$1$2^/correction
+    - derive/^([a-z]{0})([a-z])([a-z]*)$/$1$2$2$3^/correction
+    - derive/^([a-z]{1})([a-z])([a-z]*)$/$1$2$2$3^/correction
+    - derive/^([a-z]{2})([a-z])([a-z]*)$/$1$2$2$3^/correction
+    - derive/^([a-z]{3})([a-z])([a-z]*)$/$1$2$2$3^/correction
+    - derive/^([a-z]{4})([a-z])([a-z]*)$/$1$2$2$3^/correction
+    - derive/^([a-z]{5})([a-z])([a-z]*)$/$1$2$2$3^/correction
+    - derive/^([a-z]*?)q([a-z]*)$/$1qw$2^/correction
+    - derive/^([a-z]*?)q([a-z]*)$/$1wq$2^/correction
+    - derive/^([a-z]*?)w([a-z]*)$/$1wq$2^/correction
+    - derive/^([a-z]*?)w([a-z]*)$/$1qw$2^/correction
+    - derive/^([a-z]*?)w([a-z]*)$/$1we$2^/correction
+    - derive/^([a-z]*?)w([a-z]*)$/$1ew$2^/correction
+    - derive/^([a-z]*?)e([a-z]*)$/$1ew$2^/correction
+    - derive/^([a-z]*?)e([a-z]*)$/$1we$2^/correction
+    - derive/^([a-z]*?)e([a-z]*)$/$1er$2^/correction
+    - derive/^([a-z]*?)e([a-z]*)$/$1re$2^/correction
+    - derive/^([a-z]*?)r([a-z]*)$/$1re$2^/correction
+    - derive/^([a-z]*?)r([a-z]*)$/$1er$2^/correction
+    - derive/^([a-z]*?)r([a-z]*)$/$1rt$2^/correction
+    - derive/^([a-z]*?)r([a-z]*)$/$1tr$2^/correction
+    - derive/^([a-z]*?)t([a-z]*)$/$1tr$2^/correction
+    - derive/^([a-z]*?)t([a-z]*)$/$1rt$2^/correction
+    - derive/^([a-z]*?)t([a-z]*)$/$1ty$2^/correction
+    - derive/^([a-z]*?)t([a-z]*)$/$1yt$2^/correction
+    - derive/^([a-z]*?)y([a-z]*)$/$1yt$2^/correction
+    - derive/^([a-z]*?)y([a-z]*)$/$1ty$2^/correction
+    - derive/^([a-z]*?)y([a-z]*)$/$1yu$2^/correction
+    - derive/^([a-z]*?)y([a-z]*)$/$1uy$2^/correction
+    - derive/^([a-z]*?)u([a-z]*)$/$1uy$2^/correction
+    - derive/^([a-z]*?)u([a-z]*)$/$1yu$2^/correction
+    - derive/^([a-z]*?)u([a-z]*)$/$1ui$2^/correction
+    - derive/^([a-z]*?)u([a-z]*)$/$1iu$2^/correction
+    - derive/^([a-z]*?)i([a-z]*)$/$1iu$2^/correction
+    - derive/^([a-z]*?)i([a-z]*)$/$1ui$2^/correction
+    - derive/^([a-z]*?)i([a-z]*)$/$1io$2^/correction
+    - derive/^([a-z]*?)i([a-z]*)$/$1oi$2^/correction
+    - derive/^([a-z]*?)o([a-z]*)$/$1oi$2^/correction
+    - derive/^([a-z]*?)o([a-z]*)$/$1io$2^/correction
+    - derive/^([a-z]*?)o([a-z]*)$/$1op$2^/correction
+    - derive/^([a-z]*?)o([a-z]*)$/$1po$2^/correction
+    - derive/^([a-z]*?)p([a-z]*)$/$1po$2^/correction
+    - derive/^([a-z]*?)p([a-z]*)$/$1op$2^/correction
+    - derive/^([a-z]*?)a([a-z]*)$/$1as$2^/correction
+    - derive/^([a-z]*?)a([a-z]*)$/$1sa$2^/correction
+    - derive/^([a-z]*?)s([a-z]*)$/$1sa$2^/correction
+    - derive/^([a-z]*?)s([a-z]*)$/$1as$2^/correction
+    - derive/^([a-z]*?)s([a-z]*)$/$1sd$2^/correction
+    - derive/^([a-z]*?)s([a-z]*)$/$1ds$2^/correction
+    - derive/^([a-z]*?)d([a-z]*)$/$1ds$2^/correction
+    - derive/^([a-z]*?)d([a-z]*)$/$1sd$2^/correction
+    - derive/^([a-z]*?)d([a-z]*)$/$1df$2^/correction
+    - derive/^([a-z]*?)d([a-z]*)$/$1fd$2^/correction
+    - derive/^([a-z]*?)f([a-z]*)$/$1fd$2^/correction
+    - derive/^([a-z]*?)f([a-z]*)$/$1df$2^/correction
+    - derive/^([a-z]*?)f([a-z]*)$/$1fg$2^/correction
+    - derive/^([a-z]*?)f([a-z]*)$/$1gf$2^/correction
+    - derive/^([a-z]*?)g([a-z]*)$/$1gf$2^/correction
+    - derive/^([a-z]*?)g([a-z]*)$/$1fg$2^/correction
+    - derive/^([a-z]*)g([a-z]*)$/$1gf$2^/correction
+    - derive/^([a-z]*)g([a-z]*)$/$1fg$2^/correction
+    - derive/^([a-z]*?)g([a-z]*)$/$1gh$2^/correction
+    - derive/^([a-z]*?)g([a-z]*)$/$1hg$2^/correction
+    - derive/^([a-z]*)g([a-z]*)$/$1gh$2^/correction
+    - derive/^([a-z]*)g([a-z]*)$/$1hg$2^/correction
+    - derive/^([a-z]*?)h([a-z]*)$/$1hg$2^/correction
+    - derive/^([a-z]*?)h([a-z]*)$/$1gh$2^/correction
+    - derive/^([a-z]*?)h([a-z]*)$/$1hj$2^/correction
+    - derive/^([a-z]*?)h([a-z]*)$/$1jh$2^/correction
+    - derive/^([a-z]*?)j([a-z]*)$/$1jh$2^/correction
+    - derive/^([a-z]*?)j([a-z]*)$/$1hj$2^/correction
+    - derive/^([a-z]*?)j([a-z]*)$/$1jk$2^/correction
+    - derive/^([a-z]*?)j([a-z]*)$/$1kj$2^/correction
+    - derive/^([a-z]*?)k([a-z]*)$/$1kj$2^/correction
+    - derive/^([a-z]*?)k([a-z]*)$/$1jk$2^/correction
+    - derive/^([a-z]*?)k([a-z]*)$/$1kl$2^/correction
+    - derive/^([a-z]*?)k([a-z]*)$/$1lk$2^/correction
+    - derive/^([a-z]*?)l([a-z]*)$/$1lk$2^/correction
+    - derive/^([a-z]*?)l([a-z]*)$/$1kl$2^/correction
+    - derive/^([a-z]*?)z([a-z]*)$/$1zx$2^/correction
+    - derive/^([a-z]*?)z([a-z]*)$/$1xz$2^/correction
+    - derive/^([a-z]*?)x([a-z]*)$/$1xz$2^/correction
+    - derive/^([a-z]*?)x([a-z]*)$/$1zx$2^/correction
+    - derive/^([a-z]*?)x([a-z]*)$/$1xc$2^/correction
+    - derive/^([a-z]*?)x([a-z]*)$/$1cx$2^/correction
+    - derive/^([a-z]*?)c([a-z]*)$/$1cx$2^/correction
+    - derive/^([a-z]*?)c([a-z]*)$/$1xc$2^/correction
+    - derive/^([a-z]*?)c([a-z]*)$/$1cv$2^/correction
+    - derive/^([a-z]*?)c([a-z]*)$/$1vc$2^/correction
+    - derive/^([a-z]*?)v([a-z]*)$/$1vc$2^/correction
+    - derive/^([a-z]*?)v([a-z]*)$/$1cv$2^/correction
+    - derive/^([a-z]*?)v([a-z]*)$/$1vb$2^/correction
+    - derive/^([a-z]*?)v([a-z]*)$/$1bv$2^/correction
+    - derive/^([a-z]*?)b([a-z]*)$/$1bv$2^/correction
+    - derive/^([a-z]*?)b([a-z]*)$/$1vb$2^/correction
+    - derive/^([a-z]*?)b([a-z]*)$/$1bn$2^/correction
+    - derive/^([a-z]*?)b([a-z]*)$/$1nb$2^/correction
+    - derive/^([a-z]*?)n([a-z]*)$/$1nb$2^/correction
+    - derive/^([a-z]*?)n([a-z]*)$/$1bn$2^/correction
+    - derive/^([a-z]*)n([a-z]*)$/$1nb$2^/correction
+    - derive/^([a-z]*)n([a-z]*)$/$1bn$2^/correction
+    - derive/^([a-z]*?)n([a-z]*)$/$1nm$2^/correction
+    - derive/^([a-z]*?)n([a-z]*)$/$1mn$2^/correction
+    - derive/^([a-z]*)n([a-z]*)$/$1nm$2^/correction
+    - derive/^([a-z]*)n([a-z]*)$/$1mn$2^/correction
+    - derive/^([a-z]*?)m([a-z]*)$/$1mn$2^/correction
+    - derive/^([a-z]*?)m([a-z]*)$/$1nm$2^/correction
+    - erase/^[a-z]{1,2}[~^]$/
+    - erase/^(?![zcs]hng[~^])[bcdfghjklmnpqrstwxyz]+[~^]$/
+    - erase/^[iuv][a-z]*[~^]$/
+    - derive/^([a-z]+)\^$/$1~/correction
+    - erase/^[a-z]+\^$/
     # 2. Abbreviations: the initial, and unfinished syllables of 2+ letters.
     - abbrev/^([a-z])[a-z]+$/$1/
     - abbrev/^([zcs]h)[a-z]+$/$1/
@@ -108,6 +222,9 @@ speller:
     - derive/^([jqxy])u([a-z]*)$/$1v$2/
     - derive/^([nl])ue$/$1ve/
     - derive/^([jqxy])v([a-z]*)$/$1u$2/
+    - derive/^([a-z]+)ui$/$1uei/
+    - derive/^([a-z]+)iu$/$1iou/
+    - derive/^([bcdghklnprstwz]h?)un$/$1uen/
     # 4. A typo that spells a valid syllable takes four more correction
     # penalties (log(1e-10) in all), below other corrections; the rest become keys.
     - derive/^(a|e|o|ai|an|ao|ba|bi|bo|bu|ca|ce|ci|cu|da|de|di|du|ei|en|er|fa|fo|fu|ga|ge|gu|ha|he|hu|ji|ju|jv|ka|ke|ku|la|le|li|lo|lu|lv|ma|me|mi|mo|mu|na|ne|ni|nu|nv|ou|pa|pi|po|pu|qi|qu|qv|re|ri|ru|sa|se|si|su|ta|te|ti|tu|wa|wo|wu|xi|xu|xv|ya|ye|yi|yo|yu|yv|za|ze|zi|zu|ang|bai|ban|bao|bei|ben|bie|bin|cai|can|cao|cei|cen|cha|che|chi|chu|cou|cui|cun|cuo|dai|dan|dao|dei|den|dia|die|diu|dou|dui|dun|duo|eng|fan|fei|fen|fou|gai|gan|gao|gei|gen|gou|gua|gui|gun|guo|hai|han|hao|hei|hen|hou|hua|hui|hun|huo|jia|jie|jin|jiu|jue|jun|jve|jvn|kai|kan|kao|kei|ken|kou|kua|kui|kun|kuo|lai|lan|lao|lei|lia|lie|lin|liu|lou|lue|lun|luo|lve|mai|man|mao|mei|men|mie|min|miu|mou|nai|nan|nao|nei|nen|nie|nin|niu|nou|nue|nun|nuo|nve|pai|pan|pao|pei|pen|pie|pin|pou|qia|qie|qin|qiu|que|qun|qve|qvn|ran|rao|ren|rou|rua|rui|run|ruo|sai|san|sao|sen|sha|she|shi|shu|sou|sui|sun|suo|tai|tan|tao|tei|tie|tou|tui|tun|tuo|wai|wan|wei|wen|xia|xie|xin|xiu|xue|xun|xve|xvn|yan|yao|yin|you|yue|yun|yve|yvn|zai|zan|zao|zei|zen|zha|zhe|zhi|zhu|zou|zui|zun|zuo|bang|beng|bian|biao|bing|cang|ceng|chai|chan|chao|chen|chou|chua|chui|chun|chuo|cong|cuan|dang|deng|dian|diao|ding|dong|duan|fang|feng|fiao|gang|geng|gong|guai|guan|hang|heng|hong|huai|huan|jian|jiao|jing|juan|jvan|kang|keng|kong|kuai|kuan|lang|leng|lian|liao|ling|long|luan|mang|meng|mian|miao|ming|nang|neng|nian|niao|ning|nong|nuan|pang|peng|pian|piao|ping|qian|qiao|qing|quan|qvan|rang|reng|rong|ruan|sang|seng|shai|shan|shao|shei|shen|shou|shua|shui|shun|shuo|song|suan|tang|teng|tian|tiao|ting|tong|tuan|wang|weng|xian|xiao|xing|xuan|xvan|yang|ying|yong|yuan|yvan|zang|zeng|zhai|zhan|zhao|zhei|zhen|zhou|zhua|zhui|zhun|zhuo|zong|zuan|biang|chang|cheng|chong|chuai|chuan|guang|huang|jiang|jiong|kuang|liang|niang|qiang|qiong|shang|sheng|shuai|shuan|xiang|xiong|zhang|zheng|zhong|zhuai|zhuan|chuang|shuang|zhuang)~$/$1~~/correction

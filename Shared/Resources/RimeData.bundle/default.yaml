@@ -1,10 +1,17 @@
 __build_info:
   rime_version: vime
   timestamps:
-    default: 1794120337
+    default: 1794465310
     default.custom: 0
 config_version: 1
 menu:
   page_size: 9
 schema_list:
   - schema: vime_pinyin
+  - schema: vime_pinyin_fuzzy1
+  - schema: vime_pinyin_fuzzy2
+  - schema: vime_pinyin_fuzzy3
+  - schema: vime_pinyin_fuzzy4
+  - schema: vime_pinyin_fuzzy5
+  - schema: vime_pinyin_fuzzy6
+  - schema: vime_pinyin_fuzzy7

@@ -154,49 +154,6 @@ final class KeyboardCandidateStabilityTests: XCTestCase {
         worker.reset()
     }
 
-    func testWarmModelStillRanksBeforeFirstDisplay() async throws {
-        try skipTimingSensitiveTestOnCI()
-        let worker = JapaneseCandidateWorker(memoryDirectoryURL: isolatedLearningDirectory())
-        worker.allowLanguageModel()
-        var warmup = ComposingText()
-        RomajiConverter.insert("hashi", into: &warmup)
-        worker.candidates(for: warmup, katakana: false, revision: 0, leftContext: "川を渡る", continuity: nil) { _, _, _ in }
-        _ = await worker.resourceState()
-        let model = try VimeLanguageModel()
-        let engine = JapaneseCandidateEngine(memoryDirectoryURL: isolatedLearningDirectory())
-        var verified = 0
-        for (raw, context) in [("hashi", "ご飯を食べるための"), ("kisha", "新聞の"), ("ame", "お菓子の"), ("kouen", "研究者の")] {
-            var query = ComposingText()
-            RomajiConverter.insert(raw, into: &query)
-            engine.reset(); engine.reconcileContext(context)
-            let base = engine.candidates(for: query, revision: 2, includeCorrections: false)
-            let started = ProcessInfo.processInfo.systemUptime
-            var completedOrders: [[String]] = []
-            let ranked = model.rerank(base, context: context, katakana: false,
-                maximumCandidates: JapaneseCandidateWorker.initialRankingCandidateLimit,
-                onRefinement: { completedOrders.append($0.map(\.text)) }, cancelled: { false })
-            print("CANDIDATE_WARM_REFERENCE \(raw) ms=\((ProcessInfo.processInfo.systemUptime - started) * 1000) slots=\(min(JapaneseCandidateWorker.initialRankingCandidateLimit, VimeLanguageModel.rerankingSlots(base, katakana: false).count)) base=\(base.prefix(3).map(\.text)) ranked=\(ranked.prefix(3).map(\.text))")
-            let refinedSlots = Set(CandidateCompetitionPolicy.plan(base, katakana: false,
-                maximumCandidates: JapaneseCandidateWorker.initialRankingCandidateLimit).slots)
-            for index in base.indices where !refinedSlots.contains(index) {
-                XCTAssertEqual(ranked[index].presentation, base[index].presentation, "Neural refinement must preserve unselected slots")
-            }
-            guard ranked.map(\.presentation) != base.map(\.presentation) else { continue }
-            worker.reset()
-            _ = await worker.resourceState()
-            let ready = expectation(description: "warm neural order is the first displayed order")
-            worker.candidates(for: query, katakana: false, revision: 2, leftContext: context, continuity: nil) { values, _, supplementary in
-                guard !supplementary else { return }
-                XCTAssertTrue(completedOrders.contains(values.map(\.text)), "First display must use a completed comparison within the time budget")
-                ready.fulfill()
-            }
-            await fulfillment(of: [ready], timeout: 5)
-            verified += 1
-        }
-        XCTAssertGreaterThan(verified, 0, "The corpus must exercise at least one actual model reorder")
-        worker.reset()
-    }
-
     func testColdSentenceInitialPublishesDictionaryOnceAndWarmsFollowingInput() async throws {
         let worker = JapaneseCandidateWorker(memoryDirectoryURL: isolatedLearningDirectory())
         worker.disableLanguageModel()

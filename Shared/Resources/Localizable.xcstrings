@@ -1608,6 +1608,34 @@
         }
       }
     },
+    "中文使用全拼，学习记录与日语分开保存；中文智能排序使用本地中文模型调整候选顺序，与日语的候选排序分开设置；下一词联想对中文同样有效，退格撤销转换目前只用于日语\n切换后，下次打开键盘时生效": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chinese uses full pinyin and learns separately from Japanese. Chinese Smart Ranking reorders candidates with an on-device Chinese model and is set separately from Japanese candidate ranking. Next-Word Suggestions work for Chinese too; Backspace Undoes Conversion applies to Japanese only for now.\nThe change takes effect the next time the keyboard opens."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中国語は全拼で入力し、学習記録は日本語とは別に保存します。中国語スマート並べ替えは端末内の中国語モデルで候補の順番を調整し、日本語の候補の並び順とは別に設定します。次の語の予測は中国語でも使えます。削除キーで変換を取り消す機能は現在日本語のみで使えます。\n切り替えは次にキーボードを開いたときに反映されます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "중국어는 전체 병음으로 입력하며 학습 기록은 일본어와 따로 저장됩니다. 중국어 스마트 순위는 기기 내 중국어 모델로 후보 순서를 조정하며 일본어 후보 순위와 따로 설정합니다. 다음 단어 제안은 중국어에서도 작동하며, 백스페이스로 변환 취소는 현재 일본어에만 적용됩니다.\n변경 사항은 다음에 키보드를 열 때 적용됩니다."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中文使用全拼，學習記錄與日語分開儲存；中文智慧排序使用本機中文模型調整候選順序，與日語的候選排序分開設定；下一詞聯想對中文同樣有效，退格撤銷轉換目前只用於日語\n切換後，下次開啟鍵盤時生效"
+          }
+        }
+      }
+    },
     "中文拼音输入引擎": {
       "extractionState": "manual",
       "localizations": {
@@ -2371,34 +2399,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "修改一個原始檔，編譯為靜態函式庫；隨附的 darts-clone、UTF8-CPP 與 X11 聲明保留在下方"
-          }
-        }
-      }
-    },
-    "候选排序": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Candidate Ranking"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "候補の並び順"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "후보 순위"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "候選排序"
           }
         }
       }
@@ -3249,6 +3249,34 @@
         }
       }
     },
+    "前后鼻音 an/ang、en/eng、in/ing": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nasal finals an/ang, en/eng, in/ing"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "前鼻音・後鼻音 an/ang、en/eng、in/ing"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "앞뒤 비음 an/ang, en/eng, in/ing"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "前後鼻音 an/ang、en/eng、in/ing"
+          }
+        }
+      }
+    },
     "取英文词频数据，计算英文候选词的排序": {
       "extractionState": "manual",
       "localizations": {
@@ -3390,6 +3418,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "只重設拼音的詞語偏好，日語學習保留"
+          }
+        }
+      }
+    },
+    "声母 n/l、f/h、r/l": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Initials n/l, f/h, r/l"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "声母 n/l、f/h、r/l"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "성모 n/l, f/h, r/l"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "聲母 n/l、f/h、r/l"
           }
         }
       }
@@ -5638,6 +5694,90 @@
         }
       }
     },
+    "平翘舌 z/zh、c/ch、s/sh": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retroflex z/zh, c/ch, s/sh"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "そり舌音 z/zh、c/ch、s/sh"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "권설음 z/zh, c/ch, s/sh"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "平翹舌 z/zh、c/ch、s/sh"
+          }
+        }
+      }
+    },
+    "打开后，读音相近也能打出想要的字，例如 zi 也能打出“知”\n切换后，下次打开键盘时生效": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "When on, similar sounds also find the character you want, such as zi for 知.\nThe change takes effect the next time the keyboard opens."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "オンにすると、近い発音でも目的の字を入力できます（例：zi で「知」）。\n切り替えは次にキーボードを開いたときに反映されます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "켜면 비슷한 발음으로도 원하는 글자를 입력할 수 있습니다(예: zi로 '知').\n변경 사항은 다음에 키보드를 열 때 적용됩니다."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開啟後，讀音相近也能打出想要的字，例如 zi 也能打出「知」\n切換後，下次開啟鍵盤時生效"
+          }
+        }
+      }
+    },
+    "日语候选排序": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Japanese Candidate Ranking"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "日本語の候補の並び順"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "일본어 후보 순위"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "日語候選排序"
+          }
+        }
+      }
+    },
     "显示下一个候选": {
       "localizations": {
         "en": {
@@ -5662,6 +5802,62 @@
           "stringUnit": {
             "state": "translated",
             "value": "顯示下一個候選"
+          }
+        }
+      }
+    },
+    "智能排序使用本地模型调整日语候选顺序\n下一词联想在确认文字后提供建议\n实时转换在输入假名时直接显示转换结果，回车确认显示的文字\n转换后，候选栏开头的 ↩ 可回到读音重新选择；打开「退格撤销转换」后，立即按退格也会回到读音\n关闭智能排序或联想不会清除已有学习数据": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Smart ranking uses an on-device model to order Japanese candidates\nNext-word suggestions appear after you confirm text\nLive Conversion shows the converted text while you type kana; Return confirms the text shown\nAfter a conversion, ↩ at the start of the candidate bar returns to its reading so you can choose again; with Backspace Undoes Conversion on, pressing Backspace right away does the same\nTurning either off keeps existing learning data"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "スマート並べ替えは端末内モデルで日本語の候補の順序を調整します\n次の語の予測は確定後に候補を表示します\nライブ変換は、かなを入力すると変換結果をそのまま表示し、改行キーで表示中の文字を確定します\n変換の後、候補バー先頭の ↩ で読みに戻って選び直せます。「削除キーで変換を取り消す」をオンにすると、直後に削除キーを押しても読みに戻ります\nどちらをオフにしても学習データは消えません"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "스마트 순위는 기기 내 모델을 사용하여 일본어 후보 순서를 정합니다\n다음 단어 제안은 텍스트를 확정한 후 표시됩니다\n라이브 변환은 가나를 입력하는 동안 변환 결과를 바로 표시하며, 리턴 키로 표시된 텍스트를 확정합니다\n변환 후 후보 표시줄 맨 앞의 ↩를 누르면 읽기로 돌아가 다시 고를 수 있습니다. '백스페이스로 변환 취소'를 켜면 변환 직후 백스페이스를 눌러도 읽기로 돌아갑니다\n어느 쪽을 꺼도 기존 학습 데이터는 유지됩니다"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "智慧排序使用本機模型調整日語候選順序\n下一詞聯想在確認文字後提供建議\n即時轉換在輸入假名時直接顯示轉換結果，Return 確認顯示的文字\n轉換後，候選列開頭的 ↩ 可回到讀音重新選擇；開啟「退格撤銷轉換」後，立即按退格也會回到讀音\n關閉智慧排序或聯想不會清除已有學習資料"
+          }
+        }
+      }
+    },
+    "模糊音": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fuzzy Pinyin"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "あいまい拼音"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "퍼지 병음"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "模糊音"
           }
         }
       }
@@ -8643,34 +8839,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "智慧排序"
-          }
-        }
-      }
-    },
-    "智能排序使用本地模型调整候选顺序\n下一词联想在确认文字后提供建议\n实时转换在输入假名时直接显示转换结果，回车确认显示的文字\n转换后，候选栏开头的 ↩ 可回到读音重新选择；打开「退格撤销转换」后，立即按退格也会回到读音\n关闭智能排序或联想不会清除已有学习数据": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Smart ranking uses an on-device model to order candidates\nNext-word suggestions appear after you confirm text\nLive Conversion shows the converted text while you type kana; Return confirms the text shown\nAfter a conversion, ↩ at the start of the candidate bar returns to its reading so you can choose again; with Backspace Undoes Conversion on, pressing Backspace right away does the same\nTurning either off keeps existing learning data"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "スマート並べ替えは端末内モデルで候補の順序を調整します\n次の語の予測は確定後に候補を表示します\nライブ変換は、かなを入力すると変換結果をそのまま表示し、改行キーで表示中の文字を確定します\n変換の後、候補バー先頭の ↩ で読みに戻って選び直せます。「削除キーで変換を取り消す」をオンにすると、直後に削除キーを押しても読みに戻ります\nどちらをオフにしても学習データは消えません"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "스마트 순위는 기기 내 모델을 사용하여 후보 순서를 정합니다\n다음 단어 제안은 텍스트를 확정한 후 표시됩니다\n라이브 변환은 가나를 입력하는 동안 변환 결과를 바로 표시하며, 리턴 키로 표시된 텍스트를 확정합니다\n변환 후 후보 표시줄 맨 앞의 ↩를 누르면 읽기로 돌아가 다시 고를 수 있습니다. '백스페이스로 변환 취소'를 켜면 변환 직후 백스페이스를 눌러도 읽기로 돌아갑니다\n어느 쪽을 꺼도 기존 학습 데이터는 유지됩니다"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "智慧排序使用本機模型調整候選順序\n下一詞聯想在確認文字後提供建議\n即時轉換在輸入假名時直接顯示轉換結果，Return 確認顯示的文字\n轉換後，候選列開頭的 ↩ 可回到讀音重新選擇；開啟「退格撤銷轉換」後，立即按退格也會回到讀音\n關閉智慧排序或聯想不會清除已有學習資料"
           }
         }
       }
@@ -15303,34 +15471,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "簡體中文"
-          }
-        }
-      }
-    },
-    "中文使用全拼，学习记录与日语分开保存；中文智能排序使用本地中文模型调整候选顺序，需同时开启智能排序；下一词联想和退格撤销转换目前只用于日语\n切换后，下次打开键盘时生效": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Chinese uses full pinyin and learns separately from Japanese. Chinese Smart Ranking reorders candidates with an on-device Chinese model and needs Smart Ranking to be on. Next-Word Suggestions and Backspace Undoes Conversion apply to Japanese only for now.\nThe change takes effect the next time the keyboard opens."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "中国語は全拼で入力し、学習記録は日本語とは別に保存します。中国語スマート並べ替えは端末内の中国語モデルで候補の順番を調整し、スマート並べ替えがオンのときに使われます。次の語の予測と削除キーで変換を取り消す機能は現在日本語のみで使えます。\n切り替えは次にキーボードを開いたときに反映されます。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "중국어는 전체 병음으로 입력하며 학습 기록은 일본어와 따로 저장됩니다. 중국어 스마트 순위는 기기 내 중국어 모델로 후보 순서를 조정하며 스마트 순위가 켜져 있어야 합니다. 다음 단어 제안과 백스페이스로 변환 취소는 현재 일본어에만 적용됩니다.\n변경 사항은 다음에 키보드를 열 때 적용됩니다."
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "中文使用全拼，學習記錄與日語分開儲存；中文智慧排序使用本機中文模型調整候選順序，需同時開啟智慧排序；下一詞聯想和退格撤銷轉換目前只用於日語\n切換後，下次開啟鍵盤時生效"
           }
         }
       }

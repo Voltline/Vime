@@ -11,9 +11,11 @@ final class PinyinToleranceTests: XCTestCase {
         precondition(vime_rime_start(data.path, user.path))
     }
 
-    private func candidates(_ input: String, limit: Int32 = 10) -> [String] {
+    private func candidates(_ input: String, limit: Int32 = 10, schema: String? = nil) -> [String] {
         let session = vime_rime_create_session()
         defer { vime_rime_destroy_session(session) }
+        // Rime starts a session with the schema selected last.
+        precondition(vime_rime_select_schema(session, schema ?? "vime_pinyin"))
         for scalar in input.unicodeScalars { _ = vime_rime_process_key(session, Int32(scalar.value), 0) }
         var raw = vime_rime_snapshot(session, limit)
         defer { vime_rime_snapshot_free(&raw) }
@@ -80,6 +82,13 @@ final class PinyinToleranceTests: XCTestCase {
         ("yonyuan", "永远", 1), ("dotian", "冬天", 1), ("sogei", "送给", 1),
         // A missing g before the next syllable.
         ("zhonguo", "中国", 1), ("zhonhua", "中华", 1), ("gonsi", "公司", 1), ("zhonguoren", "中国人", 1),
+        // A missing letter.
+        ("zhngguo", "中国", 1), ("shuijao", "睡觉", 1), ("xiexe", "谢谢", 2),
+        // A letter typed twice, or a neighbour pressed with it.
+        ("mingtiian", "明天", 1), ("jinntian", "今天", 1), ("pengyyou", "朋友", 1), ("xiexiee", "谢谢", 2),
+        ("shuijuiao", "睡觉", 1), ("dianhjua", "电话", 1),
+        // The full finals uei, iou and uen.
+        ("guei", "贵", 1), ("liou", "六", 1), ("duen", "吨", 3), ("shuei", "水", 3),
         // Typos inside sentences.
         ("jintiantianqizhenhap", "今天天气真好", 1), ("womenyiqiqukandiamying", "我们一起去看电影", 1),
         ("wozaixuexiap", "我在学校", 1), ("woxiangchifam", "我想吃饭", 1), ("mingtianjiam", "明天见", 1),
@@ -97,12 +106,31 @@ final class PinyinToleranceTests: XCTestCase {
         XCTAssertEqual(misses, [], "\(misses.count) of \(Self.typos.count) typos missed")
     }
 
+    /// Each fuzzy pinyin schema reads its groups' similar sounds, and only those.
+    func testFuzzySchemas() {
+        let cases: [(input: String, word: String, group: Int)] = [
+            ("sijian", "时间", 1), ("cifan", "吃饭", 1), ("zidao", "知道", 1),
+            // Most an/ang slips are already corrections (shenri -> 生日: a missing g).
+            ("xihuang", "喜欢", 2), ("shengqing", "申请", 2),
+            ("lanren", "男人", 4), ("huwu", "服务", 4), ("heiji", "飞机", 4), ("luguo", "如果", 4),
+        ]
+        for mask in 0...7 {
+            let schema = mask == 0 ? "vime_pinyin" : "vime_pinyin_fuzzy\(mask)"
+            for (input, word, group) in cases {
+                let found = candidates(input, schema: schema).prefix(6).contains(word)
+                XCTAssertEqual(found, mask & group != 0, "\(schema) \(input) -> \(word)")
+            }
+            XCTAssertEqual(candidates("zhongguo", schema: schema).first, "中国", schema)
+            XCTAssertEqual(candidates("zhomg", schema: schema).first, "中", schema)
+        }
+    }
+
     func testDump() throws {
         let environment = ProcessInfo.processInfo.environment
         guard let list = environment["VIME_DUMP"] else { throw XCTSkip("set VIME_DUMP") }
         let limit = environment["VIME_DUMP_LIMIT"].flatMap { Int32($0) } ?? 10
         for input in list.split(separator: ",") {
-            print("DUMP \(input): \(candidates(String(input), limit: limit).joined(separator: " "))")
+            print("DUMP \(input): \(candidates(String(input), limit: limit, schema: environment["VIME_SCHEMA"]).joined(separator: " "))")
             fflush(stdout)
         }
     }

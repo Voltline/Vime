@@ -117,6 +117,98 @@ final class ChineseInputSessionTests: XCTestCase {
         XCTAssertEqual(session.backspace(), [.deleteBackward])
     }
 
+    /// Lets a suggestion lookup answer; true once suggestions show.
+    private func waitForSuggestions(_ session: ChineseInputSession) -> Bool {
+        let deadline = Date().addingTimeInterval(5)
+        while session.suggestionTexts.isEmpty && Date() < deadline {
+            RunLoop.main.run(until: Date().addingTimeInterval(0.005))
+        }
+        return !session.suggestionTexts.isEmpty
+    }
+
+    func testCommittedWordsOfferWhatFollowsThem() throws {
+        let session = try session()
+        _ = session.type("dianhua")
+        XCTAssertEqual(session.space(), [])
+        waitUntilCurrent(session)
+        XCTAssertEqual(batches.last?.edits, [.insert("电话")])
+        XCTAssertTrue(waitForSuggestions(session))
+        XCTAssertTrue(session.showsStrip)
+        XCTAssertTrue(session.candidatePresentations.isEmpty, "suggestions show in the strip only")
+        XCTAssertTrue(session.suggestionTexts.contains("号码"), "\(session.suggestionTexts)")
+        let suggestion = try XCTUnwrap(session.stripPresentations.first { $0.text == "号码" }?.selectionToken)
+        XCTAssertEqual(suggestion.kind, .suggestion)
+        XCTAssertEqual(session.chooseCandidate(suggestion), [.insert("号码")])
+        XCTAssertEqual(session.chooseCandidate(suggestion), [], "a chosen suggestion is gone")
+        // Choosing one asks about the phrase it ends in turn; typing hides them.
+        _ = waitForSuggestions(session)
+        _ = session.type("w")
+        XCTAssertTrue(session.suggestionTexts.isEmpty)
+        waitUntilCurrent(session)
+        session.reset()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+
+        // A literal after the commit, and the switch, keep them away.
+        _ = session.type("women")
+        XCTAssertEqual(session.insertLiteral("，"), [.insert("我们"), .insert("，")])
+        XCTAssertFalse(waitForSuggestions(session))
+        session.updateIntelligence(ranking: .engine, suggestionsEnabled: false)
+        _ = session.type("women")
+        _ = session.space()
+        waitUntilCurrent(session)
+        XCTAssertFalse(waitForSuggestions(session))
+        session.updateIntelligence(ranking: .engine, suggestionsEnabled: true)
+        _ = session.type("women")
+        _ = session.space()
+        waitUntilCurrent(session)
+        XCTAssertTrue(waitForSuggestions(session))
+        XCTAssertEqual(session.backspace(), [.deleteBackward])
+        XCTAssertTrue(session.suggestionTexts.isEmpty)
+        session.reset()
+    }
+
+    /// Lets a correction lookup answer; the corrections shown.
+    private func corrections(_ session: ChineseInputSession, within seconds: TimeInterval = 5) -> [CandidatePresentation] {
+        let deadline = Date().addingTimeInterval(seconds)
+        func found() -> [CandidatePresentation] { session.candidatePresentations.filter { $0.source == .typoCorrection } }
+        while found().isEmpty && Date() < deadline { RunLoop.main.run(until: Date().addingTimeInterval(0.005)) }
+        return found()
+    }
+
+    func testTyposAcrossSyllablesOfferTheMeantPhrase() throws {
+        let session = try session()
+        for (typed, meant) in [("shenem", "什么"), ("keiy", "可以"), ("gongzo", "工作")] {
+            _ = session.type(typed)
+            waitUntilCurrent(session)
+            let shown = corrections(session)
+            XCTAssertTrue(shown.contains { $0.text == meant }, "\(typed): \(session.candidatePresentations.map(\.text))")
+            let index = try XCTUnwrap(session.candidatePresentations.firstIndex { $0.text == meant && $0.source == .typoCorrection })
+            XCTAssertTrue((1...2).contains(index), "corrections never come first: \(index)")
+            XCTAssertEqual(session.candidatePresentations.filter { $0.text == meant }.count, 1, "shown once")
+            XCTAssertEqual(session.chooseCandidate(try XCTUnwrap(session.candidatePresentations[index].selectionToken)), [])
+            waitUntilCurrent(session)
+            XCTAssertEqual(batches.last?.edits, [.insert(meant)])
+            XCTAssertFalse(session.isComposing)
+        }
+        // Editing the input drops them with Rime's next answer.
+        _ = session.type("shenem")
+        waitUntilCurrent(session)
+        XCTAssertFalse(corrections(session).isEmpty)
+        _ = session.backspace()
+        waitUntilCurrent(session)
+        XCTAssertEqual(session.raw, "shene")
+        XCTAssertTrue(corrections(session, within: 0.4).isEmpty, "\(session.candidatePresentations.map(\.text))")
+        session.reset()
+
+        // Unfinished and correct spellings get none.
+        for typed in ["nihaom", "zhongg", "shenme", "nihao"] {
+            _ = session.type(typed)
+            waitUntilCurrent(session)
+            XCTAssertTrue(corrections(session, within: 0.5).isEmpty, typed)
+            session.reset()
+        }
+    }
+
     func testResetDropsPendingWorkAndMovesTheEpoch() throws {
         let session = try session()
         let epoch = session.hostEpoch
