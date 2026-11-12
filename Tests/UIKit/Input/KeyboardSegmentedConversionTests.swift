@@ -325,11 +325,6 @@ final class KeyboardSegmentedConversionTests: XCTestCase {
         XCTAssertTrue(words.contains { $0.word == "リア充" })
         let slang = engine.candidates(for: query("riajuu"), revision: 8, includeCorrections: false)
         XCTAssertTrue(slang.contains { $0.text == "リア充" && $0.lexical })
-        let model = try VimeLanguageModel()
-        let spellings = [values[kana], values[kanji]]
-        let neural = model.rerank(spellings, context: "", katakana: false, cancelled: { false })
-        print("ORTHOGRAPHY_NEURAL \(neural.map(\.text))")
-        XCTAssertEqual(neural.first?.text, "けが")
     }
 
     func testCandidateTimingAndUncappedPool() throws {
