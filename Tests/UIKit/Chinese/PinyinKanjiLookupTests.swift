@@ -73,6 +73,7 @@ final class PinyinKanjiLookupTests: XCTestCase {
     /// this unoptimised test build is some 25 times slower, so its worst case
     /// gets a looser bound while its average must still meet the budget.
     func testTwelveLettersAreFast() throws {
+        try skipTimingSensitiveTestOnCI()
         let lookup = try lookup()
         let inputs = ["tushuguanjia", "jiansatsukan", "zhongguoren", "xinwenjizhe", "lvxingshe", "jingjixuejia",
                       "jingjiwentiyanjiu", "zhongguojingjifazhan"]
