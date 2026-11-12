@@ -1,4 +1,5 @@
 import Foundation
+import KanaKanjiConverterModuleWithDefaultDictionary
 
 /// All presentation policy is expressed here, in score units. Engine order is
 /// evidence too: raw values of sentence, prediction and fallback differ in scale.
@@ -200,7 +201,30 @@ nonisolated struct CandidateReranker {
            let complete = ranked.firstIndex(where: { $0.fullConsumption && $0.lexical && $0.exactReading }) {
             ranked.insert(ranked.remove(at: complete), at: 0)
         }
+        // A completion the typed reading has barely started (often a learned
+        // phrase) stays in the strip but never leads it.
+        if let first = ranked.first, !CandidatePredictionPolicy.mayLead(first),
+           let lead = ranked.firstIndex(where: { CandidatePredictionPolicy.mayLead($0) }) {
+            ranked.insert(ranked.remove(at: lead), at: 0)
+        }
         return ranked
+    }
+}
+
+/// When a prediction, which completes the typed reading, may be the first
+/// candidate. Mozc offers a learned multi-clause entry only once the input
+/// reaches its last clause (わたしのな → 私の名前, not わたしの); a single word
+/// needs half of its reading. Otherwise the conversion of what was typed leads.
+nonisolated enum CandidatePredictionPolicy {
+    static let minimumTypedReading = 2
+
+    static func mayLead(_ value: CandidateSnapshot) -> Bool {
+        guard value.isPrediction, !value.exactReading, !value.explicitScope else { return true }
+        let typed = value.queryReading.count
+        guard typed >= minimumTypedReading else { return false }
+        let words = value.candidate.data.map { RomajiConverter.katakana($0.ruby).count }
+        if words.count >= 2 { return typed > words.dropLast().reduce(0, +) }
+        return typed * 2 >= value.reading.count
     }
 }
 

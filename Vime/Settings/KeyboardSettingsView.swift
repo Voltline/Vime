@@ -388,6 +388,9 @@ struct KeyboardInputSettingsView: View {
     @AppStorage private var chineseInput: Bool
     @AppStorage private var pinyinLookup: Bool
     @AppStorage private var chineseModel: Bool
+    @AppStorage private var fuzzyRetroflex: Bool
+    @AppStorage private var fuzzyNasal: Bool
+    @AppStorage private var fuzzyInitials: Bool
     init() {
         let prefs = KeyboardPreferences()
         _inputLanguage = AppStorage(wrappedValue: prefs.inputLanguage, "vime.inputLanguage", store: prefs.store)
@@ -395,6 +398,9 @@ struct KeyboardInputSettingsView: View {
         // The stored choice, not the effective value, which is false while Chinese input is off.
         _pinyinLookup = AppStorage(wrappedValue: true, "vime.pinyinLookupInJapanese", store: prefs.store)
         _chineseModel = AppStorage(wrappedValue: prefs.chineseLanguageModel, "vime.chineseLanguageModel", store: prefs.store)
+        _fuzzyRetroflex = AppStorage(wrappedValue: false, FuzzyPinyin.retroflex.key, store: prefs.store)
+        _fuzzyNasal = AppStorage(wrappedValue: false, FuzzyPinyin.nasal.key, store: prefs.store)
+        _fuzzyInitials = AppStorage(wrappedValue: false, FuzzyPinyin.initials.key, store: prefs.store)
         _ranking = AppStorage(wrappedValue: prefs.candidateRanking, "vime.candidateRanking", store: prefs.store)
         _suggestions = AppStorage(wrappedValue: prefs.phraseSuggestions, "vime.phraseSuggestions", store: prefs.store)
         _undoConversion = AppStorage(wrappedValue: prefs.undoConversionOnBackspace, "vime.undoConversionOnBackspace", store: prefs.store)
@@ -422,7 +428,7 @@ struct KeyboardInputSettingsView: View {
                     }
                 } footer: {
                     if chineseInput {
-                        Text("中文使用全拼，学习记录与日语分开保存；中文智能排序使用本地中文模型调整候选顺序，需同时开启智能排序；下一词联想和退格撤销转换目前只用于日语\n切换后，下次打开键盘时生效")
+                        Text("中文使用全拼，学习记录与日语分开保存；中文智能排序使用本地中文模型调整候选顺序，与日语的候选排序分开设置；下一词联想对中文同样有效，退格撤销转换目前只用于日语\n切换后，下次打开键盘时生效")
                     } else {
                         Text("关闭后，键盘只提供日语和英文，也不会加载中文引擎")
                     }
@@ -434,10 +440,22 @@ struct KeyboardInputSettingsView: View {
                     } footer: {
                         Text("日语模式下，输入汉字的普通话拼音（可与罗马字混用）也能找到对应的词，候选上方显示平假名读音")
                     }
+                    Section {
+                        Toggle("平翘舌 z/zh、c/ch、s/sh", isOn: $fuzzyRetroflex)
+                            .accessibilityIdentifier("vime.settings.fuzzyRetroflex")
+                        Toggle("前后鼻音 an/ang、en/eng、in/ing", isOn: $fuzzyNasal)
+                            .accessibilityIdentifier("vime.settings.fuzzyNasal")
+                        Toggle("声母 n/l、f/h、r/l", isOn: $fuzzyInitials)
+                            .accessibilityIdentifier("vime.settings.fuzzyInitials")
+                    } header: {
+                        Text("模糊音")
+                    } footer: {
+                        Text("打开后，读音相近也能打出想要的字，例如 zi 也能打出“知”\n切换后，下次打开键盘时生效")
+                    }
                 }
             }
             Section {
-                Picker("候选排序", selection: Binding(get: { ranking }, set: { value in
+                Picker("日语候选排序", selection: Binding(get: { ranking }, set: { value in
                     ranking = value
                     if value == .languageModel { KeyboardPreferences().requestNeuralRetry() }
                 })) {
@@ -449,9 +467,9 @@ struct KeyboardInputSettingsView: View {
                 Toggle("退格撤销转换", isOn: $undoConversion)
                     .accessibilityIdentifier("vime.settings.undoConversion")
             } footer: {
-                Text("智能排序使用本地模型调整候选顺序\n下一词联想在确认文字后提供建议\n实时转换在输入假名时直接显示转换结果，回车确认显示的文字\n转换后，候选栏开头的 ↩ 可回到读音重新选择；打开「退格撤销转换」后，立即按退格也会回到读音\n关闭智能排序或联想不会清除已有学习数据")
+                Text("智能排序使用本地模型调整日语候选顺序\n下一词联想在确认文字后提供建议\n实时转换在输入假名时直接显示转换结果，回车确认显示的文字\n转换后，候选栏开头的 ↩ 可回到读音重新选择；打开「退格撤销转换」后，立即按退格也会回到读音\n关闭智能排序或联想不会清除已有学习数据")
             }
-            if ranking == .languageModel {
+            if ranking == .languageModel || (chineseInput && chineseModel) {
                 Section {
                     Button("重试智能排序") {
                         KeyboardPreferences().requestNeuralRetry()

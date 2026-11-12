@@ -52,6 +52,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         session.setPinyinLookupEnabled(next.pinyinLookupInJapanese)
         session.setTraditionalChinese(next.traditionalChinese)
         session.setChineseLanguageModel(next.chineseLanguageModel)
+        session.setFuzzyPinyin(next.fuzzyPinyin)
         applyNeuralRetry()
         if next.learningResetID != previous?.learningResetID {
             session.reset()
@@ -120,6 +121,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         session.setPinyinLookupEnabled(preferences.pinyinLookupInJapanese)
         session.setTraditionalChinese(preferences.traditionalChinese)
         session.setChineseLanguageModel(preferences.chineseLanguageModel)
+        session.setFuzzyPinyin(preferences.fuzzyPinyin)
         session.setLiveConversion(preferences.liveConversion)
         applyNeuralRetry()
         session.onCommittedEdits = { [weak self] batch in
@@ -160,7 +162,8 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     }
 
     func applyNeuralRetry() {
-        guard preferences.candidateRanking == .languageModel, let id = preferences.neuralRetryID else { return }
+        guard preferences.candidateRanking == .languageModel || preferences.chineseLanguageModel,
+              let id = preferences.neuralRetryID else { return }
         session.retryLanguageModel(requestID: id)
     }
     weak var inputModeListTarget: AnyObject? { didSet { configureGlobe() } }

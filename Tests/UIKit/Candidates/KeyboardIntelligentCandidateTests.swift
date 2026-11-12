@@ -168,6 +168,32 @@ final class KeyboardIntelligentCandidateTests: XCTestCase {
         XCTAssertEqual(CandidateReranker().rank([mixed, lexical], input: "be-to-benn", katakana: false, previous: previous).first?.text, lexical.text)
     }
 
+    func testLearnedPredictionLeadsOnlyOnceTheInputReachesItsLastWord() throws {
+        func snapshot(_ words: [(String, String)], typed: String, source: CandidateSource, rank: Int) -> CandidateSnapshot {
+            let c = Candidate(text: words.map(\.0).joined(), value: -5, composingCount: .inputCount(typed.count),
+                lastMid: MIDData.一般.mid, data: words.map {
+                    .init(word: $0.0, ruby: $0.1, cid: CIDData.一般名詞.cid, mid: MIDData.一般.mid, value: -5, metadata: .isLearned)
+                })
+            return .init(candidate: c, revision: 1, source: source, remainingComposition: ComposingText(),
+                originalInputCount: typed.count, consumedInputCount: typed.count, queryReading: typed, engineRank: rank)
+        }
+        let phrase = [("私", "ワタシ"), ("の", "ノ"), ("名前", "ナマエ")]
+        for (typed, leads) in [("ワタ", false), ("ワタシノ", false), ("ワタシノナ", true)] {
+            var learned = snapshot(phrase, typed: typed, source: .prediction, rank: 0)
+            learned.userPreferenceScore = CandidatePreferenceMemory.Policy.maximumChoiceBonus
+            let literal = snapshot([(typed, typed)], typed: typed, source: .conversion, rank: 1)
+            XCTAssertEqual(CandidatePredictionPolicy.mayLead(learned), leads, typed)
+            // The gate only takes an early prediction off the top; it stays in the list.
+            let ranked = CandidateReranker().rank([learned, literal], input: typed, katakana: false, previous: nil)
+            if !leads { XCTAssertEqual(ranked.first?.text, literal.text, typed) }
+            XCTAssertTrue(ranked.contains { $0.text == learned.text }, typed)
+        }
+        let word = [("カレンダー", "カレンダー")]
+        XCTAssertFalse(CandidatePredictionPolicy.mayLead(snapshot(word, typed: "カ", source: .prediction, rank: 0)))
+        XCTAssertFalse(CandidatePredictionPolicy.mayLead(snapshot(word, typed: "カレ", source: .prediction, rank: 0)))
+        XCTAssertTrue(CandidatePredictionPolicy.mayLead(snapshot(word, typed: "カレン", source: .prediction, rank: 0)))
+    }
+
     func testLearningConfirmationPersistenceAndClear() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         let session = KeyboardSession(memoryDirectoryURL: directory)

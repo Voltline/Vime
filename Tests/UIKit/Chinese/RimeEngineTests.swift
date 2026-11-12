@@ -100,6 +100,53 @@ final class RimeEngineTests: XCTestCase {
         _ = other.sendAndWait(.clear)
     }
 
+    func testFuzzyPinyinFollowsTheSettings() throws {
+        let engine = try engine()
+        defer { _ = engine.sendAndWait(.setFuzzy([])); _ = engine.sendAndWait(.clear) }
+        func shows(_ input: String, _ text: String) -> Bool {
+            defer { _ = engine.sendAndWait(.clear) }
+            return engine.sendAndWait(.type(input)).candidates.prefix(6).contains { $0.text == text }
+        }
+        XCTAssertFalse(shows("sijian", "时间"))
+        // Turning it on while composing looks the same input up again.
+        _ = engine.sendAndWait(.type("sijian"))
+        let shown = engine.sendAndWait(.setFuzzy(.retroflex))
+        XCTAssertEqual(shown.input, "sijian")
+        XCTAssertTrue(shown.candidates.prefix(6).contains { $0.text == "时间" }, "\(shown.candidates.map(\.text))")
+        _ = engine.sendAndWait(.clear)
+        XCTAssertFalse(shows("lanren", "男人"))
+        _ = engine.sendAndWait(.setFuzzy([.retroflex, .initials]))
+        XCTAssertTrue(shows("lanren", "男人"))
+        XCTAssertEqual(engine.sendAndWait(.type("zhongguo")).candidates.first?.text, "中国")
+        _ = engine.sendAndWait(.clear)
+        _ = engine.sendAndWait(.setFuzzy([]))
+        XCTAssertFalse(shows("sijian", "时间"))
+    }
+
+    func testOtherSpellingsAreLookedUpAside() throws {
+        let engine = try engine()
+        defer { _ = engine.sendAndWait(.clear) }
+        XCTAssertEqual(engine.sendAndWait(.type("shenem")).input, "shenem")
+        let done = expectation(description: "lookup")
+        nonisolated(unsafe) var found: [(spelling: String, candidates: [RimeCandidate])] = []
+        engine.lookUp(["shenme", "keyi"], limit: 4, isCancelled: { false }) { found = $0; done.fulfill() }
+        wait(for: [done], timeout: 10)
+        XCTAssertEqual(found.map(\.spelling), ["shenme", "keyi"])
+        XCTAssertEqual(found.first?.candidates.first?.text, "什么")
+        XCTAssertEqual(found.last?.candidates.first?.text, "可以")
+        // The typing session still holds what was typed.
+        let state = engine.sendAndWait(.selectSpelling(input: "shenme", text: "什么"))
+        XCTAssertEqual(state.commit, "什么")
+        XCTAssertFalse(state.isComposing)
+        // A phrase the spelling does not give leaves the input alone.
+        _ = engine.sendAndWait(.type("gongzo"))
+        XCTAssertEqual(engine.sendAndWait(.selectSpelling(input: "gongzuo", text: "什么")).input, "gongzo")
+        let cancelled = expectation(description: "cancelled")
+        cancelled.isInverted = true
+        engine.lookUp(["shenme"], limit: 4, isCancelled: { true }) { _ in cancelled.fulfill() }
+        wait(for: [cancelled], timeout: 0.3)
+    }
+
     func testCommandsRunInOrder() throws {
         let engine = try engine()
         let done = expectation(description: "all commands")

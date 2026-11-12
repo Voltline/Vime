@@ -25,13 +25,26 @@ cache=${1:-/private/tmp/vime-rime-sources}
 [ $# -gt 0 ] && shift
 work=$(mktemp -d); trap 'rm -rf "$work"' EXIT
 cp Dependencies/VimeRime/Schema/*.yaml "$work/"
+# The fuzzy pinyin schemas share the dictionary and differ in spelling only.
+python3 Scripts/generate_pinyin_algebra.py --variants "$work"
+# Rime compiles the schemas default.yaml lists.
+python3 - "$work" <<'PY'
+import pathlib, sys
+work = pathlib.Path(sys.argv[1])
+names = sorted(p.name.removesuffix(".schema.yaml") for p in work.glob("vime_pinyin_fuzzy*.schema.yaml"))
+default = work / "default.yaml"
+anchor = "  - schema: vime_pinyin\n"
+assert anchor in default.read_text() and names
+default.write_text(default.read_text().replace(anchor, anchor + "".join(f"  - schema: {n}\n" for n in names), 1))
+PY
 python3 Scripts/build_rime_dicts.py "$work" --cache "$cache" ${1+"$@"}
 swift build -c release --package-path Dependencies/VimeRime --product vime-rime-build >/dev/null
 "$(swift build -c release --package-path Dependencies/VimeRime --show-bin-path)/vime-rime-build" "$work" "$work/build"
 out=Shared/Resources/RimeData.bundle
 rm -rf "$out"; mkdir -p "$out"
-cp "$work"/build/{default.yaml,vime_pinyin.schema.yaml} "$out/"
-cp "$work"/build/vime_pinyin.{prism,table,reverse}.bin "$work"/build/vime_english.{prism,table}.bin "$out/"
+cp "$work"/build/{default.yaml,vime_pinyin.schema.yaml} "$work"/build/vime_pinyin_fuzzy*.schema.yaml "$out/"
+cp "$work"/build/vime_pinyin.{prism,table,reverse}.bin "$work"/build/vime_pinyin_fuzzy*.prism.bin \
+  "$work"/build/vime_english.{prism,table}.bin "$out/"
 cp "$work/SOURCE.txt" "$out/"
 # Simplified to traditional conversion for the traditional option, from the
 # OpenCC data in Dependencies/VimeRime/OpenCC (same commit as the vendored code).

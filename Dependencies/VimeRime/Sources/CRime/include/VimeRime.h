@@ -27,6 +27,10 @@ typedef struct {
     bool coversInput;
     /// Learned from what the user typed before.
     bool userPhrase;
+    /// Made up of several dictionary words rather than being one entry.
+    bool sentence;
+    /// Rime's ranking score; higher is likelier.
+    double quality;
 } VimeRimeCandidate;
 
 typedef struct {
@@ -44,7 +48,26 @@ typedef struct {
     int32_t candidateCount;
     int32_t highlighted;
     int32_t pageSize;
+    /// The last dictionary word of `commit`, before display filters, and its
+    /// syllable code for vime_rime_continuations. NULL when the commit did
+    /// not end with a dictionary word, such as raw input.
+    char *commitWord;
+    char *commitCode;
 } VimeRimeSnapshot;
+
+typedef struct {
+    /// The rest of the phrase after the word asked about, as shown.
+    char *text;
+    /// The same before display filters (simplified characters).
+    char *genuine;
+    /// The syllable code of `genuine`, for asking about it in turn.
+    char *code;
+} VimeRimeContinuation;
+
+typedef struct {
+    VimeRimeContinuation *items;
+    int32_t count;
+} VimeRimeContinuations;
 
 /// Starts the engine once per process. `shared` holds the prebuilt data, and
 /// `user` is a writable directory for user dictionaries.
@@ -82,6 +105,13 @@ void vime_rime_set_option(VimeRimeSession session, const char *option, bool valu
 
 VimeRimeSnapshot vime_rime_snapshot(VimeRimeSession session, int32_t candidateLimit);
 void vime_rime_snapshot_free(VimeRimeSnapshot *snapshot);
+
+/// Phrases of the session's dictionary that begin with `word` read as `code`
+/// (from a snapshot or an earlier continuation), likeliest first, at most
+/// `limit`. `traditional` converts their text as the simplifier would.
+VimeRimeContinuations vime_rime_continuations(VimeRimeSession session, const char *word, const char *code,
+                                              int32_t limit, bool traditional);
+void vime_rime_continuations_free(VimeRimeContinuations *continuations);
 
 #ifdef __cplusplus
 }
