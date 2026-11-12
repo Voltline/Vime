@@ -18,3 +18,13 @@ $(SRCROOT)/Shared/Resources/TinyJapaneseV42INT8.mlmodelc/metadata.json
 $(SRCROOT)/Shared/Resources/TinyJapaneseV42INT8.mlmodelc/model.mil
 $(SRCROOT)/Shared/Resources/TinyJapaneseV42INT8.mlmodelc/weights
 $(SRCROOT)/Shared/Resources/TinyJapaneseV42INT8.mlmodelc/weights/weight.bin
+$(SRCROOT)/Shared/Resources/VimeLMManifestZhV1.json
+$(SRCROOT)/Shared/Resources/VimeChineseTokenizerV1.model
+$(SRCROOT)/Shared/Resources/TinyChineseV1INT8.mlmodelc
+$(SRCROOT)/Shared/Resources/TinyChineseV1INT8.mlmodelc/analytics
+$(SRCROOT)/Shared/Resources/TinyChineseV1INT8.mlmodelc/analytics/coremldata.bin
+$(SRCROOT)/Shared/Resources/TinyChineseV1INT8.mlmodelc/coremldata.bin
+$(SRCROOT)/Shared/Resources/TinyChineseV1INT8.mlmodelc/metadata.json
+$(SRCROOT)/Shared/Resources/TinyChineseV1INT8.mlmodelc/model.mil
+$(SRCROOT)/Shared/Resources/TinyChineseV1INT8.mlmodelc/weights
+$(SRCROOT)/Shared/Resources/TinyChineseV1INT8.mlmodelc/weights/weight.bin
