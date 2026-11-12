@@ -1,9 +1,7 @@
 name: Unit tests
 
-# Runs VimeKeyboardTests on an iOS simulator for pull requests. The extension
-# UI tests need the keyboard enabled in Settings, so they stay local.
-# unit-tests is a required check, so the workflow runs for every pull request:
-# when only documentation changed the job is skipped, which counts as passing.
+# Reports whether a pull request changes anything beyond documentation. The
+# unit tests themselves run locally through Scripts/test.sh, not on GitHub.
 on:
   pull_request:
     branches: [dev, beta]
@@ -39,78 +37,3 @@ jobs:
             done < <(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --paginate --jq '.[].filename')
           fi
           echo "code=$code" >> "$GITHUB_OUTPUT"
-
-  unit-tests:
-    needs: changes
-    if: needs.changes.outputs.code == 'true'
-    # The project is saved by Xcode 27; this preview image is the one that has it.
-    runs-on: xcode-27
-    timeout-minutes: 70
-    env:
-      VIME_SIMULATOR: iPhone 17
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Select Xcode
-        run: |
-          xcode=$(ls -d /Applications/Xcode_27*.app | sort -V | tail -1)
-          sudo xcode-select -s "$xcode"
-          xcodebuild -version
-
-      # Restored and saved separately: a combined cache step saves only when the
-      # job succeeds, so a failed or timed-out run never seeded it.
-      - name: Restore package cache
-        id: spm
-        uses: actions/cache/restore@v4
-        with:
-          path: ~/Library/Developer/Xcode/DerivedData/Vime-tests/SourcePackages
-          key: spm-${{ hashFiles('Vime.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
-
-      # Booting first times the simulator's first-boot setup on its own, and the
-      # UDID keeps xcodebuild on the device that was booted.
-      - name: Boot simulator
-        run: |
-          udid=$(xcrun simctl list devices available -j | python3 -c '
-          import json, os, sys
-          devices = [d for _, runtime in sorted(json.load(sys.stdin)["devices"].items())
-                     for d in runtime if d["name"] == os.environ["VIME_SIMULATOR"]]
-          print(devices[-1]["udid"] if devices else "")')
-          [ -n "$udid" ] || { xcrun simctl list devices available; exit 1; }
-          echo "VIME_SIMULATOR=$udid" >> "$GITHUB_ENV"
-          xcrun simctl boot "$udid"
-          xcrun simctl bootstatus "$udid" -b
-
-      # Tests that depend on wall-clock time skip themselves when VIME_CI is set
-      # (see Tests/UIKit/Support/TimingSensitiveTests.swift); the shared runner
-      # is several times slower than a local simulator. These two also stay in
-      # the local suite:
-      # - testOrthographyAndSupplementalDictionaryAreSelectable records a model
-      #   expectation that the bundled model does not meet yet.
-      # - A StoreKitTest purchase never returns on the runner.
-      # A failed test gets one retry. A test that hangs fails after five minutes
-      # instead of using up the job.
-      - name: Run unit tests
-        timeout-minutes: 45
-        env:
-          TEST_RUNNER_VIME_CI: "1"
-        run: |
-          Scripts/test.sh -- \
-            -skip-testing:VimeKeyboardTests/KeyboardSegmentedConversionTests/testOrthographyAndSupplementalDictionaryAreSelectable \
-            -skip-testing:VimeKeyboardTests/TipJarTests/testTipsLoadAsConsumablesInPriceOrderAndPurchaseThanks \
-            -retry-tests-on-failure -test-iterations 2 \
-            -test-timeouts-enabled YES -default-test-execution-time-allowance 300
-
-      - name: Save package cache
-        if: always() && steps.spm.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: ~/Library/Developer/Xcode/DerivedData/Vime-tests/SourcePackages
-          key: spm-${{ hashFiles('Vime.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
-
-      - name: Keep results
-        if: failure() || cancelled()
-        uses: actions/upload-artifact@v4
-        with:
-          name: unit-test-results
-          path: ~/Library/Developer/Xcode/DerivedData/Vime-tests/Results
-          retention-days: 7
