@@ -30,8 +30,9 @@ final class ChineseInputSession: KeyboardInputSession {
     private var presentations: [CandidatePresentation] = []
     /// Display order of the shown candidates, as indices into Rime's list.
     private var order: [Int] = []
-    /// What each shown presentation is: Rime's candidate or a correction.
-    private enum Slot { case rime(Int), correction(Int) }
+    /// What each shown presentation is: Rime's candidate, a correction, or a
+    /// sentence the model prefers to Rime's.
+    private enum Slot { case rime(Int), correction(Int), sentence(String) }
     private var slots: [Slot] = []
     private var shownCandidates: [RimeCandidate] = []
     /// Phrases for other spellings of the input, when Rime reads it poorly
@@ -43,6 +44,12 @@ final class ChineseInputSession: KeyboardInputSession {
     static let shownCorrections = 2
     /// Rime's candidates waiting for the model before they show.
     private var ranking: (request: ChineseCandidateRanking.Request, candidates: [RimeCandidate])?
+    /// The model's order for `ranking`, while the sentence search still runs.
+    private var rankedOrder: [Int]?
+    /// The model's search for a better sentence than Rime's first.
+    private var sentenceSearch: (request: ChineseCandidateRanking.Request, candidates: [RimeCandidate])?
+    /// A sentence shown before Rime's candidates, which it was found for.
+    private var betterSentence: (candidates: [RimeCandidate], text: String)?
     private var chineseModelEnabled = true
     /// Whether the excluded-terms list applies, read once per composition.
     private var exclusionsActive = LearningExclusionPolicy.isActive()
@@ -161,7 +168,8 @@ final class ChineseInputSession: KeyboardInputSession {
         clearSuggestions()
         if isComposing {
             // Space takes the first candidate shown, which the model may have moved.
-            if candidatesAreCurrent, let first = order.first, first != 0 { enqueue(.select(first)) } else { enqueue(.space) }
+            if candidatesAreCurrent, case .sentence(let text)? = slots.first { enqueue(.selectText(text)) }
+            else if candidatesAreCurrent, let first = order.first, first != 0 { enqueue(.select(first)) } else { enqueue(.space) }
             return []
         }
         commitIsForgettable = false
@@ -199,6 +207,7 @@ final class ChineseInputSession: KeyboardInputSession {
         case .correction(let index):
             let (spelling, candidate) = corrections[index]
             enqueue(.selectSpelling(input: spelling, text: candidate.genuine))
+        case .sentence(let text): enqueue(.selectText(text))
         }
         return []
     }
@@ -248,7 +257,14 @@ final class ChineseInputSession: KeyboardInputSession {
     private func modelRankingChanged(from wasRanking: Bool) {
         guard usesModel != wasRanking else { return }
         if usesModel { JapaneseCandidateWorker.LanguageModelStorage.shared.setSuspended(false) }
-        else { finishRanking(scores: nil); ChineseCandidateRanking.release() }
+        else { stopModel(); ChineseCandidateRanking.release() }
+    }
+
+    /// Shows what waits for the model at once and stops the sentence search.
+    private func stopModel() {
+        sentenceSearch?.request.cancel()
+        sentenceSearch = nil
+        finishRanking()
     }
 
     func retryLanguageModel(requestID: String) {
@@ -257,14 +273,14 @@ final class ChineseInputSession: KeyboardInputSession {
     }
 
     func handleMemoryPressure() {
-        finishRanking(scores: nil)
+        stopModel()
         JapaneseCandidateWorker.LanguageModelStorage.shared.setSuspended(true)
         ChineseCandidateRanking.release()
     }
 
     /// The model stays loaded while hidden, as Japanese's does.
     func releaseInactiveResources() {
-        finishRanking(scores: nil)
+        stopModel()
     }
 
     func setTraditionalChinese(_ enabled: Bool) {
@@ -433,42 +449,80 @@ final class ChineseInputSession: KeyboardInputSession {
         guard candidatesChanged else { return }
         ranking?.request.cancel()
         ranking = nil
+        rankedOrder = nil
+        sentenceSearch?.request.cancel()
+        sentenceSearch = nil
+        betterSentence = nil
         let context = VimeLanguageModel.sentenceContext(leftContextProvider?() ?? "")
         let active = exclusionsActive
-        let slots = usesModel ? ChineseCandidateRanking.slots(next.candidates) {
-            LearningExclusionPolicy.allowsLearning($0, active: active)
-        } : []
-        guard slots.count > 1 else { return show(next.candidates, order: Array(next.candidates.indices)) }
+        let allows: @Sendable (String) -> Bool = { LearningExclusionPolicy.allowsLearning($0, active: active) }
+        let slots = usesModel ? ChineseCandidateRanking.slots(next.candidates, allows: allows) : []
+        // Traditional text would need the simplifier's mapping for a new sentence.
+        let job = usesModel && !traditional ? ChineseSentenceSwap.job(input: next.input, preedit: next.preedit,
+            candidate: next.candidates.first, context: context) : nil
+        guard slots.count > 1 || job != nil else { return show(next.candidates, order: Array(next.candidates.indices)) }
         KeyboardPerformance.record(.candidateModelEligible, since: KeyboardPerformance.start())
         // A cold model loads for later compositions; this one shows at once.
         let warm = JapaneseCandidateWorker.LanguageModelStorage.shared.isReady(for: .chinese)
         let request = ChineseCandidateRanking.Request(
             deadline: ProcessInfo.processInfo.systemUptime + ChineseCandidateRanking.window)
-        ChineseCandidateRanking.score(slots.map { next.candidates[$0].genuine }, context: context, request: request) {
-            [weak self] scores in
-            guard let self, self.ranking?.request === request else { return }
-            self.finishRanking(scores: scores.map { (slots, $0) })
+        if slots.count > 1 {
+            ChineseCandidateRanking.score(slots.map { next.candidates[$0].genuine }, context: context, request: request) {
+                [weak self] scores in
+                guard let self, self.ranking?.request === request else { return }
+                self.rankedOrder = scores.map {
+                    ChineseCandidateRanking.order(count: next.candidates.count, slots: slots, scores: $0)
+                } ?? Array(next.candidates.indices)
+                if self.sentenceSearch == nil { self.finishRanking() }
+            }
+        } else {
+            rankedOrder = Array(next.candidates.indices)
         }
-        guard warm else { return show(next.candidates, order: Array(next.candidates.indices)) }
+        // Started cold too, so the model loads for later compositions.
+        if let job {
+            let search = ChineseCandidateRanking.Request(
+                deadline: ProcessInfo.processInfo.systemUptime + ChineseSentenceSwap.budget)
+            sentenceSearch = (search, next.candidates)
+            ChineseSentenceSwap.improve(job, engine: engine, request: search, allows: allows) { [weak self] text in
+                self?.finishSentenceSearch(text, request: search)
+            }
+        }
+        guard warm else { rankedOrder = nil; return show(next.candidates, order: Array(next.candidates.indices)) }
         ranking = (request, next.candidates)
         rankingStartedAt = KeyboardPerformance.start()
+        if sentenceSearch == nil, slots.count <= 1 { return finishRanking() }
         DispatchQueue.main.asyncAfter(deadline: .now() + ChineseCandidateRanking.window) { [weak self] in
             guard let self, self.ranking?.request === request else { return }
-            self.finishRanking(scores: nil)
+            self.finishRanking()
         }
     }
 
-    /// Shows the candidates waiting for the model, in its order when `scores` came in time.
-    private func finishRanking(scores: (slots: [Int], values: [Double])?) {
+    /// A sentence search ended: its sentence shows first, at once when the
+    /// candidates still wait for the model, else as soon as it comes.
+    private func finishSentenceSearch(_ text: String?, request: ChineseCandidateRanking.Request) {
+        guard let search = sentenceSearch, search.request === request else { return }
+        sentenceSearch = nil
+        if let text { betterSentence = (search.candidates, text) }
+        if ranking != nil {
+            if rankedOrder != nil { finishRanking() }
+        } else if text != nil, shownCandidates == search.candidates {
+            show(shownCandidates, order: order)
+            if received == sent { onCandidatesChange?() }
+        }
+    }
+
+    /// Shows the candidates waiting for the model, in its order when it came in time.
+    private func finishRanking() {
         guard let (request, candidates) = ranking else { return }
         request.cancel()
         ranking = nil
-        let order = scores.map { ChineseCandidateRanking.order(count: candidates.count, slots: $0.slots, scores: $0.values) }
+        let order = rankedOrder
+        rankedOrder = nil
         KeyboardPerformance.record(.chineseRankingWait, since: rankingStartedAt)
         rankingStartedAt = nil
         if let order {
             KeyboardPerformance.record(.candidateModelUsed, since: KeyboardPerformance.start())
-            if order != Array(candidates.indices) {
+            if order != Array(candidates.indices) || betterSentence != nil {
                 KeyboardPerformance.record(.candidateModelOrderChanged, since: KeyboardPerformance.start())
             }
         }
@@ -499,6 +553,16 @@ final class ChineseInputSession: KeyboardInputSession {
             let shown = corrections.indices.filter { corrections[$0].candidate.text != candidates[order[0]].text }
             slots.insert(contentsOf: shown.map(Slot.correction), at: 1)
         }
+        if let betterSentence, betterSentence.candidates == candidates, !slots.isEmpty {
+            slots.removeAll {
+                switch $0 {
+                case .rime(let index): candidates[index].genuine == betterSentence.text
+                case .correction(let index): corrections[index].candidate.genuine == betterSentence.text
+                case .sentence: false
+                }
+            }
+            slots.insert(.sentence(betterSentence.text), at: 0)
+        }
         self.slots = slots
         presentations = slots.enumerated().map { index, slot in
             let token = CandidateSelectionToken(sessionID: sessionID, generation: generation, index: index, kind: .composition)
@@ -511,6 +575,9 @@ final class ChineseInputSession: KeyboardInputSession {
                 let (spelling, candidate) = corrections[source]
                 return CandidatePresentation(text: candidate.text, source: .typoCorrection, consumedInputCount: 0, correction: nil,
                     selectionToken: token, detailAnnotation: spelling)
+            case .sentence(let text):
+                return CandidatePresentation(text: text, source: .conversion, consumedInputCount: 0, correction: nil,
+                    selectionToken: token, detailAnnotation: nil)
             }
         }
         scheduleCorrections()

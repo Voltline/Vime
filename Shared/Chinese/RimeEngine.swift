@@ -86,6 +86,11 @@ nonisolated final class RimeEngine: @unchecked Sendable {
         /// Replaces the input with `input` and selects its candidate whose
         /// simplified text is `text`; nothing changes when there is none.
         case selectSpelling(input: String, text: String)
+        /// Commits `text` for the whole input, choosing Rime's words for it
+        /// from the left so Rime learns them; `text` is simplified and must
+        /// read as the input. When Rime has no such words, `text` is committed
+        /// as it is.
+        case selectText(String)
     }
 
     static let candidateLimit = 60
@@ -201,6 +206,14 @@ nonisolated final class RimeEngine: @unchecked Sendable {
         step(0, [])
     }
 
+    /// Looks each spelling up in the second session and waits.
+    func lookUpAndWait(_ spellings: [String], limit: Int) -> [[RimeCandidate]] {
+        queue.sync {
+            defer { if lookupSession != 0 { vime_rime_clear(lookupSession) } }
+            return spellings.map { lookUp($0, limit: limit) }
+        }
+    }
+
     private func lookUp(_ spelling: String, limit: Int) -> [RimeCandidate] {
         guard prepare(checkingReset: false) else { return [] }
         if lookupSession == 0 || lookupStart != sessionStart {
@@ -252,6 +265,26 @@ nonisolated final class RimeEngine: @unchecked Sendable {
             traditional = value
             vime_rime_set_option(session, "traditionalization", value)
             lookUpAgain(currentInput())
+        case .selectText(let text):
+            var rest = Substring(text)
+            while !rest.isEmpty, vime_rime_is_composing(session) {
+                let candidates = snapshot().candidates
+                // The whole rest at once, else the longest word it begins with.
+                let found = candidates.firstIndex { $0.coversInput && $0.genuine == rest }
+                    ?? candidates.indices.filter { !candidates[$0].coversInput && rest.hasPrefix(candidates[$0].genuine)
+                        && !candidates[$0].genuine.isEmpty }
+                        .max { candidates[$0].genuine.count < candidates[$1].genuine.count }
+                guard let found else { break }
+                _ = vime_rime_select_candidate(session, shown[found])
+                rest = rest.dropFirst(candidates[found].genuine.count)
+            }
+            if vime_rime_is_composing(session) || !rest.isEmpty {
+                vime_rime_clear(session)
+                var state = snapshot()
+                state.commit = text
+                state.duration = clock.now - start
+                return state
+            }
         case .selectSpelling(let input, let text):
             let original = currentInput()
             _ = vime_rime_set_input(session, input)
