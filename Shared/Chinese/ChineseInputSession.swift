@@ -577,12 +577,17 @@ final class ChineseInputSession: KeyboardInputSession {
         correctionRequest = nil
         let active = exclusionsActive
         var seen: Set<String> = []
-        corrections = found.compactMap { item in
+        let phrases = found.compactMap { item -> (spelling: String, candidate: RimeCandidate)? in
             guard let phrase = PinyinSpellingCorrection.phrase(in: item.candidates),
                   seen.insert(phrase.text).inserted,
                   LearningExclusionPolicy.allowsLearning(phrase.genuine, active: active) else { return nil }
             return (item.spelling, phrase)
-        }.prefix(Self.shownCorrections).map { $0 }
+        }
+        // Commoner words first; equal ones keep the order of their edits.
+        corrections = phrases.enumerated().sorted {
+            $0.element.candidate.quality == $1.element.candidate.quality
+                ? $0.offset < $1.offset : $0.element.candidate.quality > $1.element.candidate.quality
+        }.prefix(Self.shownCorrections).map(\.element)
         guard !corrections.isEmpty, ranking == nil else { return }
         show(shownCandidates, order: order)
         if received == sent { onCandidatesChange?() }
