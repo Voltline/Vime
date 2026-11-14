@@ -92,6 +92,10 @@ nonisolated final class RimeEngine: @unchecked Sendable {
     static var bundledData: URL? { Bundle.main.url(forResource: "RimeData", withExtension: "bundle") }
 
     private static let startLock = NSLock()
+    /// Whether Rime may learn a commit. Tests put their own list in its place.
+    nonisolated(unsafe) static var allowsLearning: (String) -> Bool = {
+        LearningExclusionPolicy.allowsLearning($0, active: LearningExclusionPolicy.isActive())
+    }
     nonisolated(unsafe) private static var startedUserDirectory: URL?
     /// Bumped when Rime restarts, which ends every session.
     nonisolated(unsafe) private static var startCount = 0
@@ -329,7 +333,7 @@ nonisolated final class RimeEngine: @unchecked Sendable {
         guard vime_rime_start(data.path, userDirectory.path) else { return nil }
         vime_rime_set_learning_filter { text in
             guard let text else { return true }
-            return LearningExclusionPolicy.allowsLearning(String(cString: text), active: LearningExclusionPolicy.isActive())
+            return RimeEngine.allowsLearning(String(cString: text))
         }
         startedUserDirectory = userDirectory
         startCount += 1

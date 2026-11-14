@@ -45,8 +45,10 @@ final class ChineseInputSession: KeyboardInputSession {
     /// Rime's candidates waiting for the model before they show.
     private var ranking: (request: ChineseCandidateRanking.Request, candidates: [RimeCandidate])?
     private var chineseModelEnabled = true
+    private let exclusions: LearningExclusionList
+    private let exclusionsApply: () -> Bool
     /// Whether the excluded-terms list applies, read once per composition.
-    private var exclusionsActive = LearningExclusionPolicy.isActive()
+    private var exclusionsActive: Bool
     private var expanded = false
     private var traditional = false
     private var fuzzyPinyin = FuzzyPinyin()
@@ -74,8 +76,12 @@ final class ChineseInputSession: KeyboardInputSession {
     var leftContextProvider: (() -> String?)?
     var learningContextProvider: (() -> KeyboardLearningContext?)?
 
-    init(engine: RimeEngine) {
+    init(engine: RimeEngine, exclusions: LearningExclusionList = .shared,
+         exclusionsApply: @escaping () -> Bool = { LearningExclusionPolicy.isActive() }) {
         self.engine = engine
+        self.exclusions = exclusions
+        self.exclusionsApply = exclusionsApply
+        exclusionsActive = exclusionsApply()
     }
 
     /// The bundled pinyin data with the user dictionary in the App Group, or
@@ -292,7 +298,7 @@ final class ChineseInputSession: KeyboardInputSession {
         echo = ""
         clearSuggestions()
         commitIsForgettable = false
-        exclusionsActive = LearningExclusionPolicy.isActive()
+        exclusionsActive = exclusionsApply()
         typedAt = nil
         publish(RimeState())
         enqueue(.clear)
@@ -372,13 +378,13 @@ final class ChineseInputSession: KeyboardInputSession {
     private func lookUpContinuations(of word: String, code: String) {
         let active = exclusionsActive
         // Text the learning filter excludes gets no suggestions, and suggestions never produce it.
-        guard LearningExclusionPolicy.allowsLearning(word, active: active) else { return }
-        let request = suggestionGeneration
+        guard LearningExclusionPolicy.allowsLearning(word, active: active, list: exclusions) else { return }
+        let request = suggestionGeneration, list = exclusions
         engine.continuations(of: word, code: code, limit: Self.suggestionLimit) { [weak self] found in
             MainActor.assumeIsolated {
                 guard let self, self.suggestionGeneration == request, self.suggestionsEnabled,
                       !self.english, !self.isComposing else { return }
-                let allowed = found.filter { LearningExclusionPolicy.allowsLearning(word + $0.genuine, active: active) }
+                let allowed = found.filter { LearningExclusionPolicy.allowsLearning(word + $0.genuine, active: active, list: list) }
                 guard !allowed.isEmpty else { return }
                 self.showSuggestions(allowed)
             }
@@ -435,11 +441,11 @@ final class ChineseInputSession: KeyboardInputSession {
         ranking?.request.cancel()
         ranking = nil
         let context = VimeLanguageModel.sentenceContext(leftContextProvider?() ?? "")
-        let active = exclusionsActive
+        let active = exclusionsActive, list = exclusions
         let run = ChineseCandidateRanking.sentenceRun(next.candidates)
         let rimeOrder = ChineseCandidateRanking.order(count: next.candidates.count, sentences: run)
         let slots = usesModel ? ChineseCandidateRanking.slots(next.candidates, sentenceLimit: sentenceLimit) {
-            LearningExclusionPolicy.allowsLearning($0, active: active)
+            LearningExclusionPolicy.allowsLearning($0, active: active, list: list)
         } : ChineseCandidateRanking.Slots()
         guard slots.canReorder else { return show(next.candidates, order: rimeOrder) }
         KeyboardPerformance.record(.candidateModelEligible, since: KeyboardPerformance.start())
@@ -580,7 +586,7 @@ final class ChineseInputSession: KeyboardInputSession {
         let phrases = found.compactMap { item -> (spelling: String, candidate: RimeCandidate)? in
             guard let phrase = PinyinSpellingCorrection.phrase(in: item.candidates),
                   seen.insert(phrase.text).inserted,
-                  LearningExclusionPolicy.allowsLearning(phrase.genuine, active: active) else { return nil }
+                  LearningExclusionPolicy.allowsLearning(phrase.genuine, active: active, list: exclusions) else { return nil }
             return (item.spelling, phrase)
         }
         // Commoner words first; equal ones keep the order of their edits.
