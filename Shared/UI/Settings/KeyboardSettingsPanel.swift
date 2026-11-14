@@ -8,6 +8,7 @@ final class KeyboardSettingsPanel: UIScrollView {
     private let history = UIButton(type: .custom)
     private let sound = UISwitch()
     private let liveConversion = UISwitch()
+    private var liveConversionGroup: UIView?
     private let haptics = HapticIntensitySlider()
     private let hapticValue = UILabel()
     private let numbers = UISegmentedControl(items: ["九宫格", "全键盘"])
@@ -132,8 +133,10 @@ final class KeyboardSettingsPanel: UIScrollView {
             self.preferences.liveConversion = self.liveConversion.isOn
             self.onLiveConversionChange?()
         }, for: .valueChanged)
-        stack.addArrangedSubview(group(row(symbol: "character.textbox",
-            content: [label(String(localized: "实时转换")), liveConversion], height: 44, adaptive: true)))
+        let liveConversionGroup = group(row(symbol: "character.textbox",
+            content: [label(String(localized: "实时转换")), liveConversion], height: 44, adaptive: true))
+        self.liveConversionGroup = liveConversionGroup
+        stack.addArrangedSubview(liveConversionGroup)
 
         numbers.accessibilityLabel = String(localized: "数字键盘布局"); numbers.accessibilityIdentifier = "vime.setting.numbers"
         numbers.setContentHuggingPriority(.required, for: .horizontal)
@@ -226,6 +229,7 @@ final class KeyboardSettingsPanel: UIScrollView {
     func update(hasFullAccess: Bool, neuralPaused: Bool) {
         sound.isOn = preferences.sound
         liveConversion.isOn = preferences.liveConversion
+        liveConversionGroup?.isHidden = !preferences.japaneseInputEnabled // Japanese only.
         updateNumberSelection()
         oneHanded.selectedSegmentIndex = KeyboardOneHandedSide.allCases.firstIndex(of: preferences.oneHanded) ?? 0
         inputLanguage.selectedSegmentIndex = Self.languages.firstIndex(of: preferences.inputLanguage) ?? 0
