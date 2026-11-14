@@ -250,6 +250,10 @@ speller:
   delimiter: " '"
   initials: zyxwvutsrqponmlkjihgfedcba
 translator:
+  # Several sentences for the Chinese model to choose from; it shows the best
+  # few, and without it only the first shows.
+  max_sentences: 16
+  max_homophones: 4
   dictionary: vime_pinyin
   enable_word_completion: true
   preedit_format:

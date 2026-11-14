@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 /// Pinyin input on librime behind the keyboard's session protocol.
 ///
@@ -248,7 +249,7 @@ final class ChineseInputSession: KeyboardInputSession {
     private func modelRankingChanged(from wasRanking: Bool) {
         guard usesModel != wasRanking else { return }
         if usesModel { JapaneseCandidateWorker.LanguageModelStorage.shared.setSuspended(false) }
-        else { finishRanking(scores: nil); ChineseCandidateRanking.release() }
+        else { finishRanking(order: nil); ChineseCandidateRanking.release() }
     }
 
     func retryLanguageModel(requestID: String) {
@@ -257,14 +258,14 @@ final class ChineseInputSession: KeyboardInputSession {
     }
 
     func handleMemoryPressure() {
-        finishRanking(scores: nil)
+        finishRanking(order: nil)
         JapaneseCandidateWorker.LanguageModelStorage.shared.setSuspended(true)
         ChineseCandidateRanking.release()
     }
 
     /// The model stays loaded while hidden, as Japanese's does.
     func releaseInactiveResources() {
-        finishRanking(scores: nil)
+        finishRanking(order: nil)
     }
 
     func setTraditionalChinese(_ enabled: Bool) {
@@ -435,44 +436,70 @@ final class ChineseInputSession: KeyboardInputSession {
         ranking = nil
         let context = VimeLanguageModel.sentenceContext(leftContextProvider?() ?? "")
         let active = exclusionsActive
-        let slots = usesModel ? ChineseCandidateRanking.slots(next.candidates) {
+        let run = ChineseCandidateRanking.sentenceRun(next.candidates)
+        let rimeOrder = ChineseCandidateRanking.order(count: next.candidates.count, sentences: run)
+        let slots = usesModel ? ChineseCandidateRanking.slots(next.candidates, sentenceLimit: sentenceLimit) {
             LearningExclusionPolicy.allowsLearning($0, active: active)
-        } : []
-        guard slots.count > 1 else { return show(next.candidates, order: Array(next.candidates.indices)) }
+        } : ChineseCandidateRanking.Slots()
+        guard slots.canReorder else { return show(next.candidates, order: rimeOrder) }
         KeyboardPerformance.record(.candidateModelEligible, since: KeyboardPerformance.start())
         // A cold model loads for later compositions; this one shows at once.
         let warm = JapaneseCandidateWorker.LanguageModelStorage.shared.isReady(for: .chinese)
         let request = ChineseCandidateRanking.Request(
             deadline: ProcessInfo.processInfo.systemUptime + ChineseCandidateRanking.window)
-        ChineseCandidateRanking.score(slots.map { next.candidates[$0].genuine }, context: context, request: request) {
+        ChineseCandidateRanking.score(slots.all.map { next.candidates[$0].genuine }, context: context, request: request) {
             [weak self] scores in
             guard let self, self.ranking?.request === request else { return }
-            self.finishRanking(scores: scores.map { (slots, $0) })
+            self.finishRanking(order: scores.map {
+                ChineseCandidateRanking.order(count: next.candidates.count, sentences: run, slots: slots, scores: $0)
+            }, fallback: rimeOrder, weighed: slots.sentences.count)
         }
-        guard warm else { return show(next.candidates, order: Array(next.candidates.indices)) }
+        guard warm else { return show(next.candidates, order: rimeOrder) }
         ranking = (request, next.candidates)
         rankingStartedAt = KeyboardPerformance.start()
+        rankingStartedUptime = ProcessInfo.processInfo.systemUptime
         DispatchQueue.main.asyncAfter(deadline: .now() + ChineseCandidateRanking.window) { [weak self] in
             guard let self, self.ranking?.request === request else { return }
-            self.finishRanking(scores: nil)
+            self.finishRanking(order: nil, fallback: rimeOrder, missedWindow: true)
         }
     }
 
-    /// Shows the candidates waiting for the model, in its order when `scores` came in time.
-    private func finishRanking(scores: (slots: [Int], values: [Double])?) {
+    /// Sentences the model weighs next: all of Rime's, halved each time it
+    /// missed its window and doubled again when twice as many would have
+    /// come in time; half while memory runs low.
+    private var sentenceLimit: Int {
+        let limit = os_proc_available_memory() < Self.fullSentenceMemory ? weighedSentences / 2 : weighedSentences
+        return max(ChineseCandidateRanking.fewestSentences, limit)
+    }
+    private var weighedSentences = ChineseCandidateRanking.sentenceLimit
+    private var rankingStartedUptime: TimeInterval?
+    /// Memory left to the process below which fewer sentences are weighed.
+    static let fullSentenceMemory = 48 * 1_048_576
+
+    /// Shows the candidates waiting for the model, in its `order` when it came in time.
+    private func finishRanking(order: [Int]?, fallback: [Int]? = nil, missedWindow: Bool = false, weighed: Int = 0) {
         guard let (request, candidates) = ranking else { return }
+        let fallback = fallback ?? ChineseCandidateRanking.order(count: candidates.count,
+            sentences: ChineseCandidateRanking.sentenceRun(candidates))
         request.cancel()
         ranking = nil
-        let order = scores.map { ChineseCandidateRanking.order(count: candidates.count, slots: $0.slots, scores: $0.values) }
         KeyboardPerformance.record(.chineseRankingWait, since: rankingStartedAt)
         rankingStartedAt = nil
+        let elapsed = rankingStartedUptime.map { ProcessInfo.processInfo.systemUptime - $0 } ?? 0
+        rankingStartedUptime = nil
+        if missedWindow {
+            weighedSentences = max(ChineseCandidateRanking.fewestSentences, weighedSentences / 2)
+        } else if order != nil, weighed >= weighedSentences, elapsed < ChineseCandidateRanking.window * 0.4 {
+            // Twice as many would still have come in time.
+            weighedSentences = min(ChineseCandidateRanking.sentenceLimit, weighedSentences * 2)
+        }
         if let order {
             KeyboardPerformance.record(.candidateModelUsed, since: KeyboardPerformance.start())
-            if order != Array(candidates.indices) {
+            if order != fallback {
                 KeyboardPerformance.record(.candidateModelOrderChanged, since: KeyboardPerformance.start())
             }
         }
-        show(candidates, order: order ?? Array(candidates.indices))
+        show(candidates, order: order ?? fallback)
         if received == sent { announceCandidates() }
     }
 

@@ -6,6 +6,10 @@ import Foundation
 /// the first few, scoring each by its simplified text after the sentence
 /// before the caret. Learned phrases, partial conversions and entries that
 /// must not be suggested keep their places, so the model never promotes them.
+///
+/// For an input no dictionary entry covers, Rime makes several sentences,
+/// first in its list. The model weighs all of them and the best few show;
+/// without the model only Rime's first shows, as before.
 nonisolated enum ChineseCandidateRanking {
     /// How many of Rime's first candidates the model may reorder.
     static let candidateLimit = 8
@@ -14,29 +18,85 @@ nonisolated enum ChineseCandidateRanking {
     /// Rime's order is the prior: each place further down costs this much
     /// log probability, so the model needs clear evidence to move a word up.
     static let placePenalty = 1.0
+    /// Rime's sentences the model weighs (the schema's max_sentences).
+    static let sentenceLimit = 16
+    /// Short of time, the model weighs half as many sentences, down to this.
+    static let fewestSentences = 4
+    /// Rime's sentences differ in a word or two, where its order says little,
+    /// so each place further down costs only this much.
+    static let sentencePlacePenalty = 0.1
+    /// Sentences shown once the model has ordered them.
+    static let shownSentences = 3
 
-    /// Indices the model may reorder among themselves.
-    static func slots(_ candidates: [RimeCandidate], allows: (String) -> Bool) -> [Int] {
+    /// What the model scores: Rime's sentences, then the other candidates it
+    /// may reorder, all as indices into the candidates.
+    struct Slots: Equatable {
+        var sentences: [Int] = []
+        var others: [Int] = []
+        var all: [Int] { sentences + others }
+        /// Whether the model has anything to reorder.
+        var canReorder: Bool { sentences.count + others.count > 1 }
+    }
+
+    /// Rime's sentences lead its list; all but the first wait for the model.
+    static func sentenceRun(_ candidates: [RimeCandidate]) -> Range<Int> {
+        0..<(candidates.firstIndex { !$0.sentence } ?? candidates.count)
+    }
+
+    /// The candidates the model may reorder: up to `sentenceLimit` of
+    /// Rime's sentences, and the others among the first `candidateLimit`
+    /// shown when only Rime's first sentence counts.
+    static func slots(_ candidates: [RimeCandidate], sentenceLimit: Int = sentenceLimit,
+                      allows: (String) -> Bool) -> Slots {
         var seen = Set<String>()
-        return candidates.indices.prefix(candidateLimit).filter { index in
+        func eligible(_ index: Int) -> Bool {
             let candidate = candidates[index]
             return candidate.coversInput && !candidate.userPhrase
                 && candidate.genuine.unicodeScalars.contains { $0.properties.isIdeographic }
                 && allows(candidate.genuine) && allows(candidate.text)
                 && seen.insert(candidate.genuine).inserted
         }
+        let run = sentenceRun(candidates)
+        var slots = Slots()
+        // A first sentence the model may not move keeps the others out too.
+        if !run.isEmpty, eligible(run.lowerBound) {
+            slots.sentences = [run.lowerBound] + run.dropFirst().prefix(max(0, sentenceLimit - 1)).filter(eligible)
+        }
+        let shown = (run.isEmpty ? [] : [run.lowerBound]) + candidates.indices.dropFirst(run.count)
+        slots.others = shown.prefix(candidateLimit).filter { !run.contains($0) && eligible($0) }
+        return slots
+    }
+
+    /// Rime's order, with only its first sentence.
+    static func order(count: Int, sentences: Range<Int>) -> [Int] {
+        Array(sentences.prefix(1)) + Array(sentences.upperBound..<max(count, sentences.upperBound))
     }
 
     /// Display order, as indices into the candidates: `scores` belong to
-    /// `slots`, in order. Other candidates keep their places.
-    static func order(count: Int, slots: [Int], scores: [Double]) -> [Int] {
-        var order = Array(0..<count)
-        guard slots.count == scores.count, slots.count > 1, scores.allSatisfy(\.isFinite) else { return order }
-        let ranked = slots.indices.sorted { a, b in
-            let left = scores[a] - placePenalty * Double(a), right = scores[b] - placePenalty * Double(b)
-            return left != right ? left > right : a < b
+    /// `slots.all`, in order. The best `shownSentences` of Rime's sentences
+    /// lead; the best of them then competes with the other slots under
+    /// `placePenalty`, and the other candidates keep their places.
+    static func order(count: Int, sentences run: Range<Int>, slots: Slots, scores: [Double]) -> [Int] {
+        let fallback = order(count: count, sentences: run)
+        let all = slots.all
+        guard all.count == scores.count, all.count > 1, scores.allSatisfy(\.isFinite) else { return fallback }
+        let score = Dictionary(uniqueKeysWithValues: zip(all, scores))
+        func ranked(_ indices: [Int], penalty: Double) -> [Int] {
+            indices.indices.sorted { a, b in
+                let left = score[indices[a]]! - penalty * Double(a), right = score[indices[b]]! - penalty * Double(b)
+                return left != right ? left > right : a < b
+            }.map { indices[$0] }
         }
-        for (place, slot) in zip(slots, ranked) { order[place] = slots[slot] }
+        var order = fallback
+        if slots.sentences.count > 1 {
+            let best = ranked(slots.sentences, penalty: sentencePlacePenalty).prefix(shownSentences)
+            order = Array(best) + Array(run.upperBound..<max(count, run.upperBound))
+        }
+        let places = order.indices.filter { place in
+            place == 0 && slots.sentences.contains(order[0]) || slots.others.contains(order[place])
+        }
+        guard places.count > 1 else { return order }
+        for (place, index) in zip(places, ranked(places.map { order[$0] }, penalty: placePenalty)) { order[place] = index }
         return order
     }
 
