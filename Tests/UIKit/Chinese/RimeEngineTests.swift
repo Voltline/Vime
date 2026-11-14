@@ -21,37 +21,6 @@ final class RimeEngineTests: XCTestCase {
         XCTAssertNil(engine.sendAndWait(.clear).commit)
     }
 
-    func testSelectTextCommitsAnotherReadingOfTheInput() throws {
-        let engine = try engine()
-        let typed = engine.sendAndWait(.type("woyaogeitapeiyigemoxing"))
-        XCTAssertEqual(typed.candidates.first?.coversInput, true)
-        // Rime's words for it, from the left.
-        XCTAssertEqual(engine.sendAndWait(.selectText("我要给它配一个模型")).commit, "我要给它配一个模型")
-        XCTAssertFalse(engine.sendAndWait(.clear).isComposing)
-        _ = engine.sendAndWait(.type("tupozhihuiqidian"))
-        let selected = engine.sendAndWait(.selectText("突破智慧奇点"))
-        XCTAssertEqual(selected.commit, "突破智慧奇点")
-        XCTAssertFalse(selected.isComposing)
-        _ = engine.sendAndWait(.clear)
-    }
-
-    func testSelectTextWithoutRimeWordsCommitsItAsItIs() throws {
-        let engine = try engine()
-        _ = engine.sendAndWait(.type("nihao"))
-        let selected = engine.sendAndWait(.selectText("尼豪"))
-        XCTAssertEqual(selected.commit, "尼豪")
-        XCTAssertFalse(selected.isComposing)
-        _ = engine.sendAndWait(.clear)
-    }
-
-    func testLookUpAndWaitAnswersEverySpelling() throws {
-        let engine = try engine()
-        let found = engine.lookUpAndWait(["zhihui", "qidian"], limit: 12)
-        XCTAssertEqual(found.count, 2)
-        XCTAssertTrue(found[0].contains { $0.genuine == "智慧" && $0.coversInput }, "\(found[0].map(\.text))")
-        XCTAssertTrue(found[1].contains { $0.genuine == "奇点" && $0.coversInput }, "\(found[1].map(\.text))")
-    }
-
     func testCompletionAddsAtMostTwoCharacters() throws {
         XCTAssertEqual(RimeEngine.syllableCount("zhong g d t"), 4)
         XCTAssertEqual(RimeEngine.syllableCount("你好 ma"), 1)

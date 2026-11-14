@@ -293,39 +293,6 @@ nonisolated final class VimeLanguageModel {
             cache: cache, conversionCache: conversionCache, startedAt: started, cancelled: cancelled)
     }
 
-    /// Log probability of each character of `text` after `context`, scored as
-    /// `scores` scores the whole text: a token's share is split evenly over
-    /// the characters it ends with, and a token ending inside a character
-    /// passes its share on to the next one.
-    func characterScores(context: String, text: String, cancelled: () -> Bool = { false }) throws -> [Double] {
-        guard !cancelled() else { throw Failure.cancelled }
-        let contextIDs = try scoringContext(context)
-        let sequence = try scoringSequence(context + text)
-        var common = 0
-        while common < min(contextIDs.count, sequence.count), contextIDs[common] == sequence[common] { common += 1 }
-        guard common >= 1, sequence.count > common else { throw Failure.ineligible }
-        let logits = try predict(Array(sequence.dropLast()))
-        guard !cancelled() else { throw Failure.cancelled }
-        var scratch = Array(repeating: 0.0, count: vocabularySize)
-        let tokens = Array(sequence.dropFirst())
-        let offset = context.count
-        var scores = Array(repeating: 0.0, count: text.count)
-        var end = 0, carry = 0.0
-        for k in tokens.indices {
-            let previous = end
-            // A prefix ending inside a character does not decode; it ends nowhere new.
-            if let decoded = try? tokenizer.decode(Array(tokens[...k])) { end = max(end, decoded.count) }
-            guard k + 1 >= common else { continue }
-            carry += try Self.tokenLogProbability(logits, row: k, token: Int(tokens[k]), scratch: &scratch)
-            let first = max(previous, offset) - offset, last = min(end, offset + text.count) - offset
-            guard last > first else { continue }
-            for i in first..<last { scores[i] += carry / Double(last - first) }
-            carry = 0
-        }
-        if carry != 0, !scores.isEmpty { scores[scores.count - 1] += carry }
-        guard scores.allSatisfy(\.isFinite) else { throw Failure.tensor }
-        return scores
-    }
     private func scoringTokens(_ text: String, cache: SuggestionScoreCache? = nil) throws -> [Int32] {
         let started = KeyboardPerformance.start()
         if let ids = cache?.validatedTokens(for: text) {
