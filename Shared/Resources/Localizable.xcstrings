@@ -1439,6 +1439,62 @@
         }
       }
     },
+    "下一词联想在确认文字后提供建议\n内存紧张后智能排序可能暂停，重试后会重新尝试使用本地模型\n关闭智能排序或联想不会清除已有学习数据": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next-word suggestions appear after you confirm text\nSmart ranking may pause when memory is low; retrying tries the on-device model again\nTurning off smart ranking or suggestions does not delete what has been learned"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "次の語の予測は確定後に候補を表示します\nメモリ不足時はスマート並べ替えが一時停止することがあり、再試行すると端末内モデルをもう一度使います\nスマート並べ替えや予測をオフにしても、学習済みのデータは消えません"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "다음 단어 제안은 텍스트를 확정한 뒤에 표시됩니다\n메모리가 부족하면 스마트 순위가 일시 정지될 수 있으며, 다시 시도하면 기기 내 모델을 다시 사용합니다\n스마트 순위나 제안을 꺼도 학습된 데이터는 삭제되지 않습니다"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下一詞聯想在確認文字後提供建議\n記憶體不足時智慧排序可能會暫停，重試後會重新嘗試使用本機模型\n關閉智慧排序或聯想不會清除已有學習資料"
+          }
+        }
+      }
+    },
+    "下一词联想在确认文字后提供建议\n已发送重试请求，下次打开键盘时生效。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next-word suggestions appear after you confirm text\nRetry requested. It takes effect the next time the keyboard opens."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "次の語の予測は確定後に候補を表示します\n再試行を要求しました。次にキーボードを開いたときに反映されます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "다음 단어 제안은 텍스트를 확정한 뒤에 표시됩니다\n다시 시도를 요청했습니다. 다음에 키보드를 열 때 적용됩니다."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下一詞聯想在確認文字後提供建議\n已送出重試請求，下次開啟鍵盤時生效。"
+          }
+        }
+      }
+    },
     "下一项": {
       "localizations": {
         "en": {
@@ -1604,34 +1660,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "中文"
-          }
-        }
-      }
-    },
-    "中文使用全拼，学习记录与日语分开保存；中文智能排序使用本地中文模型调整候选顺序，与日语的候选排序分开设置；下一词联想对中文同样有效，退格撤销转换目前只用于日语\n切换后，下次打开键盘时生效": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Chinese uses full pinyin and learns separately from Japanese. Chinese Smart Ranking reorders candidates with an on-device Chinese model and is set separately from Japanese candidate ranking. Next-Word Suggestions work for Chinese too; Backspace Undoes Conversion applies to Japanese only for now.\nThe change takes effect the next time the keyboard opens."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "中国語は全拼で入力し、学習記録は日本語とは別に保存します。中国語スマート並べ替えは端末内の中国語モデルで候補の順番を調整し、日本語の候補の並び順とは別に設定します。次の語の予測は中国語でも使えます。削除キーで変換を取り消す機能は現在日本語のみで使えます。\n切り替えは次にキーボードを開いたときに反映されます。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "중국어는 전체 병음으로 입력하며 학습 기록은 일본어와 따로 저장됩니다. 중국어 스마트 순위는 기기 내 중국어 모델로 후보 순서를 조정하며 일본어 후보 순위와 따로 설정합니다. 다음 단어 제안은 중국어에서도 작동하며, 백스페이스로 변환 취소는 현재 일본어에만 적용됩니다.\n변경 사항은 다음에 키보드를 열 때 적용됩니다."
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "中文使用全拼，學習記錄與日語分開儲存；中文智慧排序使用本機中文模型調整候選順序，與日語的候選排序分開設定；下一詞聯想對中文同樣有效，退格撤銷轉換目前只用於日語\n切換後，下次開啟鍵盤時生效"
           }
         }
       }
@@ -2573,34 +2601,6 @@
         }
       }
     },
-    "假名九宫格：点按输入あ段，上下左右滑动输入其他段；连续点按同一键依次切换\n声音、振动和数字布局也可在键盘左上角快速调整\n修改后重新打开键盘即可读取更新": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Kana Flick: tap for the あ column, flick left, up, right or down for the others; tap a key again to cycle through it\nSound, haptics and number layout can also be changed from the top-left of the keyboard\nReopen the keyboard after making changes to apply them"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "かなフリック：タップであ段、上下左右のフリックで他の段を入力。同じキーを続けてタップすると順に切り替わります\nサウンド、触覚、数字の配列はキーボード左上からも変更できます\n変更後にキーボードを開き直すと反映されます"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "가나 플릭: 탭하면 あ단, 왼쪽·위·오른쪽·아래로 플릭하면 다른 단을 입력합니다. 같은 키를 다시 탭하면 차례로 바뀝니다\n소리, 햅틱 및 숫자 배열은 키보드 왼쪽 상단에서도 변경할 수 있습니다\n변경 후 키보드를 다시 열면 적용됩니다"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "假名九宮格：點按輸入あ段，上下左右滑動輸入其他段；連續點按同一鍵依次切換\n聲音、震動和數字佈局也可在鍵盤左上角快速調整\n修改後重新打開鍵盤即可讀取更新"
-          }
-        }
-      }
-    },
     "假名汉字转换与预测": {
       "extractionState": "manual",
       "localizations": {
@@ -2682,6 +2682,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "先逛逛，稍後再說"
+          }
+        }
+      }
+    },
+    "全拼": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Full Pinyin"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ピンイン"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "전체 병음"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "全拼"
           }
         }
       }
@@ -3020,34 +3048,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "記憶體不足時已暫停智慧排序，辭典輸入仍可使用。點選下方按鈕可重試。"
-          }
-        }
-      }
-    },
-    "内存紧张后智能排序可能暂停。重试后，后续输入将重新尝试使用本地模型。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Smart ranking may pause when memory is low. After a retry, later input will try the on-device model again."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "メモリ不足時はスマート並べ替えが一時停止することがあります。再試行すると、以降の入力で端末内モデルを再び使おうとします。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "메모리가 부족하면 스마트 순위가 일시 정지될 수 있습니다. 다시 시도하면 이후 입력에서 기기 내 모델을 다시 사용해 봅니다."
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "記憶體不足時智慧排序可能會暫停。重試後，之後的輸入會重新嘗試使用本機模型。"
           }
         }
       }
@@ -5021,6 +5021,34 @@
         }
       }
     },
+    "声音、振动和数字布局也可在键盘左上角快速调整\n修改后重新打开键盘即可读取更新": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sound, haptics and number layout can also be changed from the top-left of the keyboard\nReopen the keyboard after making changes to apply them"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サウンド、触覚、数字の配列はキーボード左上からも変更できます\n変更後にキーボードを開き直すと反映されます"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "소리, 햅틱 및 숫자 배열은 키보드 왼쪽 상단에서도 변경할 수 있습니다\n변경 후 키보드를 다시 열면 적용됩니다"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "聲音、震動和數字佈局也可在鍵盤左上角快速調整\n修改後重新打開鍵盤即可讀取更新"
+          }
+        }
+      }
+    },
     "声音与振动": {
       "localizations": {
         "en": {
@@ -5722,62 +5750,6 @@
         }
       }
     },
-    "打开后，读音相近也能打出想要的字，例如 zi 也能打出“知”\n切换后，下次打开键盘时生效": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "When on, similar sounds also find the character you want, such as zi for 知.\nThe change takes effect the next time the keyboard opens."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "オンにすると、近い発音でも目的の字を入力できます（例：zi で「知」）。\n切り替えは次にキーボードを開いたときに反映されます。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "켜면 비슷한 발음으로도 원하는 글자를 입력할 수 있습니다(예: zi로 '知').\n변경 사항은 다음에 키보드를 열 때 적용됩니다."
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "開啟後，讀音相近也能打出想要的字，例如 zi 也能打出「知」\n切換後，下次開啟鍵盤時生效"
-          }
-        }
-      }
-    },
-    "日语候选排序": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Japanese Candidate Ranking"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "日本語の候補の並び順"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "일본어 후보 순위"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "日語候選排序"
-          }
-        }
-      }
-    },
     "显示下一个候选": {
       "localizations": {
         "en": {
@@ -5802,34 +5774,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "顯示下一個候選"
-          }
-        }
-      }
-    },
-    "智能排序使用本地模型调整日语候选顺序\n下一词联想在确认文字后提供建议\n实时转换在输入假名时直接显示转换结果，回车确认显示的文字\n转换后，候选栏开头的 ↩ 可回到读音重新选择；打开「退格撤销转换」后，立即按退格也会回到读音\n关闭智能排序或联想不会清除已有学习数据": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Smart ranking uses an on-device model to order Japanese candidates\nNext-word suggestions appear after you confirm text\nLive Conversion shows the converted text while you type kana; Return confirms the text shown\nAfter a conversion, ↩ at the start of the candidate bar returns to its reading so you can choose again; with Backspace Undoes Conversion on, pressing Backspace right away does the same\nTurning either off keeps existing learning data"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "スマート並べ替えは端末内モデルで日本語の候補の順序を調整します\n次の語の予測は確定後に候補を表示します\nライブ変換は、かなを入力すると変換結果をそのまま表示し、改行キーで表示中の文字を確定します\n変換の後、候補バー先頭の ↩ で読みに戻って選び直せます。「削除キーで変換を取り消す」をオンにすると、直後に削除キーを押しても読みに戻ります\nどちらをオフにしても学習データは消えません"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "스마트 순위는 기기 내 모델을 사용하여 일본어 후보 순서를 정합니다\n다음 단어 제안은 텍스트를 확정한 후 표시됩니다\n라이브 변환은 가나를 입력하는 동안 변환 결과를 바로 표시하며, 리턴 키로 표시된 텍스트를 확정합니다\n변환 후 후보 표시줄 맨 앞의 ↩를 누르면 읽기로 돌아가 다시 고를 수 있습니다. '백스페이스로 변환 취소'를 켜면 변환 직후 백스페이스를 눌러도 읽기로 돌아갑니다\n어느 쪽을 꺼도 기존 학습 데이터는 유지됩니다"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "智慧排序使用本機模型調整日語候選順序\n下一詞聯想在確認文字後提供建議\n即時轉換在輸入假名時直接顯示轉換結果，Return 確認顯示的文字\n轉換後，候選列開頭的 ↩ 可回到讀音重新選擇；開啟「退格撤銷轉換」後，立即按退格也會回到讀音\n關閉智慧排序或聯想不會清除已有學習資料"
           }
         }
       }
@@ -7606,6 +7550,34 @@
         }
       }
     },
+    "打开键盘时使用的语言；在键盘上，向上滑动语言键即可在日语和中文之间切换": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The language the keyboard opens in. On the keyboard, swipe up on the language key to switch between Japanese and Chinese."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "キーボードを開いたときに使う言語です。キーボードでは、言語キーを上にスワイプすると日本語と中国語を切り替えられます"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "키보드를 열 때 사용할 언어입니다. 키보드에서 언어 키를 위로 쓸어 올리면 일본어와 중국어를 전환할 수 있습니다"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開啟鍵盤時使用的語言；在鍵盤上，向上滑動語言鍵即可在日語和中文之間切換"
+          }
+        }
+      }
+    },
     "拒绝后，不会反复申请读取同一份内容。首次授权或调整权限后，如未出现预览，请重新复制文字再打开键盘。": {
       "localizations": {
         "en": {
@@ -8675,58 +8647,30 @@
         }
       }
     },
-    "日语布局": {
+    "日语的罗马字与假名九宫格二选一，至少保留一种输入法\n假名九宫格：点按输入あ段，上下左右滑动输入其他段；连续点按同一键依次切换\n切换后，下次打开键盘时生效": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Japanese Layout"
+            "value": "Japanese uses either Romaji or Kana Flick. At least one input method stays on.\nKana Flick: tap for the あ column, flick left, up, right or down for the others; tap a key again to cycle through it\nChanges take effect the next time the keyboard opens."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "日本語の配列"
+            "value": "日本語はローマ字とかなフリックのどちらか一方を使います。入力方式は少なくとも 1 つ残ります\nかなフリック：タップであ段、上下左右のフリックで他の段を入力。同じキーを続けてタップすると順に切り替わります\n切り替えは次にキーボードを開いたときに反映されます"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "일본어 배열"
+            "value": "일본어는 로마자와 가나 플릭 중 하나를 사용합니다. 입력 방식은 하나 이상 남겨 두어야 합니다\n가나 플릭: 탭하면 あ단, 왼쪽·위·오른쪽·아래로 플릭하면 다른 단을 입력합니다. 같은 키를 다시 탭하면 차례로 바뀝니다\n변경 사항은 다음에 키보드를 열 때 적용됩니다"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "日語佈局"
-          }
-        }
-      }
-    },
-    "日语模式的空格": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Space in Japanese Mode"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "日本語モードのスペース"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "일본어 모드의 스페이스"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "日語模式的空格"
+            "value": "日語的羅馬字與假名九宮格二選一，至少保留一種輸入法\n假名九宮格：點按輸入あ段，上下左右滑動輸入其他段；連續點按同一鍵依次切換\n切換後，下次開啟鍵盤時生效"
           }
         }
       }
@@ -8839,6 +8783,90 @@
           "stringUnit": {
             "state": "translated",
             "value": "智慧排序"
+          }
+        }
+      }
+    },
+    "智能排序使用本地中文模型调整候选顺序，学习记录与日语分开保存\n模糊音：读音相近也能打出想要的字，例如 zi 也能打出“知”，切换后下次打开键盘时生效": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Smart ranking uses an on-device Chinese model to order candidates; Chinese learns separately from Japanese\nFuzzy pinyin: similar sounds also find the character you want, such as zi for 知. Changes take effect the next time the keyboard opens"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "スマート並べ替えは端末内の中国語モデルで候補の順序を調整します。学習記録は日本語とは別に保存します\n曖昧ピンイン：近い発音でも目的の字を入力できます（例：zi で「知」）。切り替えは次にキーボードを開いたときに反映されます"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "스마트 순위는 기기 내 중국어 모델로 후보 순서를 정하며, 학습 기록은 일본어와 따로 저장됩니다\n모호 병음: 비슷한 발음으로도 원하는 글자를 입력할 수 있습니다(예: zi로 '知'). 변경 사항은 다음에 키보드를 열 때 적용됩니다"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "智慧排序使用本機中文模型調整候選順序，學習記錄與日語分開儲存\n模糊音：讀音相近也能打出想要的字，例如 zi 也能打出「知」，切換後下次開啟鍵盤時生效"
+          }
+        }
+      }
+    },
+    "智能排序使用本地日语模型调整候选顺序\n实时转换在输入假名时直接显示转换结果，回车确认显示的文字\n转换后，候选栏开头的 ↩ 可回到读音重新选择；打开「退格撤销转换」后，立即按退格也会回到读音\n空格在没有读音时按这里的宽度输入，先按 Shift 再按空格输入另一种宽度": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Smart ranking uses an on-device Japanese model to order candidates\nLive conversion shows the converted text as you type kana; Return confirms what is shown\nAfter converting, ↩ at the start of the candidate bar returns to the reading; with Undo Conversion on Backspace on, an immediate backspace also returns to it\nWith no reading being typed, space inserts the width chosen here; press Shift and then space for the other width"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "スマート並べ替えは端末内の日本語モデルで候補の順序を調整します\nライブ変換は、かなを入力しながら変換結果を直接表示し、改行キーで表示中の文字を確定します\n変換後、候補バー先頭の ↩ で読みに戻って選び直せます。「バックスペースで変換を取り消す」をオンにすると、直後のバックスペースでも読みに戻ります\nスペースは、読みを入力していないときここで選んだ幅で入力され、Shift を押してからスペースを押すともう一方の幅になります"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "스마트 순위는 기기 내 일본어 모델로 후보 순서를 정합니다\n실시간 변환은 가나를 입력하는 동안 변환 결과를 바로 보여 주며, Return 키로 표시된 글자를 확정합니다\n변환 후 후보 막대 맨 앞의 ↩ 로 읽기로 돌아가 다시 고를 수 있습니다. '백스페이스로 변환 취소'를 켜면 바로 누른 백스페이스로도 읽기로 돌아갑니다\n스페이스는 읽기를 입력하고 있지 않을 때 여기서 고른 폭으로 입력되며, Shift를 누른 뒤 스페이스를 누르면 다른 폭으로 입력됩니다"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "智慧排序使用本機日語模型調整候選順序\n即時轉換在輸入假名時直接顯示轉換結果，回車確認顯示的文字\n轉換後，候選列開頭的 ↩ 可回到讀音重新選擇；開啟「退格撤銷轉換」後，立即按退格也會回到讀音\n空格在沒有讀音時按這裡的寬度輸入，先按 Shift 再按空格輸入另一種寬度"
+          }
+        }
+      }
+    },
+    "智能排序使用本地日语模型调整候选顺序\n实时转换在输入假名时直接显示转换结果，回车确认显示的文字\n转换后，候选栏开头的 ↩ 可回到读音重新选择；打开「退格撤销转换」后，立即按退格也会回到读音\n空格在没有读音时按这里的宽度输入，先按 Shift 再按空格输入另一种宽度\n用拼音查词：输入汉字的普通话拼音（可与罗马字混用）也能找到对应的词，候选上方显示平假名读音": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Smart ranking uses an on-device Japanese model to order candidates\nLive conversion shows the converted text as you type kana; Return confirms what is shown\nAfter converting, ↩ at the start of the candidate bar returns to the reading; with Undo Conversion on Backspace on, an immediate backspace also returns to it\nWith no reading being typed, space inserts the width chosen here; press Shift and then space for the other width\nPinyin lookup: a word's Mandarin pinyin, alone or mixed with Romaji, also finds it, with the hiragana reading above the candidate"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "スマート並べ替えは端末内の日本語モデルで候補の順序を調整します\nライブ変換は、かなを入力しながら変換結果を直接表示し、改行キーで表示中の文字を確定します\n変換後、候補バー先頭の ↩ で読みに戻って選び直せます。「バックスペースで変換を取り消す」をオンにすると、直後のバックスペースでも読みに戻ります\nスペースは、読みを入力していないときここで選んだ幅で入力され、Shift を押してからスペースを押すともう一方の幅になります\nピンインで検索：漢字の中国語ピンイン（ローマ字と混ぜても可）でもその語が見つかり、候補の上にひらがなの読みを表示します"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "스마트 순위는 기기 내 일본어 모델로 후보 순서를 정합니다\n실시간 변환은 가나를 입력하는 동안 변환 결과를 바로 보여 주며, Return 키로 표시된 글자를 확정합니다\n변환 후 후보 막대 맨 앞의 ↩ 로 읽기로 돌아가 다시 고를 수 있습니다. '백스페이스로 변환 취소'를 켜면 바로 누른 백스페이스로도 읽기로 돌아갑니다\n스페이스는 읽기를 입력하고 있지 않을 때 여기서 고른 폭으로 입력되며, Shift를 누른 뒤 스페이스를 누르면 다른 폭으로 입력됩니다\n병음으로 찾기: 한자의 중국어 병음(로마자와 섞어도 됨)으로도 해당 단어를 찾을 수 있으며, 후보 위에 히라가나 읽기를 표시합니다"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "智慧排序使用本機日語模型調整候選順序\n即時轉換在輸入假名時直接顯示轉換結果，回車確認顯示的文字\n轉換後，候選列開頭的 ↩ 可回到讀音重新選擇；開啟「退格撤銷轉換」後，立即按退格也會回到讀音\n空格在沒有讀音時按這裡的寬度輸入，先按 Shift 再按空格輸入另一種寬度\n用拼音查詞：輸入漢字的普通話拼音（可與羅馬字混用）也能找到對應的詞，候選上方顯示平假名讀音"
           }
         }
       }
@@ -9852,34 +9880,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "沒有找到表情"
-          }
-        }
-      }
-    },
-    "没有正在输入的读音时，空格按这里的宽度输入；先按 Shift 再按空格输入另一种宽度": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "When no reading is being typed, space inserts this width. Press Shift, then space, for the other width."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "読みを入力していないとき、スペースはここで選んだ幅で入力されます。Shift を押してからスペースを押すと、もう一方の幅になります。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "읽기를 입력하고 있지 않을 때 스페이스는 여기서 고른 폭으로 입력됩니다. Shift를 누른 뒤 스페이스를 누르면 다른 폭으로 입력됩니다."
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "沒有正在輸入的讀音時，空格按這裡的寬度輸入；先按 Shift 再按空格輸入另一種寬度"
           }
         }
       }
@@ -10949,6 +10949,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "使用者辭典"
+          }
+        }
+      }
+    },
+    "用拼音查词": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pinyin Lookup"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ピンインで検索"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "병음으로 찾기"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "用拼音查詞"
           }
         }
       }
@@ -14018,6 +14046,34 @@
         }
       }
     },
+    "输入法": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Input Methods"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "入力方式"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "입력 방식"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "輸入法"
+          }
+        }
+      }
+    },
     "输入符号": {
       "localizations": {
         "en": {
@@ -14350,6 +14406,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "逐字母圖片"
+          }
+        }
+      }
+    },
+    "通用": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "General"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "共通"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "일반"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通用"
           }
         }
       }
@@ -15471,146 +15555,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "簡體中文"
-          }
-        }
-      }
-    },
-    "中文智能排序": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Chinese Smart Ranking"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "中国語スマート並べ替え"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "중국어 스마트 순위"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "中文智慧排序"
-          }
-        }
-      }
-    },
-    "中文输入": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Chinese Input"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "中国語入力"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "중국어 입력"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "中文輸入"
-          }
-        }
-      }
-    },
-    "关闭后，键盘只提供日语和英文，也不会加载中文引擎": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "When off, the keyboard offers only Japanese and English and never loads the Chinese engine."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "オフにすると、キーボードは日本語と英語だけになり、中国語エンジンも読み込みません。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "끄면 키보드에서 일본어와 영어만 제공하며 중국어 엔진도 불러오지 않습니다."
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "關閉後，鍵盤只提供日語和英文，也不會載入中文引擎"
-          }
-        }
-      }
-    },
-    "日语中用拼音查词": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pinyin Lookup in Japanese"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "日本語でピンイン検索"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "일본어에서 병음으로 찾기"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "日語中用拼音查詞"
-          }
-        }
-      }
-    },
-    "日语模式下，输入汉字的普通话拼音（可与罗马字混用）也能找到对应的词，候选上方显示平假名读音": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "In Japanese, type a word's Mandarin pinyin, or mix pinyin with romaji, to find its kanji. The hiragana reading shows above the candidate."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "日本語入力中に、漢字の中国語ピンイン（ローマ字と混ぜても可）を入力しても、その語が候補に出ます。候補の上にはひらがなの読みを表示します。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "일본어 입력 중 한자의 중국어 병음(로마자와 섞어도 됨)을 입력해도 해당 단어를 찾을 수 있습니다. 후보 위에 히라가나 읽기가 표시됩니다."
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "日語模式下，輸入漢字的普通話拼音（可與羅馬字混用）也能找到對應的詞，候選上方顯示平假名讀音"
           }
         }
       }

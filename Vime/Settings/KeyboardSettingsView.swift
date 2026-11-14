@@ -27,6 +27,8 @@ struct KeyboardSettingsView: View {
             VStack(alignment: .leading, spacing: 10) {
                 AppSectionTitle("更多设置")
                 LazyVGrid(columns: columns, spacing: 12) {
+                    SettingsTile(title: "输入法", detail: summary.inputMethodsDetail,
+                                 icon: .symbol("globe"), tint: .cyan, id: "vime.settings.inputMethods") { KeyboardInputMethodsView() }
                     SettingsTile(title: "转换与联想", detail: summary.suggestions ? String(localized: "下一词联想 开") : String(localized: "下一词联想 关"),
                                  icon: .glyph("あ"), tint: .blue, id: "vime.settings.input") { KeyboardInputSettingsView() }
                     SettingsTile(title: "用户词典", detail: String(localized: "姓名、词语与短语"),
@@ -37,11 +39,12 @@ struct KeyboardSettingsView: View {
                                  icon: .symbol("number"), tint: .indigo, id: "vime.settings.symbols") { KeyboardNumberSymbolsView() }
                     SettingsTile(title: "剪贴板", detail: summary.clipboard ? String(localized: "自动读取已开启") : String(localized: "自动读取已关闭"),
                                  icon: .symbol("doc.on.clipboard"), tint: .gray, id: "vime.settings.clipboard") { KeyboardClipboardSettingsView() }
-                    SettingsTile(title: "学习与隐私", detail: String(localized: "清空学习 · 隐私政策"),
-                                 icon: .symbol("checkmark.shield"), tint: .green, id: "vime.settings.privacy") { KeyboardDataPrivacyView() }
                 }
             }
             AppSettingsActionGroup {
+                NavigationLink { KeyboardDataPrivacyView() } label: { SettingsListRow(title: "学习与隐私") }
+                    .accessibilityIdentifier("vime.settings.privacy")
+                Divider().padding(.leading, 16)
                 NavigationLink { KeyboardSetupGuide() } label: { SettingsListRow(title: "启用指南") }
                     .accessibilityIdentifier("vime.settings.setup")
                 Divider().padding(.leading, 16)
@@ -92,6 +95,10 @@ struct KeyboardSettingsSummary: Equatable {
     var appVersion: String
     /// Listed in iOS's added keyboards; it may not have run since.
     var added = false
+    var japanese = true
+    var kanaLayout = false
+    var chinese = true
+    var chineseModel = true
 
     static func load(preferences: KeyboardPreferences = KeyboardPreferences(),
                      status: KeyboardExtensionStatus? = KeyboardExtensionStatus.load()) -> Self {
@@ -100,7 +107,10 @@ struct KeyboardSettingsSummary: Equatable {
              autoPairBrackets: preferences.autoPairBrackets, symbolCount: preferences.numberSymbols.count,
              clipboard: preferences.clipboardSuggestions,
              appVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0",
-             added: KeyboardSetupProgress.load(status: status).added)
+             added: KeyboardSetupProgress.load(status: status).added,
+             japanese: preferences.japaneseInputEnabled, kanaLayout: preferences.kanaLayout,
+             chinese: preferences.chineseInputEnabled && RimeEngine.bundledData != nil,
+             chineseModel: preferences.chineseLanguageModel)
     }
 
     var feelDetail: String {
@@ -117,7 +127,8 @@ struct KeyboardSettingsSummary: Equatable {
 
     /// Ranking stat on the status card.
     var rankingValue: String {
-        guard ranking == .languageModel else { return String(localized: "词典排序") }
+        // The language the keyboard has, Japanese's setting when it has both.
+        guard japanese ? ranking == .languageModel : chineseModel else { return String(localized: "词典排序") }
         guard let status else { return String(localized: "待使用") }
         if status.modelPaused { return String(localized: "已暂停") }
         // The model version is diagnostics detail; users only need the state.
@@ -384,7 +395,7 @@ struct KeyboardInputSettingsView: View {
     @AppStorage private var autoCapitalize: Bool
     @AppStorage private var doubleSpacePeriod: Bool
     @AppStorage private var englishCompletion: Bool
-    @AppStorage private var inputLanguage: KeyboardInputLanguage
+    @AppStorage private var japaneseInput: Bool
     @AppStorage private var chineseInput: Bool
     @AppStorage private var pinyinLookup: Bool
     @AppStorage private var chineseModel: Bool
@@ -393,9 +404,9 @@ struct KeyboardInputSettingsView: View {
     @AppStorage private var fuzzyInitials: Bool
     init() {
         let prefs = KeyboardPreferences()
-        _inputLanguage = AppStorage(wrappedValue: prefs.inputLanguage, "vime.inputLanguage", store: prefs.store)
+        // The stored choices, not the effective values, which follow the other input method.
+        _japaneseInput = AppStorage(wrappedValue: true, "vime.japaneseInputEnabled", store: prefs.store)
         _chineseInput = AppStorage(wrappedValue: prefs.chineseInputEnabled, "vime.chineseInputEnabled", store: prefs.store)
-        // The stored choice, not the effective value, which is false while Chinese input is off.
         _pinyinLookup = AppStorage(wrappedValue: true, "vime.pinyinLookupInJapanese", store: prefs.store)
         _chineseModel = AppStorage(wrappedValue: prefs.chineseLanguageModel, "vime.chineseLanguageModel", store: prefs.store)
         _fuzzyRetroflex = AppStorage(wrappedValue: false, FuzzyPinyin.retroflex.key, store: prefs.store)
@@ -410,82 +421,64 @@ struct KeyboardInputSettingsView: View {
         _doubleSpacePeriod = AppStorage(wrappedValue: prefs.doubleSpacePeriod, "vime.doubleSpacePeriod", store: prefs.store)
         _englishCompletion = AppStorage(wrappedValue: prefs.englishCompletion, "vime.englishCompletion", store: prefs.store)
     }
+
+    /// As KeyboardPreferences reads them: one input method always stays on.
+    private var chinese: Bool { chineseInput && RimeEngine.bundledData != nil }
+    private var japanese: Bool { japaneseInput || !chinese }
+
     var body: some View {
         Form {
-            if RimeEngine.bundledData != nil {
+            if japanese {
                 Section {
-                    Toggle("中文输入", isOn: $chineseInput)
-                        .accessibilityIdentifier("vime.settings.chineseInput")
-                    if chineseInput {
-                        Picker("输入语言", selection: $inputLanguage) {
-                            Text("日语").tag(KeyboardInputLanguage.japanese)
-                            Text("简体中文").tag(KeyboardInputLanguage.chinese)
-                        }.accessibilityIdentifier("vime.settings.inputLanguage")
-                        Toggle("中文智能排序", isOn: Binding(get: { chineseModel }, set: { value in
-                            chineseModel = value
-                            if value { KeyboardPreferences().requestNeuralRetry() }
-                        })).accessibilityIdentifier("vime.settings.chineseLanguageModel")
-                    }
-                } footer: {
-                    if chineseInput {
-                        Text("中文使用全拼，学习记录与日语分开保存；中文智能排序使用本地中文模型调整候选顺序，与日语的候选排序分开设置；下一词联想对中文同样有效，退格撤销转换目前只用于日语\n切换后，下次打开键盘时生效")
-                    } else {
-                        Text("关闭后，键盘只提供日语和英文，也不会加载中文引擎")
-                    }
-                }
-                if chineseInput {
-                    Section {
-                        Toggle("日语中用拼音查词", isOn: $pinyinLookup)
+                    Toggle("智能排序", isOn: Binding(get: { ranking == .languageModel }, set: { value in
+                        ranking = value ? .languageModel : .engine
+                        if value { KeyboardPreferences().requestNeuralRetry() }
+                    })).accessibilityIdentifier("vime.settings.japaneseRanking")
+                    Toggle("实时转换", isOn: $liveConversion)
+                        .accessibilityIdentifier("vime.settings.liveConversion")
+                    Toggle("退格撤销转换", isOn: $undoConversion)
+                        .accessibilityIdentifier("vime.settings.undoConversion")
+                    Picker("空格", selection: $fullWidthSpace) {
+                        Text("半角").tag(false)
+                        Text("全角").tag(true)
+                    }.accessibilityIdentifier("vime.settings.fullWidthSpace")
+                    if chinese {
+                        Toggle("用拼音查词", isOn: $pinyinLookup)
                             .accessibilityIdentifier("vime.settings.pinyinLookupInJapanese")
-                    } footer: {
-                        Text("日语模式下，输入汉字的普通话拼音（可与罗马字混用）也能找到对应的词，候选上方显示平假名读音")
                     }
-                    Section {
-                        Toggle("平翘舌 z/zh、c/ch、s/sh", isOn: $fuzzyRetroflex)
-                            .accessibilityIdentifier("vime.settings.fuzzyRetroflex")
-                        Toggle("前后鼻音 an/ang、en/eng、in/ing", isOn: $fuzzyNasal)
-                            .accessibilityIdentifier("vime.settings.fuzzyNasal")
-                        Toggle("声母 n/l、f/h、r/l", isOn: $fuzzyInitials)
-                            .accessibilityIdentifier("vime.settings.fuzzyInitials")
-                    } header: {
-                        Text("模糊音")
-                    } footer: {
-                        Text("打开后，读音相近也能打出想要的字，例如 zi 也能打出“知”\n切换后，下次打开键盘时生效")
-                    }
+                } header: { Text("日语") } footer: {
+                    Text(chinese ? "智能排序使用本地日语模型调整候选顺序\n实时转换在输入假名时直接显示转换结果，回车确认显示的文字\n转换后，候选栏开头的 ↩ 可回到读音重新选择；打开「退格撤销转换」后，立即按退格也会回到读音\n空格在没有读音时按这里的宽度输入，先按 Shift 再按空格输入另一种宽度\n用拼音查词：输入汉字的普通话拼音（可与罗马字混用）也能找到对应的词，候选上方显示平假名读音"
+                         : "智能排序使用本地日语模型调整候选顺序\n实时转换在输入假名时直接显示转换结果，回车确认显示的文字\n转换后，候选栏开头的 ↩ 可回到读音重新选择；打开「退格撤销转换」后，立即按退格也会回到读音\n空格在没有读音时按这里的宽度输入，先按 Shift 再按空格输入另一种宽度")
+                }
+            }
+            if chinese {
+                Section {
+                    Toggle("智能排序", isOn: Binding(get: { chineseModel }, set: { value in
+                        chineseModel = value
+                        if value { KeyboardPreferences().requestNeuralRetry() }
+                    })).accessibilityIdentifier("vime.settings.chineseLanguageModel")
+                    Toggle("平翘舌 z/zh、c/ch、s/sh", isOn: $fuzzyRetroflex)
+                        .accessibilityIdentifier("vime.settings.fuzzyRetroflex")
+                    Toggle("前后鼻音 an/ang、en/eng、in/ing", isOn: $fuzzyNasal)
+                        .accessibilityIdentifier("vime.settings.fuzzyNasal")
+                    Toggle("声母 n/l、f/h、r/l", isOn: $fuzzyInitials)
+                        .accessibilityIdentifier("vime.settings.fuzzyInitials")
+                } header: { Text("中文") } footer: {
+                    Text("智能排序使用本地中文模型调整候选顺序，学习记录与日语分开保存\n模糊音：读音相近也能打出想要的字，例如 zi 也能打出“知”，切换后下次打开键盘时生效")
                 }
             }
             Section {
-                Picker("日语候选排序", selection: Binding(get: { ranking }, set: { value in
-                    ranking = value
-                    if value == .languageModel { KeyboardPreferences().requestNeuralRetry() }
-                })) {
-                    ForEach(CandidateRankingMode.allCases, id: \.self) { Text($0.title).tag($0) }
-                }
                 Toggle("下一词联想", isOn: $suggestions)
-                Toggle("实时转换", isOn: $liveConversion)
-                    .accessibilityIdentifier("vime.settings.liveConversion")
-                Toggle("退格撤销转换", isOn: $undoConversion)
-                    .accessibilityIdentifier("vime.settings.undoConversion")
-            } footer: {
-                Text("智能排序使用本地模型调整日语候选顺序\n下一词联想在确认文字后提供建议\n实时转换在输入假名时直接显示转换结果，回车确认显示的文字\n转换后，候选栏开头的 ↩ 可回到读音重新选择；打开「退格撤销转换」后，立即按退格也会回到读音\n关闭智能排序或联想不会清除已有学习数据")
-            }
-            if ranking == .languageModel || (chineseInput && chineseModel) {
-                Section {
+                    .accessibilityIdentifier("vime.settings.suggestions")
+                if (japanese && ranking == .languageModel) || (chinese && chineseModel) {
                     Button("重试智能排序") {
                         KeyboardPreferences().requestNeuralRetry()
                         retryRequested = true
                     }.accessibilityIdentifier("vime.settings.neural.retry")
-                } footer: {
-                    Text(retryRequested ? "已发送重试请求，下次打开键盘时生效。" : "内存紧张后智能排序可能暂停。重试后，后续输入将重新尝试使用本地模型。")
                 }
-            }
-            Section {
-                Picker("日语模式的空格", selection: $fullWidthSpace) {
-                    Text("半角").tag(false)
-                    Text("全角").tag(true)
-                }.accessibilityIdentifier("vime.settings.fullWidthSpace")
-            } footer: {
-                Text("没有正在输入的读音时，空格按这里的宽度输入；先按 Shift 再按空格输入另一种宽度")
+            } header: { Text("通用") } footer: {
+                Text(retryRequested ? "下一词联想在确认文字后提供建议\n已发送重试请求，下次打开键盘时生效。"
+                     : "下一词联想在确认文字后提供建议\n内存紧张后智能排序可能暂停，重试后会重新尝试使用本地模型\n关闭智能排序或联想不会清除已有学习数据")
             }
             Section {
                 Toggle("自动大写", isOn: $autoCapitalize)
@@ -510,6 +503,8 @@ struct KeyboardFeedbackSettingsView: View {
     @AppStorage private var intensity: Double
     @AppStorage private var nineKeyNumbers: Bool
     @AppStorage private var kanaLayout: Bool
+    @AppStorage private var japaneseInput: Bool
+    @AppStorage private var chineseInput: Bool
     @AppStorage private var prolongedKey: Bool
     @AppStorage private var previews: Bool
     @AppStorage private var previewHold: Double
@@ -520,11 +515,15 @@ struct KeyboardFeedbackSettingsView: View {
         _intensity = AppStorage(wrappedValue: prefs.hapticIntensity, "vime.hapticIntensity", store: store)
         _nineKeyNumbers = AppStorage(wrappedValue: prefs.nineKeyNumbers, "vime.nineKeyNumbers", store: store)
         _kanaLayout = AppStorage(wrappedValue: prefs.kanaLayout, "vime.kanaLayout", store: store)
+        _japaneseInput = AppStorage(wrappedValue: true, "vime.japaneseInputEnabled", store: store)
+        _chineseInput = AppStorage(wrappedValue: prefs.chineseInputEnabled, "vime.chineseInputEnabled", store: store)
         _prolongedKey = AppStorage(wrappedValue: prefs.prolongedKey, "vime.prolongedKey", store: store)
         _previews = AppStorage(wrappedValue: prefs.previews, "vime.previews", store: store)
         _previewHold = AppStorage(wrappedValue: prefs.previewHold, "vime.previewHold", store: store)
         _oneHanded = AppStorage(wrappedValue: prefs.oneHanded, "vime.oneHanded", store: store)
     }
+    /// Japanese in the romaji layout, the only one with the long-vowel key.
+    private var romaji: Bool { (japaneseInput || !(chineseInput && RimeEngine.bundledData != nil)) && !kanaLayout }
     var body: some View {
         Form {
             Section {
@@ -550,14 +549,10 @@ struct KeyboardFeedbackSettingsView: View {
                         Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
                     }
                 }.accessibilityIdentifier("vime.settings.height")
-                Picker("日语布局", selection: $kanaLayout) {
-                    Text("罗马字").tag(false); Text("假名九宫格").tag(true)
-                }
-                .accessibilityIdentifier("vime.settings.kanaLayout")
                 Picker("数字布局", selection: $nineKeyNumbers) {
                     Text("九宫格").tag(true); Text("全键盘").tag(false)
                 }
-                Toggle("显示长音键 ー", isOn: $prolongedKey).disabled(kanaLayout)
+                if romaji { Toggle("显示长音键 ー", isOn: $prolongedKey) }
                 Toggle("按键预览", isOn: $previews)
                 VStack(alignment: .leading, spacing: 0) {
                     HStack {
@@ -574,7 +569,7 @@ struct KeyboardFeedbackSettingsView: View {
                 .padding(.vertical, 4)
                 .disabled(!previews)
             } header: { Text("布局") } footer: {
-                Text("假名九宫格：点按输入あ段，上下左右滑动输入其他段；连续点按同一键依次切换\n声音、振动和数字布局也可在键盘左上角快速调整\n修改后重新打开键盘即可读取更新")
+                Text("声音、振动和数字布局也可在键盘左上角快速调整\n修改后重新打开键盘即可读取更新")
             }
             if UIDevice.current.userInterfaceIdiom == .phone {
                 Section {

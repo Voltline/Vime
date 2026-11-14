@@ -177,7 +177,9 @@ final class ChineseInputSessionTests: XCTestCase {
 
     func testTyposAcrossSyllablesOfferTheMeantPhrase() throws {
         let session = try session()
-        for (typed, meant) in [("shenem", "什么"), ("keiy", "可以"), ("gongzo", "工作")] {
+        // Across syllables, and in two-letter syllables Rime's speller leaves
+        // alone, even where the typo still reads as syllables (mao ai).
+        for (typed, meant) in [("shenem", "什么"), ("keiy", "可以"), ("gongzo", "工作"), ("maoai", "貌似"), ("wixiang", "我想")] {
             _ = session.type(typed)
             waitUntilCurrent(session)
             let shown = corrections(session)
@@ -191,17 +193,17 @@ final class ChineseInputSessionTests: XCTestCase {
             XCTAssertFalse(session.isComposing)
         }
         // Editing the input drops them with Rime's next answer.
-        _ = session.type("shenem")
+        _ = session.type("keiy")
         waitUntilCurrent(session)
         XCTAssertFalse(corrections(session).isEmpty)
         _ = session.backspace()
         waitUntilCurrent(session)
-        XCTAssertEqual(session.raw, "shene")
+        XCTAssertEqual(session.raw, "kei")
         XCTAssertTrue(corrections(session, within: 0.4).isEmpty, "\(session.candidatePresentations.map(\.text))")
         session.reset()
 
         // Unfinished and correct spellings get none.
-        for typed in ["nihaom", "zhongg", "shenme", "nihao"] {
+        for typed in ["nihaom", "zhongg", "shenme", "nihao", "woxiangshuo"] {
             _ = session.type(typed)
             waitUntilCurrent(session)
             XCTAssertTrue(corrections(session, within: 0.5).isEmpty, typed)

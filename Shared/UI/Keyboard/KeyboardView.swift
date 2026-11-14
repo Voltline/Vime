@@ -41,7 +41,8 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         heightFactor = CGFloat(next.heightFactor)
         if followsInputLanguage, let previous, next.inputLanguage != previous.inputLanguage {
             switchSession(to: Self.session(for: next.inputLanguage))
-        } else if next.chineseInputEnabled != previous?.chineseInputEnabled {
+        } else if next.chineseInputEnabled != previous?.chineseInputEnabled
+                    || next.japaneseInputEnabled != previous?.japaneseInputEnabled {
             rebuildKeys() // The language key gains or loses its swipe-up switch.
         }
         settingsPanel?.showsInputLanguage = quickSwitchLanguage != nil
@@ -77,17 +78,19 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         settingsPanel?.update(hasFullAccess: hasFullAccess, neuralPaused: session.neuralModeSuspendedForMemoryPressure)
     }
     /// The language a swipe up on the language key switches to, or nil when
-    /// this keyboard has a fixed session, Chinese input is off, or there is no
-    /// Rime data. Then the key toggles Japanese and English only.
+    /// this keyboard has a fixed session, Chinese or Japanese input is off, or
+    /// there is no Rime data. Then the key toggles one language and English.
     var quickSwitchLanguage: KeyboardInputLanguage? {
-        guard followsInputLanguage, preferences.chineseInputEnabled, RimeEngine.bundledData != nil else { return nil }
+        guard followsInputLanguage, preferences.chineseInputEnabled, preferences.japaneseInputEnabled,
+              RimeEngine.bundledData != nil else { return nil }
         return session is ChineseInputSession ? .japanese : .chinese
     }
 
     /// Japanese ↔ Chinese without opening the app. The choice is stored, so the
     /// app's setting and the next keyboard show the same language.
     func switchInputLanguage(to language: KeyboardInputLanguage) {
-        guard followsInputLanguage, language != .english, language != .chinese || preferences.chineseInputEnabled else { return }
+        guard followsInputLanguage, language != .english, language != .chinese || preferences.chineseInputEnabled,
+              language != .japanese || preferences.japaneseInputEnabled else { return }
         preferences.inputLanguage = language
         reloadPreferences()
     }

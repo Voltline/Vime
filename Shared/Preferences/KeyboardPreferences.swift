@@ -27,7 +27,7 @@ struct KeyboardPreferences {
     }
     private static let sharedKeys = ["vime.sound", "vime.hapticLevel", "vime.hapticIntensity", "vime.nineKeyNumbers", "vime.kanaLayout",
         "vime.prolongedKey", "vime.previews", "vime.previewHold", "vime.theme", "vime.candidateRanking", "vime.phraseSuggestions", "vime.clipboardSuggestions", "vime.autoPairBrackets", "vime.autoCapitalize", "vime.doubleSpacePeriod", "vime.undoConversionOnBackspace", "vime.fullWidthSpace", "vime.liveConversion", "vime.textReplacements", "vime.englishCompletion", "vime.oneHanded", "vime.customSkinID", "vime.skinRevision", "vime.numberSymbols", "vime.inputLanguage",
-        "vime.chineseInputEnabled", "vime.pinyinLookupInJapanese", "vime.traditionalChinese", "vime.chineseLanguageModel",
+        "vime.chineseInputEnabled", "vime.japaneseInputEnabled", "vime.pinyinLookupInJapanese", "vime.traditionalChinese", "vime.chineseLanguageModel",
         "vime.fuzzyRetroflex", "vime.fuzzyNasal", "vime.fuzzyInitials"]
     var store: UserDefaults { defaults }
     struct Snapshot: Equatable {
@@ -59,6 +59,7 @@ struct KeyboardPreferences {
         let learningResetID: String?
         let inputLanguage: KeyboardInputLanguage
         let chineseInputEnabled: Bool
+        let japaneseInputEnabled: Bool
         let pinyinLookupInJapanese: Bool
         let traditionalChinese: Bool
         let chineseLanguageModel: Bool
@@ -76,7 +77,7 @@ struct KeyboardPreferences {
             neuralRetryID: neuralRetryID,
             learningResetID: [learningResetRequests.requestID, learningResetRequests.chinese.requestID]
                 .map { $0 ?? "" }.joined(separator: "|"),
-            inputLanguage: inputLanguage, chineseInputEnabled: chineseInputEnabled,
+            inputLanguage: inputLanguage, chineseInputEnabled: chineseInputEnabled, japaneseInputEnabled: japaneseInputEnabled,
             pinyinLookupInJapanese: pinyinLookupInJapanese, traditionalChinese: traditionalChinese,
             chineseLanguageModel: chineseLanguageModel, fuzzyPinyin: fuzzyPinyin)
     }
@@ -108,13 +109,15 @@ struct KeyboardPreferences {
         get { defaults.object(forKey: "vime.nineKeyNumbers") as? Bool ?? true }
         nonmutating set { defaults.set(newValue, forKey: "vime.nineKeyNumbers") }
     }
-    /// The keyboard's primary language. Chinese needs the bundled Rime data
-    /// and Chinese input turned on; while it is off, a stored Chinese reads
-    /// as Japanese and comes back when Chinese input is turned on again.
+    /// The keyboard's primary language, one of the input methods turned on.
+    /// Chinese also needs the bundled Rime data. A stored language that is
+    /// turned off reads as the other and comes back when it is turned on again.
     var inputLanguage: KeyboardInputLanguage {
         get {
             let stored = KeyboardInputLanguage(rawValue: defaults.string(forKey: "vime.inputLanguage") ?? "") ?? .japanese
-            return stored == .chinese && !chineseInputEnabled ? .japanese : stored
+            if stored == .chinese && !chineseInputEnabled { return .japanese }
+            if stored == .japanese && !japaneseInputEnabled { return .chinese }
+            return stored
         }
         nonmutating set { defaults.set(newValue.rawValue, forKey: "vime.inputLanguage") }
     }
@@ -123,6 +126,12 @@ struct KeyboardPreferences {
     var chineseInputEnabled: Bool {
         get { defaults.object(forKey: "vime.chineseInputEnabled") as? Bool ?? true }
         nonmutating set { defaults.set(newValue, forKey: "vime.chineseInputEnabled") }
+    }
+    /// Offers Japanese input, in the romaji or kana layout. It is off only
+    /// while Chinese input is on: one input method always stays.
+    var japaneseInputEnabled: Bool {
+        get { !chineseInputEnabled || (defaults.object(forKey: "vime.japaneseInputEnabled") as? Bool ?? true) }
+        nonmutating set { defaults.set(newValue, forKey: "vime.japaneseInputEnabled") }
     }
     /// Japanese mode: a kanji word's Mandarin pinyin, alone or mixed with
     /// romaji, also finds it. Part of Chinese input, so false while that is off.

@@ -1,9 +1,9 @@
 import Foundation
 
-/// Spellings one edit away from pinyin that Rime cannot read in full
-/// syllables, for typos across a syllable boundary (shenem for shenme,
-/// keiy for keyi, gongzo for gongzuo). Rime's speller corrects within a
-/// syllable only; these spellings are looked up separately.
+/// Spellings one edit away from what was typed, looked up separately for
+/// typos Rime's speller misses: across a syllable boundary (shenem for
+/// shenme, keiy for keyi, gongzo for gongzuo), and in two-letter syllables,
+/// which the speller leaves alone (maoai for maosi, wixiang for woxiang).
 nonisolated enum PinyinSpellingCorrection {
     /// Standard Mandarin syllables, as in Scripts/generate_pinyin_algebra.py.
     static let syllables: Set<String> = Set("""
@@ -27,32 +27,47 @@ nonisolated enum PinyinSpellingCorrection {
         zhua zhuai zhuan zhuang zhui zhun zhuo zi zong zou zu zuan zui zun zuo
         """.split(whereSeparator: \.isWhitespace).map(String.init))
     static let lengths = 4...14
+    /// Full syllables up to a four-character word; a longer reading is a
+    /// sentence, which seldom turns into one dictionary word with one edit.
+    static let wordSyllables = 4
     /// Letters most often left out: vowels and the n, g, h of finals and initials.
     static let insertions: [Character] = ["a", "e", "i", "o", "u", "h", "n", "g"]
 
-    /// Whether `input` reads as full syllables.
-    static func isFullSyllables(_ input: String) -> Bool {
+    /// The fewest syllables `input` reads as, or nil when it does not read
+    /// as full syllables.
+    static func syllableCount(_ input: String) -> Int? {
         let letters = Array(input)
-        var reachable = [true] + Array(repeating: false, count: letters.count)
+        var fewest: [Int?] = [0] + Array(repeating: nil, count: letters.count)
         for end in 1...max(1, letters.count) where end <= letters.count {
-            for start in max(0, end - 6)..<end where reachable[start] {
-                if syllables.contains(String(letters[start..<end])) { reachable[end] = true; break }
+            for start in max(0, end - 6)..<end {
+                guard let before = fewest[start], syllables.contains(String(letters[start..<end])) else { continue }
+                fewest[end] = min(fewest[end] ?? .max, before + 1)
             }
         }
-        return reachable[letters.count]
+        return fewest[letters.count]
     }
 
-    /// Whether to look for other spellings: plain letters that do not read
-    /// as full syllables, and Rime's best reading is no dictionary phrase.
+    /// Whether `input` reads as full syllables.
+    static func isFullSyllables(_ input: String) -> Bool { syllableCount(input) != nil }
+
+    /// Whether to look for other spellings of plain letters. Input that does
+    /// not read as full syllables, when Rime's best reading is no dictionary
+    /// phrase; full syllables of a word's length, when Rime only makes a
+    /// sentence of them (mao ai, with no word, may be maosi).
     static func wantsCorrection(_ input: String, top: RimeCandidate?) -> Bool {
-        guard lengths.contains(input.count), input.allSatisfy({ ("a"..."z").contains($0) }),
-              !isFullSyllables(input) else { return false }
+        guard lengths.contains(input.count), input.allSatisfy({ ("a"..."z").contains($0) }) else { return false }
+        if let count = syllableCount(input) {
+            guard count <= wordSyllables else { return false }
+            guard let top, top.coversInput else { return true }
+            return top.sentence
+        }
         guard let top, top.coversInput else { return true }
         return top.sentence || top.quality < 0.75
     }
 
     /// Full-syllable spellings one edit from `input`: two letters swapped,
-    /// then a letter dropped, then one added; at most `limit`.
+    /// then a letter replaced by a neighbouring key, then a letter dropped,
+    /// then one added; at most `limit`.
     static func spellings(for input: String, limit: Int = 24) -> [String] {
         let letters = Array(input)
         var found: [String] = []
@@ -68,6 +83,13 @@ nonisolated enum PinyinSpellingCorrection {
             add(swapped)
         }
         for index in letters.indices {
+            for neighbour in neighbours(of: letters[index]) {
+                var replaced = letters
+                replaced[index] = neighbour
+                add(replaced)
+            }
+        }
+        for index in letters.indices {
             var dropped = letters
             dropped.remove(at: index)
             add(dropped)
@@ -81,6 +103,23 @@ nonisolated enum PinyinSpellingCorrection {
         }
         return found
     }
+
+    /// Keys within a key and a quarter on QWERTY, nearest first, as the
+    /// Japanese keyboard's corrections measure them.
+    static func neighbours(of letter: Character) -> [Character] { neighbourTable[letter] ?? [] }
+
+    private static let neighbourTable: [Character: [Character]] = {
+        var positions: [Character: (x: Double, y: Double)] = [:]
+        for (row, keys, inset) in [(0, "qwertyuiop", 0.0), (1, "asdfghjkl", 0.5), (2, "zxcvbnm", 1.4)] {
+            for (column, key) in keys.enumerated() { positions[key] = (Double(column) + inset, Double(row)) }
+        }
+        return positions.mapValues { origin in
+            positions.compactMap { key, point -> (Character, Double)? in
+                let distance = hypot(point.x - origin.x, point.y - origin.y)
+                return distance > 0 && distance <= 1.25 ? (key, distance) : nil
+            }.sorted { $0.1 == $1.1 ? $0.0 < $1.0 : $0.1 < $1.1 }.map(\.0)
+        }
+    }()
 
     /// The phrase a spelling stands for: Rime's first candidate when it is one
     /// dictionary word of two characters or more covering the spelling.
