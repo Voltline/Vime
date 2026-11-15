@@ -1,0 +1,117 @@
+{
+  "format": "vime_ios_lm_zh_v1_kv_batch_v2",
+  "release_name": "vimeml-tiny-zh-v1",
+  "bundle_manifest_sha256": "9d9dad19c573c84c84e6a78060d1999a0a7e978c90a9bd78ca844da565a6ae74",
+  "tokenizer_sha256": "68bd37c45bcb018b32b2eef5b241561ab5b6dc1b77c1c3aadcc1b41c4bf47e5a",
+  "kv_batch_v2": {
+    "resource": "TinyChineseV1KVBatchV2INT8.mlmodelc",
+    "source_manifest_sha256": "33c90e2a82e78e0ee52e7471f1a61c7e7e7b8dc9bdf233cc363702d5bc8147de",
+    "compiled_files_sha256": {
+      "analytics/coremldata.bin": "cf0d19639fd7b1967581089abac3c53882e7581da89166cc5d5f668be44e4eea",
+      "coremldata.bin": "6c8aa9949f51fae330f1f7a6d56a2b2121737fd284a639debb68057fb5f61cbe",
+      "metadata.json": "96ef4413d19c87ef56f13218eb4089c7192d88090e5aff55dbb778efafc51658",
+      "model.mil": "93902c303b60cc01c572f73d63ccee8fb54b961d13b9843c837ac507bd7d1d28",
+      "weights/weight.bin": "7fa1b5c803017953dfcd56552e328b3d4a6ddecd30042b35f6ba8532bb49b822"
+    },
+    "interface": {
+      "input_ids": "int32 [B,T]",
+      "position": "int32 [B]; row cache length; position[b]+T <= 128",
+      "key_cache/value_cache": "float32 (9,B,6,S,64); S >= max(position), S >= 1; row b slots >= position[b] are ignored",
+      "allowed": "int32 [K], 1<=K<=1024; one id list shared by every row",
+      "logsumexp": "float32 [B]; over all 12,288 logits of the last new token",
+      "allowed_logits": "float32 [B,K]; log P = allowed_logits - logsumexp",
+      "new_key/new_value": "float32 (9,B,6,T,64); the caller writes them into slots position[b].. of row b"
+    },
+    "cache_shape": [
+      9,
+      "B",
+      6,
+      "S",
+      64
+    ],
+    "cache_slots": "S flexible 1..128 (RangeDim)",
+    "cache_dtype": "float32",
+    "batch_range": [
+      1,
+      16
+    ],
+    "batch": "flexible 1..16 (RangeDim)",
+    "rows": "independent; padding rows (token 0, position 0) do not affect others",
+    "prompt": "B=1, T=prompt length, position 0, S=1 (any junk)",
+    "alignment_tolerance": {
+      "atol": 0.0003,
+      "rtol": 0.0003
+    },
+    "alignment_reference": "stateless Core ML int8-b32_fp32_compute (ios18-int8-block32)",
+    "alignment_checks": [
+      {
+        "batch": 16,
+        "slots": "max(position)+1",
+        "calls": 30,
+        "rows": 221,
+        "max_abs": 2.956390380859375e-05,
+        "rows_outside_tolerance": 0,
+        "argmax_equal": 221,
+        "kind": "decode"
+      },
+      {
+        "batch": 1,
+        "slots": "max(position)+1",
+        "calls": 3,
+        "rows": 3,
+        "max_abs": 1.430511474609375e-05,
+        "rows_outside_tolerance": 0,
+        "argmax_equal": 3,
+        "kind": "decode"
+      },
+      {
+        "batch": 5,
+        "slots": 128,
+        "calls": 30,
+        "rows": 62,
+        "max_abs": 2.6702880859375e-05,
+        "rows_outside_tolerance": 0,
+        "argmax_equal": 62,
+        "kind": "decode"
+      },
+      {
+        "batch": 16,
+        "slots": "max(position)+1",
+        "calls": 30,
+        "rows": 221,
+        "max_abs": 2.86102294921875e-05,
+        "rows_outside_tolerance": 0,
+        "argmax_equal": 221,
+        "kind": "decode"
+      }
+    ],
+    "alignment_sha256": "0452df03e95f1df8087df49454dda1907ed0a7a30d0b5eee1970dbd992d419ff",
+    "search_check": {
+      "cases": 125,
+      "vs_fp32_fixture": {
+        "exact_order": 46,
+        "same_text_set": 86,
+        "top1_equal": 125,
+        "max_common_score_diff": 0.564725766754151
+      },
+      "mean_calls": 14.48,
+      "mean_rows": 231.68,
+      "mean_prefill_calls": 1,
+      "p50_ms": 79.38420798745938,
+      "p95_ms": 211.68245800072327,
+      "prompt": "package (one call)",
+      "vs_reference_batch": {
+        "exact_order": 125,
+        "same_text_set": 125,
+        "top1_equal": 125,
+        "max_common_score_diff": 3.291340544819832e-05
+      },
+      "reference_batch": "int8-flex"
+    },
+    "policy": "Caller owns all cache buffers; inputs are never modified. Write new_key/new_value into slot position[b] of row b yourself.",
+    "kind": "int8-b32_fp32_compute",
+    "compute_units": "CPU_ONLY",
+    "head": "scored",
+    "tokens": "flexible 1..128 (RangeDim)"
+  }
+}

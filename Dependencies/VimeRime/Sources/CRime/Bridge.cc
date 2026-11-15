@@ -445,3 +445,31 @@ void vime_rime_continuations_free(VimeRimeContinuations *continuations) {
     std::free(continuations->items);
     *continuations = {};
 }
+
+char *vime_rime_character_readings(const char *table) {
+    if (!table) return nullptr;
+    try {
+        rime::Table source{rime::path(table)};
+        if (!source.Load() || !source.metadata()) return nullptr;
+        std::string lines;
+        const int count = static_cast<int>(source.metadata()->num_syllables);
+        for (int id = 0; id < count; ++id) {
+            const std::string syllable = source.GetSyllableById(id);
+            for (rime::TableAccessor words = source.QueryWords(id); !words.exhausted(); words.Next()) {
+                const std::string text = source.GetEntryText(*words.entry());
+                // One UTF-8 scalar: a lead byte followed only by continuation bytes.
+                if (text.empty() || std::any_of(text.begin() + 1, text.end(),
+                        [](char c) { return (static_cast<unsigned char>(c) & 0xC0) != 0x80; })) continue;
+                lines += text;
+                lines += '\t';
+                lines += syllable;
+                lines += '\n';
+            }
+        }
+        return copy(lines.c_str());
+    } catch (...) {
+        return nullptr;
+    }
+}
+
+void vime_rime_string_free(char *text) { std::free(text); }
