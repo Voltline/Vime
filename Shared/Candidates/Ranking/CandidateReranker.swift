@@ -41,7 +41,7 @@ nonisolated enum CandidateCorrectionPolicy {
         for (index, value) in corrected.enumerated() where !known.contains(CandidateIdentity(value)) {
             result.insert(value, at: min(index, result.count))
         }
-        return result
+        return CandidatePrefixPolicy.ordered(result)
     }
     static let channelWeight = 3.6
     static let minimumQuality = -5.0
@@ -207,7 +207,43 @@ nonisolated struct CandidateReranker {
            let lead = ranked.firstIndex(where: { CandidatePredictionPolicy.mayLead($0) }) {
             ranked.insert(ranked.remove(at: lead), at: 0)
         }
-        return ranked
+        return CandidatePrefixPolicy.ordered(ranked)
+    }
+}
+
+/// A word the typed reading spells exactly (会社 for かいしゃ) always precedes
+/// every candidate whose reading extends it (会社員, 解釈): the input has not
+/// reached the longer reading yet, whatever its learning, model or engine
+/// evidence. The extension stays in the list, one tap away. Readings that only
+/// share a beginning (かいじょう) keep their scored order, and once the input
+/// passes the shorter word it no longer reads exactly, so the extension ranks
+/// freely. Every stage that reorders a published list ends here.
+nonisolated enum CandidatePrefixPolicy {
+    /// The complete conversion of what was typed, not a guess at more.
+    static func spellsInputExactly(_ value: CandidateSnapshot) -> Bool {
+        // A first-clause row carries its own scope reading; only a complete
+        // conversion (or a row of the user's explicit range) spells the input.
+        value.lexical && value.exactReading && value.scopeFullConsumption && (value.fullConsumption || value.explicitScope)
+            && value.correction == nil && value.widthVariant == nil && value.source != .scriptVariant
+    }
+
+    /// `longer` reads as `word` followed by more; spelling does not matter.
+    static func extends(_ longer: CandidateSnapshot, _ word: CandidateSnapshot) -> Bool {
+        !word.reading.isEmpty && longer.reading.count > word.reading.count && longer.reading.hasPrefix(word.reading)
+    }
+
+    /// Moves each exact word just ahead of the first extension listed before it.
+    /// Extensions read longer than the input, so they are never exact words
+    /// themselves; the relative order of everything else is unchanged.
+    static func ordered(_ values: [CandidateSnapshot]) -> [CandidateSnapshot] {
+        var result = values
+        for index in result.indices where spellsInputExactly(result[index]) {
+            let word = result[index]
+            if let first = result[..<index].firstIndex(where: { extends($0, word) }) {
+                result.insert(result.remove(at: index), at: first)
+            }
+        }
+        return result
     }
 }
 

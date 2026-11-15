@@ -407,7 +407,7 @@ nonisolated extension JapaneseCandidateEngine {
            index > CandidateCorrectionPolicy.correctionDisplayRank {
             ranked.insert(ranked.remove(at: index), at: CandidateCorrectionPolicy.correctionDisplayRank)
         }
-        return ranked
+        return CandidatePrefixPolicy.ordered(ranked)
     }
 
     /// Pinned classic Roman channels, not a word list. Bound the non-cancellable

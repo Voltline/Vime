@@ -194,6 +194,119 @@ final class KeyboardIntelligentCandidateTests: XCTestCase {
         XCTAssertTrue(CandidatePredictionPolicy.mayLead(snapshot(word, typed: "カレン", source: .prediction, rank: 0)))
     }
 
+    private func prefixSnapshot(_ surface: String, ruby: String, typed: String, source: CandidateSource = .conversion,
+                                rank: Int = 0, learned: Bool = false) -> CandidateSnapshot {
+        let c = Candidate(text: surface, value: -5, composingCount: .inputCount(typed.count), lastMid: MIDData.一般.mid,
+            data: [.init(word: surface, ruby: ruby, cid: CIDData.一般名詞.cid, mid: MIDData.一般.mid, value: -5,
+                         metadata: learned ? .isLearned : [])])
+        var value = CandidateSnapshot(candidate: c, revision: 1, source: source, remainingComposition: ComposingText(),
+            originalInputCount: typed.count, consumedInputCount: typed.count, queryReading: typed, engineRank: rank)
+        if learned {
+            value.userPreferenceScore = CandidatePreferenceMemory.Policy.maximumChoiceBonus
+            value.userPreferenceConfidence = 1
+        }
+        return value
+    }
+
+    /// No candidate precedes an exact word whose reading it extends.
+    private func assertNoExtensionPrecedesExactWord(_ values: [CandidateSnapshot], _ message: String,
+                                                    file: StaticString = #filePath, line: UInt = #line) {
+        for (index, word) in values.enumerated() where CandidatePrefixPolicy.spellsInputExactly(word) {
+            if let earlier = values[..<index].first(where: { CandidatePrefixPolicy.extends($0, word) }) {
+                XCTFail("\(message): \(earlier.text) precedes \(word.text) in \(values.map(\.text))", file: file, line: line)
+            }
+        }
+    }
+
+    func testExactWordLeadsAnyCandidateThatExtendsIt() throws {
+        let typed = "カイシャ"
+        let word = prefixSnapshot("会社", ruby: "カイシャ", typed: typed, rank: 4)
+        let homophone = prefixSnapshot("回社", ruby: "カイシャ", typed: typed, rank: 5)
+        let learnedPrediction = prefixSnapshot("会社員", ruby: "カイシャイン", typed: typed, source: .prediction, learned: true)
+        let remembered = prefixSnapshot("会社概要", ruby: "カイシャガイヨウ", typed: typed, source: .rememberedConversion,
+                                        rank: 1, learned: true)
+        XCTAssertTrue(CandidatePrefixPolicy.spellsInputExactly(word))
+        XCTAssertTrue(CandidatePrefixPolicy.extends(learnedPrediction, word))
+        // Containment is by reading: a different spelling still extends the word.
+        let interpretation = prefixSnapshot("解釈", ruby: "カイシャク", typed: typed, source: .prediction, learned: true)
+        XCTAssertTrue(CandidatePrefixPolicy.extends(interpretation, word))
+        XCTAssertEqual(CandidatePrefixPolicy.ordered([interpretation, homophone, word]).map(\.text), ["回社", "会社", "解釈"])
+        XCTAssertFalse(CandidatePrefixPolicy.spellsInputExactly(learnedPrediction))
+
+        // Learning and engine order would put the extension first; the word still leads.
+        let ranked = CandidateReranker().rank([learnedPrediction, remembered, word, homophone],
+                                              input: "kaisha", katakana: false, previous: nil)
+        let scores = Dictionary(ranked.map { ($0.text, $0.features.total) }, uniquingKeysWith: { a, _ in a })
+        XCTAssertGreaterThan(try XCTUnwrap(scores["会社員"]), try XCTUnwrap(scores["会社"]), "precondition: extension scores higher")
+        XCTAssertEqual(ranked.first?.text, "会社")
+        XCTAssertTrue(ranked.contains { $0.text == "会社員" }, "The extension stays selectable")
+        XCTAssertTrue(ranked.contains { $0.text == "会社概要" })
+        assertNoExtensionPrecedesExactWord(ranked, "reranker")
+
+        // The model may swap exact conversions among their slots; it cannot
+        // move the word behind its own extension.
+        let modelInput = [word, learnedPrediction, homophone]
+        let modelRanked = CandidateCompetitionPolicy.applying([-10, 0], slots: [0, 2], to: modelInput)
+        XCTAssertEqual(modelRanked.map(\.text), ["回社", "会社", "会社員"])
+        assertNoExtensionPrecedesExactWord(modelRanked, "model")
+
+        // Late correction results are merged into the visible order.
+        let inserted = CandidateCorrectionPolicy.inserting([learnedPrediction, word], into: [word, homophone])
+        XCTAssertEqual(inserted.first?.text, "会社")
+        assertNoExtensionPrecedesExactWord(inserted, "correction insertion")
+    }
+
+    func testSharedBeginningWithoutContainmentKeepsScoredOrder() {
+        let typed = "カイシャ"
+        let word = prefixSnapshot("会社", ruby: "カイシャ", typed: typed)
+        // Readings share カイ only: no containment.
+        let sea = prefixSnapshot("海上", ruby: "カイジョウ", typed: typed, source: .prediction, learned: true)
+        XCTAssertFalse(CandidatePrefixPolicy.extends(sea, word))
+        XCTAssertEqual(CandidatePrefixPolicy.ordered([sea, word]).map(\.text), ["海上", "会社"])
+        // Same spelling start, different reading: no containment either.
+        let raw = prefixSnapshot("生", ruby: "ナマ", typed: "ナマ")
+        let life = prefixSnapshot("生活", ruby: "セイカツ", typed: "ナマ", source: .prediction)
+        XCTAssertFalse(CandidatePrefixPolicy.extends(life, raw))
+        XCTAssertEqual(CandidatePrefixPolicy.ordered([life, raw]).map(\.text), ["生活", "生"])
+        // A non-lexical kana row is not a word the input spells.
+        let kana = prefixSnapshot("ありがと", ruby: "アリガト", typed: "アリガト", source: .scriptVariant)
+        let thanks = prefixSnapshot("ありがとう", ruby: "アリガトウ", typed: "アリガト", source: .prediction)
+        XCTAssertEqual(CandidatePrefixPolicy.ordered([thanks, kana]).map(\.text), ["ありがとう", "ありがと"])
+    }
+
+    func testExtensionMayLeadOnceInputPassesTheShorterWord() {
+        let typed = "カイシャイ"
+        let word = prefixSnapshot("会社", ruby: "カイシャ", typed: typed, rank: 1)
+        let employee = prefixSnapshot("会社員", ruby: "カイシャイン", typed: typed, source: .prediction, learned: true)
+        XCTAssertFalse(CandidatePrefixPolicy.spellsInputExactly(word))
+        let ranked = CandidateReranker().rank([word, employee], input: "kaishai", katakana: false, previous: nil)
+        XCTAssertEqual(ranked.first?.text, "会社員")
+        XCTAssertEqual(CandidatePrefixPolicy.ordered([employee, word]).map(\.text), ["会社員", "会社"])
+    }
+
+    func testLearnedLongerWordNeverLeadsTheExactInput() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let session = KeyboardSession(memoryDirectoryURL: directory)
+        for (input, extended) in [("kaishain", "会社員"), ("yo-roppajin", "ヨーロッパ人")] {
+            for _ in 0..<6 {
+                session.reset(); _ = session.type(input)
+                let index = try XCTUnwrap(session.candidates.firstIndex(of: extended), input)
+                XCTAssertEqual(session.choose(index), [.insert(extended)])
+            }
+        }
+        for (input, word, extended) in [("kaisha", "会社", "会社員"), ("yo-roppa", "ヨーロッパ", "ヨーロッパ人")] {
+            session.reset(); _ = session.type(input)
+            let values = session.candidateSnapshots
+            print("PREFIX_ORDER \(input) \(values.prefix(8).map(\.text))")
+            XCTAssertEqual(values.first?.text, word, input)
+            if let longer = values.firstIndex(where: { $0.text == extended }) {
+                XCTAssertGreaterThan(longer, try XCTUnwrap(values.firstIndex { $0.text == word }), input)
+            }
+            assertNoExtensionPrecedesExactWord(values, input)
+        }
+    }
+
     func testLearningConfirmationPersistenceAndClear() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         let session = KeyboardSession(memoryDirectoryURL: directory)

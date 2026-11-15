@@ -63,6 +63,6 @@ nonisolated enum CandidateCompetitionPolicy {
         }
         var result = values
         for (slot, item) in zip(sortedSlots, adjusted) { result[slot] = item.value }
-        return result
+        return CandidatePrefixPolicy.ordered(result)
     }
 }
