@@ -26,7 +26,9 @@ with `Scripts/build_rime_dicts.py` and compiles them into
 The generated data contains CC BY-SA 4.0 material and is distributed under
 CC BY-SA 4.0. Web spam from the Tencent word list (porn and gambling site
 names and the like), listed in `Scripts/rime_downweights.txt`, stays typeable
-at the lowest word frequency.
+at the lowest word frequency. Newer words, names and terms the sources lack
+(such as 原神 and 避坑) are collected for Vime in `Scripts/rime_words.txt`
+and rank at least as a fairly common word.
 
 | Source | Pin | License | Used for |
 | --- | --- | --- | --- |

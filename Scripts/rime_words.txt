@@ -1,0 +1,2363 @@
+# Newer words the frequency sources lack or rank too low, collected and reviewed
+# for Vime. Scripts/build_rime_dicts.py gives each at least NEW_WORD_FREQUENCY.
+# One word per line: the word, a tab, its toneless pinyin with spaces; a word
+# with two readings takes two lines. Keep each section to its own domain.
+
+## Internet slang and everyday expressions
+上麦	shang mai
+下播	xia bo
+下饭剧	xia fan ju
+丧系青年	sang xi qing nian
+乐子人	le zi ren
+云吸猫	yun xi mao
+互喷	hu pen
+人设崩了	ren she beng le
+人间清醒	ren jian qing xing
+价保	jia bao
+佛系青年	fo xi qing nian
+先码	xian ma
+典中典	dian zhong dian
+冲鸭	chong ya
+冷门宝藏	leng men bao zang
+准点下班	zhun dian xia ban
+出坑	chu keng
+删好友	shan hao you
+刷弹幕	shua dan mu
+刷楼	shua lou
+加班狗	jia ban gou
+占楼	zhan lou
+卷生卷死	juan sheng juan si
+双向奔赴	shuang xiang ben fu
+反内卷	fan nei juan
+反黑	fan hei
+发疯文学	fa feng wen xue
+发癫	fa dian
+呛声	qiang sheng
+哈基米	ha ji mi
+哦吼	o hou
+哭晕	ku yun
+哭死	ku si
+唱跳	chang tiao
+嗑糖	ke tang
+嗝屁了	ge pi le
+嘴替	zui ti
+坑货	keng huo
+塑料姐妹	su liao jie mei
+大小周	da xiao zhou
+天选	tian xuan
+天选打工人	tian xuan da gong ren
+头秃	tou tu
+女配	nv pei
+奶茶自由	nai cha zi you
+好哒	hao da
+好嘞	hao lei
+宕机	dang ji
+宝子	bao zi
+宝子们	bao zi men
+寒门贵子	han men gui zi
+对喷	dui pen
+尬住	ga zhu
+尴尬癌	gan ga ai
+崩了	beng le
+巨佬	ju lao
+已读不回	yi du bu hui
+带薪摸鱼	dai xin mo yu
+微短剧	wei duan ju
+怼人	dui ren
+恋综	lian zong
+恰饭	qia fan
+我裂开了	wo lie kai le
+手撕	shou si
+手气王	shou qi wang
+打工魂	da gong hun
+拼手气	pin shou qi
+搞事	gao shi
+搭子	da zi
+摸鱼人	mo yu ren
+撒花	sa hua
+整活儿	zheng huo er
+旅游搭子	lv you da zi
+早八人	zao ba ren
+时薪	shi xin
+显瘦	xian shou
+显眼包	xian yan bao
+晒猫	shai mao
+普信女	pu xin nv
+普信男	pu xin nan
+暴富	bao fu
+有点疯	you dian feng
+欧气	ou qi
+歪楼	wai lou
+死机	si ji
+毕业即失业	bi ye ji shi ye
+氛围组	fen wei zu
+水群	shui qun
+流量密码	liu liang mi ma
+渣女	zha nv
+烂剧	lan ju
+熬夜党	ao ye dang
+爽感	shuang gan
+狗头保命	gou tou bao ming
+狠狠安利	hen hen an li
+玩梗	wan geng
+甜妹	tian mei
+甜度超标	tian du chao biao
+甜酷	tian ku
+电子榨菜	dian zi zha cai
+白嫖党	bai piao dang
+白蹭	bai ceng
+码住	ma zhu
+社交货币	she jiao huo bi
+社恐人	she kong ren
+社牛	she niu
+神颜	shen yan
+离大谱	li da pu
+秒删	miao shan
+穿搭博主	chuan da bo zhu
+窥屏	kui ping
+笑不活了	xiao bu huo le
+笑哭	xiao ku
+笑麻了	xiao ma le
+精修	jing xiu
+精神内耗	jing shen nei hao
+续命水	xu ming shui
+绿茶女配	lv cha nv pei
+网抑	wang yi
+置顶	zhi ding
+老钱风	lao qian feng
+考研上岸	kao yan shang an
+肝游戏	gan you xi
+肝爆	gan bao
+胶片感	jiao pian gan
+脑洞	nao dong
+舔屏	tian ping
+茶言茶语	cha yan cha yu
+虐狗	nve gou
+补贴党	bu tie dang
+贴贴	tie tie
+踩坑	cai keng
+蹭蹭	ceng ceng
+蹲一个	dun yi ge
+蹲后续	dun hou xu
+躺平主义	tang ping zhu yi
+躺赚	tang zhuan
+运动搭子	yun dong da zi
+这波	zhe bo
+这波操作	zhe bo cao zuo
+逾期	yu qi
+避坑	bi keng
+酒搭子	jiu da zi
+酒蒙子	jiu meng zi
+锤爆	chui bao
+闭眼入	bi yan ru
+降维打击	jiang wei da ji
+雷点	lei dian
+霸总文学	ba zong wen xue
+颜狗	yan gou
+饭搭子	fan da zi
+
+## Daily life, work, study and society
+七天无理由	qi tian wu li you
+三孩	san hai
+不婚	bu hun
+个人养老金	ge ren yang lao jin
+亲子班	qin zi ban
+余票	yu piao
+保交楼	bao jiao lou
+债基	zhai ji
+公考	gong kao
+加强针	jia qiang zhen
+助贷	zhu dai
+包邮	bao you
+北交所	bei jiao suo
+单身经济	dan shen jing ji
+双减	shuang jian
+反向旅游	fan xiang lv you
+取件码	qu jian ma
+地铁卡	di tie ka
+大促	da cu
+奥赛	ao sai
+奶油风	nai you feng
+定投	ding tou
+打赏	da shang
+拼团	pin tuan
+换电	huan dian
+数字游民	shu zi you min
+数字藏品	shu zi cang pin
+整租	zheng zu
+春招	chun zhao
+机器人课	ji qi ren ke
+松弛感	song chi gan
+模考	mo kao
+止盈	zhi ying
+生育补贴	sheng yu bu tie
+省考	sheng kao
+短租	duan zu
+研学	yan xue
+硬装	ying zhuang
+私域	si yu
+秋招	qiu zhao
+线上课	xian shang ke
+绿码	lv ma
+编程课	bian cheng ke
+群面	qun mian
+考公	kao gong
+育儿假	yu er jia
+行测	xing ce
+调薪	tiao xin
+软装	ruan zhuang
+辅食	fu shi
+进面	jin mian
+重疾险	zhong ji xian
+长租公寓	chang zu gong yu
+门诊报销	men zhen bao xiao
+阳了	yang le
+降薪	jiang xin
+限行	xian xing
+限贷	xian dai
+陪考	pei kao
+零钱通	ling qian tong
+
+## Technology, AI, apps and devices
+三元锂	san yuan li
+两步验证	liang bu yan zheng
+二合一电脑	er he yi dian nao
+交流慢充	jiao liu man chong
+代码审查	dai ma shen cha
+低空经济	di kong jing ji
+候选词	hou xuan ci
+健身环	jian shen huan
+元宇宙	yuan yu zhou
+光储充	guang chu chong
+具身智能	ju shen zhi neng
+向量数据库	xiang liang shu ju ku
+图生图	tu sheng tu
+均热板	jun re ban
+大模型	da mo xing
+大语言模型	da yu yan mo xing
+天玑	tian ji
+头显	tou xian
+夸克网盘	kua ke wang pan
+密码管理器	mi ma guan li qi
+屏幕镜像	ping mu jing xiang
+已读	yi du
+开源模型	kai yuan mo xing
+弱网	ruo wang
+快充头	kuai chong tou
+快充桩	kuai chong zhuang
+思维链	si wei lian
+意图识别	yi tu shi bie
+护眼屏	hu yan ping
+拍照识字	pai zhao shi zi
+拼好饭	pin hao fan
+指纹支付	zhi wen zhi fu
+提示词	ti shi ci
+文字转语音	wen zi zhuan yu yin
+文生图	wen sheng tu
+文生视频	wen sheng shi pin
+无代码	wu dai ma
+星链	xing lian
+智算中心	zhi suan zhong xin
+智能体重秤	zhi neng ti zhong cheng
+智能修图	zhi neng xiu tu
+智能写作	zhi neng xie zuo
+智能水杯	zhi neng shui bei
+智能灯泡	zhi neng deng pao
+智能翻译	zhi neng fan yi
+智驾	zhi jia
+检索增强	jian suo zeng qiang
+模型蒸馏	mo xing zheng liu
+模糊音	mo hu yin
+氢能	qing neng
+液冷	ye leng
+混动	hun dong
+潜望镜头	qian wang jing tou
+灰度发布	hui du fa bu
+热更新	re geng xin
+生成式	sheng cheng shi
+电子墨水屏	dian zi mo shui ping
+电影模式	dian ying mo shi
+直屏	zhi ping
+眼动追踪	yan dong zhui zong
+端侧模型	duan ce mo xing
+简繁切换	jian fan qie huan
+米家	mi jia
+线上面试	xian shang mian shi
+绿电	lv dian
+联想词	lian xiang ci
+虚拟人	xu ni ren
+血氧	xue yang
+语义理解	yu yi li jie
+语音条	yu yin tiao
+语音转文字	yu yin zhuai wen zi
+语音输入法	yu yin shu ru fa
+输入法皮肤	shu ru fa pi fu
+钠离子电池	na li zi dian chi
+键鼠	jian shu
+长焦镜头	chang jiao jing tou
+阿里云盘	a li yun pan
+骁龙	xiao long
+
+## Brands, shops, cars and products
+一加	yi jia
+七分甜	qi fen tian
+万和	wan he
+东方树叶	dong fang shu ye
+中创新航	zhong chuang xin hang
+丸美	wan mei
+乐乐茶	le le cha
+乐虎	le hu
+九阳	jiu yang
+云鲸	yun jing
+伊藤园	yi teng yuan
+优乐美	you le mei
+传祺	chuan qi
+便宜坊	pian yi fang
+修丽可	xiu li ke
+借呗	jie bei
+农心	nong xin
+劲仔	jin zai
+劲酒	jin jiu
+北鼎	bei ding
+十月稻田	shi yue dao tian
+华帝	hua di
+博越	bo yue
+卫龙	wei long
+厨邦	chu bang
+古井贡	gu jing gong
+古茗	gu ming
+合创	he chuang
+同程	tong cheng
+君乐宝	jun le bao
+和府捞面	he fu lao mian
+哈弗	ha fu
+喜士多	xi shi duo
+喜茶	xi cha
+嘉际	jia ji
+回力	hui li
+国窖	guo jiao
+国轩	guo xuan
+埃安	ai an
+塔斯汀	ta si ting
+大娘水饺	da niang shui jiao
+大疆	da jiang
+天猫	tian mao
+太二酸菜鱼	tai er suan cai yu
+太平洋咖啡	tai ping yang ka fei
+奈雪	nai xue
+好想来	hao xiang lai
+威猛先生	wei meng xian sheng
+宝骏	bao jun
+尊界	zun jie
+小杨生煎	xiao yang sheng jian
+小狗电器	xiao gou dian qi
+小猿搜题	xiao yuan sou ti
+小米汽车	xiao mi qi che
+小糊涂仙	xiao hu tu xian
+岚图	lan tu
+巴奴	ba nu
+巴比馒头	ba bi man tou
+帝豪	di hao
+幸运咖	xing yun ka
+广汽	guang qi
+庆丰包子	qing feng bao zi
+库迪咖啡	ku di ka fei
+影石	ying shi
+得物	de wu
+快乐柠檬	kuai le ning meng
+怡宝	yi bao
+戴森	dai sen
+挞柠	ta ning
+捞王	lao wang
+掌阅	zhang yue
+摩飞	mo fei
+文心一言	wen xin yi yan
+方太	fang tai
+方程豹	fang cheng bao
+旺仔	wang zai
+星越	xing yue
+春水堂	chun shui tang
+智界	zhi jie
+智谱	zhi pu
+智谱清言	zhi pu qing yan
+月之暗面	yue zhi an mian
+朗逸	lang yi
+极氪	ji ke
+极狐	ji hu
+柠季	ning ji
+森马	sen ma
+歌尔	ge er
+永和大王	yong he da wang
+汰渍	tai zi
+沪上阿姨	hu shang a yi
+泸溪河	lu xi he
+洽洽	qia qia
+润百颜	run bai yan
+深度求索	shen du qiu suo
+添可	tian ke
+溜溜梅	liu liu mei
+滴答清单	di da qing dan
+滴露	di lu
+特步	te bu
+王致和	wang zhi he
+王饱饱	wang bao bao
+瑞虎	rui hu
+甜啦啦	tian la la
+番茄小说	fan qie xiao shuo
+百词斩	bai ci zhan
+盒马	he ma
+眉州东坡	mei zhou dong po
+红米	hong mi
+纯甄	chun zhen
+绿茶餐厅	lv cha can ting
+罗森	luo sen
+罗蒙	luo meng
+美团	mei tuan
+美年达	mei nian da
+腾势	teng shi
+腾讯元宝	teng xun yuan bao
+艾瑞泽	ai rui ze
+苏泊尔	su bo er
+茶理宜世	cha li yi shi
+荣放	rong fang
+萝卜快跑	luo bo kuai pao
+萨莉亚	sa li ya
+蓝思	lan si
+蔚来	wei lai
+蔻驰	kou chi
+蕉内	jiao nei
+薇姿	wei zi
+薇诺娜	wei nuo na
+蜜雪	mi xue
+西凤	xi feng
+西贝	xi bei
+讯飞	xun fei
+讯飞星火	xun fei xing huo
+象印	xiang yin
+赫莲娜	he lian na
+达美乐	da mei le
+迈腾	mai teng
+迪奥	di ao
+追觅	zhui mi
+途昂	tu ang
+途观	tu guan
+通义	tong yi
+通义千问	tong yi qian wen
+郎酒	lang jiu
+金典	jin dian
+闪送	shan song
+问界	wen jie
+闲鱼	xian yu
+阶跃星辰	jie yue xing chen
+阿维塔	a wei ta
+阿香米线	a xiang mi xian
+雅鹿	ya lu
+雕牌	diao pai
+零一万物	ling yi wan wu
+零跑	ling pao
+霸王茶姬	ba wang cha ji
+韩束	han shu
+领克	ling ke
+飞猪	fei zhu
+高德	gao de
+魏牌	wei pai
+
+## Food, drink, beauty, fashion, sport and pets
+七分糖	qi fen tang
+三分甜	san fen tian
+仙草冻	xian cao dong
+值机	zhi ji
+全红婵	quan hong chan
+养宠	yang chong
+冬阴功	dong yin gong
+冰粉	bing fen
+冷萃	leng cui
+冻干咖啡	dong gan ka fei
+减脂	jian zhi
+刷具	shua ju
+刷酸	shua suan
+动物奶油	dong wu nai you
+千层酥	qian ceng su
+厚乳拿铁	hou ru na tie
+发膜	fa mo
+国潮	guo chao
+城市漫步	cheng shi man bu
+增肌	zeng ji
+备菜	bei cai
+多巴胺穿搭	duo ba an chuan da
+大阪烧	da ban shao
+奶盖	nai gai
+姜撞奶	jiang zhuang nai
+定妆	ding zhuang
+宠物寄养	chong wu ji yang
+导入仪	dao ru yi
+少冰	shao bing
+干皮	gan pi
+平替	ping ti
+幼猫	you mao
+底妆	di zhuang
+张雨霏	zhang yu fei
+戚风	qi feng
+挂糊	gua hu
+挂耳咖啡	gua er ka fei
+接睫毛	jie jie mao
+撞色	zhuang se
+收汁	shou zhi
+改良汉服	gai liang han fu
+无糖茶	wu tang cha
+显高	xian gao
+杨倩	yang qian
+林诗栋	lin shi dong
+核心训练	he xin xun lian
+桂花乌龙	gui hua wu long
+桂花酒酿	gui hua jiu niang
+橘猫	ju mao
+水乳	shui ru
+泪沟	lei gou
+流沙包	liu sha bao
+港风	gang feng
+滑炒	hua chao
+澳瑞白	ao rui bai
+煎饺	jian jiao
+燕麦奶	yan mai nai
+特种兵旅游	te zhong bing lv you
+狗绳	gou sheng
+猫抓板	mao zhua ban
+猫条	mao tiao
+猫爬架	mao pa jia
+生椰拿铁	sheng ye na tie
+电解质水	dian jie zhi shui
+磨豆机	mo dou ji
+空瓶记	kong ping ji
+糖芋苗	tang yu miao
+老火汤	lao huo tang
+胸包	xiong bao
+腰旋	yao xuan
+芋圆	yu yuan
+芒果冰	mang guo bing
+芒果糯米饭	mang guo nuo mi fan
+芝士奶茶	zhi shi nai cha
+茉莉绿茶	mo li lv cha
+荔枝红茶	li zhi hong cha
+萌宠	meng chong
+蒜蓉粉丝	suan rong fen si
+蛋挞	dan ta
+蜂蜜柚子	feng mi you zi
+裱花	biao hua
+视黄醇	shi huang chun
+谷物碗	gu wu wan
+贝果	bei guo
+费南雪	fei nan xue
+越南粉	yue nan fen
+轻乳酪	qing ru lao
+轻奢	qing she
+轻食	qing shi
+辣妹风	la mei feng
+遮瑕	zhe xia
+郑钦文	zheng qin wen
+酸奶碗	suan nai wan
+酸面包	suan mian bao
+锡纸烧	xi zhi shao
+间歇性断食	jian xie xing duan shi
+陈梦	chen meng
+陈芋汐	chen yu xi
+韩式刘海	han shi liu hai
+韩式炸鸡	han shi zha ji
+韩系	han xi
+预制菜	yu zhi cai
+馥芮白	fu rui bai
+鸭锁骨	ya suo gu
+
+## Film, TV, anime, books, celebrities and fandom
+一键三连	yi jian san lian
+三笠	san li
+上单	shang dan
+下路	xia lu
+中单	zhong dan
+乔巴	qiao ba
+乔杉	qiao shan
+乙骨忧太	yi gu you tai
+二创	er chuang
+二刺螈	er ci yuan
+产屋敷	chan wu fu
+伊之助	yi zhi zhu
+伏黑惠	fu hei hui
+何广智	he guang zhi
+作精	zuo jing
+你好李焕英	ni hao li huan ying
+全成就	quan cheng jiu
+八佰	ba bai
+凉宫春日	liang gong chun ri
+刷图	shua tu
+刷金	shua jin
+卡比兽	ka bi shou
+卷王	juan wang
+双人成行	shuang ren cheng hang
+双排	shuang pai
+只狼	zhi lang
+合成大西瓜	he cheng da xi gua
+周深	zhou shen
+唐朝诡事录	tang chao gui shi lu
+啊这	a zhe
+善逸	shan yi
+四排	si pai
+团本	tuan ben
+团综	tuan zong
+国创	guo chuang
+坑王	keng wang
+塌房	ta fang
+填坑	tian keng
+墨雨云间	mo yu yun jian
+大招	da zhao
+天书奇谭	tian shu qi tan
+女频	nv pin
+如果云知道	ru guo yun zhi dao
+娜美	na mei
+孤独摇滚	gu du yao gun
+宅斗	zhai dou
+宋茜	song xi
+宫斗	gong dou
+宿傩	su nuo
+小怪	xiao guai
+小门神	xiao men shen
+山治	shan zhi
+崩人设	beng ren she
+带飞	dai fei
+开坑	kai keng
+开麦	kai mai
+张凌赫	zhang ling he
+影山飞雄	ying shan fei xiong
+徐志胜	xu zhi sheng
+御宅	yu zhai
+悬崖之上	xuan ya zhi shang
+成盒	cheng he
+我推的孩子	wo tui de hai zi
+战令	zhan ling
+战狼	zhan lang
+打本	da ben
+打榜	da bang
+扫黑风暴	sao hei feng bao
+抽卡	chou ka
+掉帧	diao zhen
+攻壳机动队	gong ke ji dong dui
+斗图	dou tu
+断更	duan geng
+新神榜	xin shen bang
+无惨	wu can
+无氪	wu ke
+无畏契约	wu wei qi yue
+日向翔阳	ri xiang xiang yang
+日更	ri geng
+时光代理人	shi guang dai li ren
+星际牛仔	xing ji niu zai
+暗金	an jin
+李诞	li dan
+杨幂	yang mi
+杨洋	yang yang
+杨紫	yang zi
+杰尼龟	jie ni gui
+梗图	geng tu
+梦华录	meng hua lu
+橙装	cheng zhuang
+欧皇	ou huang
+氪佬	ke lao
+永远的神	yong yuan de shen
+汪苏泷	wang su long
+沈腾	shen teng
+消消乐	xiao xiao le
+清平乐	qing ping yue
+满配	man pei
+漫威	man wei
+漫长的季节	man chang de ji jie
+爽文	shuang wen
+狂野飙车	kuang ye biao che
+王源	wang yuan
+甜宠	tian chong
+男频	nan pin
+番外	fan wai
+病娇	bing jiao
+痛吧	tong ba
+白切黑	bai qie hei
+白鹿	bai lu
+真香	zhen xiang
+破圈	po quan
+磕糖	ke tang
+社死	she si
+神界原罪	shen jie yuan zui
+神装	shen zhuang
+福音战士	fu yin zhan shi
+空洞骑士	kong dong qi shi
+穿书	chuan shu
+立绘	li hui
+站姐	zhan jie
+端游	duan you
+精致穷	jing zhi qiong
+索隆	suo long
+紫装	zi zhuang
+绝绝子	jue jue zi
+老番	lao fan
+肖战	xiao zhan
+肝帝	gan di
+脸黑	lian hei
+艾伦	ai lun
+艾尔登法环	ai er deng fa huan
+艾斯	ai si
+茶杯头	cha bei tou
+药屋少女	yao wu shao nv
+葬送的芙莉莲	zang song de fu li lian
+蓝色监狱	lan se jian yu
+薄樱鬼	bo ying gui
+薇娅	wei ya
+虎杖悠仁	hu zhang you ren
+虐文	nve wen
+蚌埠住了	beng bu zhu le
+血源诅咒	xue yuan zu zhou
+西虹市首富	xi hong shi shou fu
+觉醒年代	jue xing nian dai
+读档	du dang
+贾玲	jia ling
+赛马娘	sai ma niang
+走位	zou wei
+超梦	chao meng
+跑毒	pao du
+路飞	lu fei
+蹲草	dun cao
+辛巴	xin ba
+追更	zhui geng
+速刷	su shua
+银魂	yin hun
+镇魂	zhen hun
+长佩	chang pei
+长安三万里	chang an san wan li
+长津湖	chang jin hu
+长风渡	chang feng du
+间谍过家家	jian die guo jia jia
+陈赫	chen he
+隐藏关	yin cang guan
+雄狮少年	xiong shi shao nian
+零氪	ling ke
+静香	jing xiang
+非酋	fei qiu
+页游	ye you
+首充	shou chong
+马丽	ma li
+鬼灭	gui mie
+鬼畜	gui chu
+鹿晗	lu han
+黑神话悟空	hei shen hua wu kong
+
+## Games: Genshin Impact, Honkai: Star Rail, Zenless Zone Zero, Honkai Impact 3rd
+七天神像	qi tian shen xiang
+七神	qi shen
+三月七	san yue qi
+不歪	bu wai
+不氪	bu ke
+世界任务	shi jie ren wu
+丘丘人	qiu qiu ren
+丘丘萨满	qiu qiu sa man
+丝柯克	si ke ke
+丰饶孽物	feng rao nie wu
+丹恒	dan heng
+丹鼎司	dan ding si
+主词条	zhu ci tiao
+丽塔	li ta
+丽莎	li sha
+久岐忍	jiu qi ren
+九条裟罗	jiu tiao sha luo
+云堇	yun jin
+云岿	yun kui
+云璃	yun li
+云骑军	yun qi jun
+五郎	wu lang
+仙舟	xian zhou
+仙舟罗浮	xian zhou luo fu
+仙舟联盟	xian zhou lian meng
+伊涅芙	yi nie fu
+传说任务	chuan shuo ren wu
+传送锚点	chuan song mao dian
+侵蚀隧洞	qin shi sui dong
+信用点	xin yong dian
+元素充能	yuan su chong neng
+元素充能效率	yuan su chong neng xiao lv
+元素反应	yuan su fan ying
+元素战技	yuan su zhan ji
+元素爆发	yuan su bao fa
+元素精通	yuan su jing tong
+元素视野	yuan su shi ye
+光锥	guang zhui
+光锥词条	guang zhui ci tiao
+克洛琳德	ke luo lin de
+八酝岛	ba yun dao
+八重樱	ba chong ying
+八重神子	ba chong shen zi
+共鸣回路	gong ming hui lu
+冒险家协会	mao xian jia xie hui
+冒险等阶	mao xian deng jie
+冰神	bing shen
+净善宫	jing shan gong
+凝光	ning guang
+凝滞虚影	ning zhi xu ying
+凯亚	kai ya
+出红	chu hong
+创世结晶	chuang shi jie jing
+刻晴	ke qing
+剧诗	ju shi
+副词条	fu ci tiao
+勘定奉行	kan ding feng xing
+匹诺康尼	pi nuo kang ni
+千岩军	qian yan jun
+千星奇域	qian xing qi yu
+千织	qian zhi
+博识尊	bo shi zun
+卡维	ka wei
+卡芙卡	ka fu ka
+卡莲	ka lian
+历战余响	li zhan yu xiang
+原石	yuan shi
+原神	yuan shen
+原粹树脂	yuan cui shu zhi
+反物质军团	fan wu zhi jun tuan
+可莉	ke li
+同谐	tong xie
+周本	zhou ben
+命之座	ming zhi zuo
+命座	ming zuo
+命破	ming po
+嘉明	jia ming
+圣遗物套装	sheng yi wu tao zhuang
+圣遗物词条	sheng yi wu ci tiao
+地脉花	di mai hua
+坎蒂丝	kan di si
+垫抽	dian chou
+基尼奇	ji ni qi
+塔利雅	ta li ya
+塞西莉亚花园	sai xi li ya hua yuan
+声骸	sheng hai
+夏沃蕾	xia wo lei
+夏洛蒂	xia luo di
+多莉	duo li
+夜兰	ye lan
+大丽花	da li hua
+大保底	da bao di
+大月卡	da yue ka
+天地之律者	tian di zhi lv zhe
+天权星	tian quan xing
+天玑星	tian ji xing
+天璇星	tian xuan xing
+天衡山	tian heng shan
+天赋书	tian fu shu
+天赋材料	tian fu cai liao
+天领奉行	tian ling feng xing
+太卜司	tai bo si
+失落迷迭	shi luo mi die
+奥赫玛	ao he ma
+妮露	ni lu
+姬子	ji zi
+娜维娅	na wei ya
+存护	cun hu
+守岸人	shou an ren
+安柏	an bai
+安柏	an bo
+安比	an bi
+宵宫	xiao gong
+小保底	xiao bao di
+小月卡	xiao yue ka
+尘歌壶	chen ge hu
+层岩巨渊	ceng yan ju yuan
+岩神	yan shen
+崩坏星穹铁道	beng huai xing qiong tie dao
+崩坏能	beng huai neng
+巡猎	xun lie
+工造司	gong zao si
+差分宇宙	cha fen yu zhou
+巴巴托斯	ba ba tuo si
+布洛妮娅	bu luo ni ya
+希儿	xi er
+希格雯	xi ge wen
+常驻池	chang zhu chi
+常驻祈愿	chang zhu qi yuan
+幻想真境剧诗	huan xiang zhen jing ju shi
+幽兰黛尔	you lan dai er
+幽境	you jing
+幽境危战	you jing wei zhan
+应急食料	ying ji shi liao
+应星	ying xing
+开拓力	kai tuo li
+开阳星	kai yang xing
+强袭	qiang xi
+归离原	gui li yuan
+录像店	lu xiang dian
+彦卿	yan qing
+律者	lv zhe
+德丽莎	de li sha
+忘却之庭	wang que zhi ting
+恰斯卡	qia si ka
+愚人众	yu ren zhong
+托帕	tuo pa
+抽数	chou shu
+拟造花萼	ni zao hua e
+持明族	chi ming zu
+提瓦特	ti wa te
+提纳里	ti na li
+摇光星	yao guang xing
+摩拉	mo la
+摩拉克斯	mo la ke si
+教令院	jiao ling yuan
+新手祈愿	xin shou qi yuan
+新艾利都	xin ai li du
+无妄	wu wang
+无妄者	wu wang zhe
+早柚	zao you
+时之沙	shi zhi sha
+星核	xing he
+星核猎手	xing he lie shou
+星槎海	xing cha hai
+星琼	xing qiong
+星神	xing shen
+星穹	xing qiong
+星穹列车	xing qiong lie che
+星穹铁道	xing qiong tie dao
+星见雅	xing jian ya
+星轨专票	xing gui zhuan piao
+星轨通票	xing gui tong piao
+星铁	xing tie
+星际和平公司	xing ji he ping gong si
+星魂	xing hun
+景元	jing yuan
+暴击率	bao ji lv
+最高审判官	zui gao shen pan guan
+望舒客栈	wang shu ke zhan
+朱鸢	zhu yuan
+杰帕德	jie pa de
+林尼	lin ni
+枫丹	feng dan
+枫丹廷	feng dan ting
+枫原万叶	feng yuan wan ye
+柯莱	ke lai
+桑博	sang bo
+椒丘	jiao qiu
+模拟宇宙	mo ni yu zhou
+欧洛伦	ou luo lun
+武器池	wu qi chi
+武器活动祈愿	wu qi huo dong qi yuan
+死之羽	si zhi yu
+沉玉谷	chen yu gu
+派蒙	pai meng
+浓缩树脂	nong suo shu zhi
+海灯节	hai deng jie
+深境螺旋	shen jing luo xuan
+深渊使徒	shen yuan shi tu
+深渊法师	shen yuan fa shi
+混沌回忆	hun dun hui yi
+清泉镇	qing quan zhen
+渊下宫	yuan xia gong
+温迪	wen di
+满命	man ming
+满星	man xing
+满破	man po
+满突	man tu
+灵砂	ling sha
+烈绽放	lie zhan fang
+烟绯	yan fei
+爱可菲	ai ke fei
+爱莉希雅	ai li xi ya
+狡兔屋	jiao tu wu
+猫宫又奈	mao gong you nai
+玉京台	yu jing tai
+玉衡星	yu heng xing
+玛拉妮	ma la ni
+玛薇卡	ma wei ka
+玲可	ling ke
+珂莱塔	ke lai ta
+珂蕾妲	ke lei da
+珊瑚宫	shan hu gong
+珊瑚宫心海	shan hu gong xin hai
+珐露珊	fa lu shan
+理之冠	li zhi guan
+琪亚娜	qi ya na
+瑶光海	yao guang hai
+璃月	li yue
+璃月七星	li yue qi xing
+璃月港	li yue gang
+瓦雷莎	wa lei sha
+甘雨	gan yu
+生之花	sheng zhi hua
+申鹤	shen he
+白祇重工	bai qi zhong gong
+真理医生	zhen li yi sheng
+眼狩令	yan shou ling
+砂金	sha jin
+社奉行	she feng xing
+神之律者	shen zhi lv zhe
+神之心	shen zhi xin
+神之眼	shen zhi yan
+神无冢	shen wu zhong
+神樱大祓	shen ying da fu
+神里	shen li
+神里屋敷	shen li wu fu
+神里绫人	shen li ling ren
+神里绫华	shen li ling hua
+神铸赋形	shen zhu fu xing
+秘境	mi jing
+稻妻	dao qi
+稻妻城	dao qi cheng
+空之杯	kong zhi bei
+突破材料	tu po cai liao
+符华	fu hua
+符玄	fu xuan
+米卡	mi ka
+精二	jing er
+精锻	jing duan
+素裳	su shang
+纠缠之缘	jiu chan zhi yuan
+纳塔	na ta
+纳西妲	na xi da
+绝云间	jue yun jian
+绝区零	jue qu ling
+绫人	ling ren
+绮良良	qi liang liang
+绳匠	sheng jiang
+维多利亚家政	wei duo li ya jia zheng
+罗浮	luo fu
+罗莎莉亚	luo sha li ya
+翁法罗斯	weng fa luo si
+脆弱树脂	cui ruo shu zhi
+至冬	zhi dong
+至冬国	zhi dong guo
+艾丝妲	ai si da
+艾尔海森	ai er hai sen
+艾梅莉埃	ai mei li ai
+艾莲	ai lian
+芙宁娜	fu ning na
+草原核	cao yuan he
+草神	cao shen
+荒泷一斗	huang long yi dou
+莫娜	mo na
+莱依拉	lai yi la
+莱卡恩	lai ka en
+莱欧斯利	lai ou si li
+菲比	fei bi
+菲米尼	fei mi ni
+菲谢尔	fei xie er
+蒙德城	meng de cheng
+薪炎之律者	xin yan zhi lv zhe
+虚构叙事	xu gou xu shi
+螺丝咕姆	luo si gu mu
+行秋	xing qiu
+西格莉卡	xi ge li ka
+西风大教堂	xi feng da jiao tang
+西风骑士团	xi feng qi shi tuan
+角色池	jue se chi
+角色活动祈愿	jue se huo dong qi yuan
+诺艾尔	nuo ai er
+贝洛伯格	bei luo bo ge
+赛诺	sai nuo
+超绽放	chao zhan fang
+辛焱	xin yan
+达达利亚	da da li ya
+迪卢克	di lu ke
+迪奥娜	di ao na
+迪娜泽黛	di na ze dai
+迪希雅	di xi ya
+逐火之蛾	zhu huo zhi e
+遗器	yi qi
+遗器词条	yi qi ci tiao
+邀约任务	yao yue ren wu
+那维莱特	na wei lai te
+邦布	bang bu
+邪兽	xie shou
+配队	pei dui
+重云	chong yun
+金人巷	jin ren xiang
+金苹果群岛	jin ping guo qun dao
+银枝	yin zhi
+银狼	yin lang
+镜流	jing liu
+长乐天	chang le tian
+长离	chang li
+阮梅	ruan mei
+阿蕾奇诺	a lei qi nuo
+阿贝多	a bei duo
+限定池	xian ding chi
+限定祈愿	xian ding qi yuan
+雅利洛	ya li luo
+零号空洞	ling hao kong dong
+零命	ling ming
+雷泽	lei ze
+雷电将军	lei dian jiang jun
+雷电芽衣	lei dian ya yi
+音擎	yin qing
+须弥城	xu mi cheng
+须臾树脂	xu yu shu zhi
+风龙废墟	feng long fei xu
+饮月	yin yue
+饮月之乱	yin yue zhi luan
+饰品提取	shi pin ti qu
+香菱	xiang ling
+驭空	yu kong
+魔矿	mo kuang
+鳞渊境	lin yuan jing
+鸣神岛	ming shen dao
+鹤观	he guan
+鹿野院平藏	lu ye yuan ping zang
+黄金裔	huang jin yi
+黑塔	hei ta
+黑塔空间站	hei ta kong jian zhan
+龙脊雪山	long ji xue shan
+
+## Games: Wuthering Waves
+丹瑾	dan jin
+今汐	jin xi
+共鸣者	gong ming zhe
+共鸣链	gong ming lian
+凌阳	ling yang
+卡卡罗	ka ka luo
+卡提希娅	ka ti xi ya
+原素兽	yuan su shou
+吟霖	yin lin
+嘉贝莉娜	jia bei li na
+坎特蕾拉	kan te lei la
+夏空	xia kong
+大毫	da hao
+尤诺	you nuo
+弗洛洛	fu luo luo
+忌炎	ji yan
+散华	san hua
+桃祈	tao qi
+残象	can xiang
+漂泊者	piao bo zhe
+相里要	xiang li yao
+秧秧	yang yang
+维里奈	wei li nai
+莫特斐	mo te fei
+费斯曼	fei si man
+赞妮	zan ni
+露帕	lu pa
+鸣潮	ming chao
+
+## Games: Honor of Kings, League of Legends, Teamfight Tactics, Dota 2
+一费	yi fei
+三杀	san sha
+三相之力	san xiang zhi li
+三费	san fei
+上古巨神	shang gu ju shen
+不朽守护	bu xiu shou hu
+不朽尸王	bu xiu shi wang
+不朽盾弓	bu xiu dun gong
+不祥之刃	bu xiang zhi ren
+中娅沙漏	zhong ya sha lou
+乐芙兰	le fu lan
+二星	er xing
+二费	er fei
+云缨	yun ying
+五杀	wu sha
+五费	wu fei
+亚巴顿	ya ba dun
+亚托克斯	ya tuo ke si
+亚索	ya suo
+亚连	ya lian
+亡者的板甲	wang zhe de ban jia
+以太之镜	yi tai zhi jing
+伐木机	fa mu ji
+伽罗	jia luo
+佛耶戈	fo ye ge
+倔强青铜	jue jiang qing tong
+偷塔	tou ta
+元歌	yuan ge
+元流之子	yuan liu zhi zi
+元素龙	yuan su long
+光辉女郎	guang hui nv lang
+兵线	bing xian
+典韦	dian wei
+冥魂大帝	ming hun da di
+冰晶凤凰	bing jing feng huang
+冰杖	bing zhang
+冰霜之心	bing shuang zhi xin
+冰霜之拳	bing shuang zhi quan
+净化之瓶	jing hua zhi ping
+凯南	kai nan
+出装	chu zhuang
+击飞	ji fei
+刀塔	dao ta
+刀锋之影	dao feng zhi ying
+刷新球	shua xin qiu
+剑姬	jian ji
+剧毒术士	ju du shu shi
+努努	nu nu
+千珏	qian jue
+升人口	sheng ren kou
+升段	sheng duan
+半人马战行者	ban ren ma zhan xing zhe
+卓尔游侠	zhuo er you xia
+卡利斯塔	ka li si ta
+卡牌大师	ka pai da shi
+卡特琳娜	ka te lin na
+卡莎	ka sha
+卢登的回声	lu deng de hui sheng
+厄运小姐	e yun xiao jie
+双杀	shuang sha
+双爆	shuang bao
+反打	fan da
+反曲之弓	fan qu zhi gong
+发条技师	fa tiao ji shi
+发条魔灵	fa tiao mo ling
+合成装备	he cheng zhuang bei
+名刀	ming dao
+嘉文四世	jia wen si shi
+噬魂鬼	shi hun gui
+四杀	si sha
+四费	si fei
+回城符	hui cheng fu
+回蓝	hui lan
+回音战刃	hui yin zhan ren
+圣剑	sheng jian
+圣堂刺客	sheng tang ci ke
+圣洁之光	sheng jie zhi guang
+地穴之王	di xue zhi wang
+塔姆	ta mu
+备战席	bei zhan xi
+复仇之魂	fu chou zhi hun
+多兰之剑	duo lan zhi jian
+夜之锋刃	ye zhi feng ren
+大乔	da qiao
+大地之灵	da di zhi ling
+天堂之杖	tian tang zhi zhang
+天怒法师	tian nu fa shi
+奇亚娜	qi ya na
+奥恩	ao en
+女枪	nv qiang
+姬小满	ji xiao man
+娜可露露	na ke lu lu
+定身	ding shen
+寡妇制造者	gua fu zhi zao zhe
+对线	dui xian
+小炮	xiao pao
+崔丝塔娜	cui si ta na
+巨神峰	ju shen feng
+巨魔之王	ju mo zhi wang
+巫妖	wu yao
+布隆	bu long
+帕吉	pa ji
+干扰者	gan rao zhe
+幻影之斧	huan ying zhi fu
+幻影刺客	huan ying ci ke
+幻影长矛手	huan ying chang mao shou
+幽梦之灵	you meng zhi ling
+幽鬼	you gui
+库奇	ku qi
+开团	kai tuan
+弈星	yi xing
+式神	shi shen
+弗雷尔卓德	fu lei er zhuo de
+影魅	ying mei
+影魔	ying mo
+御魂	yu hun
+御魂装备	yu hun zhuang bei
+微光披风	wei guang pi feng
+德玛西亚之力	de ma xi ya zhi li
+德莱厄斯	de lai e si
+恕瑞玛	shu rui ma
+恢复药水	hui fu yao shui
+戈娅	ge ya
+战争女神	zhan zheng nv shen
+戴泽	dai ze
+扫眼	sao yan
+扭曲树精	niu qu shu jing
+抢男爵	qiang nan jue
+抢龙	qiang long
+拉比克	la bi ke
+掉分	diao fen
+排眼	pai yan
+推塔	tui ta
+推推棒	tui tui bang
+提莫	ti mo
+撒旦之邪恶	sa dan zhi xie e
+撼地神牛	han di shen niu
+攻强	gong qiang
+攻速	gong su
+放逐之刃	fang zhu zhi ren
+敌法师	di fa shi
+敖隐	ao yin
+斧王	fu wang
+斯拉达	si la da
+斯维因	si wei yin
+无极剑圣	wu ji jian sheng
+日炎斗篷	ri yan dou peng
+易大师	yi da shi
+星元	xing yuan
+星耀	xing yao
+普攻	pu gong
+暗夜魔王	an ye mo wang
+暗影恶魔	an ying e mo
+暗影萨满	an ying sa man
+暗裔剑魔	an yi jian mo
+暴走萝莉	bao zou luo li
+暴风之剑	bao feng zhi jian
+朵莉亚	duo li ya
+李信	li xin
+李青	li qing
+杨戬	yang jian
+极地大乱斗	ji di da luan dou
+林肯法球	lin ken fa qiu
+树精卫士	shu jing wei shi
+格温	ge wen
+桑启	sang qi
+殁境神蚀者	mo jing shen shi zhe
+残血	can xue
+段位保护	duan wei bao hu
+段位赛	duan wei sai
+比尔吉沃特	bi er ji wo te
+水晶室女	shui jing shi nv
+水银弯刀	shui yin wan dao
+永恒之盘	yong heng zhi pan
+永恩	yong en
+沃里克	wo li ke
+沉默术士	chen mo shu shi
+法师鞋	fa shi xie
+法强	fa qiang
+泰坦的愤怒	tai tan de fen nu
+泰达米尔	tai da mi er
+洞察烟斗	dong cha yan dou
+海克斯强化	hai ke si qiang hua
+海克斯科技	hai ke si ke ji
+海月	hai yue
+海民	hai min
+海洋龙	hai yang long
+深渊面具	shen yuan mian ju
+深渊领主	shen yuan ling zhu
+满血	man xue
+潮汐猎人	chao xi lie ren
+火女	huo nv
+灵魂之戒	ling hun zhi jie
+点券	dian quan
+烈娜塔	lie na ta
+熊战士	xiong zhan shi
+牛魔	niu mo
+狂徒铠甲	kuang tu kai jia
+狂战斧	kuang zhan fu
+狂暴之刃	kuang bao zhi ren
+狂铁	kuang tie
+班德尔城	ban de er cheng
+瑞兹	rui zi
+瑞莱的冰晶节杖	rui lai de bing jing jie zhang
+瑟庄妮	se zhuang ni
+瑟提	se ti
+瓦罗兰	wa luo lan
+甄姬	zhen ji
+男刀	nan dao
+男枪	nan qiang
+疾跑	ji pao
+痛苦女王	tong ku nv wang
+瘟疫法师	wen yi fa shi
+白银之剑	bai yin zhi jian
+百鬼	bai gui
+皮城	pi cheng
+皮尔特沃夫	pi er te wo fu
+盖伦	gai lun
+盲僧	mang seng
+相位鞋	xiang wei xie
+盾山	dun shan
+真视守卫	zhen shi shou wei
+眼位	yan wei
+矮人狙击手	ai ren ju ji shou
+破军	po jun
+硬控	ying kong
+祈求者	qi qiu zhe
+祖安	zu an
+祖安花火	zu an hua huo
+神灵武士	shen ling wu shi
+祸乱之源	huo luan zhi yuan
+秒人	miao ren
+移速	yi su
+空空儿	kong kong er
+穿甲	chuan jia
+穿甲弓	chuan jia gong
+符文之地	fu wen zhi di
+符文之子	fu wen zhi zi
+符文页	fu wen ye
+紫苑	zi yuan
+线霸	xian ba
+维迦	wei jia
+致盲	zhi mang
+艾克	ai ke
+艾希	ai xi
+艾欧尼亚	ai ou ni ya
+艾琳	ai lin
+艾瑞莉娅	ai rui li ya
+芈月	mi yue
+苏烈	su lie
+荣耀战魂	rong yao zhan hun
+莉娜	li na
+莎弥拉	sha mi la
+莫甘娜	mo gan na
+萨科	sa ke
+蒙多	meng duo
+蒙多医生	meng duo yi sheng
+蓝方	lan fang
+蓝量	lan liang
+薇恩	wei en
+虚空假面	xu kong jia mian
+蛇女	she nv
+血精石	xue jing shi
+诺手	nuo shou
+贤者之石	xian zhe zhi shi
+赵信	zhao xin
+赵怀真	zhao huai zhen
+超凡大师	chao fan da shi
+超神	chao shen
+跳刀	tiao dao
+软控	ruan kong
+迅捷战靴	xun jie zhan xue
+远古冰魄	yuan gu bing po
+迦娜	jia na
+野区	ye qu
+金铲铲之战	jin chan chan zhi zhan
+钢铁烈阳	gang tie lie yang
+锐雯	rui wen
+锤石	chui shi
+闪烁匕首	shan shuo bi shou
+阿兹尔	a zi er
+阿托斯之棍	a tuo si zhi gun
+阿狸	a li
+阿轲	a ke
+降段	jiang duan
+雪人骑士	xue ren qi shi
+露娜	lu na
+风暴之灵	feng bao zhi ling
+食人魔魔法师	shi ren mo mo fa shi
+饮血剑	yin xue jian
+首杀	shou sha
+鬼索的狂暴之刃	gui suo de kuang bao zhi ren
+魔抗	mo kang
+魔龙之镰	mo long zhi lian
+黑切	hei qie
+黑皇杖	hei huang zhang
+龙坑	long keng
+
+## Games: other titles and general gaming terms
+七日世界	qi ri shi jie
+七秀	qi xiu
+万花	wan hua
+三代目	san dai mu
+三消	san xiao
+上号	shang hao
+下包	xia bao
+下界合金	xia jie he jin
+不死图腾	bu si tu teng
+业原火	ye yuan huo
+东海帝王	dong hai di wang
+个体值	ge ti zhi
+主宰龙	zhu zai long
+九尾	jiu wei
+乱斗	luan dou
+争霸艾泽拉斯	zheng ba ai ze la si
+云裳心经	yun shang xin jing
+云野	yun ye
+五人本	wu ren ben
+亡语	wang yu
+交界地	jiao jie di
+企鹅物流	qi e wu liu
+传说宝可梦	chuan shuo bao ke meng
+伽勒尔	jia le er
+佐井	zuo jing
+保全派驻	bao quan pai zhu
+偷家	tou jia
+僵王博士	jiang wang bo shi
+元梦之星	yuan meng zhi xing
+充钱	chong qian
+光之翼	guang zhi yi
+光遇	guang yu
+入坑	ru keng
+全收集	quan shou ji
+全服	quan fu
+全装	quan zhuang
+军团再临	jun tuan zai lin
+冰冻菇	bing dong gu
+冰心诀	bing xin jue
+冰车僵尸	bing che jiang shi
+凋零之星	diao ling zhi xing
+凌波城	ling bo cheng
+凌雪阁	ling xue ge
+凯尔希	kai er xi
+删档	shan dang
+制造站	zhi zao zhan
+刷怪笼	shua guai long
+刷本	shua ben
+刷材料	shua cai liao
+刷素材	shua su cai
+剑三	jian san
+剑侠客	jian xia ke
+加尔鲁什	jia er lu shi
+动森	dong sen
+包装糖	bao zhuang tang
+区服	qu fu
+十连	shi lian
+半保	ban bao
+半藏	ban zang
+卡利亚	ka li ya
+卡包	ka bao
+卡咪龟	ka mi gui
+卡组	ka zu
+卡背	ka bei
+卡西迪	ka xi di
+卢恩	lu en
+危机合约	wei ji he yue
+卷心菜投手	juan xin cai tou shou
+压枪	ya qiang
+双发射手	shuang fa she shou
+反野	fan ye
+史尔特尔	shi er te er
+叶隐	ye yin
+合成台	he cheng tai
+合服	he fu
+吉安娜	ji an na
+周常	zhou chang
+唤魔者	huan mo zhe
+四代目	si dai mu
+回坑	hui keng
+团藏	tuan zang
+固有技能	gu you ji neng
+土豆雷	tu dou lei
+圣三一	sheng san yi
+圣岛	sheng dao
+圣杯瓶	sheng bei ping
+圣盾	sheng dun
+地刺	di ci
+地心之战	di xin zhi zhan
+垫刀	dian dao
+墓土	mu tu
+增幅书	zeng fu shu
+大司命	da si ming
+大和赤骥	da he chi ji
+大嘴花	da zui hua
+大地的裂变	da di de lie bian
+大妖精	da yao jing
+大师球	da shi qiu
+大比鸟	da bi niao
+大蜡烛	da la zhu
+大逃	da tao
+天刀	tian dao
+天命人	tian ming ren
+天皇赏	tian huang shang
+天空之岛	tian kong zhi dao
+天空之柱	tian kong zhi zhu
+天策	tian ce
+天罗诡道	tian luo gui dao
+天胡	tian hu
+太虚剑意	tai xu jian yi
+奇穴	qi xue
+奥丽莎	ao li sha
+奥格瑞玛	ao ge rui ma
+季节蜡烛	ji jie la zhu
+安洁莉娜	an jie li na
+宝冠	bao guan
+宝可梦中心	bao ke meng zhong xin
+对抗路	dui kang lu
+对策委员会	dui ce wei yuan hui
+小喷菇	xiao pen gu
+小拉达	xiao la da
+小智	xiao zhi
+小版本	xiao ban ben
+小磁怪	xiao ci guai
+小西天	xiao xi tian
+小霞	xiao xia
+少前	shao qian
+尤菲米亚	you fei mi ya
+尼禄	ni lu
+峡谷之眼	xia gu zhi yan
+巨魔王	ju mo wang
+巨龙时代	ju long shi dai
+巫妖王之怒	wu yao wang zhi nu
+巫恋	wu lian
+差行	cha xing
+巴蒂斯特	ba di si te
+希卡	xi ka
+希尔瓦娜斯	xi er wa na si
+帕底亚	pa di ya
+带土	dai tu
+幻塔	huan ta
+幻翼	huan yi
+幽暗城	you an cheng
+开心消消乐	kai xin xiao xiao le
+异色	yi se
+弃坑	qi keng
+御灵	yu ling
+御魂副本	yu hun fu ben
+微氪	wei ke
+德邦	de bang
+忧郁菇	you yu gu
+总力战	zong li zhan
+恋与深空	lian yu shen kong
+恶魂	e hun
+惊羽诀	jing yu jue
+战列	zhan lie
+战吼	zhan hou
+战术人形	zhan shu ren xing
+手枪局	shou qiang ju
+打金	da jin
+托比昂	tuo bi ang
+扫本	sao ben
+报纸僵尸	bao zhi jiang shi
+抽牌	chou pai
+拆包	chai bao
+拆塔	chai ta
+拉塔恩	la ta en
+拉普兰德	la pu lan de
+拉玛刹	la ma sha
+挂人	gua ren
+指令方块	zhi ling fang kuai
+挖化石	wa hua shi
+捏脸	nie lian
+捷风	jie feng
+推线	tui xian
+推进之王	tui jin zhi wang
+攻略组	gong lve zu
+放置类	fang zhi lei
+救赎之恩	jiu shu zhi en
+散野	san ye
+斯卡蒂	si ka di
+无声铃鸣	wu sheng ling ming
+无尽的拉格朗日	wu jin de la ge lang ri
+无期迷途	wu qi mi tu
+无限池	wu xian chi
+日本德比	ri ben de bi
+旷野之息	kuang ye zhi xi
+星熊	xing xiong
+星芒	xing mang
+星野	xing ye
+星钻	xing zuan
+普拉娜	pu la na
+普雷	pu lei
+暗黑骑士	an hei qi shi
+暮土	mu tu
+暴伤	bao shang
+暴君龙	bao jun long
+有马纪念	you ma ji nian
+木斧	mu fu
+末地	mo di
+末地传送门	mo di chuan song men
+末影珍珠	mo ying zhen zhu
+条纹糖	tiao wen tang
+林地府邸	lin di fu di
+格黑娜	ge hei na
+樱桃炸弹	ying tao zha dan
+毒圈	du quan
+比比鸟	bi bi niao
+水箭龟	shui jian gui
+永劫无间	yong jie wu jian
+法力水晶	fa li shui jing
+法老之鹰	fa lao zhi ying
+波克比	bo ke bi
+洗翠	xi cui
+派对岛	pai dui dao
+海克斯大乱斗	hai ke si da luan dou
+海外服	hai wai fu
+海底神殿	hai di shen dian
+海拉鲁	hai la lu
+海拉鲁平原	hai la lu ping yuan
+深海侵蚀	shen hai qin shi
+深渊派对	shen yuan pai dui
+渔女	yu nv
+源氏	yuan shi
+源石	yuan shi
+源石虫	yuan shi chong
+溜鬼	liu gui
+满图鉴	man tu jian
+潜影盒	qian ying he
+潜影贝	qian ying bei
+火爆辣椒	huo bao la jiao
+灵素	ling su
+灵虚子	ling xu zi
+灵魂沙	ling hun sha
+炉石	lu shi
+烈焰人	lie yan ren
+烈焰棒	lie yan bang
+烈空坐	lie kong zuo
+烈雀	lie que
+热更	re geng
+熊猫人之谜	xiong mao ren zhi mi
+燃烧的远征	ran shao de yuan zheng
+燕云	yan yun
+燕云十六声	yan yun shi liu sheng
+爆伤	bao shang
+爱慕织姬	ai mu zhi ji
+特别周	te bie zhou
+特效糖	te xiao tang
+狂欢之椅	kuang huan zhi yi
+狂鼠	kuang shu
+狙神	ju shen
+狸克	li ke
+猎空	lie kong
+率土	shuai tu
+率土之滨	shuai tu zhi bin
+玉米投手	yu mi tou shou
+王国之泪	wang guo zhi lei
+王家之剑	wang jia zhi jian
+王都	wang du
+玛法里奥	ma fa li ao
+玛莲妮亚	ma lian ni ya
+玩具商	wan ju shang
+生息演算	sheng xi yan suan
+白狼	bai lang
+白蜡烛	bai la zhu
+百变怪	bai bian guai
+百眼魔君	bai yan mo jun
+皋月赏	gao yue shang
+盖侬	gai nong
+盖欧卡	gai ou ka
+盘丝岭	pan si ling
+目白麦昆	mu bai mai kun
+相性	xiang xing
+石镐	shi gao
+硬保底	ying bao di
+祖达萨	zu da sa
+神乐	shen le
+神职者	shen zhi zhe
+神都	shen du
+神队友	shen dui you
+禁阁	jin ge
+福利号	fu li hao
+秒伤	miao shang
+秩序之光	zhi xu zhi guang
+空弦	kong xian
+窝瓜	wo gua
+紧箍	jin gu
+紫卡	zi ka
+紫霞功	zi xia gong
+红石	hong shi
+红石电路	hong shi dian lu
+红蝶	hong die
+纲手	gang shou
+纳克萨玛斯	na ke sa ma si
+经济局	jing ji ju
+绑银	bang yin
+结界突破	jie jie tu po
+缩圈	suo quan
+缪尔赛思	miao er sai si
+罗德尔	luo de er
+羊了个羊	yang le ge yang
+耿鬼	geng gui
+肝度	gan du
+肝等级	gan deng ji
+肝金	gan jin
+育成目标	yu cheng mu biao
+胖丁	pang ding
+舞王僵尸	wu wang jiang shi
+舰娘	jian niang
+艾尔登	ai er deng
+艾泽拉斯	ai ze la si
+艾雅法拉	ai ya fa la
+芙兰卡	fu lan ka
+花合战	hua he zhan
+花间游	hua jian you
+苍云	cang yun
+草上飞	cao shang fei
+荒川之主	huang chuan zhi zhu
+荒野之息	huang ye zhi xi
+荣耀战力	rong yao zhan li
+莫古	mo gu
+莫莫伊	mo mo yi
+菊花赏	ju hua shang
+菜鸡	cai ji
+蓝卡	lan ka
+蔚蓝档案	wei lan dang an
+蕾米	lei mi
+藏剑	cang jian
+蘑菇岛	mo gu dao
+虎先锋	hu xian feng
+蛋仔	dan zai
+蛋仔工坊	dan zai gong fang
+蛋仔派对	dan zai pai dui
+血精灵	xue jing ling
+衍天宗	yan tian zong
+补天诀	bu tian jue
+装等	zhuang deng
+褪色者	tui shai zhe
+观音禅院	guan yin chan yuan
+讯使	xun shi
+诺森德	nuo sen de
+调香师	tiao xiang shi
+账号交易	zhang hao jiao yi
+贸易站	mao yi zhan
+走路草	zou lu cao
+超级球	chao ji qiu
+跨服	kua fu
+路障僵尸	lu zhang jiang shi
+软保底	ruan bao di
+轻巡	qing xun
+达纳苏斯	da na su si
+迈特戴	mai te dai
+远古城市	yuan gu cheng shi
+远古守卫者	yuan gu shou wei zhe
+逃马	tao ma
+逆战	ni zhan
+逢魔	feng mo
+道馆馆主	dao guan guan zhu
+邦邦	bang bang
+重巡	zhong xun
+野怪	ye guai
+金皮	jin pi
+金铲铲	jin chan chan
+钩锁	gou suo
+钻石镐	zuan shi gao
+铁桶僵尸	tie tong jiang shi
+铁驭	tie yu
+银月城	yin yue cheng
+银角大王	yin jiao da wang
+镜姬	jing ji
+长歌	chang ge
+长歌门	chang ge men
+问水诀	wen shui jue
+阴人	yin ren
+阴阳寮	yin yang liao
+阿罗娜	a luo na
+阿罗拉	a luo la
+附魔台	fu mo tai
+限定武器	xian ding wu qi
+限定角色	xian ding jue se
+陪玩	pei wan
+隐藏结局	yin cang jie ju
+雨隐	yu yin
+雪傀儡	xue kui lei
+雪女	xue nv
+雷丘	lei qiu
+雷霆崖	lei ting ya
+霞谷	xia gu
+霸刀	ba dao
+面灵气	mian ling qi
+预瞄	yu miao
+风纪委员会	feng ji wei yuan hui
+首充号	shou chong hao
+首测	shou ce
+马娘	ma niang
+鬼童丸	gui tong wan
+魅惑菇	mei huo gu
+鹿丸	lu wan
+黄眉	huang mei
+黄衣之主	huang yi zhi zhu
+黄金律法	huang jin lv fa
+黄金树	huang jin shu
+黄金船	huang jin chuan
+黄风大圣	huang feng da sheng
+黄风岭	huang feng ling
+黑百合	hei bai he
+黑神话	hei shen hua
+黑风山	hei feng shan
+龙门币	long men bi
+
+## Other newer words, picked by hand from web word frequencies
+三丽鸥	san li ou
+三摄	san she
+三连霸	san lian ba
+下克上	xia ke shang
+不良率	bu liang lv
+不降反升	bu jiang fan sheng
+专四	zhuan si
+世遗	shi yi
+两房两厅	liang fang liang ting
+严选	yan xuan
+中华街	zhong hua jie
+中签率	zhong qian lv
+中联重科	zhong lian zhong ke
+中芯	zhong xin
+中车	zhong che
+丰巢	feng chao
+主摄	zhu she
+主餐	zhu can
+乃木坂	nai mu ban
+乐视	le shi
+乐评	yue ping
+乘势而上	cheng shi er shang
+乱马	luan ma
+争冠	zheng guan
+二孩	er hai
+亚冬会	ya dong hui
+亮化	liang hua
+企微	qi wei
+低卡	di ka
+何炅	he jiong
+侧写	ce xie
+保供	bao gong
+信创	xin chuang
+俭以养德	jian yi yang de
+倪妮	ni ni
+偏财	pian cai
+偷逃税	tou tao shui
+储物室	chu wu shi
+充足率	chong zu lv
+光储	guang chu
+光敏电阻	guang min dian zu
+光谷	guang gu
+免运	mian yun
+入住率	ru zhu lv
+全固态	quan gu tai
+全屋	quan wu
+全素	quan su
+公号	gong hao
+兵王	bing wang
+冒泡排序	mao pao pai xu
+冬窗	dong chuang
+净零	jing ling
+准备金率	zhun bei jin lv
+准确率	zhun que lv
+凉感	liang gan
+减糖	jian tang
+几何变换	ji he bian huan
+凡客	fan ke
+凡尔登	fan er deng
+凯恩斯主义	kai en si zhu yi
+出租率	chu zu lv
+击球手	ji qiu shou
+分诊	fen zhen
+刘畊宏	liu geng hong
+刘谦	liu qian
+刘雯	liu wen
+初代	chu dai
+制氢	zhi qing
+刷到	shua dao
+前程似锦	qian cheng shi jin
+加解密	jia jie mi
+动效	dong xiao
+助孕	zhu yun
+助记	zhu ji
+勋伯格	xun bo ge
+午市	wu shi
+华东政法	hua dong zheng fa
+单抗	dan kang
+南水北调	nan shui bei diao
+占有率	zhan you lv
+卡关	ka guan
+卷积	juan ji
+压测	ya ce
+厚植	hou zhi
+原力	yuan li
+原宿	yuan su
+原教旨主义	yuan jiao zhi zhu yi
+原酒	yuan jiu
+参与率	can yu lv
+双碳	shuang tan
+反诈	fan zha
+发债	fa zhai
+变化率	bian hua lv
+古天乐	gu tian le
+古言	gu yan
+可重复性	ke chong fu xing
+合格率	he ge lv
+吕雉	lv zhi
+含水率	han shui lv
+吴哥	wu ge
+吴邪	wu xie
+周转率	zhou zhuan lv
+咽痛	yan tong
+哈比人	ha bi ren
+唐嫣	tang yan
+售卖机	shou mai ji
+商飞	shang fei
+喷淋	pen lin
+回收率	hui shou lv
+团宠	tuan chong
+团课	tuan ke
+团餐	tuan can
+国乒	guo ping
+图床	tu chuang
+图灵机	tu ling ji
+圈层	quan ceng
+土菜	tu cai
+地垫	di dian
+地库	di ku
+城轨	cheng gui
+城镇化率	cheng zhen hua lv
+堆排序	dui pai xu
+塞尚	sai shang
+填词人	tian ci ren
+增程	zeng cheng
+增税	zeng shui
+声量	sheng liang
+复发率	fu fa lv
+复播	fu bo
+复星	fu xing
+夏奇拉	xia qi la
+外送员	wai song yuan
+多数派	duo shu pai
+大众文学	da zhong wen xue
+大创	da chuang
+大摩	da mo
+失败率	shi bai lv
+奥本海默	ao ben hai mo
+好评率	hao ping lv
+妆发	zhuang fa
+妖股	yao gu
+妥妥	tuo tuo
+娇兰	jiao lan
+孕前	yun qian
+孕妈	yun ma
+孙杨	sun yang
+孙颖莎	sun ying sha
+宅家	zhai jia
+宋佳	song jia
+完售	wan shou
+完成率	wan cheng lv
+宏碁	hong qi
+定焦	ding jiao
+家校	jia xiao
+容积率	rong ji lv
+对戒	dui jie
+寻路	xun lu
+小面	xiao mian
+屁孩	pi hai
+居委	ju wei
+屏蔽门	ping bi men
+屠龙记	tu long ji
+差钱	cha qian
+币圈	bi quan
+币安	bi an
+布尔值	bu er zhi
+帕运会	pa yun hui
+底栖生物	di qi sheng wu
+店庆	dian qing
+废标	fei biao
+康辉	kang hui
+开工率	kai gong lv
+引援	yin yuan
+张翰	zhang han
+张译	zhang yi
+归母	gui mu
+微凉	wei liang
+微热	wei re
+微课	wei ke
+微跌	wei die
+德彪西	de biao xi
+德系	de xi
+必逛	bi guang
+快狠准	kuai hen zhun
+息差	xi cha
+患病率	huan bing lv
+感谢状	gan xie zhuang
+成交率	cheng jiao lv
+成谜	cheng mi
+战锤	zhan chui
+戚薇	qi wei
+房企	fang qi
+房龄	fang ling
+手作	shou zuo
+手冲	shou chong
+扩产	kuo chan
+扮靓	ban liang
+找房	zhao fang
+抓绒	zhua rong
+抗痘	kang dou
+抗衰	kang shuai
+抢单	qiang dan
+护肝	hu gan
+报酬率	bao chou lv
+抵税	di shui
+招股价	zhao gu jia
+拼劲	pin jin
+换手率	huan shou lv
+换脸	huan lian
+掀桌	xian zhuo
+掀盖式	xian gai shi
+接种率	jie zhong lv
+控场	kong chang
+推免	tui mian
+推理模型	tui li mo xing
+搜题	sou ti
+摘镜	zhai jing
+收网	shou wang
+放克	fang ke
+放题	fang ti
+故障率	gu zhang lv
+教资	jiao zi
+数智	shu zhi
+整脊	zheng ji
+断层扫描	duan ceng sao miao
+新帅	xin shuai
+新援	xin yuan
+新闻调查	xin wen diao cha
+方差分析	fang cha fen xi
+方济各	fang ji ge
+旅拍	lv pai
+日结	ri jie
+旧改	jiu gai
+早鸟	zao niao
+时装展	shi zhuang zhan
+星战	xing zhan
+星标	xing biao
+星舰	xing jian
+春训	chun xun
+晨会	chen hui
+普利策	pu li ce
+普工	pu gong
+景甜	jing tian
+智算	zhi suan
+智造	zhi zao
+暖色调	nuan se diao
+曝光率	bao guang lv
+曲奇饼	qu qi bing
+木心	mu xin
+木有	mu you
+木村拓哉	mu cun tuo zai
+术语表	shu yu biao
+朱婷	zhu ting
+李沁	li qin
+李现	li xian
+村超	cun chao
+杨千嬅	yang qian hua
+杨瀚森	yang han sen
+极简	ji jian
+柜机	gui ji
+查重率	cha chong lv
+柯洁	ke jie
+柳岩	liu yan
+柴静	chai jing
+格列佛	ge lie fu
+梅酒	mei jiu
+梦工场	meng gong chang
+检出率	jian chu lv
+棉麻	mian ma
+棚改	peng gai
+樊登	fan deng
+欧易	ou yi
+正泰	zheng tai
+正确率	zheng que lv
+步数	bu shu
+武磊	wu lei
+死侍	si shi
+母猫	mu mao
+比特率	bi te lv
+永辉	yong hui
+汉莎	han sha
+沙箱	sha xiang
+油猴	you hou
+油笔	you bi
+治愈率	zhi yu lv
+沾面	zhan mian
+泌尿道	mi niao dao
+法兰西岛	fa lan xi dao
+注会	zhu hui
+泰剧	tai ju
+洗护	xi hu
+流亡者	liu wang zhe
+测速仪	ce su yi
+涉诉	she su
+淘汰率	tao tai lv
+渗透率	shen tou lv
+港珠澳	gang zhu ao
+滕哈赫	teng ha he
+潘展乐	pan zhan le
+潮牌	chao pai
+激辛	ji xin
+火币	huo bi
+灰常	hui chang
+炸物	zha wu
+点读	dian du
+热巴	re ba
+热榜	re bang
+焦段	jiao duan
+燕园	yan yuan
+爆仓	bao cang
+爆品	bao pin
+爆点	bao dian
+爆率	bao lv
+爬取	pa qu
+爱范儿	ai fan er
+父系社会	fu xi she hui
+牛熊证	niu xiong zheng
+特摄	te she
+犯罪率	fan zui lv
+猎聘	lie pin
+猪价	zhu jia
+猴痘	hou dou
+瑞幸	rui xing
+瓜帅	gua shuai
+生存率	sheng cun lv
+生酮	sheng tong
+电影展	dian ying zhan
+电销	dian xiao
+疫后	yi hou
+疯批	feng pi
+白兰度	bai lan du
+白帽	bai mao
+皱纹纸	zhou wen zhi
+盘后	pan hou
+看展	kan zhan
+看衰	kan shuai
+眼妆	yan zhuang
+睿频	rui pin
+知晓率	zhi xiao lv
+知网	zhi wang
+研报	yan bao
+碎念	sui nian
+碳板	tan ban
+碳税	tan shui
+碳钢	tan gang
+礼来	li lai
+祛湿	qu shi
+科创	ke chuang
+税号	shui hao
+穆帅	mu shuai
+空中巴士	kong zhong ba shi
+空置率	kong zhi lv
+窗格	chuang ge
+竞合	jing he
+端侧	duan ce
+笔袋	bi dai
+简书	jian shu
+精讲	jing jiang
+精酿	jing niang
+糙汉	cao han
+纯电	chun dian
+线性组合	xian xing zu he
+细田守	xi tian shou
+经典力学	jing dian li xue
+绘师	hui shi
+统计力学	tong ji li xue
+统计学家	tong ji xue jia
+维京	wei jing
+维安	wei an
+维沃	wei wo
+综艺片	zong yi pian
+绿化率	lv hua lv
+绿地率	lv di lv
+网申	wang shen
+罗翔	luo xiang
+美债	mei zhai
+美睫	mei jie
+肌力	ji li
+脐带血	qi dai xue
+腿软	tui ruan
+自弹自唱	zi dan zi chang
+自给率	zi ji lv
+自证	zi zheng
+致死率	zhi si lv
+航行者	hang xing zhe
+艾薇儿	ai wei er
+芙莉莲	fu li lian
+芳疗	fang liao
+苦荞	ku qiao
+英孚	ying fu
+药神	yao shen
+莫卧儿	mo wo er
+莫文蔚	mo wen wei
+获赞	huo zan
+萌系	meng xi
+营商	ying shang
+葱油	cong you
+蒋欣	jiang xin
+蒸煮	zheng zhu
+蜜柚	mi you
+融创	rong chuang
+补能	bu neng
+补铁	bu tie
+西联	xi lian
+视帝	shi di
+角川	jiao chuan
+认缴	ren jiao
+讲谈社	jiang tan she
+许昕	xu xin
+评课	ping ke
+识图	shi tu
+说课	shuo ke
+课标	ke biao
+调校	tiao xiao
+贝叶斯	bei ye si
+负债率	fu zhai lv
+负评	fu ping
+贡献率	gong xian lv
+财商	cai shang
+货盘	huo pan
+费用率	fei yong lv
+贾乃亮	jia nai liang
+贾樟柯	jia zhang ke
+资产负债率	zi chan fu zhai lv
+赋分	fu fen
+赋权	fu quan
+赏樱	shang ying
+赛高	sai gao
+超萌	chao meng
+跨域	kua yu
+跨链	kua lian
+车企	che qi
+车衣	che yi
+车龄	che ling
+转化率	zhuan hua lv
+转换率	zhuan huan lv
+转档	zhuan dang
+软饭	ruan fan
+载客率	zai ke lv
+还车	huan che
+进博	jin bo
+违停	wei ting
+迷因	mi yin
+追妻	zhui qi
+退税率	tui shui lv
+选车	xuan che
+逍客	xiao ke
+途牛	tu niu
+通货膨胀率	tong huo peng zhang lv
+通过率	tong guo lv
+逛展	guang zhan
+速干	su gan
+道侣	dao lv
+邓伦	deng lun
+郑恺	zheng kai
+重仓股	zhong cang gu
+重训	zhong xun
+重锤	zhong chui
+银河帝国	yin he di guo
+银龄	yin ling
+链上	lian shang
+链家	lian jia
+锐龙	rui long
+错误率	cuo wu lv
+错题	cuo ti
+锚定	mao ding
+长传	chang chuan
+长焦	chang jiao
+长隆	chang long
+闪付	shan fu
+闪充	shan chong
+闪购	shan gou
+闭店	bi dian
+问责制	wen ze zhi
+防窥	fang kui
+防骗	fang pian
+阿格拉	a ge la
+降碳	jiang tan
+降糖	jiang tang
+降糖药	jiang tang yao
+降维	jiang wei
+降重	jiang chong
+隆基	long ji
+隆基绿能	long ji lv neng
+雅培	ya pei
+雪场	xue chang
+零碳	ling tan
+雷蛇	lei she
+霍比特	huo bi te
+露营地	lu ying di
+霸屏	ba ping
+青训	qing xun
+靳东	jin dong
+靶向	ba xiang
+靶点	ba dian
+韩屋	han wu
+领券	ling quan
+风土民情	feng tu min qing
+飞鹤	fei he
+首套	shou tao
+马尔可夫	ma er ke fu
+高奢	gao she
+高定	gao ding
+高瓴	gao ling
+魂力	hun li
+魅蓝	mei lan
+鸡肉饭	ji rou fan
+鸡血	ji xue
+黄桃	huang tao
+黄渤	huang bo
+黄码	huang ma
+黄轩	huang xuan
+黑土地	hei tu di
+黑料	hei liao
+龟友	gui you
