@@ -38,5 +38,38 @@
   "input_ids": "int32 [1,T], 1<=T<=128; right PAD",
   "logits": "float32 [1,T,12288]; full vocabulary; no softmax"
  },
- "policy": "Chinese keyboard reranking model; never loaded together with a Japanese model."
+ "policy": "Chinese keyboard reranking model; never loaded together with a Japanese model.",
+ "kv": {
+  "resource": "TinyChineseV1KVChunkINT8",
+  "compiled_files_sha256": {
+   "analytics/coremldata.bin": "ac211f576110682e6aed5ca8e4439c1f186bca41466cea784c25e4e11a28785b",
+   "coremldata.bin": "08903e8b372ff7340b681c1ce5ee8556f8470a1cb036b0b8d87152ea85bdc42a",
+   "metadata.json": "6c60faf86002f3704b0cffc747081bdfed35561d79b4ee70ee98c07bbd42f4de",
+   "model.mil": "c2b72c5bf560cd441c31800121ca266a0ea32eb2a9619e5cc12f48f796b11175",
+   "weights/weight.bin": "692cbd69d74092a5a6224ebd03a88e05990ae952526c33199b698f470c53b4aa"
+  },
+  "source_manifest_sha256": "c5bc759d4a224cf389d9ae28304df194e7e1b0ba3eb3945a94ecea9ddd82abc7",
+  "interface": {
+   "input_ids": "int32 [1,T], 1<=T<=128",
+   "position": "int32 [1]; current cache length; caller guarantees position+T<=128",
+   "key_cache/value_cache": "float32 (9,1,6,128,64); slots >= position+T are ignored",
+   "logits": "float32 [1,T,12288] for the new tokens; no softmax",
+   "new_key_cache/new_value_cache": "inputs with slots position..position+T-1 replaced"
+  },
+  "cache_shape": [
+   9,
+   1,
+   6,
+   128,
+   64
+  ],
+  "cache_dtype": "float32",
+  "alignment_sha256": "805b843a24c9af649d10b669207ecbd5e9b5974e5708813b664f38da258937f4",
+  "alignment_tolerance": {
+   "atol": 0.0003,
+   "rtol": 0.0003
+  },
+  "alignment_checks": 21,
+  "policy": "Generation only (constrained beam search); reranking keeps the stateless package."
+ }
 }

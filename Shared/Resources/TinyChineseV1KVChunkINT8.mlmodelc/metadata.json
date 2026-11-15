@@ -1,0 +1,137 @@
+[
+  {
+    "metadataOutputVersion" : "3.0",
+    "shortDescription" : "vimeml-tiny-zh-v1 chunked KV step; FP32 computation and caches.",
+    "outputSchema" : [
+      {
+        "hasShapeFlexibility" : "0",
+        "isOptional" : "0",
+        "dataType" : "Float32",
+        "formattedType" : "MultiArray (Float32)",
+        "shortDescription" : "",
+        "shape" : "[]",
+        "name" : "logits",
+        "type" : "MultiArray"
+      },
+      {
+        "hasShapeFlexibility" : "0",
+        "isOptional" : "0",
+        "dataType" : "Float32",
+        "formattedType" : "MultiArray (Float32 9 × 1 × 6 × 128 × 64)",
+        "shortDescription" : "",
+        "shape" : "[9, 1, 6, 128, 64]",
+        "name" : "new_key_cache",
+        "type" : "MultiArray"
+      },
+      {
+        "hasShapeFlexibility" : "0",
+        "isOptional" : "0",
+        "dataType" : "Float32",
+        "formattedType" : "MultiArray (Float32 9 × 1 × 6 × 128 × 64)",
+        "shortDescription" : "",
+        "shape" : "[9, 1, 6, 128, 64]",
+        "name" : "new_value_cache",
+        "type" : "MultiArray"
+      }
+    ],
+    "storagePrecision" : "Mixed (Float32, Int8)",
+    "modelParameters" : [
+
+    ],
+    "specificationVersion" : 9,
+    "mlProgramOperationTypeHistogram" : {
+      "Ios18.expandDims" : 1,
+      "Range1d" : 1,
+      "Ios18.mul" : 56,
+      "Ios18.softmax" : 9,
+      "Ios18.matmul" : 18,
+      "Ios18.rsqrt" : 19,
+      "Ios16.reduceMean" : 19,
+      "Split" : 9,
+      "Ios18.greaterEqual" : 5,
+      "Select" : 5,
+      "Ios18.scatterNd" : 18,
+      "Ios18.gather" : 4,
+      "Ios18.add" : 53,
+      "Ios18.reshape" : 18,
+      "Shape" : 1,
+      "Ios18.linear" : 46,
+      "Ios18.transpose" : 72,
+      "Ios18.silu" : 9,
+      "Ios18.pow" : 19,
+      "Stack" : 2,
+      "Ios18.sliceByIndex" : 19,
+      "Ios18.squeeze" : 27,
+      "Ios18.constexprBlockwiseShiftScale" : 47
+    },
+    "computePrecision" : "Mixed (Float32, Int32)",
+    "isUpdatable" : "0",
+    "stateSchema" : [
+
+    ],
+    "availability" : {
+      "macOS" : "15.0",
+      "tvOS" : "18.0",
+      "visionOS" : "2.0",
+      "watchOS" : "11.0",
+      "iOS" : "18.0",
+      "macCatalyst" : "18.0"
+    },
+    "modelType" : {
+      "name" : "MLModelType_mlProgram"
+    },
+    "inputSchema" : [
+      {
+        "dataType" : "Int32",
+        "hasShapeFlexibility" : "1",
+        "isOptional" : "0",
+        "shapeFlexibility" : "1 × 1...128",
+        "shapeRange" : "[[1, 1], [1, 128]]",
+        "formattedType" : "MultiArray (Int32 1 × 1)",
+        "type" : "MultiArray",
+        "shape" : "[1, 1]",
+        "name" : "input_ids",
+        "shortDescription" : ""
+      },
+      {
+        "hasShapeFlexibility" : "0",
+        "isOptional" : "0",
+        "dataType" : "Int32",
+        "formattedType" : "MultiArray (Int32 1)",
+        "shortDescription" : "",
+        "shape" : "[1]",
+        "name" : "position",
+        "type" : "MultiArray"
+      },
+      {
+        "hasShapeFlexibility" : "0",
+        "isOptional" : "0",
+        "dataType" : "Float32",
+        "formattedType" : "MultiArray (Float32 9 × 1 × 6 × 128 × 64)",
+        "shortDescription" : "",
+        "shape" : "[9, 1, 6, 128, 64]",
+        "name" : "key_cache",
+        "type" : "MultiArray"
+      },
+      {
+        "hasShapeFlexibility" : "0",
+        "isOptional" : "0",
+        "dataType" : "Float32",
+        "formattedType" : "MultiArray (Float32 9 × 1 × 6 × 128 × 64)",
+        "shortDescription" : "",
+        "shape" : "[9, 1, 6, 128, 64]",
+        "name" : "value_cache",
+        "type" : "MultiArray"
+      }
+    ],
+    "userDefinedMetadata" : {
+      "com.github.apple.coremltools.conversion_date" : "2026-11-11",
+      "bundle_manifest_sha256" : "9d9dad19c573c84c84e6a78060d1999a0a7e978c90a9bd78ca844da565a6ae74",
+      "com.github.apple.coremltools.source" : "torch==2.7.1",
+      "com.github.apple.coremltools.version" : "9.0",
+      "com.github.apple.coremltools.source_dialect" : "TorchScript"
+    },
+    "generatedClassName" : "model",
+    "method" : "predict"
+  }
+]

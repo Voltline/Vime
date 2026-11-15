@@ -84,8 +84,11 @@
 				Resources/JapaneseLexicon.tsv,
 				Resources/PinyinKanjiLookupSource.json,
 				Resources/TinyChineseV1INT8.mlmodelc,
+				Resources/TinyChineseV1KVBatchV2INT8.mlmodelc,
+				Resources/TinyChineseV1KVChunkINT8.mlmodelc,
 				Resources/VimeChineseTokenizerV1.model,
 				Resources/VimeLMManifestZhV1.json,
+				Resources/VimeLMManifestZhV1KVBatchV2.json,
 			);
 			target = B2ED4C073071EF7600C73DB0 /* Vime */;
 		};

@@ -113,6 +113,12 @@ VimeRimeContinuations vime_rime_continuations(VimeRimeSession session, const cha
                                               int32_t limit, bool traditional);
 void vime_rime_continuations_free(VimeRimeContinuations *continuations);
 
+/// Every single-character entry of a compiled table (`*.table.bin`) as
+/// "character<TAB>syllable" lines, one per reading; NULL when the table cannot
+/// be read. Needs no running engine. Free with vime_rime_string_free.
+char *vime_rime_character_readings(const char *table);
+void vime_rime_string_free(char *text);
+
 #ifdef __cplusplus
 }
 #endif
