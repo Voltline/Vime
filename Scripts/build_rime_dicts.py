@@ -39,6 +39,8 @@ Sources and licenses:
       English vocabulary up to size 70 and its capitalization.
   Tatoeba Mandarin sentences (CC BY 2.0 FR): short runs of words common in
       conversation, such as 好的, which no word list has.
+  Scripts/rime_words.txt (collected for Vime): newer words, names and terms
+      the sources above lack or rank too low, such as 原神 and 避坑.
 
 The generated dictionaries contain CC BY-SA 4.0 data (CC-CEDICT, wordfreq) and
 are distributed under CC BY-SA 4.0; see Shared/Resources/ThirdPartyNotices.txt.
@@ -95,6 +97,7 @@ COLLOCATIONS = Path(__file__).resolve().parent / "rime_collocations.txt"
 # category) stays out of the repository; only salted hashes of its words are
 # committed (DOWNWEIGHT_HASHES), which is all the build needs to match them.
 # After editing the list, run --hash-downweights.
+WORDS = Path(__file__).resolve().parent / "rime_words.txt"
 DOWNWEIGHTS = Path(__file__).resolve().parent / "rime_downweights.txt"
 DOWNWEIGHT_HASHES = Path(__file__).resolve().parent / "rime_downweights.sha256"
 DOWNWEIGHT_SALT = "vime-rime-downweight:"
@@ -138,6 +141,10 @@ DOMINANT_READING = 0.9
 COLLOCATION_LENGTH = 4
 COLLOCATION_MIN_COUNT = 2
 COLLOCATION_SHARE = 0.3
+# The least frequency (per 1e8 words) of a word in WORDS: about that of a
+# fairly common two-character word, so it ranks for its full pinyin without
+# outweighing everyday words that share the reading.
+NEW_WORD_FREQUENCY = 180
 # Colloquial readings the character table leaves out.
 EXTRA_READINGS = {"这": ("zhei", 0.05), "那": ("nei", 0.03), "哪": ("nei", 0.03)}
 
@@ -492,6 +499,13 @@ def build_chinese(cache, refresh_tatoeba=False):
                      for w in gram]
             if all(parts):
                 words[text] = ([" ".join(parts)], f)
+    # Newer words the sources lack; a listed word they have keeps its
+    # readings and ranks at least as high.
+    for word, spelled in listed_words(valid):
+        spellings, f = words.get(word, ([], 0.0))
+        if spelled not in spellings:
+            spellings = spellings + [spelled]
+        words[word] = (spellings, max(f, NEW_WORD_FREQUENCY * len(spellings)))
     for word, (spellings, f) in words.items():
         for spelled in spellings:
             entries[word, spelled] = f / len(spellings)
@@ -572,6 +586,20 @@ def collocations():
             gram, count = line.split("\t")
             counts[tuple(gram.split(" "))] = int(count)
     return {gram: count / total * 1e8 * COLLOCATION_SHARE for gram, count in counts.items()}
+
+
+def listed_words(valid):
+    """(word, reading) pairs from WORDS, checked against the syllables."""
+    pairs = []
+    for number, line in enumerate(WORDS.read_text(encoding="utf-8").splitlines(), 1):
+        if not line or line.startswith("#"):
+            continue
+        word, spelled = line.split("\t")
+        syllables = spelled.split(" ")
+        if len(syllables) != len(word) or not all(s in valid for s in syllables):
+            raise SystemExit(f"{WORDS.name}:{number}: {line!r} needs one known syllable per character")
+        pairs.append((word, spelled))
+    return pairs
 
 
 def full_pinyin(code, valid):
@@ -727,6 +755,7 @@ def main():
         out.write(f"Tencent AI Lab Embedding Corpus {TENCENT[1]} {TENCENT[0]} sha256 {TENCENT[2]} ({TENCENT[3]})\n")
         out.write(f"现代汉语常用词表 {CHANGYONG[1]} {CHANGYONG[0]} sha256 {CHANGYONG[2]} ({CHANGYONG[3]})\n")
         out.write(f"Tatoeba {collocation_source()} via Scripts/{COLLOCATIONS.name} ({TATOEBA[1]})\n")
+        out.write(f"Newer words collected for Vime: Scripts/{WORDS.name}\n")
     print(f"{len(chinese)} Chinese entries, {len(english)} English words", file=sys.stderr)
 
 
