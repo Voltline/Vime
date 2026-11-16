@@ -660,11 +660,16 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         let panelWidth: CGFloat = aligned ? metrics.contentWidth : width - 20
         let columns = metrics.regular ? max(5, Int(panelWidth / 150)) : width > 600 ? 5 : 3
         let cellWidth = aligned ? (panelWidth + 8) / CGFloat(columns) : panelWidth / CGFloat(columns)
-        for (index, button) in panelCandidates.enumerated() {
-            button.frame = CGRect(x: panelLeft + CGFloat(index % columns) * cellWidth, y: CGFloat(index / columns) * 46,
-                width: cellWidth - (aligned ? 8 : 5), height: 41)
+        // Long sentences take wider slots, up to a whole row and two lines;
+        // short words keep the column grid (KeyboardCandidatePanelLayout).
+        let lineHeight = ceil(UIFont.systemFont(ofSize: KeyboardCandidateButton.titleFontSize).lineHeight)
+        let panelLayout = KeyboardCandidatePanelLayout(widths: panelCandidates.map(\.presentationWidth),
+            left: panelLeft, cellWidth: cellWidth, gap: aligned ? 8 : 5, columns: columns, extraLineHeight: lineHeight)
+        for (button, item) in zip(panelCandidates, panelLayout.items) {
+            button.titleLines = item.lines
+            button.frame = item.frame
         }
-        panelScroll.contentSize = CGSize(width: width, height: CGFloat((panelCandidates.count + columns - 1) / columns) * 46)
+        panelScroll.contentSize = CGSize(width: width, height: panelLayout.contentHeight)
         if let timing = pendingCandidateTiming {
             pendingCandidateTiming = nil
             if window != nil, panel == .keyboard || panel == .candidates,
