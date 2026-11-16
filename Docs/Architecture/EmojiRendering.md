@@ -28,7 +28,7 @@ UIKit 可能再次展示已经离屏的 prepared cell，而不重新配置它。
 
 `KeyboardFeatureTests` 包含不等待主队列回填的冷缓存分类跳转、饱和请求队列、后台已完成图像的即时读取，以及完整目录、颜色、组合字形和复用检查。
 
-`VimeLanguageModelMemoryTests/testEmojiScrollPreparationPerformance` 通过 `TEST_RUNNER_VIME_EMOJI_SCROLL_AUDIT=1` 启用；可设置 `TEST_RUNNER_VIME_EMOJI_SCROLL_STEP`、`TEST_RUNNER_VIME_EMOJI_SCROLL_HZ` 和 `TEST_RUNNER_VIME_EMOJI_SCROLL_LANDSCAPE=1`。它记录图像未准备面积、滚动准备耗时和实际 display-link 间隔。请求 120 Hz 不代表模拟器实际运行在 120 Hz，也不能代表最终呈现像素。
+`VimeLanguageModelMemoryTests/testEmojiScrollPreparationPerformance` 通过 `TEST_RUNNER_VIME_EMOJI_SCROLL_AUDIT=1` 启用；可设置 `TEST_RUNNER_VIME_EMOJI_SCROLL_STEP`、`TEST_RUNNER_VIME_EMOJI_SCROLL_HZ` 和 `TEST_RUNNER_VIME_EMOJI_SCROLL_LANDSCAPE=1`。它记录图像未准备面积、滚动准备耗时和实际 display-link 间隔。120 Hz 是请求值，实际间隔以 display-link 记录为准。
 
 完整目录十轮内存测试通过 `TEST_RUNNER_VIME_EMOJI_MEMORY_AUDIT=1` 启用，设置 `TEST_RUNNER_VIME_EMOJI_MEMORY_NEURAL=1` 可先预热语言模型。该测试等待图像和停留，因此只用于内存验证。它记录模型/字体 shaping 后的基线、全进程峰值和十轮收起占用；检查末四轮占用范围小于 2 MiB，同时限制相对初始基线的峰值增长。60 MiB 增量是包含模型预热的模拟器回归预算，不是设备 Jetsam 阈值。真实扩展手势由 `KeyboardExtensionLifecycleTests/testSymbolCategorySwipesPreserveScrollingAndSelection` 覆盖。实机应检查首次浏览、快速反向、跳分类、横屏和多次收起重开，并观察是否持续增长或重启。
 
@@ -37,7 +37,5 @@ UIKit 可能再次展示已经离屏的 prepared cell，而不重新配置它。
 - [Apple WWDC21：Make blazing fast lists and collection views](https://developer.apple.com/videos/play/wwdc2021/10252/)：预取只争取更多准备时间；prepared cell 可被再次显示；解码后的图像占用实际像素内存。
 - [CoreText 多线程说明](https://developer.apple.com/library/archive/documentation/StringsTextFonts/Conceptual/CoreText_Programming/Overview/Overview.html)：只读字体允许跨线程使用，布局参数不能被并发修改。
 - [Apple WWDC18：iOS Memory Deep Dive](https://developer.apple.com/videos/play/wwdc2018/416/)：检查 footprint、dirty/compressed 分量与扩展内存边界。
-- [Mohamed Salah 的 Emoji 键盘实测分享](https://medium.com/@mohasalah/from-2014-to-now-fixing-coretext-emoji-glyphs-memory-retention-on-ios-1c6a227d592d)：原生彩色字形缓存可能保留大量内存；取消缓存又增加快滚 CPU 压力。文章中的具体阈值是作者环境观察，不能当作所有设备的系统保证。本文实现没有采用其全局 NSCache swizzling。
-- [Instagram IGListKit 的 UICollectionView 经验](https://github.com/Instagram/IGListKit/blob/main/Guides/Working%20with%20UICollectionView.md)：其历史实现曾因预取变慢而建议关闭；不能直接套用于当前 UIKit。Vime 保留预取，并测试实际成本。
-
-没有资料能证明微信输入法使用哪一种内部渲染架构。
+- [Mohamed Salah 的 Emoji 键盘实测分享](https://medium.com/@mohasalah/from-2014-to-now-fixing-coretext-emoji-glyphs-memory-retention-on-ios-1c6a227d592d)：原生彩色字形缓存可能保留大量内存；取消缓存又增加快滚 CPU 压力。文章中的具体阈值是作者环境的观察。本文实现没有采用其全局 NSCache swizzling。
+- [Instagram IGListKit 的 UICollectionView 经验](https://github.com/Instagram/IGListKit/blob/main/Guides/Working%20with%20UICollectionView.md)：其历史实现曾因预取变慢而建议关闭，针对的是较早的 UIKit。Vime 保留预取，并测试实际成本。

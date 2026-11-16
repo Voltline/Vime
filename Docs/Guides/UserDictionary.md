@@ -51,6 +51,6 @@
 
 数据保存在 App Group 的 `Vime/UserDictionary.json`。App 原子保存后更新共享 revision，worker 在初次使用或 revision 改变时重载；普通按键不反复读文件。继续输入或重新打开键盘后，候选使用新词典。
 
-共享读取需要完全访问。共享容器不可用时使用本地 Application Support，这不保证 App 与扩展仍共享数据。读取失败保留最后一个合法 snapshot。当前编辑入口在主 App，词典文件没有多写入方的事务合并。
+共享读取需要完全访问。共享容器不可用时使用本地 Application Support，此时 App 与扩展可能不再共享数据。读取失败保留最后一个合法 snapshot。当前编辑入口在主 App，词典文件没有多写入方的事务合并。
 
 实现见 [JapaneseUserDictionary.swift](../../Shared/Candidates/Dictionary/JapaneseUserDictionary.swift)。

@@ -34,7 +34,7 @@ App 与键盘支持简体中文（源语言）、繁体中文、日语、英语�
 | 层次 | 覆盖范围 | 边界 |
 | --- | --- | --- |
 | `Tests/UIKit` | 原生引擎、候选排序、会话、宿主适配、学习及组件交互 | 内嵌组件通过不等于第三方宿主通过 |
-| `Tests/ExtensionUI` / `VimeExtensionTests` | iOS 实际加载的键盘扩展 | 模拟器不能证明真机内存、能耗或所有 App 的行为 |
+| `Tests/ExtensionUI` / `VimeExtensionTests` | iOS 实际加载的键盘扩展 | 仅在模拟器上测量，未覆盖真机内存、能耗和各 App 的行为 |
 | 真机手动验证 | 第三方宿主、连续输入、光标变化、反馈和性能 | 记录输入串、操作步骤、版本及宿主，避免只记录最终截图 |
 
 主 App 首页的试打框使用正常系统输入框，添加 Vime 后用地球键切换，才会加载键盘扩展。「设置 → 问题诊断」提供真实键盘扩展的待确认文本观察和记录入口。`Vime/Sandbox` 的内嵌 `KeyboardView` 适合组件开发，不代替上述路径。
@@ -72,7 +72,7 @@ bash Scripts/verify_review.sh all
 
 输出默认保存到独立临时目录；也可用 `VIME_REVIEW_OUTPUT` 指定新的本地证据目录，不能覆盖旧结果。`VIME_DERIVED_DATA` 可指定构建缓存，`VIME_SWIFT_OPTIMIZATION` 可选 `-Onone` 或 `-O`。保存长期排查材料时放入 `Docs/internalDocs/Evidence/`。
 
-脚本保存源码与资源快照、命令、退出码和 XCTest 结果，检查预期测试方法是否实际被发现及执行。失败、缺失用例或非预期跳过均不算通过。两个 benchmark 和内存场景默认按需运行，其跳过不构成性能验证；CPU_ONLY 模型不能因测试名称含 Neural Engine 就视为已支持其他计算设备。
+脚本保存源码与资源快照、命令、退出码和 XCTest 结果，检查预期测试方法是否实际被发现及执行。失败、缺失用例或非预期跳过均不算通过。两个 benchmark 和内存场景默认按需运行，其跳过时没有性能数据；CPU_ONLY 模型不能因测试名称含 Neural Engine 就视为已支持其他计算设备。
 
 测试预期应独立于被测实现。模型参考输出与 corpus 随测试版本维护，不能为通过测试而把预期改成当前错误输出。出现失败要保留输入、命令和失败结果，再补充修复后的证据。
 
@@ -84,7 +84,7 @@ bash Scripts/verify_review.sh all
 
 候选工作队列在每个任务结束时释放 autorelease 临时对象。收到 UIKit 内存警告后，扩展取消旧请求，在同一工作队列释放模型与临时候选缓存，并清理闲置 UI；当前组合、选中候选、分段范围及待确认学习反馈保留。未完成的基础候选请求会重新发起，神经排序与神经联想暂停，继续使用词典能力。普通按键与宿主切换不会立即重新加载模型；将排序切到词典再切回模型可显式重试，扩展进程重建后也可重试
 
-内存警告不保证在系统终止前送达，已经进入的 Core ML 推理也不能被立即中断。模拟器的物理内存采样仅用于观察趋势，不能证明真机扩展未触及系统限制，也不能据此给出固定内存上限。报告格式和终止原因见 [Apple 的 Jetsam 排查说明](https://developer.apple.com/documentation/xcode/identifying-high-memory-use-with-jetsam-event-reports)
+内存警告不保证在系统终止前送达，已经进入的 Core ML 推理也不能被立即中断。模拟器的物理内存采样仅用于观察趋势，看不出真机扩展是否触及系统限制，也得不出固定内存上限。报告格式和终止原因见 [Apple 的 Jetsam 排查说明](https://developer.apple.com/documentation/xcode/identifying-high-memory-use-with-jetsam-event-reports)
 
 定向回归用例为 `KeyboardMemoryPressureTests`，覆盖加载过的模型释放、避免反复加载、异步候选重发、未完成罗马字以及分段选择保持。`VimeLanguageModelMemoryTests/testProcessMemoryProfile` 需显式设置 `TEST_RUNNER_VIME_MEMORY_SCENARIO=lm_words`，确认执行和联想发布次数后再解读内存数据。实际扩展路径另用 `KeyboardExtensionTests/testExpandedPartialSelectionKeepsHostMarkedRange` 验证，不能把模拟内存警告测试表述为真实 Jetsam 验收
 
