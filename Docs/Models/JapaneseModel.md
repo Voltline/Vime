@@ -26,7 +26,7 @@
 
 模型可跨按键复用同一上下文下的精确序列评分、共同前缀及末行概率分布，但没有 transformer KV cache；分布行主要数据上限为 1 MiB，切换上下文即清空。引擎调用和 Core ML 单次推理不能强制中断；取消检查在调用之间执行，独立重排的 250 ms 为软预算。实际输入中的异步转换另受从请求开始计时的首次发布 60 ms 窗口约束：到期采用已完成的有效比较或词典结果，并在推理调用之间停止评分；模型冷启动不阻塞首批候选显示。
 
-模型分数和用户证据的结合见 [候选排序](../Architecture/Candidates.md)。公开准确率或延迟结论应注明模型、数据集、评分口径、构建配置与设备，历史运行结果不能代表当前代码。
+模型分数和用户证据的结合见 [候选排序](../Architecture/Candidates.md)。公开准确率或延迟结论应注明模型、数据集、评分口径、构建配置与设备，历史运行结果对应当时的代码。
 
 ## 下一词
 
@@ -46,6 +46,6 @@ python3 Scripts/validate_model_resources.py --resources '<BUNDLE_RESOURCE_DIRECT
 
 ### 资源安装与基准
 
-v4.2 资源用 [install_v42_resources.py](../../Scripts/install_v42_resources.py) 从 VimeML 的 `tiny-ja-v4.2-epoch20-client-resources-v1` 安装；`validate_model_resources.py` 要求 v4.2 与 v2.1 两套完整且哈希一致，任一缺失都会使 Release preflight 失败。`Scripts/benchmark_lm_variants.py` 在独立测试进程中交替运行两种变体的基准测试（`TEST_RUNNER_VIME_LM_VARIANT=v21|v42`，未设置时测量运行时默认模型）。模拟器结果不能代表真机的 60 ms 首发窗口是否足够，切换默认模型后仍需按真机设备测量延迟与内存。
+v4.2 资源用 [install_v42_resources.py](../../Scripts/install_v42_resources.py) 从 VimeML 的 `tiny-ja-v4.2-epoch20-client-resources-v1` 安装；`validate_model_resources.py` 要求 v4.2 与 v2.1 两套完整且哈希一致，任一缺失都会使 Release preflight 失败。`Scripts/benchmark_lm_variants.py` 在独立测试进程中交替运行两种变体的基准测试（`TEST_RUNNER_VIME_LM_VARIANT=v21|v42`，未设置时测量运行时默认模型）。基准测试在模拟器上运行，真机的 60 ms 首发窗口是否足够未测量，切换默认模型后仍需按真机设备测量延迟与内存。
 
 [install_v21_resources.py](../../Scripts/install_v21_resources.py) 用于补齐缺失的匹配资源，不是覆盖已有模型的一般升级器。实际替换应遵守脚本校验和资源契约，并使用固定参考数据核对候选评分、联想、输入边界和内存。Release 资源输入见 [ModelResources.Release.xcfilelist](../../Configuration/ModelResources.Release.xcfilelist)。
