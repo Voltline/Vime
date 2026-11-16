@@ -38,6 +38,30 @@ final class KeyboardCandidateStabilityTests: XCTestCase {
         XCTAssertEqual(session.choose(index), [.insert("静か")])
     }
 
+    func testPendingConsonantKeepsShownKanjiAhead() {
+        let session = KeyboardSession(memoryDirectoryURL: isolatedLearningDirectory())
+        _ = session.type("ashitano")
+        XCTAssertEqual(session.candidates.first, "明日の")
+        _ = session.type("k")
+        XCTAssertEqual(session.candidates.first, "明日のk", "A consonant waiting for its vowel must not replace 明日 with kana")
+        XCTAssertTrue(session.candidates.contains("アシタノk"), "The kana form stays one tap away")
+        _ = session.type("a")
+        XCTAssertTrue(session.candidates.first?.hasPrefix("明日の") == true)
+    }
+
+    func testShownKanaTailStaysOpenToConversion() {
+        let session = KeyboardSession(memoryDirectoryURL: isolatedLearningDirectory())
+        _ = session.type("kanashikattaraikimasu")
+        XCTAssertEqual(session.candidates.first, "悲しかったら行きます", "Shown hiragana is not converted text worth protecting")
+    }
+
+    func testConvertedPrefixIgnoresKanaOnlyText() {
+        XCTAssertNil(CandidateContinuity.ConvertedPrefix(.init(surface: "せんだ", reading: "センダ", input: "senda")))
+        let kept = CandidateContinuity.ConvertedPrefix(.init(surface: "悲しかったらいきまs", reading: "カナシカッタライキマs", input: "kanashikattaraikimas"))
+        XCTAssertEqual(kept?.surface, "悲")
+        XCTAssertEqual(kept?.reading, "カナ")
+    }
+
     func testNewInputAllowsFreshRankingAndRejectsOldRevision() throws {
         let session = KeyboardSession()
         _ = session.type("hashi")

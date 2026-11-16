@@ -10,6 +10,8 @@ nonisolated struct CandidateRankingWeights: Sendable {
     var fullConsumption = 3.0
     var predictionOverrun = 4.0
     var continuity = 0.8 // Bounded bonus; cannot overcome an incompatible reading.
+    var prefixContinuity = 1.0 // Keeps shown kanji over a near tie; a clearly better rewrite still wins.
+    var pendingPrefixContinuity = 3.0 // Before the next vowel: keeps shown kanji above kana with Roman residue (2.0).
     var mixedKana = 4.0
     var scriptAvailability = 2.0
     var selectedScript = 10.0 // Explicit ア mode is a user preference, not a slot.
@@ -86,6 +88,48 @@ nonisolated struct CandidateContinuity: Sendable {
     let surface: String
     let reading: String
     let input: String
+
+    /// The converted text the previous first candidate already showed, without
+    /// the Roman letters still waiting for a vowel (明日のk → 明日の). A later
+    /// key should extend it, not replace it: a conversion that still starts
+    /// with it gets a bounded lead over one that rewrites it, so the first
+    /// candidate stops flipping to plain kana at every pending consonant and
+    /// back. Kana-only text has nothing converted to keep (せんだ → 仙台).
+    struct ConvertedPrefix {
+        let surface: String
+        let reading: String
+        let input: String
+
+        init?(_ previous: CandidateContinuity) {
+            var surface = Self.droppingTrailingLatin(previous.surface)
+            var reading = Self.droppingTrailingLatin(previous.reading)
+            // Trailing hiragana is still open: いきま may yet become 行きま.
+            // Each dropped kana is one reading character.
+            let open = surface.reversed().prefix { Self.isHiragana($0) }.count
+            guard open < surface.count, open < reading.count else { return nil }
+            surface.removeLast(open); reading.removeLast(open)
+            guard !reading.isEmpty, RomajiConverter.katakana(surface) != reading else { return nil }
+            self.surface = surface; self.reading = reading; input = previous.input
+        }
+
+        /// A complete conversion of the new input that reads and spells on from
+        /// the shown text. Predictions and generated script forms never qualify.
+        func keeps(_ value: CandidateSnapshot, input current: String) -> Bool {
+            current.count > input.count && current.hasPrefix(input)
+                && value.lexical && value.fullConsumption && !value.isPrediction && value.correction == nil
+                && value.source != .scriptVariant && value.widthVariant == nil
+                && value.text.count > surface.count && value.text.hasPrefix(surface)
+                && value.reading.hasPrefix(reading)
+        }
+
+        private static func isHiragana(_ character: Character) -> Bool {
+            character.unicodeScalars.allSatisfy { (0x3041...0x309F).contains($0.value) }
+        }
+
+        private static func droppingTrailingLatin(_ text: String) -> String {
+            String(text.reversed().drop { $0.isASCII && $0.isLetter }.reversed())
+        }
+    }
 }
 
 nonisolated struct CandidateReranker {
@@ -95,6 +139,7 @@ nonisolated struct CandidateReranker {
               previous: CandidateContinuity?, context: (CandidateSnapshot) -> Double = { _ in 0 }) -> [CandidateSnapshot] {
         let started = KeyboardPerformance.start()
         defer { KeyboardPerformance.record(.candidateReranking, since: started) }
+        let convertedPrefix = previous.flatMap(CandidateContinuity.ConvertedPrefix.init)
         let standardKatakana = Dictionary(grouping: pool.filter { $0.lexical && $0.scriptType == .katakana }, by: \.text)
             .mapValues { Set($0.map(\.reading)) }
         let scored = pool.filter { !$0.text.isEmpty }.map { original -> CandidateSnapshot in
@@ -162,6 +207,11 @@ nonisolated struct CandidateReranker {
                previous.reading == value.reading,
                value.lexical && (value.exactReading || value.isPrediction) {
                 f.continuity = weights.continuity
+            }
+            if let kept = convertedPrefix, kept.keeps(value, input: input) {
+                // A pending consonant leaves only weak engine evidence, which plain
+                // kana outscores; a complete reading needs only a tie-breaking lead.
+                f.continuity = max(f.continuity, value.exactReading ? weights.prefixContinuity : weights.pendingPrefixContinuity)
             }
             f.context = max(-weights.contextLimit, min(weights.contextLimit, context(value) * weights.context))
             f.userLearning = CandidatePreferenceMemory.Policy.rankingBonus(
