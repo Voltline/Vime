@@ -229,7 +229,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     }
     var previewsEnabled: Bool { preferences.previews }
     var previewHold: TimeInterval { preferences.previewHold }
-    var impactGenerators: [Int: UIImpactFeedbackGenerator] = [:]
+    let haptics = KeyboardHaptics()
     let header = UIView()
     let candidateScroll = UIScrollView()
     let candidateRow = UIView()
@@ -723,7 +723,10 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         session.didApplyEdits([]); refresh(); updateAutoCapitalization()
     }
     func finishLearningFeedback() { session.finishLearningFeedback() }
-    func prepareForInput() { session.prepareForInput() }
+    func prepareForInput() {
+        session.prepareForInput()
+        if preferences.hapticIntensity > 0 { haptics.prepare() }
+    }
 
     func resetComposition() {
         emojiSearchActive = false
@@ -747,7 +750,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         sparePanelButtons.removeAll(keepingCapacity: false)
         symbolPanel?.isHidden = true // Cancel this panel's preparation; retain the bounded shared bitmaps.
         symbolPanel?.removeFromSuperview(); symbolPanel = nil
-        impactGenerators.removeAll(keepingCapacity: false)
+        haptics.release()
         if panel == .symbols { panel = .keyboard }
     }
 
@@ -759,7 +762,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         spareCandidateButtons.removeAll(keepingCapacity: false)
         sparePanelButtons.removeAll(keepingCapacity: false)
         if panel != .symbols { symbolPanel?.isHidden = true; symbolPanel?.removeFromSuperview(); symbolPanel = nil }
-        impactGenerators.removeAll(keepingCapacity: false)
+        haptics.release()
         session.handleMemoryPressure()
         refresh()
     }

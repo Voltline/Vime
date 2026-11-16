@@ -9,14 +9,7 @@ extension KeyboardView {
             // could stall input. Visual feedback and haptic attempts are separate.
             UIDevice.current.playInputClick()
         }
-        let intensity = preferences.hapticIntensity
-        guard intensity > 0 else { return }
-        // Keep one feedback style across the range so intermediate values do not
-        // jump when crossing a style boundary
-        let generator = impactGenerators[1] ?? UIImpactFeedbackGenerator(style: .heavy)
-        impactGenerators[1] = generator
-        generator.impactOccurred(intensity: CGFloat(intensity))
-        generator.prepare()
+        haptics.play(intensity: preferences.hapticIntensity)
     }
 
     @objc func toolbarFeedback() { playFeedback() }
