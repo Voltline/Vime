@@ -158,7 +158,9 @@ nonisolated final class JapaneseCandidateEngine {
         }
         let registered = installDynamicDictionary(for: query)
         guard !cancelled() else { return [] }
-        currentContinuity = previousTop
+        // A refresh of the same input ranks against the text shown before it,
+        // not against its own first choice, so its order does not change.
+        if previousTop?.input != Self.rawInput(query) { currentContinuity = previousTop }
         let (result, requestOptions) = baseConversion(of: query, explicitScope: conversionLength != nil)
         // Finish each native call atomically, then abandon obsolete work before
         // building snapshots or starting unrelated conversion sessions.

@@ -5,6 +5,9 @@ import Foundation
 /// treating their arbitrary units as another likelihood hurt diagnostic quality.
 nonisolated enum CandidateCompetitionPolicy {
     static let dictionaryPriorWeight = 0.0
+    /// Log-probability lead (nats) a candidate that keeps the previously shown
+    /// text holds over a rewrite.
+    static let continuityMargin = 1.0
 
     struct Plan {
         let slots: [Int]
@@ -39,7 +42,10 @@ nonisolated enum CandidateCompetitionPolicy {
                 confidence: value.personalPreferenceProtectsOrder ? value.userPreferenceConfidence : 0)
             // Replace the presentation score with model evidence. The personal
             // prior above remains separate from the dictionary weight.
-            value.features.languageModel = (sum - best) - (1 - dictionaryPriorWeight) * dictionary
+            // Shown text keeps a small lead in model units: a rewrite of what
+            // the previous key showed must be clearly more likely, not a tie.
+            let kept = min(value.features.continuity, continuityMargin)
+            value.features.languageModel = (sum - best) - (1 - dictionaryPriorWeight) * dictionary + kept
             return (index: index, value: value)
         }
         let leader = scoredSlots.min()!
