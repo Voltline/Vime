@@ -69,6 +69,7 @@ class KeyboardViewController: UIInputViewController {
             return proxy.hasText
         }
         keyboard.onEdit = { [weak self] edits in self?.apply(edits) }
+        keyboard.onCursorGestureEnd = { [weak self] in self?.rememberContext() }
         keyboard.onEditsAndPreeditChange = { [weak self] in self?.apply($0, preedit: $1) }
         keyboard.onPreeditChange = { [weak self] in self?.updatePreedit($0) }
         keyboard.onReplaceText = { [weak self] in self?.replaceText($0) ?? false }
@@ -204,6 +205,10 @@ class KeyboardViewController: UIInputViewController {
 
     override func textDidChange(_ textInput: UITextInput?) {
         super.textDidChange(textInput)
+        // The caret drag confirmed the composition when it began, and each of
+        // its steps reports here. Reading the context and refreshing for each
+        // step lagged the caret; the drag's end catches up once.
+        if keyboard.isMovingCursor { keyboard.hostContextDidChange(); return }
         if !isApplyingEdits && contextChanged {
             partialCommitReceipt = nil
             host.abandon()
@@ -216,6 +221,10 @@ class KeyboardViewController: UIInputViewController {
 
     override func selectionDidChange(_ textInput: UITextInput?) {
         super.selectionDidChange(textInput)
+        // The caret drag confirmed the composition when it began, and each of
+        // its steps reports here. Reading the context and refreshing for each
+        // step lagged the caret; the drag's end catches up once.
+        if keyboard.isMovingCursor { keyboard.hostContextDidChange(); return }
         if !isApplyingEdits && contextChanged {
             partialCommitReceipt = nil
             host.abandon(); keyboard.resetComposition()

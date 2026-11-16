@@ -13,6 +13,14 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     let skinCanvas = KeyboardSkinCanvas()
     let brandArtwork = UIImageView()
     var onEdit: (([KeyboardEdit]) -> Void)?
+    /// Called once when a caret drag ends, so the host can catch up on the
+    /// selection changes it set aside while the drag was moving the caret.
+    var onCursorGestureEnd: (() -> Void)?
+    /// A caret drag is moving the caret. Each step makes the host report a
+    /// selection change; refreshing the whole keyboard for each one made the
+    /// caret trail the finger, so those refreshes wait for the drag to end.
+    private(set) var isMovingCursor = false
+    private var hostChangedDuringCursorMove = false
     /// Partial commits replace the old mark and publish its remainder in one
     /// host transaction, before processing host change notifications.
     var onEditsAndPreeditChange: (([KeyboardEdit], KeyboardPreedit?) -> Void)?
@@ -434,11 +442,18 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         addSubview(previewOverlay)
         keysContainer.onGestureChange = { [weak self] gesture in
             guard let self else { return }
+            let moving = gesture == .horizontalCursor || gesture == .spaceCursor
+            if self.isMovingCursor && !moving {
+                self.isMovingCursor = false
+                self.onCursorGestureEnd?()
+                if self.hostChangedDuringCursorMove { self.hostChangedDuringCursorMove = false; self.hostContextDidChange() }
+            }
             if gesture == .horizontalCursor || gesture == .spaceCursor {
                 self.confirmComposition()
                 self.session.finishLearningFeedback()
                 // A zero move starts a new caret gesture and resets its column.
                 self.onEdit?([.moveCursor(horizontal: 0, vertical: 0)])
+                self.isMovingCursor = true
             }
             for row in self.rows { for (key, _) in row { key.alpha = gesture == .horizontalCursor || gesture == .spaceCursor ? 0 : 1 } }
             self.gestureHint.text = gesture == .spaceCursor ? String(localized: "上下左右移动光标") : String(localized: "左右移动光标")
@@ -698,7 +713,10 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         set { session.learningContextProvider = newValue }
     }
 
-    func hostContextDidChange() { session.didApplyEdits([]); refresh(); updateAutoCapitalization() }
+    func hostContextDidChange() {
+        if isMovingCursor { hostChangedDuringCursorMove = true; return }
+        session.didApplyEdits([]); refresh(); updateAutoCapitalization()
+    }
     func finishLearningFeedback() { session.finishLearningFeedback() }
     func prepareForInput() { session.prepareForInput() }
 

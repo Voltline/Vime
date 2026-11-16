@@ -79,6 +79,41 @@ final class KeyboardFeatureTests: XCTestCase {
         XCTAssertEqual(text.text, "abc👩🏽‍💻def")
     }
 
+    func testCaretDragDefersHostRefreshesUntilItEnds() throws {
+        let (keyboard, surface, text, window) = try fixture()
+        defer { keyboard.stopInteractions(); window.isHidden = true }
+        text.text = "abcdefghij"; text.selectedRange = NSRange(location: 5, length: 0)
+        var ends = 0
+        keyboard.onCursorGestureEnd = { ends += 1 }
+        let start = try point("vime.key.g", in: surface)
+        surface.beginPress(id: 1, at: start)
+        XCTAssertFalse(keyboard.isMovingCursor)
+        let right = CGPoint(x: start.x + 80 * surface.scale, y: start.y)
+        surface.movePress(id: 1, to: right)
+        XCTAssertTrue(keyboard.isMovingCursor)
+        XCTAssertGreaterThan(text.selectedRange.location, 5, "The caret follows the drag")
+        keyboard.hostContextDidChange()
+        XCTAssertEqual(ends, 0)
+        surface.endPress(id: 1, at: right)
+        XCTAssertFalse(keyboard.isMovingCursor)
+        XCTAssertEqual(ends, 1, "The host catches up once, when the drag ends")
+        XCTAssertTrue(surface.regions.allSatisfy { $0.key.alpha == 1 })
+        XCTAssertEqual(text.text, "abcdefghij")
+    }
+
+    func testProxyCaretLayoutMovesWholeCharactersWithoutLayout() {
+        let layout = KeyboardProxyCursorLayout()
+        let before = "ab👩🏽‍💻", after = "c\nde"
+        layout.beginGesture(before: before, after: after, width: 440)
+        XCTAssertEqual(layout.moveInGesture(horizontal: -1, vertical: 0), -"👩🏽‍💻".utf16.count, "An emoji is one step")
+        XCTAssertEqual(layout.moveInGesture(horizontal: -5, vertical: 0), -2, "Stops at the start of the text")
+        XCTAssertEqual(layout.moveInGesture(horizontal: 0, vertical: 0), 0)
+        XCTAssertEqual(layout.moveInGesture(horizontal: 9, vertical: 0), (before + after).utf16.count, "Stops at the end")
+        let up = layout.moveInGesture(horizontal: 0, vertical: -1)
+        XCTAssertLessThanOrEqual((before + after).utf16.count + up, (before + "c").utf16.count,
+                                 "A vertical step after horizontal ones lays out the same text and reaches the first line")
+    }
+
     func testOneKeyHorizontalDriftInputsOriginalCharacterInHost() throws {
         let session = KeyboardSession()
         let (keyboard, surface, text, window) = try fixture(session: session)

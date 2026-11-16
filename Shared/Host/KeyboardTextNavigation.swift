@@ -47,6 +47,9 @@ enum KeyboardTextNavigation {
 /// TextKit view; this is approximate when the host uses a different width/font.
 final class KeyboardProxyCursorLayout {
     private let layout = UITextView()
+    private var text = ""
+    private var width: CGFloat = 80
+    private var laidOut = false
     private var gestureCaret: Int?
     private var gestureX: CGFloat?
     init() {
@@ -54,9 +57,12 @@ final class KeyboardProxyCursorLayout {
         layout.textContainerInset = .zero
         layout.textContainer.lineFragmentPadding = 0
     }
+    /// Starting a gesture only records the text: wrapping is laid out on the
+    /// first vertical step, so a horizontal drag never pays for TextKit.
     func beginGesture(before: String, after: String, width: CGFloat) {
-        layout.frame = CGRect(x: 0, y: 0, width: max(80, width), height: 2000)
-        layout.text = before + after
+        text = before + after
+        self.width = max(80, width)
+        laidOut = false
         gestureCaret = before.utf16.count
         gestureX = nil
     }
@@ -65,8 +71,22 @@ final class KeyboardProxyCursorLayout {
     /// would make the new position the apparent document end and block down.
     func moveInGesture(horizontal: Int, vertical: Int) -> Int {
         guard let caret = gestureCaret else { return 0 }
+        if vertical == 0 {
+            // Whole characters over the recorded text, without layout.
+            gestureX = nil
+            let start = String.Index(utf16Offset: caret, in: text)
+            let limit = horizontal < 0 ? text.startIndex : text.endIndex
+            let end = text.index(start, offsetBy: horizontal, limitedBy: limit) ?? limit
+            gestureCaret = end.utf16Offset(in: text)
+            return gestureCaret! - caret
+        }
+        if !laidOut {
+            layout.frame = CGRect(x: 0, y: 0, width: width, height: 2000)
+            layout.text = text
+            layout.layoutManager.ensureLayout(for: layout.textContainer)
+            laidOut = true
+        }
         layout.selectedRange = NSRange(location: caret, length: 0)
-        layout.layoutManager.ensureLayout(for: layout.textContainer)
         KeyboardTextNavigation.move(in: layout, horizontal: horizontal, vertical: vertical, preferredX: &gestureX)
         gestureCaret = layout.selectedRange.location
         return layout.selectedRange.location - caret
