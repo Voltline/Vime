@@ -26,6 +26,15 @@ final class KeyboardCandidateButton: UIButton {
     var presentationWidth: CGFloat { max(ceil(measuredTextWidth) + 24, suggestion ? Self.suggestionMinimumWidth : 0) }
     /// Keeps one-character suggestions such as は or 、 from crowding together.
     static let suggestionMinimumWidth: CGFloat = 56
+    /// A sentence wider than the expanded panel's row wraps onto a second
+    /// line (KeyboardCandidatePanelLayout); the strip always shows one.
+    var titleLines = 1 {
+        didSet {
+            guard titleLines != oldValue else { return }
+            titleLabel?.numberOfLines = titleLines
+            setNeedsLayout()
+        }
+    }
     var selectionToken: CandidateSelectionToken? { presentedPresentation?.selectionToken }
     private var armedSelectionToken: CandidateSelectionToken?
     private var selectionArmed = false
@@ -148,7 +157,14 @@ final class KeyboardCandidateButton: UIButton {
         super.layoutSubviews()
         let titleHeight = ceil(titleLabel?.font.lineHeight ?? 22)
         var textBottom = (bounds.height + titleHeight) / 2
-        if !annotation.isHidden {
+        if titleLines > 1 && annotation.isHidden && ruby.isHidden {
+            // Wrapped text fills the slot's width; the label truncates the
+            // last line in the middle if even two lines are not enough.
+            let height = titleHeight * CGFloat(titleLines)
+            let top = max(0, floor((bounds.height - height) / 2))
+            titleLabel?.frame = CGRect(x: 12, y: top, width: max(0, bounds.width - 24), height: height)
+            textBottom = top + height
+        } else if !annotation.isHidden {
             let noteHeight = ceil(annotation.font.lineHeight)
             let top = max(0, (bounds.height - titleHeight - noteHeight - 3) / 2)
             titleLabel?.frame = CGRect(x: 12, y: top, width: max(0, bounds.width - 24), height: titleHeight)

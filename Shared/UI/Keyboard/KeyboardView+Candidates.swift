@@ -111,7 +111,8 @@ extension KeyboardView {
             let button = sparePanelButtons.popLast() ?? candidateButton(values[index], index: index)
             button.backgroundColor = .clear
             button.layer.cornerRadius = 6
-            button.titleLabel?.lineBreakMode = .byTruncatingTail
+            // A sentence that overflows even two lines keeps its start and end.
+            button.titleLabel?.lineBreakMode = .byTruncatingMiddle
             panelScroll.addSubview(button)
             panelCandidates.append(button)
         }
