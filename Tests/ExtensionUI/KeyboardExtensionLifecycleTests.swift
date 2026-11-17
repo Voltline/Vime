@@ -72,6 +72,10 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
             attachment.name = "keyboard-startup-failure"; attachment.lifetime = .keepAlways; add(attachment)
         }
         XCTAssertTrue(hasGlobe)
+        // After the first globe-tap switch, iOS covers the system keyboard with
+        // a one-time "Quickly Change Keyboards" tip that swallows the long press.
+        let tip = app.buttons.matching(NSPredicate(format: "label IN %@", ["Continue", "继续", "続ける"] as NSArray)).firstMatch
+        if tip.exists { tip.tap() }
         // A tap can alternate recently used keyboards instead of walking every
         // enabled input mode. Select the extension explicitly from the menu.
         globe.press(forDuration: 1)
@@ -92,7 +96,7 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
         continueAfterFailure = false
         XCUIDevice.shared.orientation = .portrait
         let app = XCUIApplication()
-        defer {
+        addTeardownBlock {
             app.terminate()
             app.launchArguments = ["--keyboard-extension-test", "--keyboard-extension-test-ranking", "languageModel"]
             app.launch() // Remove the simulator-only isolated-history override.
@@ -140,7 +144,7 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
         executionTimeAllowance = 600
         let app = XCUIApplication()
         XCUIDevice.shared.orientation = .portrait
-        defer {
+        addTeardownBlock {
             XCUIDevice.shared.orientation = .portrait
             app.terminate()
             app.launchArguments = ["--keyboard-extension-test", "--keyboard-extension-test-height", "1"]
@@ -243,7 +247,7 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
     func testSymbolCategorySwipesPreserveScrollingAndSelection() throws {
         continueAfterFailure = false
         XCUIDevice.shared.orientation = .portrait
-        defer { XCUIDevice.shared.orientation = .portrait }
+        addTeardownBlock { XCUIDevice.shared.orientation = .portrait }
         let app = XCUIApplication()
         app.launchArguments = ["--keyboard-extension-test", "--keyboard-extension-test-ranking", "engine",
             "--v21-extension-audit-on", "--v21-extension-audit-duration-seconds", "600",
@@ -338,7 +342,7 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
         XCUIDevice.shared.orientation = .portrait
         let app = XCUIApplication()
         app.launchArguments = ["--keyboard-extension-test", "--keyboard-extension-test-height", "0.85"]
-        defer {
+        addTeardownBlock {
             XCUIDevice.shared.orientation = .portrait
             app.terminate()
             app.launchArguments = ["--keyboard-extension-test", "--keyboard-extension-test-height", "1"]
@@ -364,7 +368,8 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
             let keyPlaneRight = lastFirstRow.frame.maxX
             XCTAssertEqual(brand.frame.minX, firstRow.frame.minX, accuracy: 1)
             XCTAssertEqual(arrow.frame.maxX, lastFirstRow.frame.maxX, accuracy: 1)
-            XCTAssertEqual(arrow.frame.minX - mode.frame.maxX, 8, accuracy: 1)
+            XCTAssertEqual(arrow.frame.minX - mode.frame.maxX, max(8, 44 - mode.frame.width), accuracy: 1,
+                "Trailing targets must have at least 44 points between their centers")
             func capture(_ state: String) {
                 let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
                 attachment.name = "landscape-round-\(round)-\(state)"
@@ -385,7 +390,10 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
             XCTAssertTrue(firstRow.waitForExistence(timeout: 3))
             for key in [space, enter] {
                 XCTAssertTrue(app.frame.contains(key.frame))
-                XCTAssertGreaterThanOrEqual(key.frame.height, 39)
+                // Rotating with the keyboard up keeps the shorter portrait
+                // height (iOS 27), so the rows shrink to fit it instead of
+                // the 39 point keys of a landscape presentation.
+                XCTAssertGreaterThanOrEqual(key.frame.height, 36)
                 let input = app.otherElements["vime.keyboard"]
                 let bottomSpace = input.frame.maxY - key.frame.maxY
                 print("VIME_LANDSCAPE_GEOMETRY input=\(input.frame) key=\(key.frame) screen=\(app.frame)")
@@ -457,7 +465,7 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
         continueAfterFailure = false
         executionTimeAllowance = 3_600
         XCUIDevice.shared.orientation = .portrait
-        defer { XCUIDevice.shared.orientation = .portrait }
+        addTeardownBlock { XCUIDevice.shared.orientation = .portrait }
         let app = XCUIApplication()
         app.launchArguments = ["--keyboard-extension-test", "--keyboard-extension-test-ranking", ranking,
             "--v21-extension-audit-on", "--v21-extension-audit-duration-seconds", "3600",
@@ -525,8 +533,20 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
                 app.buttons["vime.extension.clear"].tap()
                 XCTAssertEqual(editor.value as? String, "")
             }
+            let focus = app.buttons["vime.extension.focus"]
             if mixedFeatures && cycle.isMultiple(of: 6) {
-                XCUIDevice.shared.orientation = cycle.isMultiple(of: 12) ? .portrait : .landscapeLeft
+                let landscape = !cycle.isMultiple(of: 12)
+                XCUIDevice.shared.orientation = landscape ? .landscapeLeft : .portrait
+                // Animation idling is disabled above. Wait until the host has
+                // settled in its rotated layout, or the tap hits the old position.
+                var previous: CGRect?
+                let rotated = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                    let frame = app.frame, button = focus.frame
+                    defer { previous = button }
+                    return (landscape ? frame.width > frame.height : frame.width < frame.height)
+                        && focus.isHittable && previous == button
+                }, object: nil)
+                XCTAssertEqual(XCTWaiter.wait(for: [rotated], timeout: 5), .completed)
             }
             app.buttons["vime.extension.focus"].tap()
             // In landscape the button sits where the keyboard just was, and the

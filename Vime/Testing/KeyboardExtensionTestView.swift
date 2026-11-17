@@ -25,10 +25,6 @@ struct KeyboardExtensionTestView: View {
                 .font(.caption).foregroundStyle(.secondary)
                 .accessibilityIdentifier("vime.extension.marked")
             HStack {
-                Button("开始输入") { focusRequest += 1 }
-                    .accessibilityIdentifier("vime.extension.focus")
-                Button("收起键盘") { dismissRequest += 1 }
-                    .accessibilityIdentifier("vime.extension.dismiss")
                 Spacer()
                 Button("清空") {
                     text = ""; composition = ""; events = []; clearRequest += 1
@@ -52,6 +48,17 @@ struct KeyboardExtensionTestView: View {
         .padding(20)
         .navigationTitle("键盘扩展试打")
         .navigationBarTitleDisplayMode(.inline)
+        // Keep open/close controls in the bar: a landscape keyboard covers the
+        // content below the editor, and after it hides iOS can report stale
+        // accessibility frames for content that keyboard avoidance moved.
+        .toolbar {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                Button("开始输入") { focusRequest += 1 }
+                    .accessibilityIdentifier("vime.extension.focus")
+                Button("收起键盘") { dismissRequest += 1 }
+                    .accessibilityIdentifier("vime.extension.dismiss")
+            }
+        }
 #if DEBUG
         .task { await runAutomaticLifecycleIfRequested() }
 #endif

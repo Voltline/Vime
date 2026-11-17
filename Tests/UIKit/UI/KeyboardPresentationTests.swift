@@ -327,13 +327,15 @@ final class KeyboardPresentationTests: XCTestCase {
         for footer in [false, true] {
             keyboard.showsFooter = footer
             let preferred = keyboard.preferredHeight(for: 722)
-            for extra in [CGFloat(0), 9, 17] {
+            // UIKit keeps the input view's height through a rotation, so a
+            // shorter portrait height can arrive here too (-12 on a 402 pt phone).
+            for extra in [CGFloat(-12), 0, 9, 17] {
                 keyboard.frame = CGRect(x: 0, y: 0, width: 722, height: preferred + extra)
                 keyboard.layoutIfNeeded()
                 let space = try button("vime.key.space", in: keyboard)
                 let margin = keyboard.bounds.maxY - space.frame.maxY
                 XCTAssertEqual(margin, footer ? 37.95 : 1.95, accuracy: 0.001,
-                    "Extra host height belongs to the key plane, not a blank band below it")
+                    "The actual host height belongs to the key plane: no blank band, no clipped row")
                 let first = try button("vime.key.q", in: keyboard)
                 let toolbar = try button("vime.brand.settings", in: keyboard)
                 XCTAssertEqual(first.frame.minY - toolbar.frame.maxY, 8, accuracy: 0.001)
