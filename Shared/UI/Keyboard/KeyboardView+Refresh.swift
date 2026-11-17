@@ -93,6 +93,7 @@ extension KeyboardView {
         clipboardSuggestion.isHidden = !state.showsClipboard
         neuralStatusLabel.isHidden = state.hidesNeuralStatus
         settingsPanel?.showsOneHanded = !pad && !compact
+        settingsPanel?.showsLiveConversion = !(session is ChineseInputSession)
         settingsPanel?.update(hasFullAccess: hasFullAccess, neuralPaused: neuralPaused)
         header.isHidden = state.hidesHeader
         undoButton.isHidden = state.hidesUndo

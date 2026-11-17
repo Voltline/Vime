@@ -1776,6 +1776,34 @@
         }
       }
     },
+    "中 / 英" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "中 / 英"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "中 / 英"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "中 / 英"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "中 / 英"
+          }
+        }
+      }
+    },
     "中文" : {
       "localizations" : {
         "en" : {
@@ -3559,6 +3587,34 @@
         }
       }
     },
+    "切换中文与英文" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Switch between Chinese and English"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "中国語と英語を切り替え"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "중국어와 영어 전환"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "切換中文與英文"
+          }
+        }
+      }
+    },
     "切换到日语" : {
       "localizations" : {
         "en" : {
@@ -3723,6 +3779,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "切換日語與英文"
+          }
+        }
+      }
+    },
+    "切换简体与繁体" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Switch between Simplified and Traditional"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "簡体字と繁体字を切り替え"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "간체와 번체 전환"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "切換簡體與繁體"
           }
         }
       }
@@ -12897,6 +12981,34 @@
         }
       }
     },
+    "简 / 繁" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "简 / 繁"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "简 / 繁"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "简 / 繁"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "简 / 繁"
+          }
+        }
+      }
+    },
     "简体中文" : {
       "localizations" : {
         "en" : {
@@ -15599,6 +15711,34 @@
         }
       }
     },
+    "输入打出的字母，再按换行" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter the typed letters; press again for a new line"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "入力した英字を確定、もう一度で改行"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "입력한 영문자 그대로 입력, 다시 누르면 줄바꿈"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "輸入打出的字母，再按換行"
+          }
+        }
+      }
+    },
     "输入数据留在本机" : {
       "localizations" : {
         "en" : {
@@ -15707,6 +15847,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "輸入符號"
+          }
+        }
+      }
+    },
+    "输入第一个候选" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter the first candidate"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最初の候補を入力"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "첫 번째 후보 입력"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "輸入第一個候選"
           }
         }
       }
@@ -16491,6 +16659,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "長按地球鍵，選擇 Vime 日本語"
+          }
+        }
+      }
+    },
+    "长按地球键切到 Vime，输入 nihao" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Touch and hold the globe key, switch to Vime and type nihao"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "地球儀キーを長押しして Vime に切り替え、nihao と入力"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "지구본 키를 길게 눌러 Vime으로 전환한 뒤 nihao 입력"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "長按地球鍵切到 Vime，輸入 nihao"
           }
         }
       }

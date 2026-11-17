@@ -11,6 +11,8 @@ struct KeyboardHomeView: View {
     @State private var clearRequest = 0
     @State private var progress: KeyboardSetupProgress
     @State private var practiceIndex = 0
+    /// The keyboard opens in Chinese: the hints and practice follow it.
+    @State private var chinese: Bool
     /// Onboarding covers this page while the keyboard first reports in.
     @AppStorage("vime.onboarding.completed") private var onboardingCompleted = false
     /// The key reference describes Space and Return as live conversion uses them.
@@ -18,9 +20,10 @@ struct KeyboardHomeView: View {
     /// Fixed state for rendering tests; the live page rereads the status record.
     private let fixed: Bool
 
-    init(keyboardReady: Bool? = nil, progress: KeyboardSetupProgress? = nil) {
+    init(keyboardReady: Bool? = nil, progress: KeyboardSetupProgress? = nil, chinese: Bool? = nil) {
         let fixedProgress = progress ?? keyboardReady.map { .init(added: $0, fullAccess: $0) }
         _progress = State(initialValue: fixedProgress ?? .load())
+        _chinese = State(initialValue: chinese ?? Self.opensInChinese())
         fixed = fixedProgress != nil
         let preferences = KeyboardPreferences()
         _liveConversion = AppStorage(wrappedValue: preferences.liveConversion, "vime.liveConversion", store: preferences.store)
@@ -34,18 +37,31 @@ struct KeyboardHomeView: View {
             VStack(alignment: .leading, spacing: 10) {
                 AppSectionTitle("键位速查")
                 AppSettingsActionGroup {
-                    operation("空格", liveConversion ? "显示下一个候选" : "开始转换，再按切换候选", tint: .blue)
-                    Divider().padding(.leading, 16)
-                    operation("回车", liveConversion ? "确认显示的文字，再按换行" : "确认输入，再按换行", tint: .teal)
-                    Divider().padding(.leading, 16)
-                    operation("あ / ア", "切换平假名与片假名", tint: .indigo)
-                    Divider().padding(.leading, 16)
-                    operation("日 / 英", "切换日语与英文", tint: .orange)
+                    if chinese {
+                        operation("空格", "输入第一个候选", tint: .blue)
+                        Divider().padding(.leading, 16)
+                        operation("回车", "输入打出的字母，再按换行", tint: .teal)
+                        Divider().padding(.leading, 16)
+                        operation("简 / 繁", "切换简体与繁体", tint: .indigo)
+                        Divider().padding(.leading, 16)
+                        operation("中 / 英", "切换中文与英文", tint: .orange)
+                    } else {
+                        operation("空格", liveConversion ? "显示下一个候选" : "开始转换，再按切换候选", tint: .blue)
+                        Divider().padding(.leading, 16)
+                        operation("回车", liveConversion ? "确认显示的文字，再按换行" : "确认输入，再按换行", tint: .teal)
+                        Divider().padding(.leading, 16)
+                        operation("あ / ア", "切换平假名与片假名", tint: .indigo)
+                        Divider().padding(.leading, 16)
+                        operation("日 / 英", "切换日语与英文", tint: .orange)
+                    }
                 }
                 Group {
                     Text("字母上滑输入符号，长按空格拖动移动光标。")
-                    if liveConversion { Text("实时转换已打开，输入时直接显示转换结果。") }
-                    else { Text("在「设置 → 转换与联想」中打开实时转换，输入时就会直接显示转换结果。") }
+                    // Live conversion is Japanese input's.
+                    if !chinese {
+                        if liveConversion { Text("实时转换已打开，输入时直接显示转换结果。") }
+                        else { Text("在「设置 → 转换与联想」中打开实时转换，输入时就会直接显示转换结果。") }
+                    }
                 }
                 .font(.footnote).foregroundStyle(.secondary).padding(.horizontal, 4)
             }
@@ -68,6 +84,12 @@ struct KeyboardHomeView: View {
     private func reload() {
         guard !fixed else { return }
         progress = .load()
+        chinese = Self.opensInChinese()
+    }
+
+    /// As the keyboard reads it: Chinese only with its data bundled.
+    static func opensInChinese(_ preferences: KeyboardPreferences = KeyboardPreferences()) -> Bool {
+        preferences.inputLanguage == .chinese && RimeEngine.bundledData != nil
     }
 
     private var setupBanner: some View {
@@ -89,7 +111,9 @@ struct KeyboardHomeView: View {
                         if progress.added { Text("正在等待完全访问…") } else { Text("还没检测到 Vime") }
                     }.font(.subheadline.weight(.semibold))
                     Group {
-                        if progress.added { Text("长按地球键切到 Vime，输入 nihongo") } else { Text("添加键盘并开启完全访问后再来试打") }
+                        if progress.added {
+                            if chinese { Text("长按地球键切到 Vime，输入 nihao") } else { Text("长按地球键切到 Vime，输入 nihongo") }
+                        } else { Text("添加键盘并开启完全访问后再来试打") }
                     }.font(.footnote).foregroundStyle(.white.opacity(0.85))
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -171,7 +195,8 @@ struct KeyboardHomeView: View {
 
     // MARK: - Practice
 
-    private var practice: TypingPractice { TypingPractice.sentences[practiceIndex % TypingPractice.sentences.count] }
+    private var practices: [TypingPractice] { chinese ? TypingPractice.chineseSentences : TypingPractice.sentences }
+    private var practice: TypingPractice { practices[practiceIndex % practices.count] }
 
     /// Follows the editor: the committed text is compared with the target.
     private var practiceCard: some View {
@@ -188,7 +213,7 @@ struct KeyboardHomeView: View {
         return VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
                 Text("跟打练习").font(.subheadline.weight(.semibold))
-                Text(verbatim: "\(practiceIndex % TypingPractice.sentences.count + 1)/\(TypingPractice.sentences.count)")
+                Text(verbatim: "\(practiceIndex % practices.count + 1)/\(practices.count)")
                     .font(.footnote.monospacedDigit()).foregroundStyle(.secondary)
                 Spacer(minLength: 8)
                 Button {
@@ -226,7 +251,7 @@ struct KeyboardHomeView: View {
     }
 }
 
-/// Short everyday sentences with the romaji that produces them.
+/// Short everyday sentences with the romaji or pinyin that produces them.
 struct TypingPractice: Equatable {
     let target: String
     let romaji: String
@@ -238,6 +263,16 @@ struct TypingPractice: Equatable {
         TypingPractice(target: "駅まで歩いて五分です", romaji: "ekimade aruite gofun desu"),
         TypingPractice(target: "お疲れさまでした", romaji: "otsukaresama deshita"),
         TypingPractice(target: "よろしくお願いします", romaji: "yoroshiku onegaishimasu"),
+    ]
+
+    /// For a keyboard that opens in Chinese; `romaji` holds the pinyin.
+    static let chineseSentences = [
+        TypingPractice(target: "今天天气真不错", romaji: "jintian tianqi zhen bucuo"),
+        TypingPractice(target: "谢谢你的帮助", romaji: "xiexie ni de bangzhu"),
+        TypingPractice(target: "明天上午十点开会", romaji: "mingtian shangwu shidian kaihui"),
+        TypingPractice(target: "周末一起去吃饭吧", romaji: "zhoumo yiqi qu chifan ba"),
+        TypingPractice(target: "很高兴认识你", romaji: "hen gaoxing renshi ni"),
+        TypingPractice(target: "辛苦了早点休息", romaji: "xinku le zaodian xiuxi"),
     ]
 
     /// Leading characters of the target already typed. Surrounding whitespace

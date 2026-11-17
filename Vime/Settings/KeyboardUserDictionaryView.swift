@@ -9,38 +9,54 @@ struct UserDictionaryDocument: FileDocument {
     func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper { FileWrapper(regularFileWithContents: data) }
 }
 
-/// Japanese and Chinese keep separate dictionaries; the page opens on the
-/// keyboard's current language.
+/// Japanese and Chinese keep separate dictionaries, a swipe apart; the page
+/// opens on the keyboard's current language.
 struct KeyboardUserDictionaryView: View {
     enum Language: Hashable { case japanese, chinese }
     @State private var language: Language
+    @State private var progress: CGFloat
+    @State private var search = ""
+    @State private var addRequests: [Language: Int] = [:]
     private let showsChinese: Bool
 
     init() {
         let preferences = KeyboardPreferences()
         showsChinese = preferences.chineseInputEnabled
-        _language = State(initialValue: showsChinese && preferences.inputLanguage == .chinese ? .chinese : .japanese)
+        let language: Language = showsChinese && preferences.inputLanguage == .chinese ? .chinese : .japanese
+        _language = State(initialValue: language)
+        _progress = State(initialValue: language == .chinese ? 1 : 0)
     }
 
     var body: some View {
         Group {
-            switch language {
-            case .japanese: JapaneseUserDictionaryList()
-            case .chinese: ChineseUserDictionaryList()
+            if showsChinese {
+                VimePager(pages: [Language.japanese, .chinese], selection: $language, progress: $progress) { page in
+                    list(page)
+                }
+            } else {
+                list(.japanese)
             }
         }
         .navigationTitle("用户词典").navigationBarTitleDisplayMode(.inline)
+        .searchable(text: $search, prompt: language == .chinese ? "搜索词语或拼音" : "搜索词语或读音")
         .toolbar {
             if showsChinese {
                 ToolbarItem(placement: .principal) {
-                    Picker("词典语言", selection: $language) {
-                        Text("日语").tag(Language.japanese)
-                        Text("中文").tag(Language.chinese)
-                    }
-                    .pickerStyle(.segmented).fixedSize()
-                    .accessibilityIdentifier("vime.dictionary.language")
+                    VimePageSlider(pages: [(Language.japanese, "日语"), (.chinese, "中文")],
+                                   selection: $language, position: progress, identifier: "vime.dictionary.language")
                 }
             }
+            ToolbarItem(placement: .primaryAction) {
+                Button { addRequests[language, default: 0] += 1 } label: { Image(systemName: "plus") }
+                    .accessibilityLabel("添加词条")
+            }
+        }
+    }
+
+    @ViewBuilder private func list(_ page: Language) -> some View {
+        switch page {
+        case .japanese: JapaneseUserDictionaryList(search: search, addRequest: addRequests[.japanese, default: 0])
+        case .chinese: ChineseUserDictionaryList(search: search, addRequest: addRequests[.chinese, default: 0])
         }
     }
 }
@@ -48,7 +64,8 @@ struct KeyboardUserDictionaryView: View {
 private struct JapaneseUserDictionaryList: View {
     private let store = JapaneseUserDictionaryStore()
     @State private var entries: [JapaneseUserDictionaryEntry] = []
-    @State private var search = ""
+    let search: String
+    let addRequest: Int
     @State private var editing: JapaneseUserDictionaryEntry?
     @State private var importing = false
     @State private var exporting = false
@@ -58,7 +75,8 @@ private struct JapaneseUserDictionaryList: View {
     @State private var errorMessage: String?
     @AppStorage private var textReplacements: Bool
 
-    init() {
+    init(search: String, addRequest: Int) {
+        self.search = search; self.addRequest = addRequest
         let preferences = KeyboardPreferences()
         _textReplacements = AppStorage(wrappedValue: preferences.textReplacements, "vime.textReplacements", store: preferences.store)
     }
@@ -116,10 +134,7 @@ private struct JapaneseUserDictionaryList: View {
         }
         .listStyle(.insetGrouped)
         .appReadableList()
-        .searchable(text: $search, prompt: "搜索词语或读音")
-        .toolbar { ToolbarItem(placement: .primaryAction) {
-            Button { editing = .init(reading: "", surface: "") } label: { Image(systemName: "plus") }.accessibilityLabel("添加词条")
-        } }
+        .onChange(of: addRequest) { editing = .init(reading: "", surface: "") }
         .onAppear { perform { entries = try store.entries() } }
         .sheet(item: $editing) { entry in
             UserDictionaryEntryEditor(entry: entry) { value in

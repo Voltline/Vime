@@ -24,6 +24,12 @@ final class KeyboardSettingsPanel: UIScrollView {
     private let retryNeural = UIButton(type: .custom)
     private var retryGroup: UIView?
     private var adaptiveRows: [UIStackView] = []
+    /// Rows of two groups, side by side unless the text is too large.
+    private var pairs: [UIStackView] = []
+    /// Title-over-control tiles; a lone tile or large text lays out as a row.
+    private var tiles: [UIStackView] = []
+    /// Half-width switch rows, which drop their icon when the label would wrap.
+    private var compactRows: [UIStackView] = []
     private var accessibleSliderWidth: NSLayoutConstraint?
     private var typography: [(UILabel, CGFloat, UIFont.Weight)] = []
     private var groups: [UIView] = []
@@ -41,7 +47,9 @@ final class KeyboardSettingsPanel: UIScrollView {
     /// Only a keyboard that follows the stored language with Rime data bundled.
     var showsInputLanguage = false { didSet { inputLanguageGroup?.isHidden = !showsInputLanguage } }
     /// One-handed mode applies to an upright iPhone only.
-    var showsOneHanded = true { didSet { oneHandedGroup?.isHidden = !showsOneHanded } }
+    var showsOneHanded = true { didSet { oneHandedGroup?.isHidden = !showsOneHanded; updatePairs() } }
+    /// Live conversion is Japanese input's; the Chinese keyboard hides it.
+    var showsLiveConversion = true { didSet { updateLiveConversion() } }
 
     init(preferences: KeyboardPreferences) {
         self.preferences = preferences
@@ -98,11 +106,8 @@ final class KeyboardSettingsPanel: UIScrollView {
         stack.addArrangedSubview(shortcuts)
 
 
-        sound.accessibilityLabel = String(localized: "按键声音"); sound.accessibilityIdentifier = "vime.setting.sound"
-        sound.addAction(UIAction { [weak self] _ in
-            guard let self else { return }; self.preferences.sound = self.sound.isOn
-        }, for: .valueChanged)
-        let soundRow = row(symbol: "speaker.wave.2", content: [label("按键声音"), sound], height: 44, adaptive: true)
+        // Vibration needs a full-width slider; the rest pair up two to a row,
+        // the sound and live conversion switches first.
         configureTypography(hapticValue, size: 11)
         hapticValue.textAlignment = .right
         hapticValue.accessibilityIdentifier = "vime.setting.hapticValue"
@@ -121,9 +126,12 @@ final class KeyboardSettingsPanel: UIScrollView {
         vibration.setContentHuggingPriority(.required, for: .horizontal)
         let hapticRow = row(symbol: "iphone.radiowaves.left.and.right", content: [vibration, haptics, hapticValue], height: 46, adaptive: true)
         accessibleSliderWidth = haptics.widthAnchor.constraint(equalTo: haptics.superview!.widthAnchor)
-        let feedback = UIStackView(arrangedSubviews: [soundRow, separator(), hapticRow])
-        feedback.axis = .vertical
-        stack.addArrangedSubview(group(feedback))
+
+        sound.accessibilityLabel = String(localized: "按键声音"); sound.accessibilityIdentifier = "vime.setting.sound"
+        sound.addAction(UIAction { [weak self] _ in
+            guard let self else { return }; self.preferences.sound = self.sound.isOn
+        }, for: .valueChanged)
+        let soundGroup = group(row(symbol: "speaker.wave.2", content: [label("按键声音"), sound], height: 44, adaptive: true, compact: true))
 
         // Live conversion is a matter of taste; try it without leaving the keyboard.
         liveConversion.accessibilityLabel = String(localized: "实时转换")
@@ -134,13 +142,14 @@ final class KeyboardSettingsPanel: UIScrollView {
             self.onLiveConversionChange?()
         }, for: .valueChanged)
         let liveConversionGroup = group(row(symbol: "character.textbox",
-            content: [label(String(localized: "实时转换")), liveConversion], height: 44, adaptive: true))
+            content: [label(String(localized: "实时转换")), liveConversion], height: 44, adaptive: true, compact: true))
         self.liveConversionGroup = liveConversionGroup
-        stack.addArrangedSubview(liveConversionGroup)
+        stack.addArrangedSubview(pair(soundGroup, liveConversionGroup))
+        stack.addArrangedSubview(group(hapticRow))
 
         numbers.accessibilityLabel = String(localized: "数字键盘布局"); numbers.accessibilityIdentifier = "vime.setting.numbers"
         numbers.setContentHuggingPriority(.required, for: .horizontal)
-        numbers.widthAnchor.constraint(greaterThanOrEqualToConstant: 150).isActive = true
+        numbers.widthAnchor.constraint(greaterThanOrEqualToConstant: 110).isActive = true
         numbers.addAction(UIAction { [weak self] _ in
             guard let self else { return }
             self.preferences.nineKeyNumbers = self.numbers.selectedSegmentIndex == 0
@@ -164,7 +173,7 @@ final class KeyboardSettingsPanel: UIScrollView {
         }
         let layouts = UIStackView(arrangedSubviews: [numbers, accessibleNumbers])
         layouts.axis = .vertical
-        stack.addArrangedSubview(group(row(symbol: "square.grid.2x2", content: [label("数字布局"), layouts], height: 48, adaptive: true)))
+        let numbersGroup = group(tile(symbol: "square.grid.2x2", title: String(localized: "数字布局"), control: layouts))
 
         oneHanded.accessibilityLabel = String(localized: "单手模式"); oneHanded.accessibilityIdentifier = "vime.setting.oneHanded"
         oneHanded.setContentHuggingPriority(.required, for: .horizontal)
@@ -173,10 +182,9 @@ final class KeyboardSettingsPanel: UIScrollView {
             self.preferences.oneHanded = KeyboardOneHandedSide.allCases[self.oneHanded.selectedSegmentIndex]
             self.onOneHandedChange?()
         }, for: .valueChanged)
-        let oneHandedGroup = group(row(symbol: "keyboard.onehanded.left", content: [label(String(localized: "单手模式")), oneHanded],
-            height: 48, adaptive: true))
+        let oneHandedGroup = group(tile(symbol: "keyboard.onehanded.left", title: String(localized: "单手模式"), control: oneHanded))
         self.oneHandedGroup = oneHandedGroup
-        stack.addArrangedSubview(oneHandedGroup)
+        stack.addArrangedSubview(pair(numbersGroup, oneHandedGroup))
 
         inputLanguage.accessibilityLabel = String(localized: "输入语言"); inputLanguage.accessibilityIdentifier = "vime.setting.inputLanguage"
         inputLanguage.setContentHuggingPriority(.required, for: .horizontal)
@@ -229,7 +237,7 @@ final class KeyboardSettingsPanel: UIScrollView {
     func update(hasFullAccess: Bool, neuralPaused: Bool) {
         sound.isOn = preferences.sound
         liveConversion.isOn = preferences.liveConversion
-        liveConversionGroup?.isHidden = !preferences.japaneseInputEnabled // Japanese only.
+        updateLiveConversion()
         updateNumberSelection()
         oneHanded.selectedSegmentIndex = KeyboardOneHandedSide.allCases.firstIndex(of: preferences.oneHanded) ?? 0
         inputLanguage.selectedSegmentIndex = Self.languages.firstIndex(of: preferences.inputLanguage) ?? 0
@@ -240,6 +248,11 @@ final class KeyboardSettingsPanel: UIScrollView {
         notice.isHidden = hasFullAccess
         neuralStatus.isHidden = !neuralPaused
         retryGroup?.isHidden = !neuralPaused
+    }
+
+    private func updateLiveConversion() {
+        liveConversionGroup?.isHidden = !showsLiveConversion || !preferences.japaneseInputEnabled
+        updatePairs()
     }
 
     func applyTheme() {
@@ -306,10 +319,23 @@ final class KeyboardSettingsPanel: UIScrollView {
             row.alignment = row.axis == .vertical ? .leading : .center
         }
         accessibleSliderWidth?.isActive = traitCollection.preferredContentSizeCategory.isAccessibilityCategory
+        updatePairs()
         numbers.isHidden = traitCollection.preferredContentSizeCategory.isAccessibilityCategory
         accessibleNumbers.isHidden = !numbers.isHidden
         for button in numberChoices { button.titleLabel?.font = scaledFont(size: 15) }
         setNeedsLayout()
+    }
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        let large = traitCollection.preferredContentSizeCategory.isAccessibilityCategory
+        for row in compactRows where row.bounds.width > 0 {
+            guard let icon = row.arrangedSubviews.first, let body = row.arrangedSubviews.last as? UIStackView else { continue }
+            let content = body.arrangedSubviews.reduce(CGFloat(0)) { $0 + $1.intrinsicContentSize.width }
+                + body.spacing * CGFloat(max(0, body.arrangedSubviews.count - 1))
+            let needed = row.layoutMargins.left + row.layoutMargins.right + 24 + row.spacing + content
+            let hide = !large && row.bounds.width < needed
+            if icon.isHidden != hide { icon.isHidden = hide; row.setNeedsLayout() }
+        }
     }
     override func didMoveToWindow() {
         super.didMoveToWindow()
@@ -322,16 +348,59 @@ final class KeyboardSettingsPanel: UIScrollView {
         value.widthAnchor.constraint(equalToConstant: size == 13 ? 14 : 24).isActive = true
         icons.append(value); return value
     }
-    private func row(symbol: String, content: [UIView], height: CGFloat, adaptive: Bool = false) -> UIStackView {
+    private func row(symbol: String, content: [UIView], height: CGFloat, adaptive: Bool = false, compact: Bool = false) -> UIStackView {
         let body = UIStackView(arrangedSubviews: content)
-        body.alignment = .center; body.spacing = 10
+        body.alignment = .center; body.spacing = compact ? 6 : 10
         if adaptive { adaptiveRows.append(body) }
         let value = UIStackView(arrangedSubviews: [icon(symbol), body])
-        value.alignment = .center; value.spacing = 10
+        value.alignment = .center; value.spacing = compact ? 8 : 10
         value.isLayoutMarginsRelativeArrangement = true
-        value.layoutMargins = UIEdgeInsets(top: 8, left: 14, bottom: 8, right: 14)
+        let side: CGFloat = compact ? 12 : 14
+        value.layoutMargins = UIEdgeInsets(top: 8, left: side, bottom: 8, right: side)
+        if compact {
+            compactRows.append(value)
+            // A narrow half row squeezes the title, never the switch.
+            for view in content where view is UISwitch { view.setContentCompressionResistancePriority(.required, for: .horizontal) }
+            // Its title keeps to one line, shrinking a little on the narrowest
+            // phones, so the pair stays as short as a single row.
+            for case let title as UILabel in content { title.adjustsFontSizeToFitWidth = true; title.minimumScaleFactor = 0.7 }
+        }
         value.heightAnchor.constraint(greaterThanOrEqualToConstant: height).isActive = true
         return value
+    }
+    /// An icon and title over a control, for half a row.
+    private func tile(symbol: String, title: String, control: UIView) -> UIStackView {
+        let heading = UIStackView(arrangedSubviews: [icon(symbol, size: 17), label(title)])
+        heading.alignment = .center; heading.spacing = 8
+        let value = UIStackView(arrangedSubviews: [heading, control])
+        value.spacing = 8
+        value.isLayoutMarginsRelativeArrangement = true
+        value.layoutMargins = UIEdgeInsets(top: 10, left: 12, bottom: 10, right: 12)
+        value.heightAnchor.constraint(greaterThanOrEqualToConstant: 48).isActive = true
+        tiles.append(value); return value
+    }
+    private func pair(_ first: UIView, _ second: UIView) -> UIStackView {
+        let value = UIStackView(arrangedSubviews: [first, second])
+        value.spacing = 8; value.distribution = .fillEqually; value.alignment = .fill
+        pairs.append(value); return value
+    }
+    /// Pairs stack at large text sizes, and a tile with its partner hidden
+    /// spreads into a row instead of leaving its control under the title.
+    private func updatePairs() {
+        let large = traitCollection.preferredContentSizeCategory.isAccessibilityCategory
+        for row in compactRows {
+            for case let title as UILabel in (row.arrangedSubviews.last as? UIStackView)?.arrangedSubviews ?? [] { title.numberOfLines = large ? 0 : 1 }
+        }
+        for pair in pairs {
+            pair.axis = large ? .vertical : .horizontal
+            pair.distribution = large ? .fill : .fillEqually
+            pair.isHidden = pair.arrangedSubviews.allSatisfy(\.isHidden)
+            let together = !large && pair.arrangedSubviews.filter { !$0.isHidden }.count == 2
+            for tile in tiles where tile.isDescendant(of: pair) {
+                tile.axis = together || large ? .vertical : .horizontal
+                tile.alignment = tile.axis == .vertical ? .fill : .center
+            }
+        }
     }
     private func group(_ content: UIView) -> UIView {
         let value = UIView(); value.layer.cornerRadius = 14; value.layer.cornerCurve = .continuous
@@ -341,15 +410,5 @@ final class KeyboardSettingsPanel: UIScrollView {
             content.trailingAnchor.constraint(equalTo: value.trailingAnchor), content.topAnchor.constraint(equalTo: value.topAnchor),
             content.bottomAnchor.constraint(equalTo: value.bottomAnchor)])
         groups.append(value); return value
-    }
-    private func separator() -> UIView {
-        let container = UIView(), line = UIView()
-        line.backgroundColor = .separator; line.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(line)
-        container.heightAnchor.constraint(equalToConstant: 0.5).isActive = true
-        NSLayoutConstraint.activate([line.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 48),
-            line.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -14),
-            line.topAnchor.constraint(equalTo: container.topAnchor), line.bottomAnchor.constraint(equalTo: container.bottomAnchor)])
-        return container
     }
 }
