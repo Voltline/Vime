@@ -5,7 +5,8 @@ import UniformTypeIdentifiers
 struct ChineseUserDictionaryList: View {
     private let store = ChineseUserDictionaryStore()
     @State private var entries: [ChineseUserPhrase] = []
-    @State private var search = ""
+    let search: String
+    let addRequest: Int
     @State private var editing: ChineseUserPhrase?
     @State private var importing = false
     @State private var exporting = false
@@ -64,10 +65,7 @@ struct ChineseUserDictionaryList: View {
         }
         .listStyle(.insetGrouped)
         .appReadableList()
-        .searchable(text: $search, prompt: "搜索词语或拼音")
-        .toolbar { ToolbarItem(placement: .primaryAction) {
-            Button { editing = .init(pinyin: "", text: "") } label: { Image(systemName: "plus") }.accessibilityLabel("添加词条")
-        } }
+        .onChange(of: addRequest) { editing = .init(pinyin: "", text: "") }
         .onAppear { perform { entries = try store.entries() } }
         .sheet(item: $editing) { entry in
             ChinesePhraseEditor(entry: entry) { value in

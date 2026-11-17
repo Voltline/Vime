@@ -603,7 +603,7 @@ final class KeyboardQuickInputTests: XCTestCase {
                     let rect = control.convert(control.bounds, to: settings)
                     XCTAssertGreaterThanOrEqual(rect.minX, 0)
                     XCTAssertLessThanOrEqual(rect.maxX, settings.bounds.width)
-                    XCTAssertGreaterThan(rect.width, 30)
+                    XCTAssertGreaterThan(rect.width, 30, "\(control.accessibilityIdentifier ?? "") at \(width)")
                 }
                 // Both destinations share the top row, history first.
                 let appSettingsFrame = appSettings.convert(appSettings.bounds, to: settings)

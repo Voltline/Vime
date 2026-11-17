@@ -227,14 +227,61 @@ final class ChineseInputSessionTests: XCTestCase {
         }
     }
 
-    func testCapitalIsEnteredAsItIsAfterTheComposition() throws {
+    func testCapitalJoinsTheCompositionAndWaitsToBeChosen() throws {
         let session = try session()
         _ = session.type("ni")
         waitUntilCurrent(session)
-        let edits = session.type("N")
+        XCTAssertEqual(session.type("N"), [])
         waitUntilCurrent(session)
-        XCTAssertEqual((batches.flatMap(\.edits) + edits).last, .insert("N"))
-        XCTAssertFalse(session.isComposing, "A capital never becomes pinyin")
+        XCTAssertTrue(session.isComposing, "A capital never commits the composition")
+        XCTAssertTrue(batches.isEmpty)
+        XCTAssertEqual(session.markedText?.text.hasSuffix("N"), true)
+    }
+
+    func testCapitalWordStaysAsTypedInTheSentence() throws {
+        let session = try session()
+        for (typed, meant) in [("jintianyongVimedazi", "今天用Vime打字"), ("Vimehenhaoyong", "Vime很好用"),
+                               ("woyongGPTxiezuoye", "我用GPT写作业")] {
+            XCTAssertEqual(try waitForLead(session, typing: typed) { $0 == meant }, meant, typed)
+            let edits = session.space()
+            XCTAssertEqual((batches.flatMap(\.edits) + edits).last, .insert(meant), typed)
+            XCTAssertFalse(session.isComposing, typed)
+            batches = []
+            session.reset()
+        }
+    }
+
+    func testSpaceRightAfterACapitalWaitsForTheReading() throws {
+        let session = try session()
+        _ = session.type("Vimehenhaoyong")
+        XCTAssertEqual(session.space(), [])
+        let deadline = Date().addingTimeInterval(5)
+        while session.isComposing, Date() < deadline { RunLoop.main.run(until: Date().addingTimeInterval(0.01)) }
+        XCTAssertEqual(batches.flatMap(\.edits).last, .insert("Vime很好用"))
+        XCTAssertFalse(session.isComposing)
+    }
+
+    func testReturnEntersCapitalsAsTyped() throws {
+        let session = try session()
+        _ = session.type("woyongVime")
+        waitUntilCurrent(session)
+        XCTAssertEqual(session.markedText?.text.replacingOccurrences(of: ChineseInputSession.syllableGap, with: "")
+            .hasSuffix("Vime"), true)
+        let edits = session.enter()
+        XCTAssertEqual((batches.flatMap(\.edits) + edits).last, .insert("woyongVime"))
+        XCTAssertFalse(session.isComposing)
+    }
+
+    func testBackspaceTakesTheCapitalBack() throws {
+        let session = try session()
+        _ = session.type("haoV")
+        waitUntilCurrent(session)
+        _ = session.backspace()
+        waitUntilCurrent(session)
+        XCTAssertEqual(session.markedText?.text.contains("V"), false)
+        _ = session.type("v")
+        waitUntilCurrent(session)
+        XCTAssertEqual(session.markedText?.text.contains("V"), false, "a lowercase v typed again stays lowercase")
     }
 
     func testTyposAcrossSyllablesOfferTheMeantPhrase() throws {
@@ -286,6 +333,42 @@ final class ChineseInputSessionTests: XCTestCase {
         XCTAssertTrue(lead.hasSuffix("修改"), "the pinyin after the word is converted too: \(lead)")
         XCTAssertEqual(session.space().last, .insert(lead))
         XCTAssertFalse(session.isComposing)
+    }
+
+    func testAbbreviatedPinyinBeforeAWordStaysPinyin() throws {
+        let session = try session()
+        session.setChineseLanguageModel(false)
+        let lead = try waitForLead(session, typing: "wsmzhegeshurufavime") { $0.hasSuffix("vime") }
+        XCTAssertEqual(lead, "为什么这个输入法vime")
+        XCTAssertEqual(session.space().last, .insert(lead))
+        XCTAssertFalse(session.isComposing)
+    }
+
+    func testAWordAfterAChosenStartKeepsWhatWasChosen() throws {
+        let session = try session()
+        session.setChineseLanguageModel(false)
+        _ = try waitForLead(session, typing: "wsmzhegeshurufavime") { $0.hasSuffix("vime") }
+        let start = try XCTUnwrap(session.candidatePresentations.first { $0.text == "为什么" }, "\(session.candidatePresentations.map(\.text))")
+        XCTAssertEqual(session.chooseCandidate(try XCTUnwrap(start.selectionToken)), [])
+        waitUntilCurrent(session)
+        XCTAssertTrue(session.markedText?.text.hasPrefix("为什么") == true, "\(session.markedText?.text ?? "")")
+        let lead = try waitForLead(session) { $0.hasPrefix("为什么") && $0.hasSuffix("vime") }
+        XCTAssertEqual(lead, "为什么这个输入法vime", "the readings go on from what was chosen")
+        XCTAssertFalse(session.candidatePresentations.contains { $0.text.hasPrefix("wsm") })
+        XCTAssertEqual(session.space().last, .insert(lead))
+        XCTAssertFalse(session.isComposing)
+    }
+
+    /// Types `input`, then waits for a first candidate `matching`.
+    private func waitForLead(_ session: ChineseInputSession, typing input: String = "",
+                             matching: (String) -> Bool) throws -> String {
+        if !input.isEmpty { _ = session.type(input) }
+        let deadline = Date().addingTimeInterval(5)
+        while session.candidatePresentations.first.map({ matching($0.text) }) != true, Date() < deadline {
+            RunLoop.main.run(until: Date().addingTimeInterval(0.01))
+        }
+        return try XCTUnwrap(session.candidatePresentations.first?.text.nilIfUnmatched(matching),
+                             "\(session.candidatePresentations.map(\.text))")
     }
 
     func testResetDropsPendingWorkAndMovesTheEpoch() throws {
@@ -351,4 +434,8 @@ final class ChineseInputSessionTests: XCTestCase {
     }
 
     private func descendants(_ view: UIView) -> [UIView] { [view] + view.subviews.flatMap(descendants) }
+}
+
+private extension String {
+    func nilIfUnmatched(_ matching: (String) -> Bool) -> String? { matching(self) ? self : nil }
 }

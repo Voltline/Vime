@@ -30,7 +30,7 @@ struct KeyboardSettingsView: View {
                     SettingsTile(title: "输入法", detail: summary.inputMethodsDetail,
                                  icon: .symbol("globe"), tint: .cyan, id: "vime.settings.inputMethods") { KeyboardInputMethodsView() }
                     SettingsTile(title: "转换与联想", detail: summary.suggestions ? String(localized: "下一词联想 开") : String(localized: "下一词联想 关"),
-                                 icon: .glyph("あ"), tint: .blue, id: "vime.settings.input") { KeyboardInputSettingsView() }
+                                 icon: .glyph(summary.japanese ? "あ" : "中"), tint: .blue, id: "vime.settings.input") { KeyboardInputSettingsView() }
                     SettingsTile(title: "用户词典", detail: String(localized: "姓名、词语与短语"),
                                  icon: .symbol("character.book.closed"), tint: .orange, id: "vime.settings.dictionary") { KeyboardUserDictionaryView() }
                     SettingsTile(title: "手感与布局", detail: summary.feelDetail,
@@ -436,7 +436,7 @@ struct KeyboardInputSettingsView: View {
     var body: some View {
         Form {
             Section {
-                AppPageHeader(icon: .glyph("あ"), tint: .blue, title: "转换与联想",
+                AppPageHeader(icon: .glyph(japanese ? "あ" : "中"), tint: .blue, title: "转换与联想",
                               detail: "决定候选怎么排、读音怎么变成文字，以及打完一个词后建议什么。学习数据只保存在本机。")
             }
             // Every language follows one order: ranking, reading to text, hints, then space and symbols.
@@ -619,7 +619,6 @@ struct KeyboardFeedbackSettingsView: View {
                 Picker("数字布局", selection: $nineKeyNumbers) {
                     Text("九宫格").tag(true); Text("全键盘").tag(false)
                 }
-                if romaji { Toggle("显示长音键 ー", isOn: $prolongedKey) }
                 Toggle("按键预览", isOn: $previews)
                 VStack(alignment: .leading, spacing: 0) {
                     HStack {
@@ -637,6 +636,12 @@ struct KeyboardFeedbackSettingsView: View {
                 .disabled(!previews)
             } header: { Text("布局") } footer: {
                 Text("声音、振动和数字布局也可在键盘左上角快速调整\n修改后重新打开键盘即可读取更新")
+            }
+            // Only the romaji layout has the long-vowel key.
+            if romaji {
+                Section {
+                    Toggle("显示长音键 ー", isOn: $prolongedKey)
+                } header: { LanguageHeader(glyph: "あ", title: "日语") }
             }
             if UIDevice.current.userInterfaceIdiom == .phone {
                 Section {

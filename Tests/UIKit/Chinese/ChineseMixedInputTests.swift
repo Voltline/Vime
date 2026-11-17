@@ -26,7 +26,19 @@ final class ChineseMixedInputTests: XCTestCase {
     }
 
     func testTwoWordsInOneSentence() {
-        XCTAssertTrue(texts("kanyixiagithubshangdeissue").contains(["py:kanyixia", "raw:github", "py:shangde", "raw:issue"]))
+        let found = texts("kanyixiagithubshangdeissue")
+        XCTAssertTrue(found.contains(["py:kanyixia", "raw:github", "py:shangde", "raw:issue"]), "\(found)")
+    }
+
+    func testAbbreviationsReadAsPinyinAsRimeReadsThem() {
+        XCTAssertEqual(texts("wsmzhegeshurufa"), [], "wsm is 为什么 to Rime")
+        XCTAssertEqual(texts("nhzgsrf"), [])
+        XCTAssertEqual(texts("wsmzhegeshurufavime").first, ["py:wsmzhegeshurufa", "raw:vime"])
+        XCTAssertEqual(texts("wsmvimedexiugai").first, ["py:wsm", "raw:vime", "py:dexiugai"])
+        let github = texts("kanyixiagithub")
+        XCTAssertEqual(github.first?.prefix(2), ["py:kanyixia", "raw:git"], "the word starts at g, not kanyixiag|ithub")
+        XCTAssertTrue(github.contains(["py:kanyixia", "raw:github"]))
+        XCTAssertEqual(texts("vimehenhaoyong").first, ["raw:vime", "py:henhaoyong"])
     }
 
     func testOptionsJoinRimesReadings() {
@@ -40,5 +52,16 @@ final class ChineseMixedInputTests: XCTestCase {
         XCTAssertEqual(options.map(\.genuine), ["进行vime的", "进行vimede"])
         XCTAssertEqual(ChineseMixedInput.ranked(options, scores: [-9, -3]).map(\.text), ["進行vimede", "進行vime的"])
         XCTAssertEqual(ChineseMixedInput.ranked(options, scores: nil).map(\.text), ["進行vime的", "進行vimede"])
+    }
+
+    func testACapitalStartsAWordKeptAsTyped() {
+        let py = ChineseMixedInput.Segment.pinyin, raw = ChineseMixedInput.Segment.raw
+        XCTAssertEqual(ChineseMixedInput.splits(for: "jintianyongVimedazi").first, [py("jintianyong"), raw("Vime"), py("dazi")])
+        XCTAssertEqual(ChineseMixedInput.splits(for: "Vimehenhaoyong").first, [raw("Vime"), py("henhaoyong")])
+        XCTAssertEqual(ChineseMixedInput.splits(for: "woyongGPTxiezuoye"), [[py("woyong"), raw("GPT"), py("xiezuoye")]])
+        XCTAssertEqual(ChineseMixedInput.splits(for: "Ta").first, [raw("Ta")], "a capital is never pinyin")
+        XCTAssertEqual(ChineseMixedInput.splits(for: "maileMcDonald").first, [py("maile"), raw("McDonald")])
+        XCTAssertFalse(ChineseMixedInput.splits(for: "jintianyongVimedazi").contains { $0.contains(raw("V")) },
+                       "the lowercase letters right after a capital belong to its word unless they read as pinyin")
     }
 }

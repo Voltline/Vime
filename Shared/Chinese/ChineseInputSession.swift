@@ -23,6 +23,12 @@ final class ChineseInputSession: KeyboardInputSession {
     private var state = RimeState()
     /// Letters typed but not yet processed by Rime.
     private var echo = ""
+    /// The composition's letters as typed, capitals kept (Rime gets them in
+    /// lowercase): those of the input, then the echo's; apostrophes left out.
+    private var cased = ""
+    /// Space came while the readings keeping capitals were still coming;
+    /// the first commits when they arrive.
+    private var commitsMixed = false
     private var sent = 0
     private var received = 0
     /// Bumped by reset; results from before it are discarded.
@@ -152,7 +158,7 @@ final class ChineseInputSession: KeyboardInputSession {
 
     var markedText: KeyboardPreedit? {
         guard isComposing else { return nil }
-        let text = state.preedit.isEmpty ? state.input : state.preedit
+        let text = Self.recased(state.preedit.isEmpty ? state.input : state.preedit, as: casedInput)
         return KeyboardPreedit(text: text.replacingOccurrences(of: " ", with: Self.syllableGap) + echo)
     }
     var candidatePresentations: [CandidatePresentation] { isComposing ? presentations : [] }
@@ -169,18 +175,24 @@ final class ChineseInputSession: KeyboardInputSession {
     func type(_ text: String) -> [KeyboardEdit] {
         clearSuggestions()
         if english { commitIsForgettable = false; return settle() + [.insert(text)] }
-        let pinyin = text.unicodeScalars.allSatisfy { ("a"..."z").contains($0) || ($0 == "'" && isComposing) }
+        // A capital composes too, never as pinyin: it stays as typed (ChineseMixedInput).
+        let pinyin = text.unicodeScalars.allSatisfy {
+            ("a"..."z").contains($0) || ("A"..."Z").contains($0) || ($0 == "'" && isComposing)
+        }
         guard pinyin, !text.isEmpty else { return insertLiteral(text) }
+        let edits = commitsMixed ? commitCapitals() : []
         commitIsForgettable = false
         inputStartedAt = KeyboardPerformance.start()
         typedAt = inputStartedAt
         echo += text
-        enqueue(.type(text), echo: text.count)
-        return []
+        cased += text.filter { $0 != "'" }
+        enqueue(.type(text.lowercased()), echo: text.count)
+        return edits
     }
 
     func backspace() -> [KeyboardEdit] {
         clearSuggestions()
+        commitsMixed = false
         if isComposing { enqueue(.backspace); return [] }
         let edits = settle()
         if isComposing { enqueue(.backspace); return edits }
@@ -192,6 +204,11 @@ final class ChineseInputSession: KeyboardInputSession {
     func space() -> [KeyboardEdit] {
         clearSuggestions()
         if isComposing {
+            if hasCapitals {
+                if candidatesAreCurrent, !mixedMayCome, case .mixed(let index)? = slots.first { return chooseMixed(index) }
+                if mixedMayCome { commitsMixed = true; return [] }
+                return commitCapitals()
+            }
             // Space takes the first candidate shown, which the model may have moved.
             if candidatesAreCurrent, case .phrase(let index)? = slots.first { return choosePhrase(index) }
             if candidatesAreCurrent, case .mixed(let index)? = slots.first { return chooseMixed(index) }
@@ -207,6 +224,8 @@ final class ChineseInputSession: KeyboardInputSession {
 
     func enter() -> [KeyboardEdit] {
         clearSuggestions()
+        commitsMixed = false
+        if isComposing, hasCapitals { return commitTyped() }
         if isComposing { enqueue(.commitInput); return [] }
         commitIsForgettable = false
         return settle() + [.returnKey]
@@ -330,6 +349,7 @@ final class ChineseInputSession: KeyboardInputSession {
         if !preservingContext { hostEpoch += 1 }
         era += 1
         echo = ""
+        commitsMixed = false
         clearSuggestions()
         commitIsForgettable = false
         exclusionsActive = exclusionsApply()
@@ -455,6 +475,8 @@ final class ChineseInputSession: KeyboardInputSession {
             received = max(received, ticket.sequence)
             guard ticket.era == era else { continue }
             echo.removeFirst(min(ticket.echo, echo.count))
+            // Letters committed or cleared leave only the echo's.
+            if result.input.isEmpty { cased = String(cased.suffix(Self.letters(echo).count)) }
             if let commit = result.commit, !commit.isEmpty {
                 edits.append(.insert(commit))
                 commitIsForgettable = true
@@ -470,9 +492,13 @@ final class ChineseInputSession: KeyboardInputSession {
         let previous = ranking?.candidates ?? state.candidates
         let candidatesChanged = next.candidates != previous || presentations.isEmpty != next.candidates.isEmpty
         state = next
+        let letters = Self.letters(next.input + echo)
+        if cased.count > letters.count { cased = String(cased.prefix(letters.count)) }
+        if cased.lowercased() != letters { cased = letters }
         if next.input != correctionInput, next.input != sentenceInput { clearCorrections() }
-        if next.input != mixedInput { clearMixed() }
-        guard candidatesChanged else { return }
+        if mixedKey != mixedInput { clearMixed() }
+        // Case alone leaves Rime's candidates as they were.
+        guard candidatesChanged else { return scheduleMixed() }
         ranking?.request.cancel()
         ranking = nil
         let context = VimeLanguageModel.sentenceContext(leftContextProvider?() ?? "")
@@ -572,7 +598,10 @@ final class ChineseInputSession: KeyboardInputSession {
                 slots.insert(contentsOf: shown.map(Slot.correction), at: 1)
             }
         }
-        if !mixed.isEmpty, let first = order.first, !candidates[first].coversInput {
+        if !mixed.isEmpty, hasCapitals {
+            // Capitals are no pinyin: the readings keeping them lead.
+            slots.insert(contentsOf: mixed.indices.map(Slot.mixed), at: 0)
+        } else if !mixed.isEmpty, let first = order.first, !candidates[first].coversInput {
             if corrections.isEmpty {
                 // Rime stopped short of the input; the readings that go on lead.
                 slots.insert(.mixed(0), at: 0)
@@ -618,7 +647,7 @@ final class ChineseInputSession: KeyboardInputSession {
 
     /// Phrases for the whole input, before any part of it was chosen.
     private func userPhrases() -> [ChineseUserPhrase] {
-        guard !state.preedit.unicodeScalars.contains(where: { $0.properties.isIdeographic }) else { return [] }
+        guard !hasCapitals, !state.preedit.unicodeScalars.contains(where: { $0.properties.isIdeographic }) else { return [] }
         let letters = state.input.lowercased().filter { ("a"..."z").contains($0) }
         guard !letters.isEmpty, letters.count == state.input.filter({ $0 != "'" }).count else { return [] }
         return userDictionary.phrases(spelledBy: letters)
@@ -657,12 +686,19 @@ final class ChineseInputSession: KeyboardInputSession {
     /// pinyin takes, converts the pinyin on either side of them on its own
     /// and lets the model choose where the kept letters end.
     private func scheduleMixed() {
-        let input = state.input
+        let input = mixedKey
         guard mixedInput != input, isComposing, echo.isEmpty, ranking == nil,
-              let first = order.first, shownCandidates.indices.contains(first), !shownCandidates[first].coversInput
-        else { return }
-        let splits = ChineseMixedInput.splits(for: input)
-        guard !splits.isEmpty else { return }
+              let (chosen, rest) = casedUnchosen else { return }
+        if !hasCapitals {
+            guard let first = order.first, shownCandidates.indices.contains(first),
+                  !shownCandidates[first].coversInput else { return }
+        }
+        let splits = ChineseMixedInput.splits(for: rest)
+        guard !splits.isEmpty else {
+            mixedInput = input
+            if commitsMixed { finishPendingSpace() }
+            return
+        }
         let request = ChineseCandidateRanking.Request(deadline: .infinity)
         mixedRequest?.cancel()
         mixedRequest = request
@@ -671,12 +707,104 @@ final class ChineseInputSession: KeyboardInputSession {
         engine.lookUp(ChineseMixedInput.spellings(for: splits), limit: 4,
                       isCancelled: { request.isCancelled }) { [weak self] converted in
             MainActor.assumeIsolated {
-                guard let self, self.mixedRequest === request, !request.isCancelled, self.state.input == input else { return }
-                let options = ChineseMixedInput.options(splits, converted: converted)
-                guard !options.isEmpty else { self.mixedRequest = nil; return }
+                guard let self, self.mixedRequest === request, !request.isCancelled, self.mixedKey == input else { return }
+                // Text already chosen from the start stays in front of each reading.
+                let options = ChineseMixedInput.options(splits, converted: converted).map {
+                    ChineseMixedInput.Option(segments: $0.segments, text: chosen + $0.text, genuine: chosen + $0.genuine)
+                }
+                guard !options.isEmpty else {
+                    self.mixedRequest = nil
+                    if self.commitsMixed { self.finishPendingSpace() }
+                    return
+                }
                 self.rankMixed(options, context: context, input: input, request: request)
             }
         }
+    }
+
+    /// Mixed readings change when the input does, its case included, and
+    /// when part of it is chosen.
+    private var mixedKey: String {
+        casedInput + "\u{0}" + (Self.unchosen(state)?.chosen ?? "")
+    }
+
+    /// The input's letters as typed (cased without the echo's).
+    private var casedInput: String { String(cased.prefix(Self.letters(state.input).count)) }
+
+    /// Some letter of the composition was typed as a capital.
+    private var hasCapitals: Bool {
+        isComposing && cased.contains(where: \.isUppercase)
+    }
+
+    /// `unchosen` with the letters as typed.
+    private var casedUnchosen: (chosen: String, rest: String)? {
+        guard let (chosen, rest) = Self.unchosen(state) else { return nil }
+        let typed = casedInput
+        guard typed.count >= rest.count else { return (chosen, rest) }
+        return (chosen, String(typed.suffix(rest.count)))
+    }
+
+    private static func letters(_ text: String) -> String { text.filter { $0 != "'" && $0 != " " } }
+
+    /// `text` (a preedit or input) with its trailing letters cased as `typed`
+    /// ends, so the capitals typed show; text already chosen stays.
+    static func recased(_ text: String, as typed: String) -> String {
+        var typed = Array(typed)
+        var result: [Character] = []
+        for character in text.reversed() {
+            if character.isASCII, character.isLetter, let last = typed.last, last.lowercased() == String(character) {
+                result.append(last)
+                typed.removeLast()
+            } else {
+                result.append(character)
+            }
+        }
+        return String(result.reversed())
+    }
+
+    /// Readings keeping the capitals may still arrive for this input.
+    private var mixedMayCome: Bool {
+        !echo.isEmpty || received != sent || ranking != nil || mixedRequest != nil || mixedInput != mixedKey
+    }
+
+    /// Commits the composition with capitals: the first reading keeping
+    /// them when it stands, else the letters as typed after what was chosen.
+    private func commitCapitals() -> [KeyboardEdit] {
+        commitsMixed = false
+        let edits = settle()
+        if isComposing, !mixedMayCome, case .mixed(let index)? = slots.first {
+            return edits + chooseMixed(index)
+        }
+        return edits + commitTyped()
+    }
+
+    /// Commits the letters as typed, capitals kept, after any chosen text.
+    private func commitTyped() -> [KeyboardEdit] {
+        let edits = settle()
+        guard isComposing else { return edits }
+        let text = (Self.unchosen(state)?.chosen ?? "") + (casedUnchosen?.rest ?? Self.recased(state.input, as: casedInput))
+        let cleared = run(.clear)
+        clearSuggestions()
+        commitIsForgettable = false
+        return edits + cleared + [.insert(text)]
+    }
+
+    /// The Space that waited for the readings keeping capitals.
+    private func finishPendingSpace() {
+        guard commitsMixed else { return }
+        let edits = commitCapitals()
+        if !edits.isEmpty { onCommittedEdits?(KeyboardCommitBatch(hostEpoch: hostEpoch, edits: edits)) }
+        onCandidatesChange?()
+    }
+
+    /// Text chosen from the start of the input (为什么这 of wsm|zhegeshurufavime)
+    /// and the letters after it, which Rime's preedit spells with spaces.
+    /// Nil unless those letters are what the input ends with.
+    static func unchosen(_ state: RimeState) -> (chosen: String, rest: String)? {
+        let chosen = String(state.preedit.prefix { !$0.isASCII || !($0.isLetter || $0 == " " || $0 == "'") })
+        let rest = String(state.preedit.dropFirst(chosen.count).filter { ("a"..."z").contains($0) })
+        guard !rest.isEmpty, state.input.filter({ $0 != "'" }).hasSuffix(rest) else { return nil }
+        return (chosen, rest)
     }
 
     private func rankMixed(_ options: [ChineseMixedInput.Option], context: String, input: String,
@@ -693,11 +821,12 @@ final class ChineseInputSession: KeyboardInputSession {
             }
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
-                    guard let self, self.mixedRequest === request, !request.isCancelled, self.state.input == input else { return }
+                    guard let self, self.mixedRequest === request, !request.isCancelled, self.mixedKey == input else { return }
                     self.mixedRequest = nil
                     self.mixed = Array(ChineseMixedInput.ranked(options, scores: scores).prefix(ChineseMixedInput.shownOptions))
                     guard self.ranking == nil else { return }
                     self.show(self.shownCandidates, order: self.order)
+                    if self.commitsMixed { return self.finishPendingSpace() }
                     if self.received == self.sent { self.onCandidatesChange?() }
                 }
             }
@@ -724,7 +853,7 @@ final class ChineseInputSession: KeyboardInputSession {
     /// input poorly; a key typed meanwhile cancels it.
     private func scheduleCorrections() {
         let input = state.input
-        guard correctionInput != input, isComposing, echo.isEmpty,
+        guard correctionInput != input, isComposing, echo.isEmpty, !hasCapitals,
               PinyinSpellingCorrection.wantsCorrection(input, top: state.candidates.first) else { return }
         let request = ChineseCandidateRanking.Request(deadline: .infinity)
         correctionRequest = request
@@ -780,7 +909,7 @@ final class ChineseInputSession: KeyboardInputSession {
     private func scheduleSentenceCorrection() {
         let input = state.input
         let storage = JapaneseCandidateWorker.LanguageModelStorage.shared
-        guard sentenceInput != input, isComposing, echo.isEmpty, ranking == nil, usesModel,
+        guard sentenceInput != input, isComposing, echo.isEmpty, ranking == nil, usesModel, !hasCapitals,
               ChineseSentenceCorrection.isEnabled, ChineseSentenceCorrection.wants(input),
               storage.isReady(for: .chinese), !storage.isSuspended,
               let first = order.first, shownCandidates.indices.contains(first) else { return }
