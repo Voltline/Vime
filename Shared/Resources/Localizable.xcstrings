@@ -60,6 +60,34 @@
         }
       }
     },
+    " · 选过 %lld 次": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " · chosen %lld times"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " · %lld 回選択"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " · %lld번 선택"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " · 選過 %lld 次"
+          }
+        }
+      }
+    },
     "%@ · %@": {
       "shouldTranslate": false
     },
@@ -1635,6 +1663,34 @@
         }
       }
     },
+    "下次打开键盘时清空中文学习记录。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chinese learning will be cleared the next time the keyboard opens."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "次にキーボードを開いたときに中国語の学習が消去されます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "다음에 키보드를 열 때 중국어 학습 기록이 지워집니다."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下次開啟鍵盤時清除中文學習記錄。"
+          }
+        }
+      }
+    },
     "下次打开键盘时清空拼音输入学到的词语偏好，此操作无法撤销。日语学习、用户词典、剪贴板历史和皮肤不会删除。": {
       "extractionState": "manual",
       "localizations": {
@@ -2934,6 +2990,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "全鍵盤"
+          }
+        }
+      }
+    },
+    "共 %lld 个。删除和导入会在下次打开键盘时生效。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld in all. Deletions and imports take effect the next time the keyboard opens."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "全 %lld 件。削除と読み込みは次にキーボードを開いたときに反映されます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "총 %lld개. 삭제와 가져오기는 다음에 키보드를 열 때 적용됩니다."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "共 %lld 個。刪除和匯入會在下次開啟鍵盤時生效。"
           }
         }
       }
@@ -5610,6 +5694,34 @@
         }
       }
     },
+    "学到的词": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Learned Words"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "学習した単語"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "학습한 단어"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "學到的詞"
+          }
+        }
+      }
+    },
     "完全访问已开启 · %@": {
       "localizations": {
         "en": {
@@ -5834,6 +5946,174 @@
         }
       }
     },
+    "导入 Rime 用户词典": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import Rime User Dictionary"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rime ユーザー辞書を読み込む"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rime 사용자 사전 가져오기"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "匯入 Rime 使用者詞典"
+          }
+        }
+      }
+    },
+    "导入文件不能超过 4 MB。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The file to import can't be larger than 4 MB."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "読み込むファイルは 4 MB 以下にしてください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "가져올 파일은 4MB를 넘을 수 없습니다."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "匯入檔案不能超過 4 MB。"
+          }
+        }
+      }
+    },
+    "导出 Rime 用户词典": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export Rime User Dictionary"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rime ユーザー辞書を書き出す"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rime 사용자 사전 내보내기"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "匯出 Rime 使用者詞典"
+          }
+        }
+      }
+    },
+    "导出为文本（词语 + Tab + 拼音）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export as Text (Word + Tab + Pinyin)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "テキストで書き出す（単語 + タブ + ピンイン）"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "텍스트로 내보내기(단어 + 탭 + 병음)"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "匯出為文字（詞語 + Tab + 拼音）"
+          }
+        }
+      }
+    },
+    "已导入 %lld 个词，下次打开键盘时生效。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Imported %lld words. They take effect the next time the keyboard opens."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld 件の単語を読み込みました。次にキーボードを開いたときに反映されます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "단어 %lld개를 가져왔습니다. 다음에 키보드를 열 때 적용됩니다."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已匯入 %lld 個詞，下次開啟鍵盤時生效。"
+          }
+        }
+      }
+    },
+    "已导入 %lld 个词，跳过 %lld 行无法使用的内容。下次打开键盘时生效。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Imported %lld words. Skipped %lld lines that Vime can't use. They take effect the next time the keyboard opens."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld 件の単語を読み込み、使用できない %lld 行をスキップしました。次にキーボードを開いたときに反映されます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "단어 %lld개를 가져오고, 사용할 수 없는 %lld줄은 건너뛰었습니다. 다음에 키보드를 열 때 적용됩니다."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已匯入 %lld 個詞，略過 %lld 行無法使用的內容。下次開啟鍵盤時生效。"
+          }
+        }
+      }
+    },
     "平翘舌 z/zh、c/ch、s/sh": {
       "localizations": {
         "en": {
@@ -5858,6 +6138,230 @@
           "stringUnit": {
             "state": "translated",
             "value": "平翹舌 z/zh、c/ch、s/sh"
+          }
+        }
+      }
+    },
+    "拼音输入从你的选择中学到的词语，可以逐条删除，或导出、导入 Rime 用户词典文本。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Words pinyin input learned from your choices. Delete them one by one, or export and import them as Rime user dictionary text."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ピンイン入力があなたの選択から学習した単語です。1 件ずつ削除したり、Rime ユーザー辞書のテキストとして書き出し・読み込みしたりできます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "병음 입력이 사용자의 선택에서 학습한 단어입니다. 하나씩 삭제하거나 Rime 사용자 사전 텍스트로 내보내고 가져올 수 있습니다."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拼音輸入從你的選擇中學到的詞語，可以逐條刪除，或匯出、匯入 Rime 使用者詞典文字。"
+          }
+        }
+      }
+    },
+    "拼音需为 1–16 个音节，例如 wei mai 或 weimai。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pinyin must be 1–16 syllables, such as wei mai or weimai."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ピンインは 1〜16 音節で入力してください（例：wei mai、weimai）。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "병음은 1–16음절이어야 합니다. 예: wei mai 또는 weimai."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拼音需為 1–16 個音節，例如 wei mai 或 weimai。"
+          }
+        }
+      }
+    },
+    "拼音，例如 wei mai / weimai": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pinyin, e.g. wei mai / weimai"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ピンイン（例：wei mai / weimai）"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "병음, 예: wei mai / weimai"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拼音，例如 wei mai / weimai"
+          }
+        }
+      }
+    },
+    "搜索词语或拼音": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search words or pinyin"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "単語やピンインを検索"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "단어 또는 병음 검색"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "搜尋詞語或拼音"
+          }
+        }
+      }
+    },
+    "整段拼音与词条的完整拼音，或两个以上音节的首字母一致时，词条排在候选第一位，例如 weimai 或 wm。\n\n开启键盘完全访问后，词典会共享到其他 App；重新打开键盘或继续输入即可读取更新。最多保留 1,024 条。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An entry comes first among the candidates when everything you typed matches its full pinyin, or the initials of two or more syllables, such as weimai or wm.\n\nWith Full Access on, the dictionary is shared with other apps; reopen the keyboard or keep typing to pick up changes. Up to 1,024 entries are kept."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "入力全体が単語の完全なピンイン、または 2 音節以上の頭文字と一致すると、その単語が候補の先頭に表示されます（例：weimai、wm）。\n\nキーボードのフルアクセスをオンにすると、辞書は他の App と共有されます。キーボードを開き直すか入力を続けると更新が反映されます。最大 1,024 件まで保存されます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "입력 전체가 항목의 전체 병음 또는 2음절 이상의 첫 글자와 일치하면 해당 항목이 후보 맨 앞에 표시됩니다. 예: weimai 또는 wm.\n\n키보드 전체 접근을 켜면 사전이 다른 앱과 공유됩니다. 키보드를 다시 열거나 계속 입력하면 변경 사항이 반영됩니다. 최대 1,024개까지 보관됩니다."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "整段拼音與詞條的完整拼音，或兩個以上音節的首字母一致時，詞條排在候選第一位，例如 weimai 或 wm。\n\n開啟鍵盤完整取用後，詞典會共享到其他 App；重新開啟鍵盤或繼續輸入即可讀取更新。最多保留 1,024 條。"
+          }
+        }
+      }
+    },
+    "文本每行为“词语 + Tab + 拼音 + Tab + 次数”，与 Rime 的用户词典导出格式相同，可用于备份或在其他 Rime 输入法之间迁移。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Each line is “word + Tab + pinyin + Tab + count”, the same as Rime's user dictionary export, for backups or moving between Rime input methods."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "各行は「単語 + タブ + ピンイン + タブ + 回数」で、Rime のユーザー辞書の書き出し形式と同じです。バックアップや他の Rime 入力メソッドへの移行に使えます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "각 줄은 “단어 + 탭 + 병음 + 탭 + 횟수” 형식으로, Rime 사용자 사전 내보내기 형식과 같습니다. 백업하거나 다른 Rime 입력기로 옮길 때 사용할 수 있습니다."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文字每行為「詞語 + Tab + 拼音 + Tab + 次數」，與 Rime 的使用者詞典匯出格式相同，可用於備份或在其他 Rime 輸入法之間遷移。"
+          }
+        }
+      }
+    },
+    "无法读取文件。支持 Rime 用户词典导出的文本：每行“词语 + Tab + 拼音 + Tab + 次数”。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't read the file. Vime reads Rime user dictionary exports: “word + Tab + pinyin + Tab + count” on each line."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ファイルを読み込めません。Rime のユーザー辞書から書き出したテキスト（各行「単語 + タブ + ピンイン + タブ + 回数」）に対応しています。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "파일을 읽을 수 없습니다. 각 줄이 “단어 + 탭 + 병음 + 탭 + 횟수”인 Rime 사용자 사전 내보내기 텍스트를 지원합니다."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法讀取檔案。支援 Rime 使用者詞典匯出的文字：每行「詞語 + Tab + 拼音 + Tab + 次數」。"
+          }
+        }
+      }
+    },
+    "无法读取词典。支持 Vime JSON，以及每行“词语 + Tab + 拼音”的文本。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't read the dictionary. Vime reads Vime JSON, and text with “word + Tab + pinyin” on each line."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "辞書を読み込めません。Vime JSON と、各行「単語 + タブ + ピンイン」のテキストに対応しています。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "사전을 읽을 수 없습니다. Vime JSON과 각 줄이 “단어 + 탭 + 병음”인 텍스트를 지원합니다."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法讀取詞典。支援 Vime JSON，以及每行「詞語 + Tab + 拼音」的文字。"
           }
         }
       }
@@ -5890,6 +6394,34 @@
         }
       }
     },
+    "暂时无法读取学到的词，请稍后再试。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't read learned words right now. Try again later."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "学習した単語を今は読み込めません。しばらくしてからもう一度お試しください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "지금은 학습한 단어를 읽을 수 없습니다. 잠시 후 다시 시도하세요."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "暫時無法讀取學到的詞，請稍後再試。"
+          }
+        }
+      }
+    },
     "模糊音": {
       "localizations": {
         "en": {
@@ -5914,6 +6446,62 @@
           "stringUnit": {
             "state": "translated",
             "value": "模糊音"
+          }
+        }
+      }
+    },
+    "没有匹配的词语": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No Matching Words"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "一致する単語はありません"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "일치하는 단어 없음"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "沒有符合的詞語"
+          }
+        }
+      }
+    },
+    "用拼音输入选过的词语会出现在这里。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Words you choose with pinyin input appear here."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ピンイン入力で選んだ単語がここに表示されます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "병음 입력으로 선택한 단어가 여기에 표시됩니다."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "用拼音輸入選過的詞語會出現在這裡。"
           }
         }
       }
@@ -11627,6 +12215,34 @@
         }
       }
     },
+    "等待清空": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting to Clear"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "消去待ち"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "삭제 대기 중"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "等待清除"
+          }
+        }
+      }
+    },
     "管理一天历史、读取开关与系统授权": {
       "localizations": {
         "en": {
@@ -13231,6 +13847,34 @@
         }
       }
     },
+    "词典只保存在本机。导入会与已有词条合并，可读取 Vime JSON 和每行“词语 + Tab + 拼音”的文本。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The dictionary stays on this device. Imports merge with your entries; Vime reads Vime JSON and text with “word + Tab + pinyin” on each line."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "辞書はこのデバイスにのみ保存されます。読み込んだ単語は既存の単語と統合されます。Vime JSON と、各行「単語 + タブ + ピンイン」のテキストに対応しています。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "사전은 이 기기에만 저장됩니다. 가져온 항목은 기존 항목과 합쳐지며, Vime JSON과 각 줄이 “단어 + 탭 + 병음”인 텍스트를 읽을 수 있습니다."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "詞典只儲存在本機。匯入會與現有詞條合併，可讀取 Vime JSON 和每行「詞語 + Tab + 拼音」的文字。"
+          }
+        }
+      }
+    },
     "词典只保存在本机。导入会与已有词条合并，可读取 Vime JSON、Google 日本語入力 / Microsoft IME / ATOK 导出的文本和 macOS 用户词典。": {
       "localizations": {
         "en": {
@@ -13339,6 +13983,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "辭典最多支援 1,024 條，匯入檔案不能超過 4 MB。"
+          }
+        }
+      }
+    },
+    "词典语言": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dictionary Language"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "辞書の言語"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "사전 언어"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "詞典語言"
           }
         }
       }
@@ -13507,6 +14179,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "試打"
+          }
+        }
+      }
+    },
+    "试试其他词语或拼音。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Try another word or pinyin."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "別の単語やピンインで検索してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "다른 단어나 병음을 입력해 보세요."
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "試試其他詞語或拼音。"
           }
         }
       }
@@ -14378,6 +15078,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "返回鍵盤"
+          }
+        }
+      }
+    },
+    "还没有学到的词": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No Learned Words Yet"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "学習した単語はまだありません"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "아직 학습한 단어 없음"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "還沒有學到的詞"
           }
         }
       }

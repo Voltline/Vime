@@ -48,6 +48,30 @@ final class ChineseInputSessionTests: XCTestCase {
         XCTAssertTrue(session.candidatePresentations.isEmpty)
     }
 
+    func testUserPhrasesComeFirst() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("ChineseUserPhrases-\(UUID().uuidString)")
+        let dictionary = ChineseUserDictionaryStore(directory: directory,
+            defaults: try XCTUnwrap(UserDefaults(suiteName: "ChineseUserPhrases-\(UUID().uuidString)")))
+        try dictionary.save([.init(pinyin: "ni hao", text: "你好呀")])
+        let data = try XCTUnwrap(RimeEngine.bundledData)
+        let session = ChineseInputSession(engine: RimeEngine(data: data, userDirectory: Self.user), userDictionary: dictionary)
+        _ = session.type("nh")
+        waitUntilCurrent(session)
+        XCTAssertEqual(session.candidatePresentations.first?.text, "你好呀")
+        _ = session.type("a")
+        waitUntilCurrent(session)
+        XCTAssertNotEqual(session.candidatePresentations.first?.text, "你好呀", "only the whole input matches")
+        _ = session.backspace()
+        _ = session.backspace()
+        _ = session.type("ihao")
+        waitUntilCurrent(session)
+        XCTAssertEqual(session.candidatePresentations.map(\.text).prefix(2), ["你好呀", "你好"])
+        XCTAssertEqual(session.candidatePresentations.filter { $0.text == "你好呀" }.count, 1)
+        XCTAssertEqual(session.space().last, .insert("你好呀"))
+        XCTAssertFalse(session.isComposing)
+        XCTAssertTrue(session.candidatePresentations.isEmpty)
+    }
+
     func testRapidKeysKeepTheirOrder() throws {
         let session = try session()
         for letter in "women" { _ = session.type(String(letter)) }
@@ -165,6 +189,22 @@ final class ChineseInputSessionTests: XCTestCase {
         XCTAssertEqual(session.backspace(), [.deleteBackward])
         XCTAssertTrue(session.suggestionTexts.isEmpty)
         session.reset()
+    }
+
+    func testSwipingTheLineAwayPutsTheSuggestionsAway() throws {
+        let session = try session()
+        let keyboard = KeyboardView(frame: CGRect(x: 0, y: 0, width: 440, height: 350), session: session)
+        defer { keyboard.stopInteractions(); session.reset() }
+        _ = session.type("dianhua")
+        _ = session.space()
+        waitUntilCurrent(session)
+        XCTAssertTrue(waitForSuggestions(session))
+        func descendants(_ view: UIView) -> [UIView] { [view] + view.subviews.flatMap(descendants) }
+        let surface = try XCTUnwrap(descendants(keyboard).compactMap { $0 as? KeyboardTouchSurface }.first)
+        surface.onDeleteLine?()
+        XCTAssertTrue(session.suggestionTexts.isEmpty)
+        XCTAssertFalse(waitForSuggestions(session), "they do not come back")
+        XCTAssertFalse(keyboard.showsNextWordClose)
     }
 
     /// Lets a correction lookup answer; the corrections shown.

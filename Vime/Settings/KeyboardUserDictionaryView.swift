@@ -1,7 +1,7 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-private struct UserDictionaryDocument: FileDocument {
+struct UserDictionaryDocument: FileDocument {
     static var readableContentTypes: [UTType] { [.json, .plainText] }
     var data: Data
     init(data: Data = Data()) { self.data = data }
@@ -9,7 +9,43 @@ private struct UserDictionaryDocument: FileDocument {
     func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper { FileWrapper(regularFileWithContents: data) }
 }
 
+/// Japanese and Chinese keep separate dictionaries; the page opens on the
+/// keyboard's current language.
 struct KeyboardUserDictionaryView: View {
+    enum Language: Hashable { case japanese, chinese }
+    @State private var language: Language
+    private let showsChinese: Bool
+
+    init() {
+        let preferences = KeyboardPreferences()
+        showsChinese = preferences.chineseInputEnabled
+        _language = State(initialValue: showsChinese && preferences.inputLanguage == .chinese ? .chinese : .japanese)
+    }
+
+    var body: some View {
+        Group {
+            switch language {
+            case .japanese: JapaneseUserDictionaryList()
+            case .chinese: ChineseUserDictionaryList()
+            }
+        }
+        .navigationTitle("用户词典").navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if showsChinese {
+                ToolbarItem(placement: .principal) {
+                    Picker("词典语言", selection: $language) {
+                        Text("日语").tag(Language.japanese)
+                        Text("中文").tag(Language.chinese)
+                    }
+                    .pickerStyle(.segmented).fixedSize()
+                    .accessibilityIdentifier("vime.dictionary.language")
+                }
+            }
+        }
+    }
+}
+
+private struct JapaneseUserDictionaryList: View {
     private let store = JapaneseUserDictionaryStore()
     @State private var entries: [JapaneseUserDictionaryEntry] = []
     @State private var search = ""
@@ -80,7 +116,6 @@ struct KeyboardUserDictionaryView: View {
         }
         .listStyle(.insetGrouped)
         .appReadableList()
-        .navigationTitle("用户词典").navigationBarTitleDisplayMode(.inline)
         .searchable(text: $search, prompt: "搜索词语或读音")
         .toolbar { ToolbarItem(placement: .primaryAction) {
             Button { editing = .init(reading: "", surface: "") } label: { Image(systemName: "plus") }.accessibilityLabel("添加词条")
@@ -96,10 +131,7 @@ struct KeyboardUserDictionaryView: View {
         }
         .fileImporter(isPresented: $importing, allowedContentTypes: [.json, .text, .tabSeparatedText, .propertyList]) { result in
             perform {
-                let url = try result.get(); let access = url.startAccessingSecurityScopedResource()
-                defer { if access { url.stopAccessingSecurityScopedResource() } }
-                let handle = try FileHandle(forReadingFrom: url); defer { try? handle.close() }
-                let data = try handle.read(upToCount: JapaneseUserDictionaryInterchange.maximumBytes + 1) ?? Data()
+                let data = try readImport(result, limit: JapaneseUserDictionaryInterchange.maximumBytes)
                 let result = try store.importFile(data); entries = try store.entries()
                 importSummary = result.skipped == 0 ? String(localized: "已添加 \(result.added) 条。")
                     : String(localized: "已添加 \(result.added) 条，跳过 \(result.skipped) 条无法使用的词条。")

@@ -143,7 +143,8 @@ nonisolated struct KeyboardSettingsCounts: Equatable, Sendable {
 
     static func load() async -> Self {
         await Task.detached(priority: .userInitiated) {
-            let dictionary = try? JapaneseUserDictionaryStore().entries().count
+            let dictionary = (try? JapaneseUserDictionaryStore().entries().count)
+                .map { $0 + ((try? ChineseUserDictionaryStore().entries().count) ?? 0) }
             let learned = CandidatePreferenceMemory.sharedDirectory.map {
                 CandidatePreferenceMemory(directory: $0).learnedConversionCount
             }
@@ -732,13 +733,17 @@ struct KeyboardDataPrivacyView: View {
         }
         .navigationTitle("学习与隐私").navigationBarTitleDisplayMode(.inline)
         .confirmationDialog("清空所有学习记录？", isPresented: $confirmLearningReset, titleVisibility: .visible) {
-            Button("清空学习记录", role: .destructive) { KeyboardPreferences().learningResetRequests.request() }
+            Button("清空学习记录", role: .destructive) {
+                ChineseLearnedWords.shared().discardPending(); KeyboardPreferences().learningResetRequests.request()
+            }
             Button("取消", role: .cancel) {}
         } message: {
             Text("下次打开键盘时清空词语偏好和转换学习，此操作无法撤销。用户词典、剪贴板历史和皮肤不会删除。")
         }
         .confirmationDialog("清空中文学习记录？", isPresented: $confirmChineseLearningReset, titleVisibility: .visible) {
-            Button("清空中文学习记录", role: .destructive) { KeyboardPreferences().learningResetRequests.chinese.request() }
+            Button("清空中文学习记录", role: .destructive) {
+                ChineseLearnedWords.shared().discardPending(); KeyboardPreferences().learningResetRequests.chinese.request()
+            }
             Button("取消", role: .cancel) {}
         } message: {
             Text("下次打开键盘时清空拼音输入学到的词语偏好，此操作无法撤销。日语学习、用户词典、剪贴板历史和皮肤不会删除。")

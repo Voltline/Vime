@@ -119,6 +119,17 @@ void vime_rime_continuations_free(VimeRimeContinuations *continuations);
 char *vime_rime_character_readings(const char *table);
 void vime_rime_string_free(char *text);
 
+/// Writes the entries of the user dictionary database at `database` (a
+/// `.userdb` folder named `name`) as Rime's text export, one
+/// "phrase<TAB>code<TAB>commits" line each; the number written, or -1. The
+/// database must not be open elsewhere: read a copy of one in use.
+int32_t vime_rime_userdb_export(const char *database, const char *name, const char *text);
+/// Merges such a text file into the database, creating it if needed: a
+/// positive count adds a phrase or raises it, a negative one deletes it. The
+/// number of lines read, or -1. The engine must be stopped, or using another
+/// directory.
+int32_t vime_rime_userdb_import(const char *database, const char *name, const char *text);
+
 #ifdef __cplusplus
 }
 #endif

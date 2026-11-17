@@ -57,6 +57,36 @@ final class RimeEngineTests: XCTestCase {
         XCTAssertFalse(requests.isPending)
     }
 
+    func testLearnedWordChangesMergeWhenRimeStartsAgain() throws {
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: "RimeEngineTests-\(UUID().uuidString)"))
+        let pending = FileManager.default.temporaryDirectory.appendingPathComponent("RimePending-\(UUID().uuidString)")
+        let learned = ChineseLearnedWords(userDirectory: Self.user, pendingDirectory: pending, defaults: defaults)
+        let engine = RimeEngine(data: try XCTUnwrap(RimeEngine.bundledData), userDirectory: Self.user, learnedWords: learned)
+        _ = engine.sendAndWait(.clear)
+        func stored() throws -> ChineseLearnedWord? { try learned.words().first { $0.text == "栅格弥漫" } }
+        func waiting() -> [String] { (try? FileManager.default.contentsOfDirectory(atPath: pending.path)) ?? [] }
+
+        let imported = try learned.importFile(Data("# Rime\n栅格弥漫\tzha ge mi man\t7\n弥漫\tnot pinyin\t1\n".utf8))
+        XCTAssertEqual(imported.added, 1)
+        XCTAssertEqual(imported.skipped, 1)
+        XCTAssertEqual(try stored()?.commits, 7, "changes still waiting show at once")
+        XCTAssertEqual(waiting().count, 1)
+
+        _ = engine.sendAndWait(.clear)
+        XCTAssertEqual(waiting(), [], "Rime merged the change when it started again")
+        let word = try XCTUnwrap(try stored())
+        XCTAssertEqual(word.pinyin, "zha ge mi man")
+        XCTAssertTrue(try XCTUnwrap(String(data: try learned.exportText(), encoding: .utf8)).contains("栅格弥漫\tzha ge mi man\t"))
+
+        try learned.delete([word])
+        XCTAssertNil(try stored())
+        _ = engine.sendAndWait(.clear)
+        XCTAssertEqual(waiting(), [])
+        XCTAssertNil(try stored(), "the deletion reached the dictionary")
+        XCTAssertEqual(engine.sendAndWait(.type("nihao")).candidates.first?.text, "你好", "Rime still answers")
+        _ = engine.sendAndWait(.clear)
+    }
+
     private func assertResetDeletesTheUserDictionary(_ requests: KeyboardLearningResetRequests,
                                                      reset: (KeyboardLearningResetRequests) -> Void) throws {
         let engine = RimeEngine(data: try XCTUnwrap(RimeEngine.bundledData), userDirectory: Self.user, resetRequests: requests)

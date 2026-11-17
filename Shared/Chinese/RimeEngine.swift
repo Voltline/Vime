@@ -97,6 +97,8 @@ nonisolated final class RimeEngine: @unchecked Sendable {
         LearningExclusionPolicy.allowsLearning($0, active: LearningExclusionPolicy.isActive())
     }
     nonisolated(unsafe) private static var startedUserDirectory: URL?
+    /// The learned-word changes this process merged last.
+    nonisolated(unsafe) private static var appliedLearnedWords: String??
     /// Bumped when Rime restarts, which ends every session.
     nonisolated(unsafe) private static var startCount = 0
 
@@ -107,6 +109,8 @@ nonisolated final class RimeEngine: @unchecked Sendable {
     private let data: URL
     private let userDirectory: URL
     private let resetRequests: KeyboardLearningResetRequests
+    /// Changes the app left for the learned words, merged before Rime opens them.
+    private let learnedWords: ChineseLearnedWords?
     // Touched only on `queue`.
     private var session: VimeRimeSession = 0
     private var sessionStart = 0
@@ -128,7 +132,9 @@ nonisolated final class RimeEngine: @unchecked Sendable {
     /// process decides it; Rime cannot switch directories while running.
     /// A pending request in `resetRequests`, or in its `chinese` requests,
     /// deletes what was learned there.
-    init(data: URL, userDirectory: URL, resetRequests: KeyboardLearningResetRequests = KeyboardLearningResetRequests()) {
+    init(data: URL, userDirectory: URL, resetRequests: KeyboardLearningResetRequests = KeyboardLearningResetRequests(),
+         learnedWords: ChineseLearnedWords? = nil) {
+        self.learnedWords = learnedWords
         self.data = data
         self.userDirectory = userDirectory
         self.resetRequests = resetRequests
@@ -277,8 +283,10 @@ nonisolated final class RimeEngine: @unchecked Sendable {
 
     private func prepare(checkingReset: Bool) -> Bool {
         if session != 0, !checkingReset, sessionStart == Self.currentStart { return true }
+        let checking = session == 0 || checkingReset
         guard let started = Self.start(data: data, userDirectory: userDirectory,
-                                       resetRequests: session == 0 || checkingReset ? resetRequests : nil) else { return false }
+                                       resetRequests: checking ? resetRequests : nil,
+                                       learnedWords: checking ? learnedWords : nil) else { return false }
         if session != 0, sessionStart == started { return true }
         session = vime_rime_create_session()
         sessionStart = started
@@ -311,23 +319,30 @@ nonisolated final class RimeEngine: @unchecked Sendable {
 
     /// Starts Rime unless it runs, first carrying out a pending reset of the
     /// user dictionary. Returns the start the sessions belong to.
-    private static func start(data: URL, userDirectory: URL, resetRequests: KeyboardLearningResetRequests?) -> Int? {
+    private static func start(data: URL, userDirectory: URL, resetRequests: KeyboardLearningResetRequests?,
+                              learnedWords: ChineseLearnedWords? = nil) -> Int? {
         startLock.lock(); defer { startLock.unlock() }
         let store = "rime." + userDirectory.lastPathComponent
         // A reset of every language or of Chinese alone.
         let resets = [resetRequests, resetRequests?.chinese].compactMap { requests in
             requests.flatMap { requests in requests.pendingID(for: store).map { (requests, $0) } }
         }
-        if startedUserDirectory != nil, resets.isEmpty { return startCount }
+        let revision = learnedWords?.revision
+        let changes = learnedWords != nil && revision != appliedLearnedWords
+        if startedUserDirectory != nil, resets.isEmpty, !changes { return startCount }
+        if startedUserDirectory != nil {
+            vime_rime_stop()
+            startedUserDirectory = nil
+        }
         if !resets.isEmpty {
-            if startedUserDirectory != nil {
-                vime_rime_stop()
-                startedUserDirectory = nil
-            }
             // A failed deletion leaves the requests for a later try.
             if deleteUserDictionaries(in: userDirectory) {
                 for (requests, id) in resets { requests.complete(id, for: store) }
             }
+        }
+        if let learnedWords, changes {
+            learnedWords.applyPending()
+            appliedLearnedWords = revision
         }
         try? FileManager.default.createDirectory(at: userDirectory, withIntermediateDirectories: true)
         guard vime_rime_start(data.path, userDirectory.path) else { return nil }
