@@ -137,6 +137,7 @@ nonisolated enum ChineseCandidateRanking {
             JapaneseCandidateWorker.LanguageModelStorage.shared.release(.chinese)
             ScoreCache.shared.clear()
             ChineseSentenceGeneration.Storage.shared.release()
+            ChineseSentenceCorrection.Storage.shared.release()
         }
     }
 
