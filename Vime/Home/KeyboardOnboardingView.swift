@@ -47,10 +47,10 @@ struct KeyboardOnboardingView: View {
                 }
                 VStack(spacing: 12) {
                     step(1, "添加键盘", done: progress.added,
-                         detail: progress.added ? "已检测到 Vime 日本語" : "设置 › 通用 › 键盘 › 添加新键盘 › Vime")
+                         detail: progress.added ? "已检测到 Vime" : "设置 › 通用 › 键盘 › 添加新键盘 › Vime")
                     step(2, "允许完全访问", done: progress.fullAccess,
                          detail: "用于按键声音、振动、共享词典与学习。输入内容只在本机处理，不会上传。",
-                         path: "设置 › 通用 › 键盘 › 键盘 › Vime 日本語 › 允许完全访问")
+                         path: "设置 › 通用 › 键盘 › 键盘 › Vime › 允许完全访问")
                     step(3, "打一句试试", done: progress.fullAccess, detail: KeyboardHomeView.opensInChinese()
                          ? "长按地球键切到 Vime，输入 nihao" : "长按地球键切到 Vime，输入 nihongo") {
                         ZStack(alignment: .topLeading) {

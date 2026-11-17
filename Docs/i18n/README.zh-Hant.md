@@ -1,10 +1,10 @@
 # Vime
 
-[简体中文](README.md) | **繁體中文** | [English](README.en.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
+[简体中文](../../README.md) | **繁體中文** | [English](README.en.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
 ![Platform](https://img.shields.io/badge/platform-iOS%2018%2B-blue) ![Swift](https://img.shields.io/badge/Swift-UIKit%20%2B%20SwiftUI-orange) ![License](https://img.shields.io/badge/license-GPL--3.0--or--later-green)
 
-Vime 是一款完全離線的 iOS 日語輸入法，也可以用拼音輸入簡體或繁體中文。它支援羅馬字 QWERTY 和假名九宮格兩種佈局，平假名、片假名和英文可以隨時切換。假名漢字轉換以 [azooKey](https://github.com/azooKey/AzooKeyKanaKanjiConverter) 辭典引擎為基礎，再由裝置上的小型 Core ML 語言模型為候選字詞重新排序，並在確認文字後提供下一詞聯想。中文拼音輸入以 [librime](https://github.com/rime/librime) 為基礎。轉換、糾錯、學習和聯想都在本機完成，輸入內容不會上傳。
+Vime 是一款完全離線的 iOS 多語言輸入法，可以輸入日語、中文（拼音，簡體或繁體）和英文。日語支援羅馬字 QWERTY 和假名九宮格兩種佈局，平假名、片假名和英文可以隨時切換；假名漢字轉換以 [azooKey](https://github.com/azooKey/AzooKeyKanaKanjiConverter) 辭典引擎為基礎，中文拼音輸入以 [librime](https://github.com/rime/librime) 為基礎。日語和中文各有一個裝置上的小型 Core ML 語言模型，結合上文為候選字詞重新排序，並在確認文字後提供下一詞聯想。轉換、糾錯、學習和聯想都在本機完成，輸入內容不會上傳。
 
 主應用程式負責啟用引導、試打練習、外觀自訂和各項設定；系統鍵盤延伸功能可在任何支援第三方鍵盤的 App 中使用。
 
@@ -31,20 +31,25 @@ Vime 是一款完全離線的 iOS 日語輸入法，也可以用拼音輸入簡�
 
 ### 中文輸入
 
-- **拼音輸入**：以 librime 為基礎的全拼輸入，支援整句輸入、只打聲母的簡拼和未打完音節的補全，也能辨識常見的誤觸鄰鍵和字母順序打反。
-- **中英混輸**：同一串輸入中可以直接輸入英文單字。
-- **簡繁切換**：點工具列上的「简 / 繁」按鈕即可切換，繁體由 OpenCC 轉換。
-- **中日切換**：上滑語言鍵即可在日語和中文之間切換，也可以在設定中選擇；不需要時可在設定中關閉中文輸入。
-- **本機學習**：選過的詞會排得更前面；送出後立刻按刪除鍵刪掉，這次的學習也會一併撤銷。中文學習記錄可以單獨清除。
-- 詞庫由多個開源詞表和詞頻資料產生，來源見第三方聲明。
+- **拼音輸入**：以 librime 為基礎的全拼輸入，支援整句輸入、只打聲母的簡拼和未打完音節的補全。
+- **中文智慧排序**：本機中文模型（INT8、僅 CPU）結合上文重排候選，從 Rime 提供的多個整句中挑出最通順的幾句，長句裡還會替換不通順的詞；可在設定中關閉。
+- **拼音糾錯**：鄰鍵誤觸、字母順序打反、漏打或多打一個字母都能找到想要的詞；跨音節的錯誤和整句裡打錯的拼音，停頓片刻後會提供改寫後的候選。
+- **模糊音**：平翹舌、前後鼻音，以及 n/l、f/h、r/l 可分別開啟。
+- **下一詞聯想**：確認中文後，候選列接著提供常見的後續詞，點選後繼續聯想。
+- **中英混輸**：同一串輸入裡可以直接打英文單字；大寫字母開頭的詞（如 Vime、GPT）照原樣留在句子裡。
+- **簡繁切換**：點工具列上的「簡 / 繁」按鈕即可切換，繁體由 OpenCC 轉換。
+- **中日切換**：上滑語言鍵即可在日語和中文之間切換；在「輸入法」頁選擇預設語言，或關閉不用的輸入法。
+- **本機學習**：選過的詞會排得更前面；上屏後馬上按退格刪掉，這次的學習也會一併撤銷。學到的詞可以逐筆查看和刪除、以 Rime 文字匯入匯出，也可以一鍵清除。
+- **中文使用者辭典**：依完整拼音或首字母（如 `wm`）把自己的詞排到第一位。
+- 詞庫由多個開源詞表和詞頻資料產生，並補充了較新的品牌、網路用語和遊戲名詞，來源見第三方聲明。
 
 ### 效率工具
 
-- **使用者辭典與短語快速輸入**，可匯入 Google 日本語入力、Microsoft IME、ATOK 與 macOS 的使用者辭典，並以 JSON 或 Google 日本語入力文字格式匯出（最多 1,024 筆）；iOS 的文字替代也能直接使用。
+- **使用者辭典與短語快速輸入**：日語和中文各一本，各最多 1,024 筆。日語辭典可匯入 Google 日本語入力、Microsoft IME、ATOK 與 macOS 的使用者辭典，並以 JSON 或 Google 日本語入力文字格式匯出；中文辭典以 JSON 或文字匯入匯出。iOS 的文字替代也能直接使用。
 - **剪貼簿建議**（預設關閉）：新拷貝的文字會出現在候選欄；另保留最近 24 小時的歷史記錄，只存在本機。
 - **數字頁計算**：輸入 `1+1` 時，候選會提供 `2` 和 `1+1=2`。
 - **自動補全括號**：支援 `()`、`（）`、`「」` 等，游標會放在括號中間。
-- 分類符號、Emoji 和顏文字面板；數字頁左側欄的符號可以自訂。
+- **符號面板**：分類符號、Emoji 和顏文字；直向時 ABC、面板切換、搜尋和退格都在底列，符號依頁排列，第一頁跟隨輸入語言顯示中文或日文標點。數字頁左側欄的符號可以自訂。
 
 ### 個人化
 
@@ -56,7 +61,8 @@ Vime 是一款完全離線的 iOS 日語輸入法，也可以用拼音輸入簡�
 ### 主應用程式
 
 - **三步驟啟用引導**：新增鍵盤、允許完整取用、切換到 Vime，完成後自動進入試打。
-- **跟打練習**：照著例句輸入，打對的部分逐字標為藍色。
+- **跟打練習**：跟隨輸入語言提供日語或中文例句，打對的部分逐字標為藍色。
+- **輸入法設定**：選擇日語羅馬字、假名九宮格和簡體中文；轉換選項依日語、中文、英文分組，使用者辭典分日語和中文兩頁。
 - 設定頁的狀態卡會顯示鍵盤是否正常運作、已載入的模型版本和學習統計。
 - 介面支援简体中文、繁體中文、日本語、English 和 한국어。
 
@@ -64,10 +70,10 @@ Vime 是一款完全離線的 iOS 日語輸入法，也可以用拼音輸入簡�
 
 需要 iOS 18 或以上版本，以及支援目前 SDK 的 Xcode。
 
-1. 用 Xcode 開啟 [Vime.xcodeproj](Vime.xcodeproj)，選擇 `Vime` scheme。首次建置會解析固定版本的 SwiftPM 相依套件，模型和分詞器資源已包含在儲存庫中。
-2. 安裝到實機前，請為主應用程式和 `VimeKeyboard` 延伸功能設定簽署，兩者須使用相同的 App Group（目前為 `group.com.Voltline.Vime`）。詳見 [開發與驗證](Docs/Development.md)。
+1. 用 Xcode 開啟 [Vime.xcodeproj](../../Vime.xcodeproj)，選擇 `Vime` scheme。首次建置會解析固定版本的 SwiftPM 相依套件，模型和分詞器資源已包含在儲存庫中。
+2. 安裝到實機前，請為主應用程式和 `VimeKeyboard` 延伸功能設定簽署，兩者須使用相同的 App Group（目前為 `group.com.Voltline.Vime`）。詳見 [開發與驗證](../Development.md)。
 3. 執行主應用程式，依照首頁引導操作；也可以手動在「設定」→「一般」→「鍵盤」→「鍵盤」→「新增鍵盤⋯」中加入 Vime。
-4. 在任一輸入框長按地球鍵，選擇「Vime 日本語」。
+4. 在任一輸入框長按地球鍵，選擇「Vime」。
 
 基本的離線輸入不需要「允許完整取用」。按鍵聲音和震動、App 與鍵盤共用設定、自訂主題、使用者辭典同步以及剪貼簿建議，需要開啟完整取用。修改設定後，切換到其他鍵盤再切回來，延伸功能就會重新讀取設定。
 
@@ -96,7 +102,7 @@ Vime 是一款完全離線的 iOS 日語輸入法，也可以用拼音輸入簡�
 
 - 轉換、糾錯、排序、聯想和學習都在裝置上完成，沒有網路請求，不會上傳輸入內容或剪貼簿。
 - 學習資料、使用者辭典和主題儲存在 App Group 共用容器中；剪貼簿歷史記錄不納入系統備份。
-- 完整說明請見 [隱私權政策](Docs/Guides/Privacy.zh-Hant.md)（另有 [简体中文](Docs/Guides/Privacy.md)、[日本語](Docs/Guides/Privacy.ja.md)、[English](Docs/Guides/Privacy.en.md)、[한국어](Docs/Guides/Privacy.ko.md)）。
+- 完整說明請見 [隱私權政策](../Guides/Privacy.zh-Hant.md)（另有 [简体中文](../Guides/Privacy.md)、[日本語](../Guides/Privacy.ja.md)、[English](../Guides/Privacy.en.md)、[한국어](../Guides/Privacy.ko.md)）。
 
 ## 專案結構
 
@@ -120,17 +126,17 @@ python3 Scripts/validate_model_resources.py
 python3 Scripts/validate_app_resources.py
 ```
 
-前者驗證模型 manifest、分詞器和 SHA256，後者驗證授權聲明、隱私權政策和在地化目錄是否完整。介面文字統一放在 `Shared/Resources/Localizable.xcstrings`，新增文字需要補齊五種語言。完整測試流程（`Scripts/verify_review.sh`）、實際鍵盤延伸功能的驗證方法和疑難排解請見 [開發與驗證](Docs/Development.md)。
+前者驗證模型 manifest、分詞器和 SHA256，後者驗證授權聲明、隱私權政策和在地化目錄是否完整。介面文字統一放在 `Shared/Resources/Localizable.xcstrings`，新增文字需要補齊五種語言。完整測試流程（`Scripts/verify_review.sh`）、實際鍵盤延伸功能的驗證方法和疑難排解請見 [開發與驗證](../Development.md)。
 
 ## 文件
 
 以下文件以简体中文撰寫。
 
-- [文件索引](Docs/README.md)
-- 使用：[App 設定](Docs/Guides/AppSettings.md) · [自訂主題](Docs/Guides/CustomSkins.md) · [使用者辭典](Docs/Guides/UserDictionary.md) · [無障礙](Docs/Guides/Accessibility.md)
-- 開發：[專案目錄](Docs/ProjectLayout.md) · [開發與驗證](Docs/Development.md) · [日語模型](Docs/Models/JapaneseModel.md)
-- 架構：[輸入與宿主](Docs/Architecture/InputPipeline.md) · [候選與聯想](Docs/Architecture/Candidates.md) · [學習與個人化](Docs/Architecture/Personalization.md) · [輸入後端介面](Docs/Architecture/InputBackends.md) · [表情顯示](Docs/Architecture/EmojiRendering.md)
+- [文件索引](../README.md)
+- 使用：[App 設定](../Guides/AppSettings.md) · [自訂主題](../Guides/CustomSkins.md) · [使用者辭典](../Guides/UserDictionary.md) · [無障礙](../Guides/Accessibility.md)
+- 開發：[專案目錄](../ProjectLayout.md) · [開發與驗證](../Development.md) · [日語模型](../Models/JapaneseModel.md)
+- 架構：[輸入與宿主](../Architecture/InputPipeline.md) · [候選與聯想](../Architecture/Candidates.md) · [學習與個人化](../Architecture/Personalization.md) · [輸入後端介面](../Architecture/InputBackends.md) · [表情顯示](../Architecture/EmojiRendering.md)
 
 ## 授權與致謝
 
-Vime 以 [GPL-3.0-or-later](LICENSE) 授權發布，並依 GPLv3 第 7 條附加一項額外許可，允許在 App Store 等應用程式商店散布，條件是同時提供對應的原始碼，請見 [LICENSE-EXCEPTION](LICENSE-EXCEPTION)。2026-10-22 之前的版本仍以 GPL-2.0-only 發布。隨附的 [VimeML](https://github.com/Voltline/VimeML) 日語模型採用相同授權，訓練語料的署名請見第三方聲明。假名漢字轉換使用 [AzooKeyKanaKanjiConverter](https://github.com/azooKey/AzooKeyKanaKanjiConverter)，分詞使用 [SentencePiece](https://github.com/google/sentencepiece)。中文輸入使用 [librime](https://github.com/rime/librime) 和 [OpenCC](https://github.com/BYVoid/OpenCC)，拼音詞庫含 CC BY-SA 4.0 資料，並以相同授權發布。第三方程式碼與資料的授權、致謝和來源請見 [ThirdPartyNotices.txt](Shared/Resources/ThirdPartyNotices.txt)、[SentencePiece LICENSE](Dependencies/VimeSentencePiece/LICENSE) 和 [語言資源來源清單](Shared/Resources/LanguageResourceSources.json)，App 內「設定 → 關於 Vime → 開放原始碼元件與授權」也可檢視完整原文。
+Vime 以 [GPL-3.0-or-later](../../LICENSE) 授權發布，並依 GPLv3 第 7 條附加一項額外許可，允許在 App Store 等應用程式商店散布，條件是同時提供對應的原始碼，請見 [LICENSE-EXCEPTION](../../LICENSE-EXCEPTION)。2026-10-22 之前的版本仍以 GPL-2.0-only 發布。隨附的 [VimeML](https://github.com/Voltline/VimeML) 日語模型採用相同授權，訓練語料的署名請見第三方聲明。假名漢字轉換使用 [AzooKeyKanaKanjiConverter](https://github.com/azooKey/AzooKeyKanaKanjiConverter)，分詞使用 [SentencePiece](https://github.com/google/sentencepiece)。中文輸入使用 [librime](https://github.com/rime/librime) 和 [OpenCC](https://github.com/BYVoid/OpenCC)，拼音詞庫含 CC BY-SA 4.0 資料，並以相同授權發布。第三方程式碼與資料的授權、致謝和來源請見 [ThirdPartyNotices.txt](../../Shared/Resources/ThirdPartyNotices.txt)、[SentencePiece LICENSE](../../Dependencies/VimeSentencePiece/LICENSE) 和 [語言資源來源清單](../../Shared/Resources/LanguageResourceSources.json)，App 內「設定 → 關於 Vime → 開放原始碼元件與授權」也可檢視完整原文。

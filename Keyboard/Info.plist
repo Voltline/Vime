@@ -5,7 +5,7 @@
     <key>ITSAppUsesNonExemptEncryption</key>
     <false/>
     <key>CFBundleDisplayName</key>
-    <string>Vime 日本語</string>
+    <string>Vime</string>
     <key>NSExtension</key>
     <dict>
         <key>NSExtensionAttributes</key>

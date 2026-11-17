@@ -1,10 +1,10 @@
 # Vime
 
-[简体中文](README.md) | [繁體中文](README.zh-Hant.md) | [English](README.en.md) | [日本語](README.ja.md) | **한국어**
+[简体中文](../../README.md) | [繁體中文](README.zh-Hant.md) | [English](README.en.md) | [日本語](README.ja.md) | **한국어**
 
 ![Platform](https://img.shields.io/badge/platform-iOS%2018%2B-blue) ![Swift](https://img.shields.io/badge/Swift-UIKit%20%2B%20SwiftUI-orange) ![License](https://img.shields.io/badge/license-GPL--3.0--or--later-green)
 
-Vime은 완전히 오프라인으로 동작하는 iOS용 일본어 키보드이며, 병음으로 중국어 간체·번체도 입력할 수 있습니다. 로마자 QWERTY와 가나 12키 두 가지 배열을 지원하며, 히라가나·가타카나·영문을 언제든지 전환할 수 있습니다. 가나 한자 변환은 [azooKey](https://github.com/azooKey/AzooKeyKanaKanjiConverter) 사전 엔진을 기반으로 하고, 기기 내 소형 Core ML 언어 모델이 후보를 다시 정렬하며, 텍스트를 확정하면 다음 단어를 제안합니다. 중국어 병음 입력은 [librime](https://github.com/rime/librime)을 기반으로 합니다. 변환, 교정, 학습, 제안은 모두 기기에서 처리되며 입력 내용은 업로드되지 않습니다.
+Vime은 완전히 오프라인으로 동작하는 iOS용 다국어 키보드로, 일본어, 중국어(병음, 간체·번체), 영어를 입력할 수 있습니다. 일본어는 로마자 QWERTY와 가나 12키 두 가지 배열을 지원하며, 히라가나·가타카나·영문을 언제든지 전환할 수 있습니다. 가나 한자 변환은 [azooKey](https://github.com/azooKey/AzooKeyKanaKanjiConverter) 사전 엔진을, 중국어 병음 입력은 [librime](https://github.com/rime/librime)을 기반으로 합니다. 일본어와 중국어에는 각각 기기 내 소형 Core ML 언어 모델이 있어 앞 문맥에 맞춰 후보를 다시 정렬하고, 텍스트를 확정하면 다음 단어를 제안합니다. 변환, 교정, 학습, 제안은 모두 기기에서 처리되며 입력 내용은 업로드되지 않습니다.
 
 앱에서는 설정 안내, 입력 연습, 외관 사용자화와 각종 설정을 할 수 있습니다. 키보드 확장 프로그램은 서드파티 키보드를 허용하는 모든 앱에서 사용할 수 있습니다.
 
@@ -31,20 +31,25 @@ Vime은 완전히 오프라인으로 동작하는 iOS용 일본어 키보드이�
 
 ### 중국어 입력
 
-- **병음 입력**: librime 기반의 전체 병음 입력으로, 문장 단위 입력, 성모만 치는 약어, 덜 친 음절의 완성을 지원하며 흔한 옆 키 오타와 글자 순서 바뀜도 인식합니다.
-- **중국어·영어 혼합 입력**: 같은 입력 안에서 영어 단어를 바로 칠 수 있습니다.
-- **간체·번체 전환**: 도구 막대의 「简 / 繁」 버튼으로 전환하며, 번체는 OpenCC로 변환합니다.
-- **일본어·중국어 전환**: 언어 키를 위로 밀면 일본어와 중국어를 전환합니다. 설정에서도 고를 수 있고, 필요 없으면 설정에서 중국어 입력을 끌 수 있습니다.
-- **기기 내 학습**: 고른 단어가 위로 올라옵니다. 확정 직후 백스페이스로 지우면 그때 학습한 내용도 함께 취소됩니다. 중국어 학습 기록은 따로 지울 수 있습니다.
-- 사전은 여러 공개 단어 목록과 빈도 데이터로 생성했으며, 출처는 서드파티 고지에서 확인할 수 있습니다.
+- **병음 입력**: librime 기반의 전체 병음 입력으로, 문장 단위 입력, 성모만 입력하는 약어, 덜 입력한 음절의 자동 완성을 지원합니다.
+- **중국어 스마트 정렬**: 기기 내 중국어 모델(INT8, CPU 전용)이 문맥에 맞춰 후보를 다시 정렬하고, Rime이 제시한 여러 문장 중 가장 자연스러운 것을 고르며, 긴 문장에서는 어색한 단어를 바꿉니다. 설정에서 끌 수 있습니다.
+- **병음 오타 교정**: 옆 키 오타, 글자 순서 바뀜, 한 글자 누락이나 추가가 있어도 원하는 단어를 찾습니다. 음절을 넘나드는 오타와 문장 전체의 오타도 잠시 멈추면 고친 후보를 보여 줍니다.
+- **모호 병음**: z/zh·c/ch·s/sh, 앞뒤 비음, n/l·f/h·r/l을 각각 켤 수 있습니다.
+- **다음 단어 제안**: 중국어를 확정하면 자주 이어지는 단어를 후보 막대에 보여 주고, 고르면 계속 이어서 제안합니다.
+- **중영 혼합 입력**: 같은 입력 안에서 영어 단어를 바로 입력할 수 있으며, 대문자로 시작하는 단어(Vime, GPT 등)는 입력한 그대로 문장에 남습니다.
+- **간체·번체 전환**: 도구 막대의 「简 / 繁」 버튼으로 전환하며, 번체 변환에는 OpenCC를 사용합니다.
+- **일본어·중국어 전환**: 언어 키를 위로 밀면 전환됩니다. 「입력 방식」 화면에서 기본 언어를 고르거나 쓰지 않는 입력 방식을 끌 수 있습니다.
+- **기기 내 학습**: 선택한 단어일수록 위에 표시됩니다. 확정 직후 삭제 키로 지우면 그 학습도 취소됩니다. 학습한 단어는 하나씩 확인하고 삭제할 수 있고, Rime 텍스트로 가져오고 내보내거나 한 번에 지울 수도 있습니다.
+- **중국어 사용자 사전**: 전체 병음이나 첫 글자(`wm` 등)로 등록한 단어를 맨 앞에 띄웁니다.
+- 사전은 여러 오픈 소스 단어 목록과 빈도 데이터로 만들었고, 새로운 브랜드, 인터넷 용어, 게임 용어도 보강했습니다. 출처는 서드파티 고지에 있습니다.
 
 ### 편의 기능
 
-- **사용자 사전과 문구 단축키**: Google 일본어 입력·Microsoft IME·ATOK·macOS 사전을 가져오고, JSON이나 Google 일본어 입력 텍스트로 내보낼 수 있습니다(최대 1,024개). iOS 텍스트 대치도 그대로 사용할 수 있습니다.
+- **사용자 사전과 문구 단축키**: 일본어용과 중국어용이 따로 있으며 각각 최대 1,024개입니다. 일본어 사전은 Google 일본어 입력·Microsoft IME·ATOK·macOS 사전을 가져오고 JSON이나 Google 일본어 입력 텍스트로 내보낼 수 있으며, 중국어 사전은 JSON이나 텍스트로 가져오고 내보낼 수 있습니다. iOS 텍스트 대치도 그대로 사용할 수 있습니다.
 - **클립보드 제안**(기본적으로 꺼짐): 새로 복사한 텍스트가 후보 막대에 표시됩니다. 최근 24시간의 기록은 이 기기에만 보관됩니다.
 - **숫자 페이지 계산**: `1+1`을 입력하면 `2`와 `1+1=2`를 후보로 보여 줍니다.
 - **괄호 자동 짝 맞춤**: `()`, `（）`, `「」` 등을 짝으로 입력하고 커서를 괄호 사이에 둡니다.
-- 카테고리별 기호, 이모지, 카오모지 패널. 숫자 페이지 왼쪽 열의 기호는 사용자화할 수 있습니다.
+- **기호 패널**: 카테고리별 기호, 이모지, 카오모지. 세로 화면에서는 ABC, 패널 전환, 검색, 삭제 키가 아래 막대에 모이고, 기호는 페이지 단위로 배열되며 첫 페이지는 입력 언어에 맞춰 중국어나 일본어 문장 부호를 보여 줍니다. 숫자 페이지 왼쪽 열의 기호는 사용자화할 수 있습니다.
 
 ### 사용자화
 
@@ -56,7 +61,8 @@ Vime은 완전히 오프라인으로 동작하는 iOS용 일본어 키보드이�
 ### 앱
 
 - **3단계 설정 안내**: 키보드 추가, 전체 접근 허용, Vime으로 전환. 완료하면 자동으로 입력해 보기로 넘어갑니다.
-- **입력 연습**: 예문을 따라 입력하면 맞게 입력한 글자가 차례로 파란색으로 바뀝니다.
+- **입력 연습**: 입력 언어에 맞춰 일본어나 중국어 예문을 보여 주며, 맞게 입력한 글자가 차례로 파란색으로 바뀝니다.
+- **입력 방식 설정**: 일본어 로마자, 가나 12키, 간체 중국어를 고를 수 있습니다. 변환 설정은 일본어·중국어·영어별로 묶이고, 사용자 사전은 일본어와 중국어 페이지로 나뉩니다.
 - 설정 화면의 상태 카드에서 키보드가 정상적으로 동작하는지, 불러온 모델의 버전, 학습 현황을 확인할 수 있습니다.
 - 인터페이스는 简体中文, 繁體中文, 日本語, English, 한국어를 지원합니다.
 
@@ -64,10 +70,10 @@ Vime은 완전히 오프라인으로 동작하는 iOS용 일본어 키보드이�
 
 iOS 18 이상과 프로젝트의 SDK를 지원하는 Xcode가 필요합니다.
 
-1. Xcode에서 [Vime.xcodeproj](Vime.xcodeproj)를 열고 `Vime` 스킴을 선택합니다. 첫 빌드에서 고정된 버전의 SwiftPM 의존성을 가져오며, 모델과 토크나이저 리소스는 저장소에 포함되어 있습니다.
-2. 실제 기기에 설치하기 전에 앱과 `VimeKeyboard` 확장 프로그램의 서명을 설정합니다. 두 대상은 같은 App Group(현재 `group.com.Voltline.Vime`)을 사용해야 합니다. 자세한 내용은 [개발 가이드](Docs/Development.md)(중국어)를 참고하세요.
+1. Xcode에서 [Vime.xcodeproj](../../Vime.xcodeproj)를 열고 `Vime` 스킴을 선택합니다. 첫 빌드에서 고정된 버전의 SwiftPM 의존성을 가져오며, 모델과 토크나이저 리소스는 저장소에 포함되어 있습니다.
+2. 실제 기기에 설치하기 전에 앱과 `VimeKeyboard` 확장 프로그램의 서명을 설정합니다. 두 대상은 같은 App Group(현재 `group.com.Voltline.Vime`)을 사용해야 합니다. 자세한 내용은 [개발 가이드](../Development.md)(중국어)를 참고하세요.
 3. 앱을 실행하고 홈 화면의 안내를 따르거나, 「설정 → 일반 → 키보드 → 키보드 → 새로운 키보드 추가」에서 직접 Vime을 추가합니다.
-4. 아무 입력란에서 지구본 키를 길게 누르고 「Vime 日本語」를 선택합니다.
+4. 아무 입력란에서 지구본 키를 길게 누르고 「Vime」을 선택합니다.
 
 기본적인 오프라인 입력에는 「전체 접근 허용」이 필요하지 않습니다. 키 소리와 햅틱, 앱과 키보드 간 설정 공유, 사용자 스킨, 사용자 사전 동기화, 클립보드 제안에는 전체 접근 허용이 필요합니다. 설정을 바꾼 뒤에는 다른 키보드로 전환했다가 다시 돌아오면 확장 프로그램이 설정을 다시 읽습니다.
 
@@ -96,7 +102,7 @@ iOS 18 이상과 프로젝트의 SDK를 지원하는 Xcode가 필요합니다.
 
 - 변환, 교정, 순위 결정, 제안, 학습은 모두 기기에서 이루어집니다. Vime에는 네트워크 통신 코드가 없으며, 입력하거나 복사한 내용을 업로드하지 않습니다.
 - 학습 데이터, 사용자 사전, 스킨은 App Group 공유 컨테이너에 저장되며, 클립보드 기록은 시스템 백업에서 제외됩니다.
-- 자세한 내용은 [개인정보 처리방침](Docs/Guides/Privacy.ko.md)을 참고하세요([简体中文](Docs/Guides/Privacy.md), [繁體中文](Docs/Guides/Privacy.zh-Hant.md), [日本語](Docs/Guides/Privacy.ja.md), [English](Docs/Guides/Privacy.en.md) 버전도 있습니다).
+- 자세한 내용은 [개인정보 처리방침](../Guides/Privacy.ko.md)을 참고하세요([简体中文](../Guides/Privacy.md), [繁體中文](../Guides/Privacy.zh-Hant.md), [日本語](../Guides/Privacy.ja.md), [English](../Guides/Privacy.en.md) 버전도 있습니다).
 
 ## 프로젝트 구조
 
@@ -120,17 +126,17 @@ python3 Scripts/validate_model_resources.py
 python3 Scripts/validate_app_resources.py
 ```
 
-앞의 스크립트는 모델 manifest, 토크나이저, SHA256을 검증하고, 뒤의 스크립트는 라이선스 고지, 개인정보 처리방침, 현지화 카탈로그가 빠짐없이 갖춰졌는지 검증합니다. UI 문자열은 `Shared/Resources/Localizable.xcstrings`에 모여 있으며, 새 문자열에는 다섯 언어의 번역이 모두 필요합니다. 전체 테스트 절차(`Scripts/verify_review.sh`), 실제 키보드 확장 프로그램에서 확인하는 방법과 문제 해결 방법은 [개발 가이드](Docs/Development.md)에 있습니다.
+앞의 스크립트는 모델 manifest, 토크나이저, SHA256을 검증하고, 뒤의 스크립트는 라이선스 고지, 개인정보 처리방침, 현지화 카탈로그가 빠짐없이 갖춰졌는지 검증합니다. UI 문자열은 `Shared/Resources/Localizable.xcstrings`에 모여 있으며, 새 문자열에는 다섯 언어의 번역이 모두 필요합니다. 전체 테스트 절차(`Scripts/verify_review.sh`), 실제 키보드 확장 프로그램에서 확인하는 방법과 문제 해결 방법은 [개발 가이드](../Development.md)에 있습니다.
 
 ## 문서
 
 자세한 문서는 중국어로 작성되어 있습니다.
 
-- [문서 목록](Docs/README.md)
-- 사용: [앱 설정](Docs/Guides/AppSettings.md) · [사용자 스킨](Docs/Guides/CustomSkins.md) · [사용자 사전](Docs/Guides/UserDictionary.md) · [손쉬운 사용](Docs/Guides/Accessibility.md)
-- 개발: [프로젝트 구조](Docs/ProjectLayout.md) · [개발과 검증](Docs/Development.md) · [일본어 모델](Docs/Models/JapaneseModel.md)
-- 아키텍처: [입력과 호스트](Docs/Architecture/InputPipeline.md) · [후보와 제안](Docs/Architecture/Candidates.md) · [학습과 개인화](Docs/Architecture/Personalization.md) · [입력 백엔드](Docs/Architecture/InputBackends.md) · [이모지 표시](Docs/Architecture/EmojiRendering.md)
+- [문서 목록](../README.md)
+- 사용: [앱 설정](../Guides/AppSettings.md) · [사용자 스킨](../Guides/CustomSkins.md) · [사용자 사전](../Guides/UserDictionary.md) · [손쉬운 사용](../Guides/Accessibility.md)
+- 개발: [프로젝트 구조](../ProjectLayout.md) · [개발과 검증](../Development.md) · [일본어 모델](../Models/JapaneseModel.md)
+- 아키텍처: [입력과 호스트](../Architecture/InputPipeline.md) · [후보와 제안](../Architecture/Candidates.md) · [학습과 개인화](../Architecture/Personalization.md) · [입력 백엔드](../Architecture/InputBackends.md) · [이모지 표시](../Architecture/EmojiRendering.md)
 
 ## 라이선스와 감사의 말
 
-Vime은 [GPL-3.0-or-later](LICENSE)로 배포되며, GPLv3 제7조에 따른 추가 허가로 대응하는 소스 코드를 함께 제공하는 조건에서 App Store 등 앱 스토어를 통한 배포를 허용합니다([LICENSE-EXCEPTION](LICENSE-EXCEPTION) 참고). 2026-10-22 이전 버전은 GPL-2.0-only로 배포되었습니다. 함께 포함된 일본어 모델 [VimeML](https://github.com/Voltline/VimeML)도 같은 라이선스를 따르며, 학습 데이터의 저작자 표시는 서드파티 고지에 있습니다. 가나 한자 변환에는 [AzooKeyKanaKanjiConverter](https://github.com/azooKey/AzooKeyKanaKanjiConverter)를, 토큰화에는 [SentencePiece](https://github.com/google/sentencepiece)를 사용합니다. 중국어 입력에는 [librime](https://github.com/rime/librime)과 [OpenCC](https://github.com/BYVoid/OpenCC)를 사용하며, 병음 사전은 CC BY-SA 4.0 데이터를 포함하므로 같은 라이선스로 배포합니다. 서드파티 코드와 데이터의 라이선스, 감사의 말, 출처는 [ThirdPartyNotices.txt](Shared/Resources/ThirdPartyNotices.txt), [SentencePiece LICENSE](Dependencies/VimeSentencePiece/LICENSE), [언어 리소스 출처 목록](Shared/Resources/LanguageResourceSources.json)에 정리되어 있으며, 앱의 「설정 → Vime에 관하여 → 오픈 소스 라이선스」에서도 전문을 볼 수 있습니다.
+Vime은 [GPL-3.0-or-later](../../LICENSE)로 배포되며, GPLv3 제7조에 따른 추가 허가로 대응하는 소스 코드를 함께 제공하는 조건에서 App Store 등 앱 스토어를 통한 배포를 허용합니다([LICENSE-EXCEPTION](../../LICENSE-EXCEPTION) 참고). 2026-10-22 이전 버전은 GPL-2.0-only로 배포되었습니다. 함께 포함된 일본어 모델 [VimeML](https://github.com/Voltline/VimeML)도 같은 라이선스를 따르며, 학습 데이터의 저작자 표시는 서드파티 고지에 있습니다. 가나 한자 변환에는 [AzooKeyKanaKanjiConverter](https://github.com/azooKey/AzooKeyKanaKanjiConverter)를, 토큰화에는 [SentencePiece](https://github.com/google/sentencepiece)를 사용합니다. 중국어 입력에는 [librime](https://github.com/rime/librime)과 [OpenCC](https://github.com/BYVoid/OpenCC)를 사용하며, 병음 사전은 CC BY-SA 4.0 데이터를 포함하므로 같은 라이선스로 배포합니다. 서드파티 코드와 데이터의 라이선스, 감사의 말, 출처는 [ThirdPartyNotices.txt](../../Shared/Resources/ThirdPartyNotices.txt), [SentencePiece LICENSE](../../Dependencies/VimeSentencePiece/LICENSE), [언어 리소스 출처 목록](../../Shared/Resources/LanguageResourceSources.json)에 정리되어 있으며, 앱의 「설정 → Vime에 관하여 → 오픈 소스 라이선스」에서도 전문을 볼 수 있습니다.

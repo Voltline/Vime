@@ -135,7 +135,7 @@ struct KeyboardHomeView: View {
 
     private var editorCard: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("长按地球键，选择 Vime 日本語").font(.footnote).foregroundStyle(.secondary)
+            Text("长按地球键，选择 Vime").font(.footnote).foregroundStyle(.secondary)
             ZStack(alignment: .topLeading) {
                 if text.isEmpty {
                     Text("输入一段文字").foregroundStyle(.tertiary)
@@ -292,10 +292,10 @@ struct KeyboardSetupGuide: View {
                 Text("3. 点击“添加新键盘”，选择 Vime。")
             }
             AppInformationSection("切换键盘") {
-                Text("打开输入框，长按地球键，选择 Vime 日本語。基本输入无需完全访问。")
+                Text("打开输入框，长按地球键，选择 Vime。基本输入无需完全访问。")
             }
             AppInformationSection("声音与振动") {
-                Text("进入“设置 → 通用 → 键盘 → 键盘 → Vime 日本語”，开启“允许完全访问”。")
+                Text("进入“设置 → 通用 → 键盘 → 键盘 → Vime”，开启“允许完全访问”。")
                 Text("声音与振动也可在键盘左上角快速调整，静音时不播放按键声。")
             }
             AppInformationSection("系统限制") {

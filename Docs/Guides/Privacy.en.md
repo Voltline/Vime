@@ -1,12 +1,12 @@
 # Vime Privacy Policy
 
-Updated: 2026-10-22
+Updated: 2026-11-17
 
-Effective: 2026-10-22
+Effective: 2026-11-17
 
 This policy applies to the Vime app (the “app”) and its iOS keyboard extension (the “keyboard”), together “Vime”.
 
-Vime is a Japanese keyboard provided by the developer Voltline (“we”). We take your personal information seriously and handle it lawfully, fairly, only as necessary and in good faith. This policy explains what information Vime handles when you use it, why, where it is kept, for how long, and how you can manage it. **Please read this policy before using Vime, especially the parts in bold**. Declining or withdrawing optional permissions does not affect basic typing.
+Vime is a multilingual keyboard for Japanese, Chinese and English provided by the developer Voltline (“we”). We take your personal information seriously and handle it lawfully, fairly, only as necessary and in good faith. This policy explains what information Vime handles when you use it, why, where it is kept, for how long, and how you can manage it. **Please read this policy before using Vime, especially the parts in bold**. Declining or withdrawing optional permissions does not affect basic typing.
 
 ## Key Points
 
@@ -35,10 +35,11 @@ Vime is a Japanese keyboard provided by the developer Voltline (“we”). We ta
 
 | Feature | Information handled | Purpose | Storage and retention |
 | --- | --- | --- | --- |
-| Typing and conversion | The keys and kana you type; part of the text around the cursor that the host app provides to keyboards through iOS | Generate conversion candidates, corrections and segmented conversion | Processed in memory only; not stored separately |
+| Typing and conversion | The keys, kana and pinyin you type; part of the text around the cursor that the host app provides to keyboards through iOS | Generate conversion candidates, corrections and segmented conversion | Processed in memory only; not stored separately |
 | Smart ranking and next-word suggestions | The text before the cursor in the current sentence, and candidate words | Let the on-device language model order candidates and suggest following words | Processed in memory only; not stored separately |
-| Personal learning | Words and readings you confirm, how often and when; preceding text is kept only as hashes | Rank the words you use often higher | On this device; up to 2,048 preference records and 8,192 conversion records, kept until you clear them or delete the app |
-| User dictionary | Readings, words and phrases you add | Offer them as conversion candidates | On this device; up to 1,024 entries, kept until you delete them |
+| Personal learning (Japanese) | Words and readings you confirm, how often and when; preceding text is kept only as hashes | Rank the words you use often higher | On this device; up to 2,048 preference records and 8,192 conversion records, kept until you clear them or delete the app |
+| Personal learning (Chinese) | Words you choose in pinyin input, their pinyin and how often you choose them | Rank the words you use often higher; you can view, delete, import or export them in the app | On this device; kept until you clear or delete them or delete the app |
+| User dictionary | Readings or pinyin, words and phrases you add | Offer them as conversion candidates | On this device; up to 1,024 entries each for Japanese and Chinese, kept until you delete them |
 | Clipboard (off by default) | Text on the clipboard and when it was read | Offer paste suggestions in the candidate bar and keep recent history | On this device; only the last 24 hours, up to 100 entries and 1 MB in total; excluded from system backups |
 | Skins | Skins you create or import, and images you choose | Display the keyboard's appearance | On this device; kept until you delete them |
 | Keyboard settings | Options such as keyboard height, sounds, haptics and ranking mode | Remember your preferences | On this device; kept until you change them or delete the app |
@@ -57,10 +58,10 @@ Vime is a Japanese keyboard provided by the developer Voltline (“we”). We ta
 
 | Permission | Purpose | Required | How to manage |
 | --- | --- | --- | --- |
-| Keyboard “Allow Full Access” | Play key sounds and haptics; share settings, the user dictionary, learning data, skins and keyboard status between the app and the keyboard; read the clipboard | No | iOS Settings › General › Keyboard › Keyboards › Vime 日本語 |
+| Keyboard “Allow Full Access” | Play key sounds and haptics; share settings, the user dictionary, learning data, skins and keyboard status between the app and the keyboard; read the clipboard | No | iOS Settings › General › Keyboard › Keyboards › Vime |
 | Reading the clipboard | Offer paste suggestions and recent history in the candidate bar | No, off by default | Vime Settings › Clipboard; the iOS paste permission prompt |
 | Photos (only images you choose) | Set skin backgrounds and key images | No | Through the system photo picker, Vime receives only the images you select and cannot access your whole library |
-| Files | Import or export skins and the user dictionary | No | Through the system file picker, Vime handles only the files you select |
+| Files | Import or export skins, user dictionaries and Chinese learning data | No | Through the system file picker, Vime handles only the files you select |
 
 2.2 Turning on Allow Full Access does not change how information is used under this policy, and does not mean you agree to have your input uploaded. The clipboard may contain passwords, verification codes or other sensitive information; turn on the clipboard feature only if you need it.
 
@@ -92,14 +93,14 @@ Vime is a Japanese keyboard provided by the developer Voltline (“we”). We ta
 
 ## 6. Your Rights
 
-6.1 **Access and correction**. You can view and change settings, the user dictionary and custom skins in the app; the Settings page shows how many words have been learned and how many dictionary entries you have.
+6.1 **Access and correction**. You can view and change settings, the Japanese and Chinese user dictionaries, learned Chinese words and custom skins in the app; the Settings page shows how many words have been learned and how many dictionary entries you have.
 
 6.2 **Deletion**. You can delete local data as follows:
 
 | Data | How to delete |
 | --- | --- |
-| Learning data | App: Settings › Learning & Privacy › Clear Learning Data; it is cleared the next time the keyboard opens |
-| User dictionary | App: Settings › User Dictionary, entry by entry |
+| Learning data | App: Settings › Learning & Privacy › Clear Learning Data; it is cleared the next time the keyboard opens. To clear only Chinese, choose Clear Chinese Learning; learned Chinese words can also be deleted one by one in Settings › User Dictionary › Chinese › Learned Words |
+| User dictionary | App: Settings › User Dictionary, entry by entry on the Japanese or Chinese page |
 | Clipboard history | App: Settings › Clipboard › Clear Clipboard History, or clear it from the keyboard's clipboard history; turning off the clipboard feature also deletes it |
 | Custom skins | Delete them on the app's Customize page |
 | All data | Delete the Vime app |

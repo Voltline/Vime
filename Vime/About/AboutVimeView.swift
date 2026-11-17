@@ -10,7 +10,7 @@ struct AboutVimeView: View {
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 5) {
                     Text("Vime \(version)").font(.headline)
-                    Text("日语输入法").font(.subheadline).foregroundStyle(.secondary)
+                    Text("多语言输入法").font(.subheadline).foregroundStyle(.secondary)
                 }
             }
             AppSettingsActionGroup {
