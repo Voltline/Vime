@@ -273,6 +273,21 @@ final class ChineseInputSessionTests: XCTestCase {
         }
     }
 
+    func testLettersNoPinyinTakesKeepTheSentenceGoing() throws {
+        let session = try session()
+        session.setChineseLanguageModel(false)
+        _ = session.type("jinxingvimedexiugai")
+        let deadline = Date().addingTimeInterval(5)
+        while session.candidatePresentations.first?.text.contains("vime") != true, Date() < deadline {
+            RunLoop.main.run(until: Date().addingTimeInterval(0.01))
+        }
+        let lead = try XCTUnwrap(session.candidatePresentations.first?.text)
+        XCTAssertTrue(lead.hasPrefix("进行vime"), lead)
+        XCTAssertTrue(lead.hasSuffix("修改"), "the pinyin after the word is converted too: \(lead)")
+        XCTAssertEqual(session.space().last, .insert(lead))
+        XCTAssertFalse(session.isComposing)
+    }
+
     func testResetDropsPendingWorkAndMovesTheEpoch() throws {
         let session = try session()
         let epoch = session.hostEpoch
