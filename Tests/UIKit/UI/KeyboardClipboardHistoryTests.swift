@@ -237,25 +237,25 @@ final class KeyboardClipboardHistoryTests: XCTestCase {
         XCTAssertEqual(entries.map(\.text), ["keep in history"])
     }
 
-    func testRepeatedChecksDoNotExtendDeadlineAndNewValueGetsThirtySeconds() async throws {
+    func testRepeatedChecksDoNotExtendDeadlineAndNewValueGetsTenSeconds() async throws {
         var time = date, version = 1, value = "first"
         let clipboard = KeyboardClipboard(changeCount: { version }, loadText: { complete in complete(value); return nil },
             history: ClipboardHistoryStore(inMemory: true), now: { time })
         clipboard.checkForChanges(enabled: true, hasFullAccess: true)
         await settle(clipboard)
-        time = date.addingTimeInterval(29)
+        time = date.addingTimeInterval(9)
         clipboard.checkForChanges(enabled: true, hasFullAccess: true)
         XCTAssertEqual(clipboard.text, "first")
-        time = date.addingTimeInterval(30)
+        time = date.addingTimeInterval(10)
         clipboard.checkForChanges(enabled: true, hasFullAccess: true)
         XCTAssertNil(clipboard.text, "Also enforce the deadline after suspension, before the expiry task can run")
         version = 2; value = "second"
         clipboard.checkForChanges(enabled: true, hasFullAccess: true)
         await settle(clipboard)
-        time = date.addingTimeInterval(59)
+        time = date.addingTimeInterval(19)
         clipboard.checkForChanges(enabled: true, hasFullAccess: true)
         XCTAssertEqual(clipboard.text, "second")
-        time = date.addingTimeInterval(60)
+        time = date.addingTimeInterval(20)
         clipboard.checkForChanges(enabled: true, hasFullAccess: true)
         XCTAssertNil(clipboard.text)
     }

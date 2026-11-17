@@ -235,20 +235,20 @@ final class KeyboardQuickInputTests: XCTestCase {
     func testPairedBracketsNestAtCaretAndCanBeDisabledWithoutChangingPaste() async throws {
         let fixture = try await Fixture(english: true, clipboardText: "(literal)")
         defer { fixture.close() }
+        // The paste is offered before typing, and its brackets stay as copied.
+        try fixture.button("vime.clipboard.paste").sendActions(for: .touchUpInside)
+        XCTAssertEqual(fixture.text.text, "(literal)")
         try fixture.tapKey(title: "123")
         for _ in 0..<2 { try fixture.button("vime.quickSymbol.(").sendActions(for: .touchUpInside) }
-        XCTAssertEqual(fixture.text.text, "(())")
-        XCTAssertEqual(fixture.text.selectedRange, NSRange(location: 2, length: 0))
+        XCTAssertEqual(fixture.text.text, "(literal)(())")
+        XCTAssertEqual(fixture.text.selectedRange, NSRange(location: 11, length: 0))
         try fixture.tapKey(id: "vime.number.1")
-        XCTAssertEqual(fixture.text.text, "((1))")
+        XCTAssertEqual(fixture.text.text, "(literal)((1))")
         fixture.preferences.autoPairBrackets = false
         fixture.keyboard.reloadPreferences()
         try fixture.button("vime.quickSymbol.(").sendActions(for: .touchUpInside)
-        XCTAssertEqual(fixture.text.text, "((1())")
-        XCTAssertEqual(fixture.text.selectedRange.location, 4)
-        try fixture.tapKey(title: "ABC")
-        try fixture.button("vime.clipboard.paste").sendActions(for: .touchUpInside)
-        XCTAssertEqual(fixture.text.text, "((1((literal)))")
+        XCTAssertEqual(fixture.text.text, "(literal)((1())")
+        XCTAssertEqual(fixture.text.selectedRange.location, 13)
     }
 
     func testPairConfirmsNumericCompositionAndContinuesInsideJapaneseBrackets() async throws {
@@ -504,15 +504,29 @@ final class KeyboardQuickInputTests: XCTestCase {
         XCTAssertTrue(preview.isHidden)
         held.sendActions(for: .touchUpInside)
         XCTAssertEqual(fixture.text.text, "あ", "A held paste cannot replace active composition")
-        XCTAssertEqual(fixture.clipboard.text, "clipboard")
+        XCTAssertNil(fixture.clipboard.text, "Typing ends the offer")
         fixture.keyboard.confirmComposition()
-        XCTAssertFalse(preview.isHidden)
+        XCTAssertTrue(preview.isHidden, "and it does not come back after the composition")
         try fixture.tapKey(title: "123")
         XCTAssertTrue(preview.isHidden)
         let strip = try XCTUnwrap(fixture.descendants.compactMap { $0 as? KeyboardQuickCandidateStrip }.first)
         XCTAssertFalse(strip.isHidden)
         for digit in ["1", "+", "1"] { try fixture.tapKey(id: "vime.number." + digit) }
         XCTAssertEqual(try fixture.button("vime.calculation.0").title(for: .normal), "2")
+    }
+
+    func testTypingEndsTheClipboardOfferButMovingTheCursorKeepsIt() async throws {
+        let fixture = try await Fixture(clipboardText: "clipboard")
+        defer { fixture.close() }
+        let preview = try XCTUnwrap(fixture.descendants.compactMap { $0 as? ClipboardSuggestionView }.first)
+        fixture.keyboard.apply([.moveCursor(horizontal: 0, vertical: 0)])
+        XCTAssertEqual(fixture.clipboard.text, "clipboard")
+        XCTAssertFalse(preview.isHidden)
+        try fixture.tapKey(id: "vime.key.a")
+        XCTAssertNil(fixture.clipboard.text, "Typing passes the offer by")
+        fixture.keyboard.apply(fixture.keyboard.session.backspace())
+        XCTAssertTrue(fixture.text.text.isEmpty)
+        XCTAssertTrue(preview.isHidden, "Deleting the composition does not bring it back")
     }
 
     func testHeldClipboardActionsCannotPasteOrDismissANewerValue() async throws {

@@ -117,6 +117,8 @@ protocol KeyboardInputSession: AnyObject {
     func setChineseLanguageModel(_ enabled: Bool)
     /// Chinese mode also reads these similar sounds (zi for zhi).
     func setFuzzyPinyin(_ groups: FuzzyPinyin)
+    /// Chinese: show the corrected pinyin on a typo correction.
+    func setCorrectionSpellingHints(_ enabled: Bool)
     /// The conversion just committed, which the toolbar offers to reconvert.
     var reconvertibleCommit: (text: String, reading: String)? { get }
     /// Deletes that conversion and restores its reading.
@@ -146,6 +148,7 @@ extension KeyboardInputSession {
     func setTraditionalChinese(_ enabled: Bool) {}
     func setChineseLanguageModel(_ enabled: Bool) {}
     func setFuzzyPinyin(_ groups: FuzzyPinyin) {}
+    func setCorrectionSpellingHints(_ enabled: Bool) {}
     var reconvertibleCommit: (text: String, reading: String)? { nil }
     func reconvertCommit() -> [KeyboardEdit] { [] }
     func forgettableCandidate(_ token: CandidateSelectionToken) -> String? { nil }

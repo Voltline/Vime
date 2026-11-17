@@ -175,7 +175,7 @@ extension KeyboardView {
                         guard let self else { return }
                         KeyboardPerformance.record(.touchUpToType, since: self.keysContainer.releaseStartedAt)
                         self.lastShiftTap = 0
-                        let upper = self.shifted && self.session.inputTraits.isEnglish
+                        let upper = self.shifted && self.shiftTypesCapitals
                         // Consume Shift first, so auto-capitalization decides the next letter.
                         if self.shifted && !self.capsLocked { self.shifted = false; self.updateKeyLabels() }
                         self.apply(self.session.type(upper ? value.uppercased() : value))
@@ -183,11 +183,12 @@ extension KeyboardView {
                     item.0.showsPreview = previewsEnabled
                     item.0.previewHold = previewHold
                     item.0.accessibilityIdentifier = "vime.key." + value
-                    item.0.hint = Self.letterHints[value]
-                    item.0.alternateTitle = Self.letterHints[value]
+                    let swipeSymbol = swipeSymbol(for: value)
+                    item.0.hint = swipeSymbol
+                    item.0.alternateTitle = swipeSymbol
                     item.0.alternateAction = { [weak self] in
-                        guard let self, let hint = Self.letterHints[value] else { return }
-                        self.insertSymbol(hint)
+                        guard let self, let swipeSymbol else { return }
+                        self.insertSymbol(swipeSymbol)
                     }
                     letterKeys.append(item.0)
                     row.append(item)
@@ -399,12 +400,17 @@ extension KeyboardView {
             }
         }
         let active = shifted
-        shiftKey?.setImage(UIImage(systemName: capsLocked && session.inputTraits.isEnglish ? "capslock.fill" : active ? "shift.fill" : "shift"), for: .normal)
+        shiftKey?.setImage(UIImage(systemName: capsLocked && shiftTypesCapitals ? "capslock.fill" : active ? "shift.fill" : "shift"), for: .normal)
         shiftKey?.tintColor = KeyboardPalette.text
-        let locked = capsLocked && session.inputTraits.isEnglish
+        let locked = capsLocked && shiftTypesCapitals
         shiftKey?.accessibilityValue = locked ? String(localized: "大写锁定") : active ? String(localized: "已开启") : nil
         shiftKey?.accessibilityTraits = active ? [.keyboardKey, .selected] : .keyboardKey
     }
+
+    /// Shift types a capital in English and Chinese. The Chinese session
+    /// enters it as it is, after the composition, never as pinyin. In
+    /// Japanese, Shift picks the other space width instead.
+    var shiftTypesCapitals: Bool { session.inputTraits.language != .japanese }
 
     /// Shift acts on release, so a double tap is measured release to release
     /// and includes the second press. A letter between the taps, or a tap
@@ -418,6 +424,25 @@ extension KeyboardView {
         else { shifted.toggle(); lastShiftTap = now }
         updateKeyLabels()
     }
+
+    /// The swipe-up symbol of a letter key, in the active language's own
+    /// punctuation when its setting is on.
+    func swipeSymbol(for letter: String) -> String? {
+        guard let hint = Self.letterHints[letter] else { return nil }
+        switch session.inputTraits.language {
+        case .chinese where preferences.chinesePunctuation: return Self.chinesePunctuation[hint] ?? hint
+        case .japanese where preferences.japaneseFullWidthSymbols: return Self.japaneseFullWidthSymbols[hint] ?? hint
+        default: return hint
+        }
+    }
+
+    static let chinesePunctuation: [String: String] = [
+        ":": "：", ";": "；", "(": "（", ")": "）", "~": "～", "?": "？", "!": "！", "…": "……"
+    ]
+    static let japaneseFullWidthSymbols: [String: String] = [
+        "-": "－", "/": "／", ":": "：", ";": "；", "(": "（", ")": "）", "~": "〜", "@": "＠", "#": "＃",
+        "?": "？", "!": "！", "·": "・"
+    ]
 
     static let letterHints: [String: String] = Dictionary(uniqueKeysWithValues: zip(
         Array("qwertyuiopasdfghjklzxcvbnm").map(String.init),

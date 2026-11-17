@@ -52,6 +52,8 @@ final class ChineseInputSession: KeyboardInputSession {
     private var expanded = false
     private var traditional = false
     private var fuzzyPinyin = FuzzyPinyin()
+    /// Whether a correction shows the pinyin it was found by. Off by default.
+    private var spellingHints = false
     /// Next-word suggestions: dictionary phrases that begin with the word
     /// just committed, shown in the strip while nothing is composing.
     private var suggestionsEnabled = true
@@ -285,6 +287,8 @@ final class ChineseInputSession: KeyboardInputSession {
         fuzzyPinyin = groups
         enqueue(.setFuzzy(groups))
     }
+
+    func setCorrectionSpellingHints(_ enabled: Bool) { spellingHints = enabled }
 
     func setExpandedCandidates(_ enabled: Bool) {
         guard enabled != expanded else { return }
@@ -543,7 +547,7 @@ final class ChineseInputSession: KeyboardInputSession {
             case .correction(let source):
                 let (spelling, candidate) = corrections[source]
                 return CandidatePresentation(text: candidate.text, source: .typoCorrection, consumedInputCount: 0, correction: nil,
-                    selectionToken: token, detailAnnotation: spelling)
+                    selectionToken: token, detailAnnotation: spellingHints ? spelling : nil)
             }
         }
         scheduleCorrections()
