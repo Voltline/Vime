@@ -402,6 +402,9 @@ struct KeyboardInputSettingsView: View {
     @AppStorage private var fuzzyRetroflex: Bool
     @AppStorage private var fuzzyNasal: Bool
     @AppStorage private var fuzzyInitials: Bool
+    @AppStorage private var chinesePunctuation: Bool
+    @AppStorage private var japaneseFullWidthSymbols: Bool
+    @AppStorage private var correctionSpellingHints: Bool
     init() {
         let prefs = KeyboardPreferences()
         // The stored choices, not the effective values, which follow the other input method.
@@ -412,6 +415,9 @@ struct KeyboardInputSettingsView: View {
         _fuzzyRetroflex = AppStorage(wrappedValue: false, FuzzyPinyin.retroflex.key, store: prefs.store)
         _fuzzyNasal = AppStorage(wrappedValue: false, FuzzyPinyin.nasal.key, store: prefs.store)
         _fuzzyInitials = AppStorage(wrappedValue: false, FuzzyPinyin.initials.key, store: prefs.store)
+        _chinesePunctuation = AppStorage(wrappedValue: prefs.chinesePunctuation, "vime.chinesePunctuation", store: prefs.store)
+        _japaneseFullWidthSymbols = AppStorage(wrappedValue: prefs.japaneseFullWidthSymbols, "vime.japaneseFullWidthSymbols", store: prefs.store)
+        _correctionSpellingHints = AppStorage(wrappedValue: prefs.correctionSpellingHints, "vime.correctionSpellingHints", store: prefs.store)
         _ranking = AppStorage(wrappedValue: prefs.candidateRanking, "vime.candidateRanking", store: prefs.store)
         _suggestions = AppStorage(wrappedValue: prefs.phraseSuggestions, "vime.phraseSuggestions", store: prefs.store)
         _undoConversion = AppStorage(wrappedValue: prefs.undoConversionOnBackspace, "vime.undoConversionOnBackspace", store: prefs.store)
@@ -442,6 +448,8 @@ struct KeyboardInputSettingsView: View {
                         Text("半角").tag(false)
                         Text("全角").tag(true)
                     }.accessibilityIdentifier("vime.settings.fullWidthSpace")
+                    Toggle("上滑输入全角符号", isOn: $japaneseFullWidthSymbols)
+                        .accessibilityIdentifier("vime.settings.japaneseFullWidthSymbols")
                     if chinese {
                         Toggle("用拼音查词", isOn: $pinyinLookup)
                             .accessibilityIdentifier("vime.settings.pinyinLookupInJapanese")
@@ -449,6 +457,7 @@ struct KeyboardInputSettingsView: View {
                 } header: { Text("日语") } footer: {
                     Text(chinese ? "智能排序使用本地日语模型调整候选顺序\n实时转换在输入假名时直接显示转换结果，回车确认显示的文字\n转换后，候选栏开头的 ↩ 可回到读音重新选择；打开「退格撤销转换」后，立即按退格也会回到读音\n空格在没有读音时按这里的宽度输入，先按 Shift 再按空格输入另一种宽度\n用拼音查词：输入汉字的普通话拼音（可与罗马字混用）也能找到对应的词，候选上方显示平假名读音"
                          : "智能排序使用本地日语模型调整候选顺序\n实时转换在输入假名时直接显示转换结果，回车确认显示的文字\n转换后，候选栏开头的 ↩ 可回到读音重新选择；打开「退格撤销转换」后，立即按退格也会回到读音\n空格在没有读音时按这里的宽度输入，先按 Shift 再按空格输入另一种宽度")
+                    + Text(verbatim: "\n") + Text("上滑输入全角符号：字母键上滑输入的符号换成全角，例如 ！？（）：；")
                 }
             }
             if chinese {
@@ -463,8 +472,14 @@ struct KeyboardInputSettingsView: View {
                         .accessibilityIdentifier("vime.settings.fuzzyNasal")
                     Toggle("声母 n/l、f/h、r/l", isOn: $fuzzyInitials)
                         .accessibilityIdentifier("vime.settings.fuzzyInitials")
+                    Toggle("纠错候选显示正确拼音", isOn: $correctionSpellingHints)
+                        .accessibilityIdentifier("vime.settings.correctionSpellingHints")
+                    Toggle("上滑输入中文标点", isOn: $chinesePunctuation)
+                        .accessibilityIdentifier("vime.settings.chinesePunctuation")
                 } header: { Text("中文") } footer: {
                     Text("智能排序使用本地中文模型调整候选顺序，学习记录与日语分开保存\n模糊音：读音相近也能打出想要的字，例如 zi 也能打出“知”，切换后下次打开键盘时生效")
+                    + Text(verbatim: "\n") + Text("纠错候选显示正确拼音：有错字时，在纠错候选上方显示改正后的拼音")
+                    + Text(verbatim: "\n") + Text("上滑输入中文标点：字母键上滑输入的符号换成中文标点，例如 ！？（）：；")
                 }
             }
             Section {

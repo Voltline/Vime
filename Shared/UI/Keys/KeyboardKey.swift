@@ -338,8 +338,8 @@ final class KeyboardKey: UIButton {
     }
 
     override func accessibilityActivate() -> Bool {
-        guard !repeats || repeatIsAllowed else { return true }
         feedback?()
+        guard !repeats || repeatIsAllowed else { return true }
         action?()
         return true
     }
@@ -391,8 +391,10 @@ final class KeyboardKey: UIButton {
     private func pressDown(deferred: Bool) {
         KeyboardTouchDiagnostics.record("KeyboardKey.touchDown", view: self)
         usedAlternate = false
-        guard !repeats || repeatIsAllowed else { return }
+        // Every press answers once, even a delete with nothing to delete;
+        // only its repeats wait for something to remove.
         feedback?()
+        guard !repeats || repeatIsAllowed else { return }
         if repeats {
             if !deferred { action?() }
             // Two fingers can own this key. Keep one repeat stream and don't

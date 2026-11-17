@@ -175,6 +175,28 @@ final class ChineseInputSessionTests: XCTestCase {
         return found()
     }
 
+    func testCorrectedPinyinShowsOnlyWhenTurnedOn() throws {
+        let session = try session()
+        for enabled in [false, true] {
+            session.setCorrectionSpellingHints(enabled)
+            _ = session.type("shenem")
+            waitUntilCurrent(session)
+            let shown = try XCTUnwrap(corrections(session).first { $0.text == "什么" })
+            XCTAssertEqual(shown.detailAnnotation != nil, enabled)
+            session.reset()
+        }
+    }
+
+    func testCapitalIsEnteredAsItIsAfterTheComposition() throws {
+        let session = try session()
+        _ = session.type("ni")
+        waitUntilCurrent(session)
+        let edits = session.type("N")
+        waitUntilCurrent(session)
+        XCTAssertEqual((batches.flatMap(\.edits) + edits).last, .insert("N"))
+        XCTAssertFalse(session.isComposing, "A capital never becomes pinyin")
+    }
+
     func testTyposAcrossSyllablesOfferTheMeantPhrase() throws {
         let session = try session()
         // Across syllables, and in two-letter syllables Rime's speller leaves

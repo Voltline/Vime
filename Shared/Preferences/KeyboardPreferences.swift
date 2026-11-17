@@ -28,7 +28,7 @@ struct KeyboardPreferences {
     private static let sharedKeys = ["vime.sound", "vime.hapticLevel", "vime.hapticIntensity", "vime.nineKeyNumbers", "vime.kanaLayout",
         "vime.prolongedKey", "vime.previews", "vime.previewHold", "vime.theme", "vime.candidateRanking", "vime.phraseSuggestions", "vime.clipboardSuggestions", "vime.autoPairBrackets", "vime.autoCapitalize", "vime.doubleSpacePeriod", "vime.undoConversionOnBackspace", "vime.fullWidthSpace", "vime.liveConversion", "vime.textReplacements", "vime.englishCompletion", "vime.oneHanded", "vime.customSkinID", "vime.skinRevision", "vime.numberSymbols", "vime.inputLanguage",
         "vime.chineseInputEnabled", "vime.japaneseInputEnabled", "vime.pinyinLookupInJapanese", "vime.traditionalChinese", "vime.chineseLanguageModel",
-        "vime.fuzzyRetroflex", "vime.fuzzyNasal", "vime.fuzzyInitials"]
+        "vime.fuzzyRetroflex", "vime.fuzzyNasal", "vime.fuzzyInitials", "vime.chinesePunctuation", "vime.japaneseFullWidthSymbols", "vime.correctionSpellingHints"]
     var store: UserDefaults { defaults }
     struct Snapshot: Equatable {
         let heightFactor: Double
@@ -64,6 +64,9 @@ struct KeyboardPreferences {
         let traditionalChinese: Bool
         let chineseLanguageModel: Bool
         let fuzzyPinyin: FuzzyPinyin
+        let chinesePunctuation: Bool
+        let japaneseFullWidthSymbols: Bool
+        let correctionSpellingHints: Bool
     }
     var snapshot: Snapshot {
         Snapshot(heightFactor: heightFactor, sound: sound, hapticIntensity: hapticIntensity,
@@ -79,7 +82,9 @@ struct KeyboardPreferences {
                 .map { $0 ?? "" }.joined(separator: "|"),
             inputLanguage: inputLanguage, chineseInputEnabled: chineseInputEnabled, japaneseInputEnabled: japaneseInputEnabled,
             pinyinLookupInJapanese: pinyinLookupInJapanese, traditionalChinese: traditionalChinese,
-            chineseLanguageModel: chineseLanguageModel, fuzzyPinyin: fuzzyPinyin)
+            chineseLanguageModel: chineseLanguageModel, fuzzyPinyin: fuzzyPinyin,
+            chinesePunctuation: chinesePunctuation, japaneseFullWidthSymbols: japaneseFullWidthSymbols,
+            correctionSpellingHints: correctionSpellingHints)
     }
     var heightFactor: Double {
         get {
@@ -249,6 +254,21 @@ struct KeyboardPreferences {
         nonmutating set { defaults.set(newValue, forKey: "vime.undoConversionOnBackspace") }
     }
     /// Japanese mode only; what space inserts when nothing is being composed.
+    /// Swipe-up symbols on the Chinese letter keys use Chinese punctuation.
+    var chinesePunctuation: Bool {
+        get { defaults.object(forKey: "vime.chinesePunctuation") as? Bool ?? true }
+        nonmutating set { defaults.set(newValue, forKey: "vime.chinesePunctuation") }
+    }
+    /// Chinese typo corrections show the pinyin they were found by.
+    var correctionSpellingHints: Bool {
+        get { defaults.object(forKey: "vime.correctionSpellingHints") as? Bool ?? false }
+        nonmutating set { defaults.set(newValue, forKey: "vime.correctionSpellingHints") }
+    }
+    /// Swipe-up symbols on the Japanese letter keys are full width.
+    var japaneseFullWidthSymbols: Bool {
+        get { defaults.object(forKey: "vime.japaneseFullWidthSymbols") as? Bool ?? true }
+        nonmutating set { defaults.set(newValue, forKey: "vime.japaneseFullWidthSymbols") }
+    }
     var fullWidthSpace: Bool {
         get { defaults.object(forKey: "vime.fullWidthSpace") as? Bool ?? false }
         nonmutating set { defaults.set(newValue, forKey: "vime.fullWidthSpace") }

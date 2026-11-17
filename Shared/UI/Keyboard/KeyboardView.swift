@@ -62,6 +62,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         session.setTraditionalChinese(next.traditionalChinese)
         session.setChineseLanguageModel(next.chineseLanguageModel)
         session.setFuzzyPinyin(next.fuzzyPinyin)
+        session.setCorrectionSpellingHints(next.correctionSpellingHints)
         applyNeuralRetry()
         if next.learningResetID != previous?.learningResetID {
             session.reset()
@@ -71,7 +72,8 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         }
         if next.clipboardSuggestions != previous?.clipboardSuggestions { updateClipboardMonitoring() }
         if next.nineKeyNumbers != previous?.nineKeyNumbers || next.prolongedKey != previous?.prolongedKey
-            || next.kanaLayout != previous?.kanaLayout {
+            || next.kanaLayout != previous?.kanaLayout || next.chinesePunctuation != previous?.chinesePunctuation
+            || next.japaneseFullWidthSymbols != previous?.japaneseFullWidthSymbols {
             rebuildKeys()
         }
         if next.oneHanded != previous?.oneHanded { setNeedsLayout() }
@@ -133,6 +135,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         session.setTraditionalChinese(preferences.traditionalChinese)
         session.setChineseLanguageModel(preferences.chineseLanguageModel)
         session.setFuzzyPinyin(preferences.fuzzyPinyin)
+        session.setCorrectionSpellingHints(preferences.correctionSpellingHints)
         session.setLiveConversion(preferences.liveConversion)
         applyNeuralRetry()
         session.onCommittedEdits = { [weak self] batch in
@@ -685,6 +688,13 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     static let padListWidth: CGFloat = 640
 
     func apply(_ edits: [KeyboardEdit]) {
+        // The paste suggestion is offered for the moment the keyboard opens.
+        // Typing, a commit or a delete passes it by, and it does not return
+        // when the composition is deleted again. Moving the cursor keeps it.
+        if clipboard.text != nil,
+           session.isComposing || edits.contains(where: { if case .moveCursor = $0 { false } else { true } }) {
+            clipboard.consume()
+        }
         if !edits.isEmpty, let onEditsAndPreeditChange {
             onEditsAndPreeditChange(edits, session.markedText)
         } else {

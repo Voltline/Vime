@@ -1327,6 +1327,118 @@
         }
       }
     },
+    "上滑输入中文标点": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Swipe Up for Chinese Punctuation"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "上スワイプで中国語の句読点"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "위로 쓸어 중국어 문장부호 입력"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "上滑輸入中文標點"
+          }
+        }
+      }
+    },
+    "上滑输入中文标点：字母键上滑输入的符号换成中文标点，例如 ！？（）：；": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Swipe up for Chinese punctuation: symbols typed by swiping up on a letter key become Chinese punctuation, such as ！？（）：；"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "上スワイプで中国語の句読点：文字キーを上にスワイプして入力する記号が中国語の句読点になります（例：！？（）：；）"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "위로 쓸어 중국어 문장부호 입력: 글자 키를 위로 쓸어 입력하는 기호가 중국어 문장부호가 됩니다(예: ！？（）：；)"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "上滑輸入中文標點：字母鍵上滑輸入的符號換成中文標點，例如 ！？（）：；"
+          }
+        }
+      }
+    },
+    "上滑输入全角符号": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Swipe Up for Full-Width Symbols"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "上スワイプで全角記号"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "위로 쓸어 전각 기호 입력"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "上滑輸入全形符號"
+          }
+        }
+      }
+    },
+    "上滑输入全角符号：字母键上滑输入的符号换成全角，例如 ！？（）：；": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Swipe up for full-width symbols: symbols typed by swiping up on a letter key are full width, such as ！？（）：；"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "上スワイプで全角記号：文字キーを上にスワイプして入力する記号が全角になります（例：！？（）：；）"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "위로 쓸어 전각 기호 입력: 글자 키를 위로 쓸어 입력하는 기호가 전각이 됩니다(예: ！？（）：；)"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "上滑輸入全形符號：字母鍵上滑輸入的符號換成全形，例如 ！？（）：；"
+          }
+        }
+      }
+    },
     "下一个字": {
       "localizations": {
         "en": {
@@ -11764,6 +11876,62 @@
           "stringUnit": {
             "state": "translated",
             "value": "系統限制"
+          }
+        }
+      }
+    },
+    "纠错候选显示正确拼音": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show Corrected Pinyin"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "修正候補に正しいピンインを表示"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "교정 후보에 올바른 병음 표시"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "糾錯候選顯示正確拼音"
+          }
+        }
+      }
+    },
+    "纠错候选显示正确拼音：有错字时，在纠错候选上方显示改正后的拼音": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show corrected pinyin: when there is a typo, the corrected pinyin appears above the correction candidate"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "修正候補に正しいピンインを表示：入力ミスがあるとき、修正候補の上に修正後のピンインを表示します"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "교정 후보에 올바른 병음 표시: 오타가 있을 때 교정 후보 위에 고친 병음을 표시합니다"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "糾錯候選顯示正確拼音：有錯字時，在糾錯候選上方顯示改正後的拼音"
           }
         }
       }
