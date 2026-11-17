@@ -23,7 +23,9 @@ final class KeyboardTouchSurface: UIView {
     }
 
     private struct Press {
-        let key: KeyboardKey
+        var key: KeyboardKey
+        /// The key under the finger when hit correction chose another.
+        var touched: KeyboardKey?
         let origin: CGPoint
         var swipe = KeySwipeSelection()
         var alternateLocked = false
@@ -35,6 +37,9 @@ final class KeyboardTouchSurface: UIView {
         didSet { interactionBounds = regions.reduce(CGRect.null) { $0.union($1.cell) } }
     }
     var scale: CGFloat = 1
+    /// How plausible each letter is after the input so far plus the letters
+    /// of keys still held down (passed in press order); nil: no correction.
+    var letterPrior: ((String) -> KeyHitCorrection.Prior?)?
     private var interactionBounds = CGRect.null
     private var presses: [AnyHashable: Press] = [:]
     private var nextSequence = 0
@@ -77,12 +82,14 @@ final class KeyboardTouchSurface: UIView {
     // internally so geometry/lifecycle tests do not synthesize private UITouch.
     @discardableResult
     func beginPress(id: AnyHashable, at point: CGPoint) -> Bool {
-        guard gesture == nil, presses[id] == nil, let key = resolvedKey(at: point) else {
+        guard gesture == nil, presses[id] == nil, let touched = resolvedKey(at: point) else {
             KeyboardTouchDiagnostics.record("surface.touchDown", point: point, view: self, detail: "duplicate/unresolved")
             return false
         }
-        KeyboardTouchDiagnostics.record("surface.touchDown", point: point, view: self, result: key)
-        presses[id] = Press(key: key, origin: point, sequence: nextSequence)
+        let key = correctedKey(touched, at: point)
+        KeyboardTouchDiagnostics.record("surface.touchDown", point: point, view: self, result: key,
+            detail: key === touched ? "" : "corrected from \(touched.correctionLetter.map(String.init) ?? "?")")
+        presses[id] = Press(key: key, touched: key === touched ? nil : touched, origin: point, sequence: nextSequence)
         nextSequence += 1
         key.beginResolvedPress(deferRepeatingAction: key.repeats)
         if key.repeats { onDeleteArmedChange?(false) }
@@ -96,6 +103,21 @@ final class KeyboardTouchSurface: UIView {
             spaceTimer = timer; RunLoop.main.add(timer, forMode: .common)
         }
         return true
+    }
+
+    /// A letter tap near a neighbour that continues the input better.
+    private func correctedKey(_ key: KeyboardKey, at point: CGPoint) -> KeyboardKey {
+        guard let letter = key.correctionLetter, let letterPrior,
+              let body = regions.first(where: { $0.key === key })?.body else { return key }
+        let neighbours = regions.filter {
+            $0.key !== key && $0.key.correctionLetter != nil && $0.key.isEnabled && !$0.key.isHidden
+        }
+        let choice = KeyHitCorrection.replacement(at: point, touched: .init(letter: letter, body: body),
+            neighbours: neighbours.map { .init(letter: $0.key.correctionLetter!, body: $0.body) }) {
+            let held = self.presses.values.sorted { $0.sequence < $1.sequence }.compactMap(\.key.correctionLetter)
+            return letterPrior(String(held))
+        }
+        return neighbours.first { $0.key.correctionLetter == choice }?.key ?? key
     }
 
     func movePress(id: AnyHashable, to point: CGPoint) {
@@ -141,9 +163,18 @@ final class KeyboardTouchSurface: UIView {
         }
         if press.key.alternateAction != nil {
             press.swipe.move(x: Double(delta.x), y: Double(delta.y), scale: Double(scale),
-                allowActivation: allowsActivation && point.y <= press.key.frame.minY - 2 * scale)
+                allowActivation: allowsActivation && point.y <= (press.touched ?? press.key).frame.minY - 2 * scale)
         }
         press.alternateLocked = press.alternateLocked || press.swipe.alternate
+        // A swipe-up symbol is aimed at the key under the finger: undo the
+        // hit correction so the preview and symbol come from that key.
+        if press.swipe.alternate, let touched = press.touched {
+            press.key.stopTracking()
+            press.key.isHighlighted = false
+            press.key = touched
+            press.touched = nil
+            touched.beginResolvedPress()
+        }
         // Touch-down owns the key until release. Drift may activate an explicit
         // gesture, but must never select or preview a neighboring character.
         presses[id] = press

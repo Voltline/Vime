@@ -183,6 +183,7 @@ extension KeyboardView {
                     item.0.showsPreview = previewsEnabled
                     item.0.previewHold = previewHold
                     item.0.accessibilityIdentifier = "vime.key." + value
+                    item.0.correctionLetter = character
                     let swipeSymbol = swipeSymbol(for: value)
                     item.0.hint = swipeSymbol
                     item.0.alternateTitle = swipeSymbol

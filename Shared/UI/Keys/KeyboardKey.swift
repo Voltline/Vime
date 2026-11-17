@@ -10,6 +10,8 @@ final class KeyboardKey: UIButton {
     var canRepeat: (() -> Bool)?
     var alternateAction: (() -> Void)?
     var alternateTitle: String?
+    /// The letter this key types, for hit correction between letter keys.
+    var correctionLetter: Character?
     /// VoiceOver's name for the swipe-up action when the bubble text alone is unclear.
     var alternateAccessibilityName: String?
     /// Flick kana: outputs for center, left, up, right and down ("" = none).
