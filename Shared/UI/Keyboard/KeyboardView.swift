@@ -219,6 +219,8 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     var systemTextReplacements: [(shortcut: String, phrase: String)] = []
     /// Refreshes ask several times per key, so the last word's completions are kept.
     var completionCache: (word: String, values: [String])?
+    /// Whether an English spelling begins some word, for hit correction.
+    var englishPrefixCache: [String: Bool] = [:]
     var autocapitalizationType: UITextAutocapitalizationType = .sentences {
         didSet { if oldValue != autocapitalizationType { updateAutoCapitalization() } }
     }
@@ -463,6 +465,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
             self.gestureHint.isHidden = gesture == nil || gesture == .deleteLine
             self.bringSubviewToFront(self.gestureHint)
         }
+        keysContainer.letterPrior = { [weak self] held in self?.hitCorrectionPrior(held: held) }
         keysContainer.onCursorMove = { [weak self] x, y in
             guard let self else { return }
             self.session.finishLearningFeedback()
