@@ -42,7 +42,7 @@ struct SystemKeyboardEditor: UIViewRepresentable {
             view.resignFirstResponder()
             view.text = ""
         }
-#if DEBUG
+#if DEBUG || VIME_EXTENSION_AUDIT
         if sendRequest != coordinator.lastSendRequest {
             coordinator.lastSendRequest = sendRequest
             // A chat app clears its document without hiding the keyboard.

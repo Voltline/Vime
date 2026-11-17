@@ -31,14 +31,14 @@ struct KeyboardExtensionTestView: View {
                 }.accessibilityIdentifier("vime.extension.clear")
                 Button("复制测试记录") { UIPasteboard.general.string = events.joined(separator: "\n") }
             }.font(.subheadline).tint(blue)
-#if DEBUG
+#if DEBUG || VIME_EXTENSION_AUDIT
             Button(String(localized: "模拟发送并保留键盘")) { sendRequest += 1 }
                 .accessibilityIdentifier("vime.extension.send")
 #endif
             Text("可试：tennanhantenn → 展开候选 → 天 → 安 → 飯店\n点选前段后，剩余部分应继续显示为待确认文本")
                 .font(.caption).foregroundStyle(.secondary)
             Spacer(minLength: 0)
-#if DEBUG
+#if DEBUG || VIME_EXTENSION_AUDIT
             Text(events.suffix(16).joined(separator: "\n"))
                 .font(.system(size: 9, design: .monospaced))
                 .frame(maxHeight: 90, alignment: .topLeading).clipped()
@@ -59,12 +59,12 @@ struct KeyboardExtensionTestView: View {
                     .accessibilityIdentifier("vime.extension.dismiss")
             }
         }
-#if DEBUG
+#if DEBUG || VIME_EXTENSION_AUDIT
         .task { await runAutomaticLifecycleIfRequested() }
 #endif
     }
 
-#if DEBUG
+#if DEBUG || VIME_EXTENSION_AUDIT
     /// Counterexample for XCTest's accessibility cache: drive the native host
     /// without querying any accessibility elements in the keyboard process.
     /// This checks appearance/teardown only; it does not simulate key input.

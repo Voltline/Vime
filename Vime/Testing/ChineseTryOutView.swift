@@ -1,4 +1,4 @@
-#if DEBUG
+#if DEBUG || VIME_EXTENSION_AUDIT
 import SwiftUI
 
 /// Debug-only page for the Chinese engine: its own letter keys drive Rime

@@ -12,7 +12,7 @@ struct VimeApp: App {
     init() {
         VimeExtensionAudit.configureFromLaunchArguments()
         Task { await StorefrontRecorder.record() }
-#if DEBUG
+#if DEBUG || VIME_EXTENSION_AUDIT
         // Reproducible settings for opt-in tests of the installed extension.
         // Normal launches never change the user's choices.
         let arguments = ProcessInfo.processInfo.arguments
@@ -51,7 +51,7 @@ struct VimeApp: App {
     }
     var body: some Scene {
         WindowGroup {
-#if DEBUG
+#if DEBUG || VIME_EXTENSION_AUDIT
             if ProcessInfo.processInfo.arguments.contains("--keyboard-extension-test") {
                 NavigationStack { KeyboardExtensionTestView() }
             } else if ProcessInfo.processInfo.arguments.contains("--chinese-tryout") {
