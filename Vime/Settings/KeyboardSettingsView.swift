@@ -435,80 +435,131 @@ struct KeyboardInputSettingsView: View {
 
     var body: some View {
         Form {
+            Section {
+                AppPageHeader(icon: .glyph("あ"), tint: .blue, title: "转换与联想",
+                              detail: "决定候选怎么排、读音怎么变成文字，以及打完一个词后建议什么。学习数据只保存在本机。")
+            }
+            // Every language follows one order: ranking, reading to text, hints, then space and symbols.
+            Section {
+                Toggle(isOn: $suggestions) {
+                    Text("下一词联想"); Text("确认文字后建议接下来的词")
+                }.accessibilityIdentifier("vime.settings.suggestions")
+                if (japanese && ranking == .languageModel) || (chinese && chineseModel) {
+                    Button {
+                        KeyboardPreferences().requestNeuralRetry()
+                        retryRequested = true
+                    } label: {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(retryRequested ? "已请求重试智能排序" : "重试智能排序")
+                            Text(retryRequested ? "下次打开键盘时生效" : "内存紧张时智能排序会暂停，点此重新启用")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                    .disabled(retryRequested)
+                    .accessibilityIdentifier("vime.settings.neural.retry")
+                }
+            } header: { Text("所有语言") }
             if japanese {
                 Section {
-                    Toggle("智能排序", isOn: Binding(get: { ranking == .languageModel }, set: { value in
+                    Toggle(isOn: Binding(get: { ranking == .languageModel }, set: { value in
                         ranking = value ? .languageModel : .engine
                         if value { KeyboardPreferences().requestNeuralRetry() }
-                    })).accessibilityIdentifier("vime.settings.japaneseRanking")
-                    Toggle("实时转换", isOn: $liveConversion)
+                    })) { Text("智能排序"); Text("用本地模型调整候选顺序") }
+                        .accessibilityIdentifier("vime.settings.japaneseRanking")
+                    Toggle(isOn: $liveConversion) { Text("实时转换"); Text("边打假名边显示转换结果，回车确认") }
                         .accessibilityIdentifier("vime.settings.liveConversion")
-                    Toggle("退格撤销转换", isOn: $undoConversion)
+                    Toggle(isOn: $undoConversion) { Text("退格撤销转换"); Text("刚转换完按退格回到读音") }
                         .accessibilityIdentifier("vime.settings.undoConversion")
-                    Picker("空格", selection: $fullWidthSpace) {
-                        Text("半角").tag(false)
-                        Text("全角").tag(true)
-                    }.accessibilityIdentifier("vime.settings.fullWidthSpace")
-                    Toggle("上滑输入全角符号", isOn: $japaneseFullWidthSymbols)
-                        .accessibilityIdentifier("vime.settings.japaneseFullWidthSymbols")
                     if chinese {
-                        Toggle("用拼音查词", isOn: $pinyinLookup)
+                        Toggle(isOn: $pinyinLookup) { Text("用拼音查词"); Text("输入普通话拼音也能找到日语词") }
                             .accessibilityIdentifier("vime.settings.pinyinLookupInJapanese")
                     }
-                } header: { Text("日语") } footer: {
-                    Text(chinese ? "智能排序使用本地日语模型调整候选顺序\n实时转换在输入假名时直接显示转换结果，回车确认显示的文字\n转换后，候选栏开头的 ↩ 可回到读音重新选择；打开「退格撤销转换」后，立即按退格也会回到读音\n空格在没有读音时按这里的宽度输入，先按 Shift 再按空格输入另一种宽度\n用拼音查词：输入汉字的普通话拼音（可与罗马字混用）也能找到对应的词，候选上方显示平假名读音"
-                         : "智能排序使用本地日语模型调整候选顺序\n实时转换在输入假名时直接显示转换结果，回车确认显示的文字\n转换后，候选栏开头的 ↩ 可回到读音重新选择；打开「退格撤销转换」后，立即按退格也会回到读音\n空格在没有读音时按这里的宽度输入，先按 Shift 再按空格输入另一种宽度")
-                    + Text(verbatim: "\n") + Text("上滑输入全角符号：字母键上滑输入的符号换成全角，例如 ！？（）：；")
-                }
+                    LabeledContent {
+                        Picker("空格宽度", selection: $fullWidthSpace) {
+                            Text("半角").tag(false)
+                            Text("全角").tag(true)
+                        }
+                        .pickerStyle(.segmented).fixedSize()
+                        .accessibilityIdentifier("vime.settings.fullWidthSpace")
+                    } label: { Text("空格宽度"); Text("Shift + 空格输入另一种") }
+                    Toggle(isOn: $japaneseFullWidthSymbols) {
+                        Text("上滑输入全角符号"); Text(verbatim: "！？（）：；")
+                    }.accessibilityIdentifier("vime.settings.japaneseFullWidthSymbols")
+                } header: { LanguageHeader(glyph: "あ", title: "日语") }
             }
             if chinese {
                 Section {
-                    Toggle("智能排序", isOn: Binding(get: { chineseModel }, set: { value in
+                    Toggle(isOn: Binding(get: { chineseModel }, set: { value in
                         chineseModel = value
                         if value { KeyboardPreferences().requestNeuralRetry() }
-                    })).accessibilityIdentifier("vime.settings.chineseLanguageModel")
-                    Toggle("平翘舌 z/zh、c/ch、s/sh", isOn: $fuzzyRetroflex)
-                        .accessibilityIdentifier("vime.settings.fuzzyRetroflex")
-                    Toggle("前后鼻音 an/ang、en/eng、in/ing", isOn: $fuzzyNasal)
-                        .accessibilityIdentifier("vime.settings.fuzzyNasal")
-                    Toggle("声母 n/l、f/h、r/l", isOn: $fuzzyInitials)
-                        .accessibilityIdentifier("vime.settings.fuzzyInitials")
-                    Toggle("纠错候选显示正确拼音", isOn: $correctionSpellingHints)
-                        .accessibilityIdentifier("vime.settings.correctionSpellingHints")
-                    Toggle("上滑输入中文标点", isOn: $chinesePunctuation)
-                        .accessibilityIdentifier("vime.settings.chinesePunctuation")
-                } header: { Text("中文") } footer: {
-                    Text("智能排序使用本地中文模型调整候选顺序，学习记录与日语分开保存\n模糊音：读音相近也能打出想要的字，例如 zi 也能打出“知”，切换后下次打开键盘时生效")
-                    + Text(verbatim: "\n") + Text("纠错候选显示正确拼音：有错字时，在纠错候选上方显示改正后的拼音")
-                    + Text(verbatim: "\n") + Text("上滑输入中文标点：字母键上滑输入的符号换成中文标点，例如 ！？（）：；")
-                }
+                    })) { Text("智能排序"); Text("用本地模型调整候选顺序") }
+                        .accessibilityIdentifier("vime.settings.chineseLanguageModel")
+                    NavigationLink {
+                        FuzzyPinyinSettingsView(retroflex: $fuzzyRetroflex, nasal: $fuzzyNasal, initials: $fuzzyInitials)
+                    } label: {
+                        LabeledContent {
+                            Text(fuzzyCount == 0 ? String(localized: "关闭") : String(localized: "\(fuzzyCount) 项"))
+                        } label: { Text("模糊音"); Text("平翘舌、前后鼻音、n/l 等") }
+                    }.accessibilityIdentifier("vime.settings.fuzzyPinyin")
+                    Toggle(isOn: $correctionSpellingHints) {
+                        Text("纠错时显示正确拼音"); Text("在纠错候选上方标出改正后的拼音")
+                    }.accessibilityIdentifier("vime.settings.correctionSpellingHints")
+                    Toggle(isOn: $chinesePunctuation) {
+                        Text("上滑输入中文标点"); Text(verbatim: "！？（）：；")
+                    }.accessibilityIdentifier("vime.settings.chinesePunctuation")
+                } header: { LanguageHeader(glyph: "拼", title: "中文") }
             }
             Section {
-                Toggle("下一词联想", isOn: $suggestions)
-                    .accessibilityIdentifier("vime.settings.suggestions")
-                if (japanese && ranking == .languageModel) || (chinese && chineseModel) {
-                    Button("重试智能排序") {
-                        KeyboardPreferences().requestNeuralRetry()
-                        retryRequested = true
-                    }.accessibilityIdentifier("vime.settings.neural.retry")
-                }
-            } header: { Text("通用") } footer: {
-                Text(retryRequested ? "下一词联想在确认文字后提供建议\n已发送重试请求，下次打开键盘时生效。"
-                     : "下一词联想在确认文字后提供建议\n内存紧张后智能排序可能暂停，重试后会重新尝试使用本地模型\n关闭智能排序或联想不会清除已有学习数据")
-            }
-            Section {
-                Toggle("自动大写", isOn: $autoCapitalize)
-                    .accessibilityIdentifier("vime.settings.autoCapitalize")
-                Toggle("连按两下空格输入句号", isOn: $doubleSpacePeriod)
-                    .accessibilityIdentifier("vime.settings.doubleSpacePeriod")
-                Toggle("英文单词补全", isOn: $englishCompletion)
+                Toggle(isOn: $englishCompletion) { Text("单词补全"); Text("点按候选替换当前单词") }
                     .accessibilityIdentifier("vime.settings.englishCompletion")
-            } header: { Text("英文输入") } footer: {
-                Text("自动大写按输入框的要求在句首或词首切换为大写\n连按两下空格会在单词后输入句号和空格\n单词补全在候选栏提供拼写补全，点按即替换当前单词")
-            }
+                Toggle(isOn: $autoCapitalize) { Text("自动大写"); Text("按输入框的要求在句首或词首大写") }
+                    .accessibilityIdentifier("vime.settings.autoCapitalize")
+                Toggle(isOn: $doubleSpacePeriod) { Text("连按两下空格输入句号"); Text("在单词后输入句号和空格") }
+                    .accessibilityIdentifier("vime.settings.doubleSpacePeriod")
+            } header: { LanguageHeader(glyph: "A", title: "英文") }
         }
         .appReadableList()
         .navigationTitle("转换与联想").navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var fuzzyCount: Int { [fuzzyRetroflex, fuzzyNasal, fuzzyInitials].filter { $0 }.count }
+}
+
+/// A language section's header: its glyph tile and name.
+private struct LanguageHeader: View {
+    let glyph: String
+    let title: LocalizedStringResource
+    var body: some View {
+        HStack(spacing: 6) {
+            Text(verbatim: glyph).font(.caption2.weight(.bold)).foregroundStyle(.tint)
+                .frame(minWidth: 18, minHeight: 18)
+                .background(Color.vimeBlue.opacity(0.14), in: RoundedRectangle(cornerRadius: 5))
+                .accessibilityHidden(true)
+            Text(title)
+        }
+    }
+}
+
+/// The three fuzzy pinyin groups, one level below 转换与联想.
+private struct FuzzyPinyinSettingsView: View {
+    @Binding var retroflex: Bool
+    @Binding var nasal: Bool
+    @Binding var initials: Bool
+    var body: some View {
+        Form {
+            Section {
+                Toggle("平翘舌 z/zh、c/ch、s/sh", isOn: $retroflex)
+                    .accessibilityIdentifier("vime.settings.fuzzyRetroflex")
+                Toggle("前后鼻音 an/ang、en/eng、in/ing", isOn: $nasal)
+                    .accessibilityIdentifier("vime.settings.fuzzyNasal")
+                Toggle("声母 n/l、f/h、r/l", isOn: $initials)
+                    .accessibilityIdentifier("vime.settings.fuzzyInitials")
+            } footer: {
+                Text("读音相近也能打出想要的字，例如 zi 也能打出“知”。切换后下次打开键盘时生效。")
+            }
+        }
+        .appReadableList()
+        .navigationTitle("模糊音").navigationBarTitleDisplayMode(.inline)
     }
 }
 

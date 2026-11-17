@@ -494,6 +494,34 @@
         }
       }
     },
+    "%lld 项" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld On"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 件"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld개"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 項"
+          }
+        }
+      }
+    },
     "1. 打开 iPhone 的“设置”。" : {
       "localizations" : {
         "en" : {
@@ -868,6 +896,34 @@
     },
     "Shift" : {
       "shouldTranslate" : false
+    },
+    "Shift + 空格输入另一种" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shift + Space types the other width"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shift + スペースでもう一方を入力"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shift + 스페이스로 다른 너비 입력"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shift + 空格輸入另一種"
+          }
+        }
+      }
     },
     "Swift 实现，增加长度、版本和维度校验，支持有界缓存" : {
       "extractionState" : "manual",
@@ -1383,34 +1439,6 @@
         }
       }
     },
-    "上滑输入中文标点：字母键上滑输入的符号换成中文标点，例如 ！？（）：；" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Swipe up for Chinese punctuation: symbols typed by swiping up on a letter key become Chinese punctuation, such as ！？（）：；"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "上スワイプで中国語の句読点：文字キーを上にスワイプして入力する記号が中国語の句読点になります（例：！？（）：；）"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "위로 쓸어 중국어 문장부호 입력: 글자 키를 위로 쓸어 입력하는 기호가 중국어 문장부호가 됩니다(예: ！？（）：；)"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "上滑輸入中文標點：字母鍵上滑輸入的符號換成中文標點，例如 ！？（）：；"
-          }
-        }
-      }
-    },
     "上滑输入全角符号" : {
       "localizations" : {
         "en" : {
@@ -1435,34 +1463,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "上滑輸入全形符號"
-          }
-        }
-      }
-    },
-    "上滑输入全角符号：字母键上滑输入的符号换成全角，例如 ！？（）：；" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Swipe up for full-width symbols: symbols typed by swiping up on a letter key are full width, such as ！？（）：；"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "上スワイプで全角記号：文字キーを上にスワイプして入力する記号が全角になります（例：！？（）：；）"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "위로 쓸어 전각 기호 입력: 글자 키를 위로 쓸어 입력하는 기호가 전각이 됩니다(예: ！？（）：；)"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "上滑輸入全形符號：字母鍵上滑輸入的符號換成全形，例如 ！？（）：；"
           }
         }
       }
@@ -1579,62 +1579,6 @@
         }
       }
     },
-    "下一词联想在确认文字后提供建议\n内存紧张后智能排序可能暂停，重试后会重新尝试使用本地模型\n关闭智能排序或联想不会清除已有学习数据" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Next-word suggestions appear after you confirm text\nSmart ranking may pause when memory is low; retrying tries the on-device model again\nTurning off smart ranking or suggestions does not delete what has been learned"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "次の語の予測は確定後に候補を表示します\nメモリ不足時はスマート並べ替えが一時停止することがあり、再試行すると端末内モデルをもう一度使います\nスマート並べ替えや予測をオフにしても、学習済みのデータは消えません"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "다음 단어 제안은 텍스트를 확정한 뒤에 표시됩니다\n메모리가 부족하면 스마트 순위가 일시 정지될 수 있으며, 다시 시도하면 기기 내 모델을 다시 사용합니다\n스마트 순위나 제안을 꺼도 학습된 데이터는 삭제되지 않습니다"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "下一詞聯想在確認文字後提供建議\n記憶體不足時智慧排序可能會暫停，重試後會重新嘗試使用本機模型\n關閉智慧排序或聯想不會清除已有學習資料"
-          }
-        }
-      }
-    },
-    "下一词联想在确认文字后提供建议\n已发送重试请求，下次打开键盘时生效。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Next-word suggestions appear after you confirm text\nRetry requested. It takes effect the next time the keyboard opens."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "次の語の予測は確定後に候補を表示します\n再試行を要求しました。次にキーボードを開いたときに反映されます。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "다음 단어 제안은 텍스트를 확정한 뒤에 표시됩니다\n다시 시도를 요청했습니다. 다음에 키보드를 열 때 적용됩니다."
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "下一詞聯想在確認文字後提供建議\n已送出重試請求，下次開啟鍵盤時生效。"
-          }
-        }
-      }
-    },
     "下一项" : {
       "localizations" : {
         "en" : {
@@ -1744,6 +1688,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "下次打開鍵盤時會清除詞語偏好和轉換學習，此操作無法復原。使用者辭典、剪貼簿歷史記錄和主題不會刪除。"
+          }
+        }
+      }
+    },
+    "下次打开键盘时生效" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Takes effect the next time the keyboard opens"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "次にキーボードを開いたときに反映されます"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "다음에 키보드를 열 때 적용됩니다"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下次打開鍵盤時生效"
           }
         }
       }
@@ -3306,6 +3278,34 @@
         }
       }
     },
+    "内存紧张时智能排序会暂停，点此重新启用" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Smart ranking pauses when memory is low. Tap to turn it back on."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "メモリが不足するとスマート並べ替えは一時停止します。タップで再開します"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "메모리가 부족하면 스마트 정렬이 일시 중지됩니다. 탭하여 다시 켭니다"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "記憶體緊張時智慧排序會暫停，點此重新啟用"
+          }
+        }
+      }
+    },
     "内容仍保留在剪贴板历史中" : {
       "localizations" : {
         "en" : {
@@ -3498,6 +3498,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "最近 24 小時 · 僅本機儲存"
+          }
+        }
+      }
+    },
+    "决定候选怎么排、读音怎么变成文字，以及打完一个词后建议什么。学习数据只保存在本机。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose how candidates are ranked, how readings become text, and what is suggested after each word. Learning data stays on this device."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "候補の並び順、読みから文字への変換、単語を確定した後の予測を設定します。学習データはこの端末にのみ保存されます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "후보 정렬 방식, 읽기를 글자로 바꾸는 방식, 단어 입력 후 추천할 내용을 정합니다. 학습 데이터는 이 기기에만 저장됩니다."
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "決定候選怎麼排、讀音怎麼變成文字，以及打完一個詞後建議什麼。學習資料只儲存在本機。"
           }
         }
       }
@@ -3863,6 +3891,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "剛剛使用過"
+          }
+        }
+      }
+    },
+    "刚转换完按退格回到读音" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete right after converting returns to the reading"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "変換直後に削除キーで読みに戻る"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "변환 직후 삭제 키로 읽기로 돌아갑니다"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "剛轉換完按退格回到讀音"
           }
         }
       }
@@ -4537,6 +4593,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "單一字母圖片優先於所有字母\n背景會裁切填滿鍵盤，透明 PNG 適合按鍵貼圖\n儲存後在自訂頁選擇主題即可使用"
+          }
+        }
+      }
+    },
+    "单词补全" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Word Completion"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "単語補完"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "단어 완성"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "單字補全"
           }
         }
       }
@@ -5472,6 +5556,62 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "在任一輸入框切換到 Vime 打一個字"
+          }
+        }
+      }
+    },
+    "在单词后输入句号和空格" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Types a period and a space after a word"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "単語の後にピリオドとスペースを入力"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "단어 뒤에 마침표와 공백을 입력합니다"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在單字後輸入句號和空格"
+          }
+        }
+      }
+    },
+    "在纠错候选上方标出改正后的拼音" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shows the corrected pinyin above correction candidates"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "修正候補の上に正しいピンインを表示"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "교정 후보 위에 고친 병음을 표시합니다"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在糾錯候選上方標出改正後的拼音"
           }
         }
       }
@@ -7131,6 +7271,34 @@
         }
       }
     },
+    "已请求重试智能排序" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Smart Ranking Retry Requested"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "スマート並べ替えの再試行を要求しました"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "스마트 정렬 재시도를 요청함"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已請求重試智慧排序"
+          }
+        }
+      }
+    },
     "布局" : {
       "localizations" : {
         "en" : {
@@ -7326,6 +7494,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "平翹舌 z/zh、c/ch、s/sh"
+          }
+        }
+      }
+    },
+    "平翘舌、前后鼻音、n/l 等" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "z/zh, an/ang, n/l and more"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "z/zh、an/ang、n/l など"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "z/zh, an/ang, n/l 등"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "平翹舌、前後鼻音、n/l 等"
           }
         }
       }
@@ -8174,6 +8370,34 @@
         }
       }
     },
+    "所有语言" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All Languages"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "すべての言語"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "모든 언어"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "所有語言"
+          }
+        }
+      }
+    },
     "手写" : {
       "localizations" : {
         "en" : {
@@ -8649,6 +8873,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "按下顏色"
+          }
+        }
+      }
+    },
+    "按输入框的要求在句首或词首大写" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Capitalizes sentences or words as the text field asks"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "入力欄の指定に従って文頭や語頭を大文字に"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "입력란 설정에 따라 문장이나 단어 첫 글자를 대문자로"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "依輸入框的要求在句首或詞首大寫"
           }
         }
       }
@@ -9884,90 +10136,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "智慧排序"
-          }
-        }
-      }
-    },
-    "智能排序使用本地中文模型调整候选顺序，学习记录与日语分开保存\n模糊音：读音相近也能打出想要的字，例如 zi 也能打出“知”，切换后下次打开键盘时生效" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Smart ranking uses an on-device Chinese model to order candidates; Chinese learns separately from Japanese\nFuzzy pinyin: similar sounds also find the character you want, such as zi for 知. Changes take effect the next time the keyboard opens"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "スマート並べ替えは端末内の中国語モデルで候補の順序を調整します。学習記録は日本語とは別に保存します\n曖昧ピンイン：近い発音でも目的の字を入力できます（例：zi で「知」）。切り替えは次にキーボードを開いたときに反映されます"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "스마트 순위는 기기 내 중국어 모델로 후보 순서를 정하며, 학습 기록은 일본어와 따로 저장됩니다\n모호 병음: 비슷한 발음으로도 원하는 글자를 입력할 수 있습니다(예: zi로 '知'). 변경 사항은 다음에 키보드를 열 때 적용됩니다"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "智慧排序使用本機中文模型調整候選順序，學習記錄與日語分開儲存\n模糊音：讀音相近也能打出想要的字，例如 zi 也能打出「知」，切換後下次開啟鍵盤時生效"
-          }
-        }
-      }
-    },
-    "智能排序使用本地日语模型调整候选顺序\n实时转换在输入假名时直接显示转换结果，回车确认显示的文字\n转换后，候选栏开头的 ↩ 可回到读音重新选择；打开「退格撤销转换」后，立即按退格也会回到读音\n空格在没有读音时按这里的宽度输入，先按 Shift 再按空格输入另一种宽度" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Smart ranking uses an on-device Japanese model to order candidates\nLive conversion shows the converted text as you type kana; Return confirms what is shown\nAfter converting, ↩ at the start of the candidate bar returns to the reading; with Undo Conversion on Backspace on, an immediate backspace also returns to it\nWith no reading being typed, space inserts the width chosen here; press Shift and then space for the other width"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "スマート並べ替えは端末内の日本語モデルで候補の順序を調整します\nライブ変換は、かなを入力しながら変換結果を直接表示し、改行キーで表示中の文字を確定します\n変換後、候補バー先頭の ↩ で読みに戻って選び直せます。「バックスペースで変換を取り消す」をオンにすると、直後のバックスペースでも読みに戻ります\nスペースは、読みを入力していないときここで選んだ幅で入力され、Shift を押してからスペースを押すともう一方の幅になります"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "스마트 순위는 기기 내 일본어 모델로 후보 순서를 정합니다\n실시간 변환은 가나를 입력하는 동안 변환 결과를 바로 보여 주며, Return 키로 표시된 글자를 확정합니다\n변환 후 후보 막대 맨 앞의 ↩ 로 읽기로 돌아가 다시 고를 수 있습니다. '백스페이스로 변환 취소'를 켜면 바로 누른 백스페이스로도 읽기로 돌아갑니다\n스페이스는 읽기를 입력하고 있지 않을 때 여기서 고른 폭으로 입력되며, Shift를 누른 뒤 스페이스를 누르면 다른 폭으로 입력됩니다"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "智慧排序使用本機日語模型調整候選順序\n即時轉換在輸入假名時直接顯示轉換結果，回車確認顯示的文字\n轉換後，候選列開頭的 ↩ 可回到讀音重新選擇；開啟「退格撤銷轉換」後，立即按退格也會回到讀音\n空格在沒有讀音時按這裡的寬度輸入，先按 Shift 再按空格輸入另一種寬度"
-          }
-        }
-      }
-    },
-    "智能排序使用本地日语模型调整候选顺序\n实时转换在输入假名时直接显示转换结果，回车确认显示的文字\n转换后，候选栏开头的 ↩ 可回到读音重新选择；打开「退格撤销转换」后，立即按退格也会回到读音\n空格在没有读音时按这里的宽度输入，先按 Shift 再按空格输入另一种宽度\n用拼音查词：输入汉字的普通话拼音（可与罗马字混用）也能找到对应的词，候选上方显示平假名读音" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Smart ranking uses an on-device Japanese model to order candidates\nLive conversion shows the converted text as you type kana; Return confirms what is shown\nAfter converting, ↩ at the start of the candidate bar returns to the reading; with Undo Conversion on Backspace on, an immediate backspace also returns to it\nWith no reading being typed, space inserts the width chosen here; press Shift and then space for the other width\nPinyin lookup: a word's Mandarin pinyin, alone or mixed with Romaji, also finds it, with the hiragana reading above the candidate"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "スマート並べ替えは端末内の日本語モデルで候補の順序を調整します\nライブ変換は、かなを入力しながら変換結果を直接表示し、改行キーで表示中の文字を確定します\n変換後、候補バー先頭の ↩ で読みに戻って選び直せます。「バックスペースで変換を取り消す」をオンにすると、直後のバックスペースでも読みに戻ります\nスペースは、読みを入力していないときここで選んだ幅で入力され、Shift を押してからスペースを押すともう一方の幅になります\nピンインで検索：漢字の中国語ピンイン（ローマ字と混ぜても可）でもその語が見つかり、候補の上にひらがなの読みを表示します"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "스마트 순위는 기기 내 일본어 모델로 후보 순서를 정합니다\n실시간 변환은 가나를 입력하는 동안 변환 결과를 바로 보여 주며, Return 키로 표시된 글자를 확정합니다\n변환 후 후보 막대 맨 앞의 ↩ 로 읽기로 돌아가 다시 고를 수 있습니다. '백스페이스로 변환 취소'를 켜면 바로 누른 백스페이스로도 읽기로 돌아갑니다\n스페이스는 읽기를 입력하고 있지 않을 때 여기서 고른 폭으로 입력되며, Shift를 누른 뒤 스페이스를 누르면 다른 폭으로 입력됩니다\n병음으로 찾기: 한자의 중국어 병음(로마자와 섞어도 됨)으로도 해당 단어를 찾을 수 있으며, 후보 위에 히라가나 읽기를 표시합니다"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "智慧排序使用本機日語模型調整候選順序\n即時轉換在輸入假名時直接顯示轉換結果，回車確認顯示的文字\n轉換後，候選列開頭的 ↩ 可回到讀音重新選擇；開啟「退格撤銷轉換」後，立即按退格也會回到讀音\n空格在沒有讀音時按這裡的寬度輸入，先按 Shift 再按空格輸入另一種寬度\n用拼音查詞：輸入漢字的普通話拼音（可與羅馬字混用）也能找到對應的詞，候選上方顯示平假名讀音"
           }
         }
       }
@@ -11745,6 +11913,34 @@
         }
       }
     },
+    "点按候选替换当前单词" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap a candidate to replace the current word"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "候補をタップすると入力中の単語を置き換え"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "후보를 탭하면 현재 단어를 바꿉니다"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "點按候選取代目前單字"
+          }
+        }
+      }
+    },
     "点这里试打" : {
       "localizations" : {
         "en" : {
@@ -12051,6 +12247,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "用拼音輸入選過的詞語會出現在這裡。"
+          }
+        }
+      }
+    },
+    "用本地模型调整候选顺序" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reorders candidates with an on-device model"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "端末内のモデルで候補の順番を調整"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "기기 내 모델로 후보 순서를 조정합니다"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "用本機模型調整候選順序"
           }
         }
       }
@@ -12561,6 +12785,34 @@
         }
       }
     },
+    "空格宽度" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Space Width"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "スペースの幅"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "스페이스 너비"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "空格寬度"
+          }
+        }
+      }
+    },
     "符号" : {
       "localizations" : {
         "en" : {
@@ -12954,7 +13206,7 @@
         }
       }
     },
-    "纠错候选显示正确拼音" : {
+    "纠错时显示正确拼音" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -12965,47 +13217,19 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "修正候補に正しいピンインを表示"
+            "value" : "修正時に正しいピンインを表示"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "교정 후보에 올바른 병음 표시"
+            "value" : "교정 시 올바른 병음 표시"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "糾錯候選顯示正確拼音"
-          }
-        }
-      }
-    },
-    "纠错候选显示正确拼音：有错字时，在纠错候选上方显示改正后的拼音" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Show corrected pinyin: when there is a typo, the corrected pinyin appears above the correction candidate"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "修正候補に正しいピンインを表示：入力ミスがあるとき、修正候補の上に修正後のピンインを表示します"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "교정 후보에 올바른 병음 표시: 오타가 있을 때 교정 후보 위에 고친 병음을 표시합니다"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "糾錯候選顯示正確拼音：有錯字時，在糾錯候選上方顯示改正後的拼音"
+            "value" : "糾錯時顯示正確拼音"
           }
         }
       }
@@ -13488,34 +13712,6 @@
         }
       }
     },
-    "自动大写按输入框的要求在句首或词首切换为大写\n连按两下空格会在单词后输入句号和空格\n单词补全在候选栏提供拼写补全，点按即替换当前单词" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Auto-Capitalization turns on Shift at the start of a sentence or word, as the text field asks\nDouble-tapping Space after a word types a period and a space\nWord Completion offers spellings in the candidate bar; tap one to replace the current word"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "自動大文字は入力欄の設定に従い、文頭や語頭で大文字に切り替えます\nスペースを2回押すと、単語の後にピリオドとスペースを入力します\n単語の補完は候補バーに綴りを表示し、タップすると入力中の単語を置き換えます"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "자동 대문자는 입력란 설정에 따라 문장이나 단어 첫머리에서 대문자로 바꿉니다\n단어 뒤에서 스페이스를 두 번 누르면 마침표와 공백을 입력합니다\n단어 완성은 후보 막대에 철자를 제안하며, 누르면 입력 중인 단어를 바꿉니다"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "自動大寫按輸入框的要求在句首或詞首切換為大寫\n連按兩下空格會在單字後輸入句號和空格\n單字補全在候選欄提供拼寫補全，點按即取代目前單字"
-          }
-        }
-      }
-    },
     "自动补全括号" : {
       "localizations" : {
         "en" : {
@@ -13765,34 +13961,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "英文"
-          }
-        }
-      }
-    },
-    "英文单词补全" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "English Word Completion"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "英単語の補完"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "영어 단어 완성"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "英文單字補全"
           }
         }
       }
@@ -14981,6 +15149,34 @@
         }
       }
     },
+    "读音相近也能打出想要的字，例如 zi 也能打出“知”。切换后下次打开键盘时生效。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Type the character you want even with a similar sound, such as “知” from zi. Changes take effect the next time the keyboard opens."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "似た発音でも目的の字を入力できます。たとえば zi で「知」も出せます。切り替えは次にキーボードを開いたときに反映されます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "비슷한 발음으로도 원하는 글자를 입력할 수 있습니다. 예를 들어 zi로 '知'도 입력됩니다. 변경 사항은 다음에 키보드를 열 때 적용됩니다."
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "讀音相近也能打出想要的字，例如 zi 也能打出「知」。切換後下次打開鍵盤時生效。"
+          }
+        }
+      }
+    },
     "读音需为 1–64 个假名，可先输入完整罗马字。" : {
       "localizations" : {
         "en" : {
@@ -15431,6 +15627,34 @@
         }
       }
     },
+    "输入普通话拼音也能找到日语词" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Find Japanese words by their Mandarin pinyin"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "中国語のピンインでも日本語の単語を検索"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "중국어 병음으로도 일본어 단어를 찾습니다"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "輸入普通話拼音也能找到日語詞"
+          }
+        }
+      }
+    },
     "输入法" : {
       "localizations" : {
         "en" : {
@@ -15567,6 +15791,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "輸入這筆歷史記錄的完整文字"
+          }
+        }
+      }
+    },
+    "边打假名边显示转换结果，回车确认" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shows the conversion as you type kana; Return confirms it"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "かなを入力しながら変換結果を表示し、改行で確定"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "가나를 입력하는 동안 변환 결과를 표시하고 리턴으로 확정합니다"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "邊打假名邊顯示轉換結果，Return 確認"
           }
         }
       }
