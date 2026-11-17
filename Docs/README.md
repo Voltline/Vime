@@ -1,14 +1,14 @@
 # Vime 文档
 
-这里维护与当前代码相符的使用说明、开发流程和设计约定。产品介绍及安装入口见仓库 [README](../README.md)。
+这里维护与当前代码相符的使用说明、开发流程和设计约定。产品介绍及安装入口见仓库 [README](../README.md)（另有 [繁體中文](i18n/README.zh-Hant.md)、[English](i18n/README.en.md)、[日本語](i18n/README.ja.md)、[한국어](i18n/README.ko.md)）。
 
 ## 使用指南
 
-- [App 设置](Guides/AppSettings.md)：试打、定制、三档吸附与设置导航
+- [App 设置](Guides/AppSettings.md)：试打、定制、输入法、中日英输入选项与设置导航
 - [隐私政策](Guides/Privacy.md)：与 App 内政策一致的公开文本（另有 [繁體中文](Guides/Privacy.zh-Hant.md)、[日本語](Guides/Privacy.ja.md)、[English](Guides/Privacy.en.md)、[한국어](Guides/Privacy.ko.md)）
 
 - [自定义皮肤](Guides/CustomSkins.md)：创建、导入、导出及文件格式。
-- [用户词典](Guides/UserDictionary.md)：注册词语、短语快捷输入及 JSON 交换格式。
+- [用户词典](Guides/UserDictionary.md)：日语与中文词典、学到的词、导入导出格式。
 - [无障碍](Guides/Accessibility.md)：VoiceOver、动态字体、粗体文本与增强对比度的支持范围。
 
 ## 开发指南

@@ -80,7 +80,7 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
         // enabled input mode. Select the extension explicitly from the menu.
         globe.press(forDuration: 1)
         let choice = app.descendants(matching: .any).matching(NSPredicate(
-            format: "label BEGINSWITH[c] %@", "Vime 日本語")).firstMatch
+            format: "label BEGINSWITH[c] %@", "Vime")).firstMatch
         if !choice.waitForExistence(timeout: 5) {
             let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
             attachment.name = "keyboard-selection-menu"; attachment.lifetime = .keepAlways; add(attachment)

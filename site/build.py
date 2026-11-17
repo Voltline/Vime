@@ -252,55 +252,19 @@ def privacy_policy(ref, name):
                           check=True, capture_output=True, text=True).stdout
 
 
-# Home page illustrations. Their text is Japanese input, so it is the same in
-# every language. They are decorative; the headings next to them carry the meaning.
+# Home page screenshots, captured from the app on an iPhone simulator and
+# scaled to SHOT_SIZE. A shot of the app's own screens has one file per
+# language, <name>.<language>.jpg; a keyboard shot is one <name>.jpg for all.
 
-def keys(labels, wide=()):
-    return "".join(f'<span class="{"fn" if label in wide else ""}">{label}</span>' for label in labels)
+SHOTS = SITE / "static" / "shots"
+SHOT_SIZE = (600, 1304)
 
-
-def keyboard_rows():
-    return (f'<div class="kb-row ten">{keys("qwertyuiop")}</div>'
-            f'<div class="kb-row ten">{keys(list("asdfghjkl") + ["ー"])}</div>'
-            f'<div class="kb-row third">{keys(["⇧", *"zxcvbnm", "⌫"], wide=("⇧", "⌫"))}</div>'
-            f'<div class="kb-row bottom">{keys(["123", "☺︎", "、", "変換", "あ A", "確定"], wide=("123", "☺︎", "あ A", "確定"))}</div>')
-
-
-HERO_ART = f"""<div class="device" aria-hidden="true">
-<div class="field"><span class="marked">きょうはいいてんきですね</span><i class="caret"></i></div>
-<div class="kb">
-<div class="kb-bar"><span class="pick">今日はいい天気ですね</span><span>今日は良い天気ですね</span><span>京はいい天気ですね</span></div>
-{keyboard_rows()}
-</div>
-</div>"""
-
-FEATURE_ART = [
-    # Offline: the device does the work, the cloud is crossed out.
-    """<svg class="art-offline" viewBox="0 0 240 150" aria-hidden="true">
-<rect class="body" x="62" y="8" width="96" height="134" rx="20"/>
-<rect class="screen" x="70" y="16" width="80" height="118" rx="13"/>
-<rect class="line accent" x="78" y="30" width="46" height="7" rx="3.5"/>
-<rect class="line" x="78" y="43" width="30" height="7" rx="3.5"/>
-<g class="keys">
-<rect x="74" y="88" width="13" height="10" rx="3"/><rect x="90" y="88" width="13" height="10" rx="3"/><rect x="106" y="88" width="13" height="10" rx="3"/><rect x="122" y="88" width="13" height="10" rx="3"/><rect x="138" y="88" width="8" height="10" rx="3"/>
-<rect x="74" y="102" width="13" height="10" rx="3"/><rect x="90" y="102" width="13" height="10" rx="3"/><rect x="106" y="102" width="13" height="10" rx="3"/><rect x="122" y="102" width="13" height="10" rx="3"/><rect x="138" y="102" width="8" height="10" rx="3"/>
-<rect x="74" y="116" width="20" height="10" rx="3"/><rect x="98" y="116" width="32" height="10" rx="3"/><rect x="134" y="116" width="12" height="10" rx="3"/>
-</g>
-<path class="cloud" d="M183 58h34a12 12 0 0 0 0-24 18 18 0 0 0-34-4 14 14 0 0 0 0 28z"/>
-<path class="slash" d="M176 66 226 18"/>
-<path class="dash" d="M164 70 178 62"/>
-</svg>""",
-    # Two layouts: romaji and kana, with a flick on な.
-    """<div class="layouts" aria-hidden="true">
-<div class="segmented"><span>ローマ字</span><span class="on">かな</span></div>
-<div class="pad"><span>あ</span><span>か</span><span>さ</span><span>た</span><span class="flick"><b>な</b><i class="l">に</i><i class="u">ぬ</i><i class="r">ね</i><i class="d">の</i></span><span>は</span><span>ま</span><span>や</span><span>ら</span><span class="fn">゛゜小</span><span>わ</span><span class="fn">、。?!</span></div>
-</div>""",
-    # Context: after 東京に, the bar suggests the next words.
-    """<div class="next" aria-hidden="true">
-<div class="field">東京に<i class="caret"></i></div>
-<div class="kb-bar"><span class="pick">行きます</span><span>住んでいます</span><span>着いた</span></div>
-<div class="kb-row ten faded"><span>q</span><span>w</span><span>e</span><span>r</span><span>t</span><span>y</span><span>u</span><span>i</span><span>o</span><span>p</span></div>
-</div>""",
+# Line icons for the four points under the hero, in the order of "points".
+POINT_ICONS = [
+    '<path d="M7 11V8a5 5 0 0 1 10 0v3"/><rect x="5" y="11" width="14" height="10" rx="2.5"/><path d="M12 15v2"/>',
+    '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/>',
+    '<rect x="6" y="6" width="12" height="12" rx="2.5"/><path d="M9.5 10h5M9.5 14h3M9 3v3M15 3v3M9 18v3M15 18v3M3 9h3M3 15h3M18 9h3M18 15h3"/>',
+    '<path d="m8.5 8-4.5 4 4.5 4M15.5 8l4.5 4-4.5 4M13.5 5l-3 14"/>',
 ]
 
 
@@ -412,9 +376,21 @@ class Site:
                            f'{html.escape(home["appstore"])}</a>')
         buttons.append(f'<a class="button" href="https://github.com/{REPOSITORY}" rel="noopener">'
                        f'{html.escape(home["source"])}</a>')
-        features = "".join(f'<article class="feature"><div class="art">{art}</div>'
-                           f'<h3>{html.escape(point["title"])}</h3><p>{inline(point["text"])}</p></article>'
-                           for point, art in zip(home["points"], FEATURE_ART))
+        icon = '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true">{}</svg>'
+        points = "".join(f'<article class="point">{icon.format(art)}<h3>{html.escape(point["title"])}</h3>'
+                         f'<p>{inline(point["text"])}</p></article>'
+                         for point, art in zip(home["points"], POINT_ICONS))
+        front, back = ("zh-pinyin", "ja-convert") if code.startswith("zh") else ("ja-convert", "zh-pinyin")
+        showcase = "".join(f"""<section class="wrap showcase{' flip' if index % 2 else ''}">
+<div class="showcase-text">
+<p class="kicker">{html.escape(section['kicker'])}</p>
+<h2>{html.escape(section['title'])}</h2>
+<p class="lead">{inline(section['text'])}</p>
+<ul class="ticks">{''.join(f'<li>{inline(item)}</li>' for item in section['items'])}</ul>
+</div>
+<div class="showcase-art">{self.shot(section['shot'], code)}</div>
+</section>
+""" for index, section in enumerate(home["sections"]))
         main = f"""
 <section class="hero">
 <div class="wrap hero-grid">
@@ -427,11 +403,11 @@ class Site:
 <p class="requirements">{inline(home['requirements'])}</p>
 {self.chips(code)}
 </div>
-<div class="hero-art">{HERO_ART}</div>
+<div class="hero-art" aria-hidden="true">{self.shot(back, code, eager=True)}{self.shot(front, code, eager=True)}</div>
 </div>
 </section>
-<section class="wrap features">{features}</section>
-<section class="wrap section">
+<section class="wrap points">{points}</section>
+{showcase}<section class="wrap section">
 <div class="privacy-band">
 <h2>{html.escape(home['privacy_title'])}</h2>
 <p>{inline(home['privacy_text'])}</p>
@@ -440,6 +416,14 @@ class Site:
 </section>
 """
         self.write(f"{code}/", self.page(code, "home", home["title"], home["description"], main))
+
+    def shot(self, name, code, eager=False):
+        """A screenshot in a phone frame; the text beside it says what it shows."""
+        localized = f"{name}.{LANGUAGES[code][0]}.jpg"
+        file = localized if (SHOTS / localized).exists() else f"{name}.jpg"
+        loading = "" if eager else ' loading="lazy"'
+        return (f'<div class="phone"><img src="{self.url("shots/" + file)}" alt="" width="{SHOT_SIZE[0]}"'
+                f' height="{SHOT_SIZE[1]}"{loading} decoding="async"></div>')
 
     def chips(self, code):
         """A short version summary under the hero buttons, linking to the status section."""

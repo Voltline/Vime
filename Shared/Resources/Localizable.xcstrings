@@ -7271,30 +7271,30 @@
         }
       }
     },
-    "已检测到 Vime 日本語" : {
+    "已检测到 Vime" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Vime 日本語 detected"
+            "value" : "Vime detected"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Vime 日本語 を検出しました"
+            "value" : "Vime を検出しました"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Vime 日本語가 감지됨"
+            "value" : "Vime이 감지됨"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已偵測到 Vime 日本語"
+            "value" : "已偵測到 Vime"
           }
         }
       }
@@ -8650,30 +8650,30 @@
         }
       }
     },
-    "打开输入框，长按地球键，选择 Vime 日本語。基本输入无需完全访问。" : {
+    "打开输入框，长按地球键，选择 Vime。基本输入无需完全访问。" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Open a text field, touch and hold the globe key, and choose Vime 日本語. Basic typing doesn't need Full Access."
+            "value" : "Open a text field, touch and hold the globe key, and choose Vime. Basic typing doesn't need Full Access."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "入力欄を開き、地球儀キーを長押しして「Vime 日本語」を選びます。基本的な入力にフルアクセスは不要です。"
+            "value" : "入力欄を開き、地球儀キーを長押しして「Vime」を選びます。基本的な入力にフルアクセスは不要です。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "텍스트 필드를 열고 지구본 키를 길게 터치한 다음 Vime 日本語를 선택하세요. 기본 입력에는 전체 접근 허용이 필요하지 않습니다."
+            "value" : "텍스트 필드를 열고 지구본 키를 길게 터치한 다음 Vime을 선택하세요. 기본 입력에는 전체 접근 허용이 필요하지 않습니다."
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "打開輸入框，長按地球鍵，選擇 Vime 日本語。基本輸入不需要完整取用。"
+            "value" : "打開輸入框，長按地球鍵，選擇 Vime。基本輸入不需要完整取用。"
           }
         }
       }
@@ -10084,30 +10084,30 @@
         }
       }
     },
-    "日语输入法" : {
+    "多语言输入法" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Japanese Keyboard"
+            "value" : "Multilingual Keyboard"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "日本語入力"
+            "value" : "多言語入力"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "일본어 키보드"
+            "value" : "다국어 키보드"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "日語輸入法"
+            "value" : "多語言輸入法"
           }
         }
       }
@@ -11941,30 +11941,30 @@
         }
       }
     },
-    "点击输入框，通过地球键选择 Vime 日本語\n这里使用 iOS 加载的键盘扩展" : {
+    "点击输入框，通过地球键选择 Vime\n这里使用 iOS 加载的键盘扩展" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tap the field and choose Vime 日本語 with the globe key\nThis uses the keyboard extension loaded by iOS"
+            "value" : "Tap the field and choose Vime with the globe key\nThis uses the keyboard extension loaded by iOS"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "入力欄をタップし、地球儀キーで「Vime 日本語」を選びます\nここでは iOS が読み込んだキーボード拡張を使います"
+            "value" : "入力欄をタップし、地球儀キーで「Vime」を選びます\nここでは iOS が読み込んだキーボード拡張を使います"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "입력란을 탭하고 지구본 키로 Vime 日本語를 선택하세요\niOS가 불러온 키보드 확장 프로그램을 사용합니다"
+            "value" : "입력란을 탭하고 지구본 키로 Vime을 선택하세요\niOS가 불러온 키보드 확장 프로그램을 사용합니다"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "點選輸入框，透過地球鍵選擇 Vime 日本語\n這裡使用 iOS 載入的鍵盤延伸功能"
+            "value" : "點選輸入框，透過地球鍵選擇 Vime\n這裡使用 iOS 載入的鍵盤延伸功能"
           }
         }
       }
@@ -14615,30 +14615,30 @@
         }
       }
     },
-    "设置 › 通用 › 键盘 › 键盘 › Vime 日本語 › 允许完全访问" : {
+    "设置 › 通用 › 键盘 › 键盘 › Vime › 允许完全访问" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Settings › General › Keyboard › Keyboards › Vime 日本語 › Allow Full Access"
+            "value" : "Settings › General › Keyboard › Keyboards › Vime › Allow Full Access"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "設定 › 一般 › キーボード › キーボード › Vime 日本語 › フルアクセスを許可"
+            "value" : "設定 › 一般 › キーボード › キーボード › Vime › フルアクセスを許可"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "설정 › 일반 › 키보드 › 키보드 › Vime 日本語 › 전체 접근 허용"
+            "value" : "설정 › 일반 › 키보드 › 키보드 › Vime › 전체 접근 허용"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "設定 › 一般 › 鍵盤 › 鍵盤 › Vime 日本語 › 允許完整取用"
+            "value" : "設定 › 一般 › 鍵盤 › 鍵盤 › Vime › 允許完整取用"
           }
         }
       }
@@ -16187,30 +16187,30 @@
         }
       }
     },
-    "进入“设置 → 通用 → 键盘 → 键盘 → Vime 日本語”，开启“允许完全访问”。" : {
+    "进入“设置 → 通用 → 键盘 → 键盘 → Vime”，开启“允许完全访问”。" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "In Settings → General → Keyboard → Keyboards → Vime 日本語, turn on Allow Full Access."
+            "value" : "In Settings → General → Keyboard → Keyboards → Vime, turn on Allow Full Access."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "「設定 → 一般 → キーボード → キーボード → Vime 日本語」で「フルアクセスを許可」をオンにします。"
+            "value" : "「設定 → 一般 → キーボード → キーボード → Vime」で「フルアクセスを許可」をオンにします。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "설정 → 일반 → 키보드 → 키보드 → Vime 日本語에서 전체 접근 허용을 켜세요."
+            "value" : "설정 → 일반 → 키보드 → 키보드 → Vime에서 전체 접근 허용을 켜세요."
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "進入「設定 → 一般 → 鍵盤 → 鍵盤 → Vime 日本語」，開啟「允許完整取用」。"
+            "value" : "進入「設定 → 一般 → 鍵盤 → 鍵盤 → Vime」，開啟「允許完整取用」。"
           }
         }
       }
@@ -16691,30 +16691,30 @@
         }
       }
     },
-    "长按地球键，选择 Vime 日本語" : {
+    "长按地球键，选择 Vime" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Touch and hold the globe key and choose Vime 日本語"
+            "value" : "Touch and hold the globe key and choose Vime"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "地球儀キーを長押しして「Vime 日本語」を選択"
+            "value" : "地球儀キーを長押しして「Vime」を選択"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "지구본 키를 길게 터치하고 Vime 日本語를 선택하세요"
+            "value" : "지구본 키를 길게 터치하고 Vime을 선택하세요"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "長按地球鍵，選擇 Vime 日本語"
+            "value" : "長按地球鍵，選擇 Vime"
           }
         }
       }

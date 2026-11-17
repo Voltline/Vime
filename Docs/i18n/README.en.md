@@ -1,10 +1,10 @@
 # Vime
 
-[简体中文](README.md) | [繁體中文](README.zh-Hant.md) | **English** | [日本語](README.ja.md) | [한국어](README.ko.md)
+[简体中文](../../README.md) | [繁體中文](README.zh-Hant.md) | **English** | [日本語](README.ja.md) | [한국어](README.ko.md)
 
 ![Platform](https://img.shields.io/badge/platform-iOS%2018%2B-blue) ![Swift](https://img.shields.io/badge/Swift-UIKit%20%2B%20SwiftUI-orange) ![License](https://img.shields.io/badge/license-GPL--3.0--or--later-green)
 
-Vime is a fully offline Japanese keyboard for iOS that can also type Simplified or Traditional Chinese in pinyin. It offers a romaji QWERTY layout and a 12-key kana pad, and switches between hiragana, katakana and English at any time. Kana-kanji conversion is built on the [azooKey](https://github.com/azooKey/AzooKeyKanaKanjiConverter) dictionary engine. A small on-device Core ML language model reranks the candidates and suggests the next word after you commit text. Chinese pinyin input is built on [librime](https://github.com/rime/librime). Conversion, correction, learning and suggestions all run on your device, and nothing you type is uploaded.
+Vime is a fully offline multilingual keyboard for iOS that types Japanese, Chinese (pinyin, Simplified or Traditional) and English. Japanese offers a romaji QWERTY layout and a 12-key kana pad, and switches between hiragana, katakana and English at any time. Kana-kanji conversion is built on the [azooKey](https://github.com/azooKey/AzooKeyKanaKanjiConverter) dictionary engine, and Chinese pinyin input on [librime](https://github.com/rime/librime). Japanese and Chinese each have a small on-device Core ML language model that reranks candidates by what you wrote before and suggests the next word after you commit text. Conversion, correction, learning and suggestions all run on your device, and nothing you type is uploaded.
 
 The companion app handles setup, typing practice, appearance and settings. The keyboard extension works in any app that allows third-party keyboards.
 
@@ -31,20 +31,25 @@ The companion app handles setup, typing practice, appearance and settings. The k
 
 ### Chinese input
 
-- **Pinyin**: full pinyin on librime, with whole-sentence input, initials-only abbreviations and completion of unfinished syllables; common neighboring-key slips and swapped letters are recognized too.
-- **Mixed Chinese and English**: type English words in the same input.
-- **Simplified / Traditional**: tap the 简 / 繁 button in the toolbar to switch; Traditional characters come from OpenCC.
-- **Japanese / Chinese switch**: swipe up on the language key, or choose in Settings; Chinese input can be turned off in Settings if you don't need it.
-- **On-device learning**: words you pick rank higher; deleting a commit with backspace right away also takes back what was learned from it. Chinese learning can be cleared on its own.
-- The dictionary is generated from several open word lists and frequency data; see the third-party notices for sources.
+- **Pinyin input**: full pinyin built on librime, with whole-sentence input, initials-only abbreviations and completion of unfinished syllables.
+- **Chinese smart ordering**: an on-device Chinese model (INT8, CPU only) reranks candidates by context, picks the most natural of the sentences Rime offers and swaps awkward words in long ones. It can be turned off in Settings.
+- **Pinyin typo correction**: neighbouring-key slips, swapped letters, and a missing or extra letter still find the word; typos across syllables and in a whole sentence get corrected candidates after a short pause.
+- **Fuzzy pinyin**: z/zh, c/ch, s/sh, front and back nasals, and n/l, f/h, r/l can each be turned on.
+- **Next-word suggestions**: after you commit Chinese, the candidate bar offers common words that follow, chaining as you pick them.
+- **Mixed Chinese and English**: type English words in the same input; a word starting with a capital (Vime, GPT) stays as typed in the sentence.
+- **Simplified or Traditional**: tap the 简 / 繁 button on the toolbar to switch; Traditional Chinese is converted with OpenCC.
+- **Switching between Japanese and Chinese**: swipe up on the language key. The Input Methods page sets the default language and turns off methods you don't use.
+- **On-device learning**: words you choose rank higher. If you delete a word with Backspace right after committing it, that learning is undone too. Learned words can be reviewed and deleted one by one, imported or exported as Rime text, or cleared at once.
+- **Chinese user dictionary**: put your own words first by their full pinyin or initials (such as `wm`).
+- The lexicon is generated from several open-source word lists and frequency data, plus newer brands, internet terms and game names; sources are listed in the third-party notices.
 
 ### Productivity
 
-- **User dictionary and phrase shortcuts**, importing from Google Japanese Input, Microsoft IME, ATOK and macOS, exporting as JSON or Google Japanese Input text (up to 1,024 entries); your iOS text replacements work too.
+- **User dictionaries and phrase shortcuts**: one for Japanese and one for Chinese, up to 1,024 entries each. The Japanese dictionary imports from Google Japanese Input, Microsoft IME, ATOK and macOS and exports as JSON or Google Japanese Input text; the Chinese one imports and exports JSON or text. Your iOS text replacements work too.
 - **Clipboard suggestions** (off by default): newly copied text appears in the candidate bar, and the last 24 hours of history stay on the device only.
 - **Calculator on the number page**: typing `1+1` offers `2` and `1+1=2`.
 - **Auto-paired brackets**: `()`, `（）`, `「」` and more, with the cursor placed between them.
-- Categorized symbols, emoji and kaomoji; the symbol column on the number page is customizable.
+- **Symbol panel**: categorized symbols, emoji and kaomoji. In portrait, ABC, the panel switch, search and delete sit in a bottom bar, symbols come in pages, and the first page shows Chinese or Japanese punctuation to match the input language. The symbol column on the number page is customizable.
 
 ### Personalization
 
@@ -56,7 +61,8 @@ The companion app handles setup, typing practice, appearance and settings. The k
 ### Companion app
 
 - **Three-step setup**: add the keyboard, allow full access and switch to Vime; once done, the app opens the typing practice.
-- **Typing practice**: type a sample sentence, and correct characters turn blue as you go.
+- **Typing practice**: Japanese or Chinese sample sentences to match the input language; correct characters turn blue as you go.
+- **Input Methods settings**: choose Japanese romaji, the kana pad and Simplified Chinese. Conversion options are grouped by Japanese, Chinese and English, and the user dictionary has a Japanese page and a Chinese page.
 - A status card in Settings shows whether the keyboard is working, which model version is loaded and how much it has learned.
 - The interface is available in Simplified Chinese, Traditional Chinese, Japanese, English and Korean.
 
@@ -64,10 +70,10 @@ The companion app handles setup, typing practice, appearance and settings. The k
 
 Requires iOS 18 or later and an Xcode version that supports the project's SDK.
 
-1. Open [Vime.xcodeproj](Vime.xcodeproj) in Xcode and select the `Vime` scheme. The first build resolves the pinned SwiftPM dependencies; model and tokenizer resources are already in the repository.
-2. Before installing on a device, set up signing for the app and the `VimeKeyboard` extension. Both must share the same App Group (currently `group.com.Voltline.Vime`). See the [development guide](Docs/Development.md) (in Chinese).
+1. Open [Vime.xcodeproj](../../Vime.xcodeproj) in Xcode and select the `Vime` scheme. The first build resolves the pinned SwiftPM dependencies; model and tokenizer resources are already in the repository.
+2. Before installing on a device, set up signing for the app and the `VimeKeyboard` extension. Both must share the same App Group (currently `group.com.Voltline.Vime`). See the [development guide](../Development.md) (in Chinese).
 3. Run the app and follow the setup on the home screen, or add Vime manually under Settings → General → Keyboard → Keyboards → Add New Keyboard.
-4. In any text field, long-press the globe key and choose "Vime 日本語".
+4. In any text field, long-press the globe key and choose "Vime".
 
 Basic offline typing works without Allow Full Access. Key sounds and haptics, settings shared between the app and keyboard, custom skins, user dictionary sync and clipboard suggestions require it. After changing settings, switch to another keyboard and back so the extension reloads them.
 
@@ -96,7 +102,7 @@ Candidate quality depends on the dictionary, the context and the lookup time bud
 
 - Conversion, correction, ranking, suggestions and learning all happen on the device. Vime contains no networking code and never uploads what you type or copy.
 - Learning data, the user dictionary and skins live in the shared App Group container; clipboard history is excluded from system backups.
-- See the full [privacy policy](Docs/Guides/Privacy.en.md) (also in [日本語](Docs/Guides/Privacy.ja.md), [简体中文](Docs/Guides/Privacy.md), [繁體中文](Docs/Guides/Privacy.zh-Hant.md) and [한국어](Docs/Guides/Privacy.ko.md)).
+- See the full [privacy policy](../Guides/Privacy.en.md) (also in [日本語](../Guides/Privacy.ja.md), [简体中文](../Guides/Privacy.md), [繁體中文](../Guides/Privacy.zh-Hant.md) and [한국어](../Guides/Privacy.ko.md)).
 
 ## Project layout
 
@@ -120,17 +126,17 @@ python3 Scripts/validate_model_resources.py
 python3 Scripts/validate_app_resources.py
 ```
 
-The first validates model manifests, tokenizers and SHA256 checksums. The second checks license notices, privacy policies and that the localization catalog is complete. UI strings live in `Shared/Resources/Localizable.xcstrings`, and new strings need all five languages. The full test workflow (`Scripts/verify_review.sh`), how to verify the real keyboard extension and troubleshooting tips are in the [development guide](Docs/Development.md).
+The first validates model manifests, tokenizers and SHA256 checksums. The second checks license notices, privacy policies and that the localization catalog is complete. UI strings live in `Shared/Resources/Localizable.xcstrings`, and new strings need all five languages. The full test workflow (`Scripts/verify_review.sh`), how to verify the real keyboard extension and troubleshooting tips are in the [development guide](../Development.md).
 
 ## Documentation
 
 The detailed documentation is written in Chinese.
 
-- [Documentation index](Docs/README.md)
-- Usage: [App settings](Docs/Guides/AppSettings.md) · [Custom skins](Docs/Guides/CustomSkins.md) · [User dictionary](Docs/Guides/UserDictionary.md) · [Accessibility](Docs/Guides/Accessibility.md)
-- Development: [Project layout](Docs/ProjectLayout.md) · [Development and verification](Docs/Development.md) · [Japanese model](Docs/Models/JapaneseModel.md)
-- Architecture: [Input pipeline](Docs/Architecture/InputPipeline.md) · [Candidates and suggestions](Docs/Architecture/Candidates.md) · [Learning and personalization](Docs/Architecture/Personalization.md) · [Input backends](Docs/Architecture/InputBackends.md) · [Emoji rendering](Docs/Architecture/EmojiRendering.md)
+- [Documentation index](../README.md)
+- Usage: [App settings](../Guides/AppSettings.md) · [Custom skins](../Guides/CustomSkins.md) · [User dictionary](../Guides/UserDictionary.md) · [Accessibility](../Guides/Accessibility.md)
+- Development: [Project layout](../ProjectLayout.md) · [Development and verification](../Development.md) · [Japanese model](../Models/JapaneseModel.md)
+- Architecture: [Input pipeline](../Architecture/InputPipeline.md) · [Candidates and suggestions](../Architecture/Candidates.md) · [Learning and personalization](../Architecture/Personalization.md) · [Input backends](../Architecture/InputBackends.md) · [Emoji rendering](../Architecture/EmojiRendering.md)
 
 ## License and acknowledgements
 
-Vime is released under [GPL-3.0-or-later](LICENSE), with an additional permission under GPLv3 section 7 that allows distribution through app stores such as the App Store as long as the Corresponding Source is offered; see [LICENSE-EXCEPTION](LICENSE-EXCEPTION). Versions before 2026-10-22 were released under GPL-2.0-only. The bundled [VimeML](https://github.com/Voltline/VimeML) Japanese model uses the same license; its training data attribution is in the third-party notices. Kana-kanji conversion uses [AzooKeyKanaKanjiConverter](https://github.com/azooKey/AzooKeyKanaKanjiConverter), and tokenization uses [SentencePiece](https://github.com/google/sentencepiece). Chinese input uses [librime](https://github.com/rime/librime) and [OpenCC](https://github.com/BYVoid/OpenCC); the pinyin dictionary contains CC BY-SA 4.0 data and is distributed under the same license. Licenses, acknowledgements and sources for third-party code and data are in [ThirdPartyNotices.txt](Shared/Resources/ThirdPartyNotices.txt), the [SentencePiece LICENSE](Dependencies/VimeSentencePiece/LICENSE) and the [language resource sources](Shared/Resources/LanguageResourceSources.json). The full texts are also available in the app under Settings → About Vime → Open Source Licenses.
+Vime is released under [GPL-3.0-or-later](../../LICENSE), with an additional permission under GPLv3 section 7 that allows distribution through app stores such as the App Store as long as the Corresponding Source is offered; see [LICENSE-EXCEPTION](../../LICENSE-EXCEPTION). Versions before 2026-10-22 were released under GPL-2.0-only. The bundled [VimeML](https://github.com/Voltline/VimeML) Japanese model uses the same license; its training data attribution is in the third-party notices. Kana-kanji conversion uses [AzooKeyKanaKanjiConverter](https://github.com/azooKey/AzooKeyKanaKanjiConverter), and tokenization uses [SentencePiece](https://github.com/google/sentencepiece). Chinese input uses [librime](https://github.com/rime/librime) and [OpenCC](https://github.com/BYVoid/OpenCC); the pinyin dictionary contains CC BY-SA 4.0 data and is distributed under the same license. Licenses, acknowledgements and sources for third-party code and data are in [ThirdPartyNotices.txt](../../Shared/Resources/ThirdPartyNotices.txt), the [SentencePiece LICENSE](../../Dependencies/VimeSentencePiece/LICENSE) and the [language resource sources](../../Shared/Resources/LanguageResourceSources.json). The full texts are also available in the app under Settings → About Vime → Open Source Licenses.

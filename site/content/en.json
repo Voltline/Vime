@@ -8,25 +8,93 @@
     "source": "Source"
   },
   "home": {
-    "title": "Vime: an offline Japanese keyboard",
-    "description": "Vime is a fully offline Japanese keyboard for iOS with romaji and 12-key kana layouts. Conversion, correction and suggestions all run on your device.",
-    "tagline": "A fully offline Japanese keyboard for iOS",
-    "intro": "Type in romaji or on a 12-key kana pad. Conversion, correction and suggestions all happen on your device.",
+    "title": "Vime: an offline multilingual keyboard",
+    "description": "Vime is a fully offline multilingual keyboard for iOS that types Japanese, Chinese and English. Conversion, correction, learning and suggestions all run on your device.",
+    "tagline": "A fully offline multilingual keyboard for iOS",
+    "intro": "Japanese, Chinese and English in one keyboard. On-device models rank candidates, fix typos and suggest the next word, so what you type never leaves your phone.",
     "appstore": "Download on the App Store",
     "source": "View the source",
     "versions": "Version status",
     "points": [
       {
-        "title": "Your typing stays on your device",
-        "text": "Conversion, correction, learning and suggestions all run locally. Vime contains no networking code."
+        "title": "Nothing leaves your device",
+        "text": "Conversion, correction, learning and suggestions run on your phone. Vime contains no networking code."
       },
       {
-        "title": "Two Japanese layouts",
-        "text": "Full romaji QWERTY, or a 12-key kana pad with flick and toggle input."
+        "title": "Japanese, Chinese, English",
+        "text": "Type Japanese in romaji or on the kana pad and Chinese in pinyin, Simplified or Traditional. Swipe up on the language key to switch."
       },
       {
-        "title": "Candidates that read the context",
-        "text": "A local language model ranks candidates using the preceding text, then suggests the next word."
+        "title": "On-device language models",
+        "text": "Japanese and Chinese each have a small model that ranks candidates by what you wrote before."
+      },
+      {
+        "title": "Open source",
+        "text": "Released under GPL-3.0-or-later; the code and the models are on GitHub."
+      }
+    ],
+    "sections": [
+      {
+        "shot": "ja-segments",
+        "kicker": "Japanese",
+        "title": "Whole sentences, adjustable segments",
+        "text": "A romaji QWERTY layout or the 12-key kana pad. Kana appear as you type while conversion updates in the background, never holding you up.",
+        "items": [
+          "Sentence and segment conversion; − / + resize the first segment",
+          "Live conversion (ライブ変換) shows the converted text as you type",
+          "Undo a conversion: tap ↩ to go back to the reading",
+          "Correction candidates for neighbouring-key slips and similar sounds",
+          "Find Japanese kanji words by Chinese pinyin, such as jiancha → 検察"
+        ]
+      },
+      {
+        "shot": "zh-next",
+        "kicker": "Chinese",
+        "title": "Pinyin that reads the context",
+        "text": "Full pinyin built on librime, with an on-device Chinese model that picks the most natural of several sentences.",
+        "items": [
+          "Whole sentences, initials-only abbreviations and unfinished syllables",
+          "Typo correction for neighbouring keys, swapped letters, and a missing or extra letter",
+          "After a short pause, checks the whole sentence for mistyped pinyin",
+          "Fuzzy pinyin, next-word suggestions, Simplified or Traditional",
+          "English words starting with a capital stay as typed in the sentence"
+        ]
+      },
+      {
+        "shot": "symbols",
+        "kicker": "Symbols and tools",
+        "title": "Everything close at hand",
+        "text": "Symbols, emoji and kaomoji in pages, with a bottom bar to switch and search. The first page shows Chinese or Japanese punctuation to match the input language.",
+        "items": [
+          "A calculator on the number page: 1+1 → 2, 1+1=2",
+          "Auto-paired brackets with the cursor in between",
+          "Clipboard suggestions and a 24-hour history (off by default, on device only)",
+          "Swipe up on letter keys for symbols; slide across the keys to move the cursor"
+        ]
+      },
+      {
+        "shot": "customize",
+        "kicker": "Personalization",
+        "title": "Make it yours",
+        "text": "Built-in looks, or skins of your own with your images and colors, shared as .vimeskin files.",
+        "items": [
+          "Drag to adjust the keyboard height",
+          "Key sounds and continuously adjustable haptics",
+          "One-handed mode in portrait, left or right",
+          "VoiceOver, larger text, bold text and increased contrast"
+        ]
+      },
+      {
+        "shot": "settings",
+        "kicker": "Companion app",
+        "title": "Clear settings, learning you control",
+        "text": "Setup takes three steps, and the typing page offers Japanese or Chinese practice to match the input language.",
+        "items": [
+          "Choose Japanese romaji, the kana pad and Simplified Chinese on the Input Methods page",
+          "Separate Japanese and Chinese user dictionaries, with import and export",
+          "Review and delete words learned from pinyin, or clear all learning at once",
+          "Interface in Simplified Chinese, Traditional Chinese, Japanese, English and Korean"
+        ]
       }
     ],
     "requirements": "Requires iOS 18 or later.",

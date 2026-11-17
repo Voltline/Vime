@@ -1,10 +1,10 @@
 # Vime
 
-[简体中文](README.md) | [繁體中文](README.zh-Hant.md) | [English](README.en.md) | **日本語** | [한국어](README.ko.md)
+[简体中文](../../README.md) | [繁體中文](README.zh-Hant.md) | [English](README.en.md) | **日本語** | [한국어](README.ko.md)
 
 ![Platform](https://img.shields.io/badge/platform-iOS%2018%2B-blue) ![Swift](https://img.shields.io/badge/Swift-UIKit%20%2B%20SwiftUI-orange) ![License](https://img.shields.io/badge/license-GPL--3.0--or--later-green)
 
-Vime は完全オフラインで動く iOS 向けの日本語キーボードです。ピンインで簡体字・繁体字の中国語も入力できます。ローマ字 QWERTY とかな 12 キーの 2 種類の配列に対応し、ひらがな・カタカナ・英字をいつでも切り替えられます。かな漢字変換は [azooKey](https://github.com/azooKey/AzooKeyKanaKanjiConverter) の辞書エンジンをベースに、端末上の小さな Core ML 言語モデルで候補を並べ替え、確定後には次の単語を予測します。中国語のピンイン入力は [librime](https://github.com/rime/librime) をベースにしています。変換・誤入力補正・学習・予測はすべて端末内で処理され、入力内容が送信されることはありません。
+Vime は完全オフラインで動く iOS 向けの多言語キーボードです。日本語、中国語（ピンイン、簡体字・繁体字）、英語を入力できます。日本語はローマ字 QWERTY とかな 12 キーの 2 種類の配列に対応し、ひらがな・カタカナ・英字をいつでも切り替えられます。かな漢字変換は [azooKey](https://github.com/azooKey/AzooKeyKanaKanjiConverter) の辞書エンジン、中国語のピンイン入力は [librime](https://github.com/rime/librime) をベースにしています。日本語と中国語にはそれぞれ端末上の小さな Core ML 言語モデルがあり、前の文脈から候補を並べ替え、確定後には次の単語を予測します。変換・誤入力補正・学習・予測はすべて端末内で処理され、入力内容が送信されることはありません。
 
 本体アプリでは、セットアップの案内、タイピング練習、着せ替え、各種設定を行えます。キーボード拡張は、サードパーティ製キーボードに対応するすべてのアプリで使えます。
 
@@ -31,20 +31,25 @@ Vime は完全オフラインで動く iOS 向けの日本語キーボードで�
 
 ### 中国語入力
 
-- **ピンイン入力**：librime をベースにした全拼入力。文単位の入力、声母だけの略記、打ちかけの音節の補完に対応し、よくある隣のキーの押し間違いや文字の入れ替わりも認識します。
-- **中英混合入力**：同じ入力の中で英単語をそのまま打てます。
-- **簡体字・繁体字の切り替え**：ツールバーの「简 / 繁」ボタンで切り替えます。繁体字は OpenCC で変換します。
-- **日中の切り替え**：言語キーを上にフリックすると日本語と中国語を切り替えられます。設定でも選べ、不要なら中国語入力をオフにできます。
-- **端末内学習**：選んだ語が上位に来ます。確定直後に削除キーで消すと、そのときの学習も取り消されます。中国語の学習履歴は個別に消去できます。
-- 辞書は複数のオープンな語彙リストと頻度データから生成しています。出典はサードパーティ通知を参照してください。
+- **ピンイン入力**：librime をベースにした全拼入力。文単位の入力、声母だけの略記、打ちかけの音節の補完に対応します。
+- **中国語のスマート並べ替え**：端末上の中国語モデル（INT8、CPU のみ）が文脈から候補を並べ替え、Rime が出す複数の文から最も自然なものを選び、長い文では不自然な語を入れ替えます。設定でオフにできます。
+- **ピンインの誤入力補正**：隣のキーの押し間違い、文字の入れ替わり、1 文字の打ち漏れや打ちすぎでも目的の語が見つかります。音節をまたぐ誤りや文全体の打ち間違いも、少し止まると補正した候補が出ます。
+- **あいまいピンイン**：z/zh・c/ch・s/sh、前鼻音と後鼻音、n/l・f/h・r/l をそれぞれオンにできます。
+- **次の単語の予測**：中国語を確定すると、続きによく使われる語を候補バーに表示し、選ぶとさらに続けて予測します。
+- **中英混在入力**：同じ入力の中で英単語をそのまま打てます。大文字で始まる語（Vime、GPT など）は打ったまま文に残ります。
+- **簡体字・繁体字の切り替え**：ツールバーの「简 / 繁」ボタンで切り替えます。繁体字への変換には OpenCC を使います。
+- **日本語と中国語の切り替え**：言語キーを上にフリックすると切り替わります。「入力方式」画面で既定の言語を選んだり、使わない入力方式をオフにしたりできます。
+- **端末内の学習**：選んだ語ほど上位に表示されます。確定直後に削除キーで消すと、その学習も取り消されます。学習した語は 1 件ずつ確認・削除でき、Rime 形式のテキストで読み込み・書き出しも、まとめて消去もできます。
+- **中国語のユーザ辞書**：完全なピンインか頭文字（`wm` など）で、登録した語を先頭に出せます。
+- 辞書は複数のオープンソースの単語リストと頻度データから生成し、新しいブランド名・ネット用語・ゲーム用語も補っています。出典はサードパーティ通知に記載しています。
 
 ### 便利な機能
 
-- **ユーザ辞書と短縮入力**：Google 日本語入力・Microsoft IME・ATOK・macOS の辞書を読み込め、JSON か Google 日本語入力 用テキストで書き出せます（最大 1,024 件）。iOS のユーザ辞書（テキスト置換）もそのまま使えます。
+- **ユーザ辞書と短縮入力**：日本語用と中国語用があり、それぞれ最大 1,024 件。日本語の辞書は Google 日本語入力・Microsoft IME・ATOK・macOS の辞書を読み込め、JSON か Google 日本語入力 用テキストで書き出せます。中国語の辞書は JSON かテキストで読み込み・書き出しできます。iOS のユーザ辞書（テキスト置換）もそのまま使えます。
 - **クリップボードの候補表示**（初期設定はオフ）：新しくコピーした文字が候補バーに表示されます。直近 24 時間の履歴は端末内にのみ保存されます。
 - **数字ページで計算**：`1+1` と入力すると `2` と `1+1=2` を候補に表示します。
 - **括弧の自動補完**：`()`・`（）`・`「」` などを対で入力し、カーソルを中に置きます。
-- カテゴリ別の記号・絵文字・顔文字パネル。数字ページ左側の記号列はカスタマイズできます。
+- **記号パネル**：カテゴリ別の記号・絵文字・顔文字。縦向きでは ABC、パネルの切り替え、検索、削除キーが下のバーにまとまり、記号はページ単位で並び、最初のページは入力言語に合わせて中国語か日本語の句読点を表示します。数字ページ左側の記号列はカスタマイズできます。
 
 ### カスタマイズ
 
@@ -56,7 +61,8 @@ Vime は完全オフラインで動く iOS 向けの日本語キーボードで�
 ### 本体アプリ
 
 - **3 ステップのセットアップ**：キーボードの追加、フルアクセスの許可、Vime への切り替え。完了すると自動でタイピング練習に移ります。
-- **タイピング練習**：例文をなぞって入力すると、正しく打てた文字から順に青く変わります。
+- **タイピング練習**：入力言語に合わせて日本語か中国語の例文を表示し、正しく打てた文字から順に青く変わります。
+- **入力方式の設定**：日本語ローマ字・かな 12 キー・簡体字中国語を選べます。変換の設定は日本語・中国語・英語ごとにまとまり、ユーザ辞書は日本語と中国語のページに分かれています。
 - 設定画面のステータスカードで、キーボードの動作状況、読み込まれたモデルのバージョン、学習の状況を確認できます。
 - 表示言語は簡体字中国語・繁体字中国語・日本語・英語・韓国語に対応しています。
 
@@ -64,10 +70,10 @@ Vime は完全オフラインで動く iOS 向けの日本語キーボードで�
 
 iOS 18 以降と、プロジェクトの SDK に対応した Xcode が必要です。
 
-1. Xcode で [Vime.xcodeproj](Vime.xcodeproj) を開き、`Vime` スキームを選択します。初回ビルドでは固定バージョンの SwiftPM 依存関係を解決します。モデルとトークナイザのリソースはリポジトリに含まれています。
-2. 実機にインストールする前に、本体アプリと `VimeKeyboard` 拡張の署名を設定します。両者は同じ App Group（現在は `group.com.Voltline.Vime`）を使う必要があります。詳しくは[開発ガイド](Docs/Development.md)（中国語）をご覧ください。
+1. Xcode で [Vime.xcodeproj](../../Vime.xcodeproj) を開き、`Vime` スキームを選択します。初回ビルドでは固定バージョンの SwiftPM 依存関係を解決します。モデルとトークナイザのリソースはリポジトリに含まれています。
+2. 実機にインストールする前に、本体アプリと `VimeKeyboard` 拡張の署名を設定します。両者は同じ App Group（現在は `group.com.Voltline.Vime`）を使う必要があります。詳しくは[開発ガイド](../Development.md)（中国語）をご覧ください。
 3. 本体アプリを起動してホーム画面の案内に従うか、「設定 → 一般 → キーボード → キーボード → 新しいキーボードを追加」から手動で Vime を追加します。
-4. 任意の入力欄で地球儀キーを長押しし、「Vime 日本語」を選びます。
+4. 任意の入力欄で地球儀キーを長押しし、「Vime」を選びます。
 
 基本的なオフライン入力には「フルアクセスを許可」は不要です。キー音と振動、アプリとキーボード間の設定共有、カスタムスキン、ユーザ辞書の同期、クリップボードの候補表示にはフルアクセスが必要です。設定を変更したあとは、ほかのキーボードに切り替えてから戻すと、拡張が設定を読み込み直します。
 
@@ -96,7 +102,7 @@ iOS 18 以降と、プロジェクトの SDK に対応した Xcode が必要で�
 
 - 変換・補正・並べ替え・予測・学習はすべて端末上で行われます。Vime には通信を行うコードが含まれておらず、入力やコピーした内容を送信することはありません。
 - 学習データ、ユーザ辞書、スキンは App Group の共有コンテナに保存され、クリップボード履歴はシステムのバックアップから除外されます。
-- 詳しくは[プライバシーポリシー](Docs/Guides/Privacy.ja.md)をご覧ください（[English](Docs/Guides/Privacy.en.md)・[简体中文](Docs/Guides/Privacy.md)・[繁體中文](Docs/Guides/Privacy.zh-Hant.md)・[한국어](Docs/Guides/Privacy.ko.md) 版もあります）。
+- 詳しくは[プライバシーポリシー](../Guides/Privacy.ja.md)をご覧ください（[English](../Guides/Privacy.en.md)・[简体中文](../Guides/Privacy.md)・[繁體中文](../Guides/Privacy.zh-Hant.md)・[한국어](../Guides/Privacy.ko.md) 版もあります）。
 
 ## プロジェクト構成
 
@@ -120,17 +126,17 @@ python3 Scripts/validate_model_resources.py
 python3 Scripts/validate_app_resources.py
 ```
 
-前者はモデルの manifest、トークナイザ、SHA256 を、後者はライセンス表記、プライバシーポリシー、ローカライズカタログが揃っているかを検証します。UI の文字列は `Shared/Resources/Localizable.xcstrings` にまとめており、新しい文字列には 5 言語すべての翻訳が必要です。テスト全体の手順（`Scripts/verify_review.sh`）、実際のキーボード拡張での確認方法、トラブルシューティングは[開発ガイド](Docs/Development.md)にあります。
+前者はモデルの manifest、トークナイザ、SHA256 を、後者はライセンス表記、プライバシーポリシー、ローカライズカタログが揃っているかを検証します。UI の文字列は `Shared/Resources/Localizable.xcstrings` にまとめており、新しい文字列には 5 言語すべての翻訳が必要です。テスト全体の手順（`Scripts/verify_review.sh`）、実際のキーボード拡張での確認方法、トラブルシューティングは[開発ガイド](../Development.md)にあります。
 
 ## ドキュメント
 
 詳細なドキュメントは中国語で書かれています。
 
-- [ドキュメント一覧](Docs/README.md)
-- 使い方：[アプリの設定](Docs/Guides/AppSettings.md) · [カスタムスキン](Docs/Guides/CustomSkins.md) · [ユーザ辞書](Docs/Guides/UserDictionary.md) · [アクセシビリティ](Docs/Guides/Accessibility.md)
-- 開発：[プロジェクト構成](Docs/ProjectLayout.md) · [開発と検証](Docs/Development.md) · [日本語モデル](Docs/Models/JapaneseModel.md)
-- アーキテクチャ：[入力とホスト](Docs/Architecture/InputPipeline.md) · [候補と予測](Docs/Architecture/Candidates.md) · [学習と個人化](Docs/Architecture/Personalization.md) · [入力バックエンド](Docs/Architecture/InputBackends.md) · [絵文字の表示](Docs/Architecture/EmojiRendering.md)
+- [ドキュメント一覧](../README.md)
+- 使い方：[アプリの設定](../Guides/AppSettings.md) · [カスタムスキン](../Guides/CustomSkins.md) · [ユーザ辞書](../Guides/UserDictionary.md) · [アクセシビリティ](../Guides/Accessibility.md)
+- 開発：[プロジェクト構成](../ProjectLayout.md) · [開発と検証](../Development.md) · [日本語モデル](../Models/JapaneseModel.md)
+- アーキテクチャ：[入力とホスト](../Architecture/InputPipeline.md) · [候補と予測](../Architecture/Candidates.md) · [学習と個人化](../Architecture/Personalization.md) · [入力バックエンド](../Architecture/InputBackends.md) · [絵文字の表示](../Architecture/EmojiRendering.md)
 
 ## ライセンスと謝辞
 
-Vime は [GPL-3.0-or-later](LICENSE) で公開しており、GPLv3 第 7 条に基づく追加許可として、対応するソースコードを提供することを条件に App Store などのアプリストアでの配布を認めています（[LICENSE-EXCEPTION](LICENSE-EXCEPTION)）。2026-10-22 より前のバージョンは GPL-2.0-only です。同梱の日本語モデル [VimeML](https://github.com/Voltline/VimeML) も同じライセンスで、学習データの帰属表示はサードパーティ通知に記載しています。かな漢字変換には [AzooKeyKanaKanjiConverter](https://github.com/azooKey/AzooKeyKanaKanjiConverter)、トークナイズには [SentencePiece](https://github.com/google/sentencepiece) を使用しています。中国語入力には [librime](https://github.com/rime/librime) と [OpenCC](https://github.com/BYVoid/OpenCC) を使用しており、ピンイン辞書は CC BY-SA 4.0 のデータを含むため同じライセンスで配布しています。サードパーティのコードとデータのライセンス、謝辞、出典は [ThirdPartyNotices.txt](Shared/Resources/ThirdPartyNotices.txt)、[SentencePiece LICENSE](Dependencies/VimeSentencePiece/LICENSE)、[言語リソースの出典一覧](Shared/Resources/LanguageResourceSources.json) にまとめています。アプリ内の「設定 → Vime について → オープンソースとライセンス」でも全文を確認できます。
+Vime は [GPL-3.0-or-later](../../LICENSE) で公開しており、GPLv3 第 7 条に基づく追加許可として、対応するソースコードを提供することを条件に App Store などのアプリストアでの配布を認めています（[LICENSE-EXCEPTION](../../LICENSE-EXCEPTION)）。2026-10-22 より前のバージョンは GPL-2.0-only です。同梱の日本語モデル [VimeML](https://github.com/Voltline/VimeML) も同じライセンスで、学習データの帰属表示はサードパーティ通知に記載しています。かな漢字変換には [AzooKeyKanaKanjiConverter](https://github.com/azooKey/AzooKeyKanaKanjiConverter)、トークナイズには [SentencePiece](https://github.com/google/sentencepiece) を使用しています。中国語入力には [librime](https://github.com/rime/librime) と [OpenCC](https://github.com/BYVoid/OpenCC) を使用しており、ピンイン辞書は CC BY-SA 4.0 のデータを含むため同じライセンスで配布しています。サードパーティのコードとデータのライセンス、謝辞、出典は [ThirdPartyNotices.txt](../../Shared/Resources/ThirdPartyNotices.txt)、[SentencePiece LICENSE](../../Dependencies/VimeSentencePiece/LICENSE)、[言語リソースの出典一覧](../../Shared/Resources/LanguageResourceSources.json) にまとめています。アプリ内の「設定 → Vime について → オープンソースとライセンス」でも全文を確認できます。
