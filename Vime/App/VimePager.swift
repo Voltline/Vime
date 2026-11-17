@@ -16,13 +16,18 @@ struct VimePager<Page: Hashable, Content: View>: View {
         TabView(selection: $selection) {
             ForEach(Array(pages.enumerated()), id: \.element) { index, page in
                 content(page)
+                    // A page first laid out off screen inherits no leading
+                    // margin and keeps it; its list takes fixed margins instead.
+                    .environment(\.pagedList, true)
                     .background {
                         // Where this page sits tells how far the swipe is.
+                        // Only the left one of the two pages on screen reports,
+                        // so they never disagree mid-swipe and make the thumb jump.
                         GeometryReader { proxy in
                             Color.clear.onChange(of: proxy.frame(in: .global).minX, initial: true) { _, x in
                                 let width = proxy.size.width
-                                guard width > 0, abs(x) < width else { return }
-                                progress = CGFloat(index) - x / width
+                                guard width > 0, x <= 0.5, x > -width else { return }
+                                progress = min(max(CGFloat(index) - x / width, 0), CGFloat(pages.count - 1))
                             }
                         }
                     }
@@ -36,7 +41,7 @@ struct VimePager<Page: Hashable, Content: View>: View {
         .onAppear { progress = CGFloat(pages.firstIndex(of: selection) ?? 0) }
         .onChange(of: selection) { _, page in
             guard let index = pages.firstIndex(of: page) else { return }
-            if abs(progress - CGFloat(index)) > 0.5 { withAnimation(.snappy) { progress = CGFloat(index) } }
+            if abs(progress - CGFloat(index)) > 0.9 { withAnimation(.snappy) { progress = CGFloat(index) } }
         }
     }
 }

@@ -26,9 +26,9 @@ struct ChineseUserDictionaryList: View {
         List {
             Section {
                 if visibleEntries.isEmpty {
-                    ContentUnavailableView(entries.isEmpty ? "添加你的常用词" : "没有匹配的词条",
-                        systemImage: "character.book.closed",
-                        description: Text(entries.isEmpty ? "点右上角 +，记下姓名、专业词或常用短语。" : "试试其他词语或拼音。"))
+                    ContentUnavailableView(entries.isEmpty ? "添加中文常用词" : "没有匹配的词条",
+                        systemImage: "character.book.closed.zh",
+                        description: Text(entries.isEmpty ? "点右上角 +，填写词语和拼音，打拼音时就会出现在候选里。" : "试试其他词语或拼音。"))
                         .listRowBackground(Color.clear)
                 }
                 ForEach(visibleEntries) { entry in

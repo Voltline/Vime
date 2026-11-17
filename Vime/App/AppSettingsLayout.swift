@@ -27,14 +27,25 @@ enum AppReadableColumn {
     }
 }
 
+extension EnvironmentValues {
+    /// Set on lists that are pages of a VimePager.
+    @Entry var pagedList = false
+}
+
 private struct AppReadableListMargins: ViewModifier {
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.pagedList) private var paged
     @State private var width: CGFloat = 0
     func body(content: Content) -> some View {
         content
-            .contentMargins(.horizontal, AppReadableColumn.centers(sizeClass)
-                ? max(20, (width - AppReadableColumn.width) / 2) : nil, for: .scrollContent)
+            .contentMargins(.horizontal, margin, for: .scrollContent)
             .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
+    }
+
+    private var margin: CGFloat? {
+        if AppReadableColumn.centers(sizeClass) { return max(20, (width - AppReadableColumn.width) / 2) }
+        // The system's own list margins: 16 points, 20 on wider phones.
+        return paged && width > 0 ? (width < 414 ? 16 : 20) : nil
     }
 }
 
