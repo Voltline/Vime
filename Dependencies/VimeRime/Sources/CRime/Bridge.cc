@@ -13,7 +13,12 @@
 #include <rime/composition.h>
 #include <rime/context.h>
 #include <rime/deployer.h>
+#include <rime/dict/db_utils.h>
 #include <rime/dict/dictionary.h>
+#include <rime/dict/level_db.h>
+#include <rime/dict/table_db.h>
+#include <rime/dict/tsv.h>
+#include <rime/dict/user_db.h>
 #include <rime/dict/table.h>
 #include <rime/gear/opencc.h>
 #include <rime/gear/translator_commons.h>
@@ -473,3 +478,40 @@ char *vime_rime_character_readings(const char *table) {
 }
 
 void vime_rime_string_free(char *text) { std::free(text); }
+
+int32_t vime_rime_userdb_export(const char *database, const char *name, const char *text) {
+    if (!database || !name || !text) return -1;
+    try {
+        rime::UserDbWrapper<rime::LevelDb> db{rime::path(database), name};
+        if (!db.OpenReadOnly()) return -1;
+        int32_t count = -1;
+        if (rime::UserDbHelper(&db).IsUserDb()) {
+            rime::TsvWriter writer(rime::path(text), rime::TableDb::format.formatter);
+            writer.file_description = "Rime user dictionary export";
+            rime::DbSource source(&db);
+            count = writer << source;
+        }
+        db.Close();
+        return count;
+    } catch (...) {
+        return -1;
+    }
+}
+
+int32_t vime_rime_userdb_import(const char *database, const char *name, const char *text) {
+    if (!database || !name || !text) return -1;
+    try {
+        rime::UserDbWrapper<rime::LevelDb> db{rime::path(database), name};
+        if (!db.Open()) return -1;
+        int32_t count = -1;
+        if (rime::UserDbHelper(&db).IsUserDb()) {
+            rime::TsvReader reader(rime::path(text), rime::TableDb::format.parser);
+            rime::UserDbImporter importer(&db);
+            count = reader >> importer;
+        }
+        db.Close();
+        return count;
+    } catch (...) {
+        return -1;
+    }
+}

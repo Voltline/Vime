@@ -477,7 +477,10 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         keysContainer.onDeleteLine = { [weak self] in
             guard let self else { return }
             self.session.invalidateLearningFeedback()
-            self.apply(self.session.confirmAll() + [.deleteToLineStart])
+            let edits = self.session.confirmAll()
+            // The line's suggestions go with it.
+            self.session.dismissSuggestions()
+            self.apply(edits + [.deleteToLineStart])
         }
         divider.isHidden = true
         for button in [brandButton, modeButton, undoButton, expandButton] {

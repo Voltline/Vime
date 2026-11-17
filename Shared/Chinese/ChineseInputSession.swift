@@ -32,7 +32,10 @@ final class ChineseInputSession: KeyboardInputSession {
     /// Display order of the shown candidates, as indices into Rime's list.
     private var order: [Int] = []
     /// What each shown presentation is: Rime's candidate or a correction.
-    private enum Slot { case rime(Int), correction(Int) }
+    private enum Slot { case rime(Int), correction(Int), phrase(Int) }
+    /// The user's phrases the whole input spells; they show first.
+    private var phrases: [ChineseUserPhrase] = []
+    private let userDictionary: ChineseUserDictionaryStore
     private var slots: [Slot] = []
     private var shownCandidates: [RimeCandidate] = []
     /// Phrases for other spellings of the input, when Rime reads it poorly
@@ -79,8 +82,10 @@ final class ChineseInputSession: KeyboardInputSession {
     var learningContextProvider: (() -> KeyboardLearningContext?)?
 
     init(engine: RimeEngine, exclusions: LearningExclusionList = .shared,
-         exclusionsApply: @escaping () -> Bool = { LearningExclusionPolicy.isActive() }) {
+         exclusionsApply: @escaping () -> Bool = { LearningExclusionPolicy.isActive() },
+         userDictionary: ChineseUserDictionaryStore = ChineseUserDictionaryStore()) {
         self.engine = engine
+        self.userDictionary = userDictionary
         self.exclusions = exclusions
         self.exclusionsApply = exclusionsApply
         exclusionsActive = exclusionsApply()
@@ -90,7 +95,12 @@ final class ChineseInputSession: KeyboardInputSession {
     /// nil when this build carries no Rime data.
     static func bundled() -> ChineseInputSession? {
         guard let data = RimeEngine.bundledData else { return nil }
-        return ChineseInputSession(engine: RimeEngine(data: data, userDirectory: userDirectory()))
+        let directory = userDirectory()
+        // Only the keyboard's dictionary takes the app's changes.
+        let learned = Bundle.main.bundleURL.pathExtension == "appex" ? ChineseLearnedWords.shared() : nil
+        return ChineseInputSession(engine: RimeEngine(data: data, userDirectory: directory, learnedWords: learned.map {
+            ChineseLearnedWords(userDirectory: directory, pendingDirectory: $0.pendingDirectory, defaults: $0.defaults)
+        }))
     }
 
     /// The keyboard extension owns the learned dictionary in the App Group.
@@ -170,6 +180,7 @@ final class ChineseInputSession: KeyboardInputSession {
         clearSuggestions()
         if isComposing {
             // Space takes the first candidate shown, which the model may have moved.
+            if candidatesAreCurrent, case .phrase(let index)? = slots.first { return choosePhrase(index) }
             if candidatesAreCurrent, let first = order.first, first != 0 { enqueue(.select(first)) } else { enqueue(.space) }
             return []
         }
@@ -204,6 +215,7 @@ final class ChineseInputSession: KeyboardInputSession {
         guard token.sessionID == sessionID, token.generation == generation, token.kind == .composition,
               candidatesAreCurrent, isComposing, slots.indices.contains(token.index) else { return [] }
         switch slots[token.index] {
+        case .phrase(let index): return choosePhrase(index)
         case .rime(let index): enqueue(.select(index))
         case .correction(let index):
             let (spelling, candidate) = corrections[index]
@@ -536,6 +548,12 @@ final class ChineseInputSession: KeyboardInputSession {
             let shown = corrections.indices.filter { corrections[$0].candidate.text != candidates[order[0]].text }
             slots.insert(contentsOf: shown.map(Slot.correction), at: 1)
         }
+        phrases = userPhrases()
+        if !phrases.isEmpty {
+            let texts = Set(phrases.map(\.text))
+            slots.removeAll { if case .rime(let index) = $0 { texts.contains(candidates[index].text) } else { false } }
+            slots.insert(contentsOf: phrases.indices.map(Slot.phrase), at: 0)
+        }
         self.slots = slots
         presentations = slots.enumerated().map { index, slot in
             let token = CandidateSelectionToken(sessionID: sessionID, generation: generation, index: index, kind: .composition)
@@ -544,6 +562,9 @@ final class ChineseInputSession: KeyboardInputSession {
                 let candidate = candidates[source]
                 return CandidatePresentation(text: candidate.text, source: .conversion, consumedInputCount: 0, correction: nil,
                     selectionToken: token, detailAnnotation: candidate.comment.flatMap { $0.isEmpty ? nil : $0 })
+            case .phrase(let source):
+                return CandidatePresentation(text: phrases[source].text, source: .conversion, consumedInputCount: 0,
+                    correction: nil, selectionToken: token)
             case .correction(let source):
                 let (spelling, candidate) = corrections[source]
                 return CandidatePresentation(text: candidate.text, source: .typoCorrection, consumedInputCount: 0, correction: nil,
@@ -551,6 +572,26 @@ final class ChineseInputSession: KeyboardInputSession {
             }
         }
         scheduleCorrections()
+    }
+
+    // MARK: User phrases
+
+    /// Phrases for the whole input, before any part of it was chosen.
+    private func userPhrases() -> [ChineseUserPhrase] {
+        guard !state.preedit.unicodeScalars.contains(where: { $0.properties.isIdeographic }) else { return [] }
+        let letters = state.input.lowercased().filter { ("a"..."z").contains($0) }
+        guard !letters.isEmpty, letters.count == state.input.filter({ $0 != "'" }).count else { return [] }
+        return userDictionary.phrases(spelledBy: letters)
+    }
+
+    /// Commits a phrase in place of the composition; Rime learns nothing from it.
+    private func choosePhrase(_ index: Int) -> [KeyboardEdit] {
+        guard phrases.indices.contains(index) else { return [] }
+        let text = phrases[index].text
+        let edits = run(.clear)
+        clearSuggestions()
+        commitIsForgettable = false
+        return edits + [.insert(text)]
     }
 
     // MARK: Spelling corrections
