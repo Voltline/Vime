@@ -18,13 +18,13 @@ struct VimePager<Page: Hashable, Content: View>: View {
                 content(page)
                     .background {
                         // Where this page sits tells how far the swipe is.
-                        // Only the first page reports, so two pages never
-                        // disagree mid-swipe and make the thumb jump.
+                        // Only the left one of the two pages on screen reports,
+                        // so they never disagree mid-swipe and make the thumb jump.
                         GeometryReader { proxy in
                             Color.clear.onChange(of: proxy.frame(in: .global).minX, initial: true) { _, x in
                                 let width = proxy.size.width
-                                guard index == 0, width > 0 else { return }
-                                progress = min(max(-x / width, 0), CGFloat(pages.count - 1))
+                                guard width > 0, x <= 0.5, x > -width else { return }
+                                progress = min(max(CGFloat(index) - x / width, 0), CGFloat(pages.count - 1))
                             }
                         }
                     }
