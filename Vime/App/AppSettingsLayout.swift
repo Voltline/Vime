@@ -197,3 +197,24 @@ extension View {
         overlay(RoundedRectangle(cornerRadius: cornerRadius).strokeBorder(selected ? Color.vimeBlue : .clear, lineWidth: 2))
     }
 }
+
+/// The top of a settings page: its icon, name and what the page is for,
+/// so the rows below need only short subtitles.
+struct AppPageHeader: View {
+    let icon: AppIconChip.Icon
+    let tint: Color
+    let title: LocalizedStringResource
+    let detail: LocalizedStringResource
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            AppIconChip(icon: icon, tint: tint)
+            Text(title).font(.title3.weight(.bold)).foregroundStyle(.primary)
+                .accessibilityAddTraits(.isHeader)
+            Text(detail).font(.subheadline).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 6)
+        .accessibilityElement(children: .combine)
+    }
+}
