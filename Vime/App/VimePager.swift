@@ -16,6 +16,9 @@ struct VimePager<Page: Hashable, Content: View>: View {
         TabView(selection: $selection) {
             ForEach(Array(pages.enumerated()), id: \.element) { index, page in
                 content(page)
+                    // A page laid out off screen can lose its leading margin;
+                    // fixed margins keep both pages inset the same.
+                    .contentMargins(.horizontal, 20, for: .scrollContent)
                     .background {
                         // Where this page sits tells how far the swipe is.
                         // Only the left one of the two pages on screen reports,
