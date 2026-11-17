@@ -32,7 +32,7 @@ final class ChineseInputSession: KeyboardInputSession {
     /// Display order of the shown candidates, as indices into Rime's list.
     private var order: [Int] = []
     /// What each shown presentation is: Rime's candidate or a correction.
-    private enum Slot { case rime(Int), correction(Int), phrase(Int) }
+    private enum Slot { case rime(Int), correction(Int), phrase(Int), mixed(Int) }
     /// The user's phrases the whole input spells; they show first.
     private var phrases: [ChineseUserPhrase] = []
     private let userDictionary: ChineseUserDictionaryStore
@@ -53,6 +53,11 @@ final class ChineseInputSession: KeyboardInputSession {
     private var sentenceLeads = false
     private var wordCorrections: [(spelling: String, candidate: RimeCandidate)] = []
     static let shownCorrections = 2
+    /// Readings that keep letters no pinyin takes as typed (ChineseMixedInput);
+    /// the first leads while Rime's best stops short of the input.
+    private var mixed: [ChineseMixedInput.Option] = []
+    private var mixedInput = ""
+    private var mixedRequest: ChineseCandidateRanking.Request?
     /// Rime's candidates waiting for the model before they show.
     private var ranking: (request: ChineseCandidateRanking.Request, candidates: [RimeCandidate])?
     private var chineseModelEnabled = true
@@ -189,6 +194,7 @@ final class ChineseInputSession: KeyboardInputSession {
         if isComposing {
             // Space takes the first candidate shown, which the model may have moved.
             if candidatesAreCurrent, case .phrase(let index)? = slots.first { return choosePhrase(index) }
+            if candidatesAreCurrent, case .mixed(let index)? = slots.first { return chooseMixed(index) }
             if candidatesAreCurrent, case .correction(let index)? = slots.first {
                 let (spelling, candidate) = corrections[index]
                 enqueue(.selectSpelling(input: spelling, text: candidate.genuine))
@@ -227,6 +233,7 @@ final class ChineseInputSession: KeyboardInputSession {
               candidatesAreCurrent, isComposing, slots.indices.contains(token.index) else { return [] }
         switch slots[token.index] {
         case .phrase(let index): return choosePhrase(index)
+        case .mixed(let index): return chooseMixed(index)
         case .rime(let index): enqueue(.select(index))
         case .correction(let index):
             let (spelling, candidate) = corrections[index]
@@ -464,6 +471,7 @@ final class ChineseInputSession: KeyboardInputSession {
         let candidatesChanged = next.candidates != previous || presentations.isEmpty != next.candidates.isEmpty
         state = next
         if next.input != correctionInput, next.input != sentenceInput { clearCorrections() }
+        if next.input != mixedInput { clearMixed() }
         guard candidatesChanged else { return }
         ranking?.request.cancel()
         ranking = nil
@@ -564,6 +572,17 @@ final class ChineseInputSession: KeyboardInputSession {
                 slots.insert(contentsOf: shown.map(Slot.correction), at: 1)
             }
         }
+        if !mixed.isEmpty, let first = order.first, !candidates[first].coversInput {
+            if corrections.isEmpty {
+                // Rime stopped short of the input; the readings that go on lead.
+                slots.insert(.mixed(0), at: 0)
+                slots.insert(contentsOf: mixed.indices.dropFirst().map(Slot.mixed), at: min(2, slots.count))
+            } else {
+                // A typo (wixiang), not a word: its correction keeps its place.
+                let after = slots.lastIndex { if case .correction = $0 { true } else { false } } ?? 0
+                slots.insert(contentsOf: mixed.indices.map(Slot.mixed), at: min(after + 1, slots.count))
+            }
+        }
         phrases = userPhrases()
         if !phrases.isEmpty {
             let texts = Set(phrases.map(\.text))
@@ -585,8 +604,12 @@ final class ChineseInputSession: KeyboardInputSession {
                 let (spelling, candidate) = corrections[source]
                 return CandidatePresentation(text: candidate.text, source: .typoCorrection, consumedInputCount: 0, correction: nil,
                     selectionToken: token, detailAnnotation: spellingHints ? spelling : nil)
+            case .mixed(let source):
+                return CandidatePresentation(text: mixed[source].text, source: .conversion, consumedInputCount: 0,
+                    correction: nil, selectionToken: token)
             }
         }
+        scheduleMixed()
         scheduleCorrections()
         scheduleSentenceCorrection()
     }
@@ -609,6 +632,76 @@ final class ChineseInputSession: KeyboardInputSession {
         clearSuggestions()
         commitIsForgettable = false
         return edits + [.insert(text)]
+    }
+
+    // MARK: Letters no pinyin takes
+
+    private func clearMixed() {
+        mixedRequest?.cancel()
+        mixedRequest = nil
+        mixedInput = ""
+        mixed = []
+    }
+
+    /// Commits a mixed reading in place of the composition; Rime learns nothing from it.
+    private func chooseMixed(_ index: Int) -> [KeyboardEdit] {
+        guard mixed.indices.contains(index) else { return [] }
+        let text = mixed[index].text
+        let edits = run(.clear)
+        clearSuggestions()
+        commitIsForgettable = false
+        return edits + [.insert(text)]
+    }
+
+    /// When Rime's best reading stops short of the input at letters no
+    /// pinyin takes, converts the pinyin on either side of them on its own
+    /// and lets the model choose where the kept letters end.
+    private func scheduleMixed() {
+        let input = state.input
+        guard mixedInput != input, isComposing, echo.isEmpty, ranking == nil,
+              let first = order.first, shownCandidates.indices.contains(first), !shownCandidates[first].coversInput
+        else { return }
+        let splits = ChineseMixedInput.splits(for: input)
+        guard !splits.isEmpty else { return }
+        let request = ChineseCandidateRanking.Request(deadline: .infinity)
+        mixedRequest?.cancel()
+        mixedRequest = request
+        mixedInput = input
+        let context = VimeLanguageModel.sentenceContext(leftContextProvider?() ?? "")
+        engine.lookUp(ChineseMixedInput.spellings(for: splits), limit: 4,
+                      isCancelled: { request.isCancelled }) { [weak self] converted in
+            MainActor.assumeIsolated {
+                guard let self, self.mixedRequest === request, !request.isCancelled, self.state.input == input else { return }
+                let options = ChineseMixedInput.options(splits, converted: converted)
+                guard !options.isEmpty else { self.mixedRequest = nil; return }
+                self.rankMixed(options, context: context, input: input, request: request)
+            }
+        }
+    }
+
+    private func rankMixed(_ options: [ChineseMixedInput.Option], context: String, input: String,
+                           request: ChineseCandidateRanking.Request) {
+        let storage = JapaneseCandidateWorker.LanguageModelStorage.shared
+        let weighs = usesModel && options.count > 1 && storage.isReady(for: .chinese) && !storage.isSuspended
+        JapaneseCandidateWorker.modelQueue.async { [weak self] in
+            var scores: [Double]?
+            let stop = { request.isCancelled || storage.isSuspended }
+            if weighs, !stop(), let tokenizer = storage.model(for: .chinese)?.tokenizer,
+               let model = ChineseSentenceCorrection.Storage.shared.model() {
+                scores = try? ChinesePrefixScoring.scores(context: context, candidates: options.map(\.genuine),
+                                                          model: model, tokenizer: tokenizer, cancelled: stop)
+            }
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    guard let self, self.mixedRequest === request, !request.isCancelled, self.state.input == input else { return }
+                    self.mixedRequest = nil
+                    self.mixed = Array(ChineseMixedInput.ranked(options, scores: scores).prefix(ChineseMixedInput.shownOptions))
+                    guard self.ranking == nil else { return }
+                    self.show(self.shownCandidates, order: self.order)
+                    if self.received == self.sent { self.onCandidatesChange?() }
+                }
+            }
+        }
     }
 
     // MARK: Spelling corrections
