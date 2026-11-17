@@ -1,26 +1,93 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Scheme LastUpgradeVersion="2710" version="1.3">
-  <BuildAction parallelizeBuildables="YES" buildImplicitDependencies="YES">
-    <BuildActionEntries>
-      <BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">
-        <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="B2ED4C073071EF7600C73DB0" BuildableName="Vime.app" BlueprintName="Vime" ReferencedContainer="container:Vime.xcodeproj"/>
-      </BuildActionEntry>
-    </BuildActionEntries>
-  </BuildAction>
-  <TestAction buildConfiguration="Debug" language="zh-Hans" region="CN" selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier="Xcode.IDEFoundation.Launcher.LLDB" shouldUseLaunchSchemeArgsEnv="YES">
-    <Testables><TestableReference skipped="NO"><BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="D10000000000000000000004" BuildableName="VimeKeyboardTests.xctest" BlueprintName="VimeKeyboardTests" ReferencedContainer="container:Vime.xcodeproj"/></TestableReference></Testables>
-  </TestAction>
-  <LaunchAction buildConfiguration="Debug" selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier="Xcode.IDEFoundation.Launcher.LLDB" launchStyle="0" useCustomWorkingDirectory="NO" ignoresPersistentStateOnLaunch="NO" debugDocumentVersioning="YES" debugServiceExtension="internal" allowLocationSimulation="YES">
-    <BuildableProductRunnable runnableDebuggingMode="0">
-      <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="B2ED4C073071EF7600C73DB0" BuildableName="Vime.app" BlueprintName="Vime" ReferencedContainer="container:Vime.xcodeproj"/>
-    </BuildableProductRunnable>
-    <StoreKitConfigurationFileReference identifier="../../Configuration/VimeTips.storekit"/>
-  </LaunchAction>
-  <ProfileAction buildConfiguration="Release" shouldUseLaunchSchemeArgsEnv="YES" savedToolIdentifier="" useCustomWorkingDirectory="NO" debugDocumentVersioning="YES">
-    <BuildableProductRunnable runnableDebuggingMode="0">
-      <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="B2ED4C073071EF7600C73DB0" BuildableName="Vime.app" BlueprintName="Vime" ReferencedContainer="container:Vime.xcodeproj"/>
-    </BuildableProductRunnable>
-  </ProfileAction>
-  <AnalyzeAction buildConfiguration="Debug"/>
-  <ArchiveAction buildConfiguration="Release" revealArchiveInOrganizer="YES"/>
+<Scheme
+   LastUpgradeVersion = "2710"
+   version = "1.3">
+   <BuildAction
+      parallelizeBuildables = "YES"
+      buildImplicitDependencies = "YES">
+      <BuildActionEntries>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "B2ED4C073071EF7600C73DB0"
+               BuildableName = "Vime.app"
+               BlueprintName = "Vime"
+               ReferencedContainer = "container:Vime.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+      </BuildActionEntries>
+   </BuildAction>
+   <TestAction
+      buildConfiguration = "Debug"
+      selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
+      selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
+      shouldUseLaunchSchemeArgsEnv = "YES"
+      language = "zh-Hans"
+      region = "CN">
+      <Testables>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "D10000000000000000000004"
+               BuildableName = "VimeKeyboardTests.xctest"
+               BlueprintName = "VimeKeyboardTests"
+               ReferencedContainer = "container:Vime.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+      </Testables>
+   </TestAction>
+   <LaunchAction
+      buildConfiguration = "Debug"
+      selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
+      selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
+      launchStyle = "0"
+      useCustomWorkingDirectory = "NO"
+      ignoresPersistentStateOnLaunch = "NO"
+      debugDocumentVersioning = "YES"
+      debugServiceExtension = "internal"
+      allowLocationSimulation = "YES">
+      <BuildableProductRunnable
+         runnableDebuggingMode = "0">
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "B2ED4C073071EF7600C73DB0"
+            BuildableName = "Vime.app"
+            BlueprintName = "Vime"
+            ReferencedContainer = "container:Vime.xcodeproj">
+         </BuildableReference>
+      </BuildableProductRunnable>
+      <StoreKitConfigurationFileReference
+         identifier = "../../Configuration/VimeTips.storekit">
+      </StoreKitConfigurationFileReference>
+   </LaunchAction>
+   <ProfileAction
+      buildConfiguration = "Release"
+      shouldUseLaunchSchemeArgsEnv = "YES"
+      savedToolIdentifier = ""
+      useCustomWorkingDirectory = "NO"
+      debugDocumentVersioning = "YES">
+      <BuildableProductRunnable
+         runnableDebuggingMode = "0">
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "B2ED4C073071EF7600C73DB0"
+            BuildableName = "Vime.app"
+            BlueprintName = "Vime"
+            ReferencedContainer = "container:Vime.xcodeproj">
+         </BuildableReference>
+      </BuildableProductRunnable>
+   </ProfileAction>
+   <AnalyzeAction
+      buildConfiguration = "Debug">
+   </AnalyzeAction>
+   <ArchiveAction
+      buildConfiguration = "Release"
+      revealArchiveInOrganizer = "YES">
+   </ArchiveAction>
 </Scheme>
