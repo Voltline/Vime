@@ -114,8 +114,26 @@ def validate_zh_v1(resources):
         validate_compiled(v2_model, v2["compiled_files_sha256"], "zh-v1 KV batch (kvbatch-v2)")
     elif v2_model.exists():
         raise ValueError("zh-v1 KV batch (kvbatch-v2) model is bundled without its manifest")
+    # The sequence-scoring KV package of the same checkpoint, for sentence
+    # correction: per-token log probabilities of candidate continuations.
+    seq_manifest = resources / "VimeLMManifestZhV1KVSequence.json"
+    seq_model = resources / "TinyChineseV1KVSequenceINT8.mlmodelc"
+    seq = json.loads(seq_manifest.read_text())["kv_sequence"] if seq_manifest.exists() else None
+    if seq is not None:
+        outer = json.loads(seq_manifest.read_text())
+        if (outer["format"] != "vime_ios_lm_zh_v1_kv_sequence"
+                or outer["tokenizer_sha256"] != manifest["tokenizer_sha256"]
+                or seq["resource"] != "TinyChineseV1KVSequenceINT8.mlmodelc" or seq["head"] != "sequence"
+                or seq["cache_dtype"] != "float32" or seq["cache_shape"] != [9, "B", 6, "S", 64]
+                or seq["batch_range"] != [1, 16] or seq["compute_units"] != "CPU_ONLY"
+                or set(seq["alignment_tolerance"]) != {"atol", "rtol"}):
+            raise ValueError("zh-v1 KV sequence manifest identity is invalid")
+        validate_compiled(seq_model, seq["compiled_files_sha256"], "zh-v1 KV sequence")
+    elif seq_model.exists():
+        raise ValueError("zh-v1 KV sequence model is bundled without its manifest")
     return (manifest["model_version"] + (" + KV" if kv is not None else "")
-            + (" + KV batch (kvbatch-v2)" if v2 is not None else ""))
+            + (" + KV batch (kvbatch-v2)" if v2 is not None else "")
+            + (" + KV sequence" if seq is not None else ""))
 
 
 def validate_compiled(model, expected, label):

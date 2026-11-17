@@ -293,6 +293,22 @@ nonisolated final class VimeLanguageModel {
             cache: cache, conversionCache: conversionCache, startedAt: started, cancelled: cancelled)
     }
 
+    /// The tokens of `text` after `context`, each with its log probability:
+    /// the same sequence and model as `scores`, whose sum they make up.
+    func tokenScores(context: String, text: String) throws -> [(text: String, logProbability: Double)] {
+        let contextIDs = try scoringContext(context)
+        let sequence = try scoringSequence(context + text)
+        var common = 0
+        while common < min(contextIDs.count, sequence.count), contextIDs[common] == sequence[common] { common += 1 }
+        guard common >= 1, sequence.count > common else { throw Failure.ineligible }
+        let logits = try predict(Array(sequence.dropLast()))
+        var scratch = [Double](repeating: 0, count: vocabularySize)
+        return try (common..<sequence.count).map { index in
+            (try tokenizer.decode([sequence[index]]),
+             try Self.tokenLogProbability(logits, row: index - 1, token: Int(sequence[index]), scratch: &scratch))
+        }
+    }
+
     private func scoringTokens(_ text: String, cache: SuggestionScoreCache? = nil) throws -> [Int32] {
         let started = KeyboardPerformance.start()
         if let ids = cache?.validatedTokens(for: text) {

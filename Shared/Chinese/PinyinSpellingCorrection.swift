@@ -104,6 +104,145 @@ nonisolated enum PinyinSpellingCorrection {
         return found
     }
 
+    /// One typing slip, by how a sentence's spellings are weighed.
+    enum Edit: String, Sendable, CaseIterable {
+        case swap, neighbour, drop, insert
+    }
+
+    /// Initials typed alone, as an abbreviated syllable.
+    static let abbreviations: Set<String> = Set("b c ch d f g h j k l m n p q r s sh t w x y z zh".split(separator: " ").map(String.init))
+
+    /// The fewest abbreviated syllables `letters` reads with, its other
+    /// syllables full, and the letters in `full` inside full syllables; nil
+    /// when it does not read so.
+    static func abbreviationCount(_ letters: [Character], full: Range<Int>? = nil) -> Int? {
+        var fewest: [Int?] = [0] + Array(repeating: nil, count: letters.count)
+        for end in letters.indices.map({ $0 + 1 }) {
+            for start in max(0, end - 6)..<end {
+                guard let before = fewest[start] else { continue }
+                let piece = String(letters[start..<end])
+                let cost: Int
+                if syllables.contains(piece) { cost = 0 }
+                else if abbreviations.contains(piece), !(full?.overlaps(start..<end) ?? false) { cost = 1 }
+                else { continue }
+                fewest[end] = min(fewest[end] ?? .max, before + cost)
+            }
+        }
+        return fewest[letters.count]
+    }
+
+    /// Spellings one edit from `input`, of any length, each with its edit,
+    /// whose edited letters read as full syllables; abbreviations elsewhere
+    /// stay as typed. Where some edit leaves fewer abbreviations than were
+    /// typed (zakzhang, with a stray k), only those, so the slip finds itself.
+    static func sentenceSpellings(for input: String) -> [(spelling: String, edit: Edit)] {
+        let letters = Array(input)
+        guard let typed = abbreviationCount(letters) else { return [] }
+        var found: [(spelling: String, edit: Edit, abbreviations: Int)] = []
+        var seen: Set<String> = [input]
+        func add(_ candidate: [Character], _ edit: Edit, _ edited: Range<Int>) {
+            let text = String(candidate)
+            let clamped = max(0, edited.lowerBound)..<min(candidate.count, edited.upperBound)
+            guard seen.insert(text).inserted, let count = abbreviationCount(candidate, full: clamped),
+                  count <= typed else { return }
+            found.append((text, edit, count))
+        }
+        for index in letters.indices.dropLast() where letters[index] != letters[index + 1] {
+            var swapped = letters
+            swapped.swapAt(index, index + 1)
+            add(swapped, .swap, index..<index + 2)
+        }
+        for index in letters.indices {
+            for neighbour in neighbours(of: letters[index]) {
+                var replaced = letters
+                replaced[index] = neighbour
+                add(replaced, .neighbour, index..<index + 1)
+            }
+        }
+        for index in letters.indices {
+            var dropped = letters
+            dropped.remove(at: index)
+            add(dropped, .drop, index - 1..<index + 1)
+        }
+        for index in 0...letters.count {
+            for letter in insertions {
+                var added = letters
+                added.insert(letter, at: index)
+                add(added, .insert, index..<index + 1)
+            }
+        }
+        let fixesOne = found.contains { $0.abbreviations < typed }
+        return found.filter { !fixesOne || $0.abbreviations < typed }
+            .map { ($0.spelling, $0.edit) }
+    }
+
+    /// The letters of `input` each character of `text` spells, in order:
+    /// one of its syllables in `lexicon`, or its initial (first letter, or
+    /// zh, ch, sh); full syllables preferred. Nil when `text` does not spell
+    /// `input`.
+    static func letterSpans(of text: String, in input: String, lexicon: ChinesePinyinLexicon) -> [Range<Int>]? {
+        let characters = Array(text.unicodeScalars), letters = Array(input.utf8)
+        // best[i][j]: fewest initials for the first i characters spelling the first j letters.
+        var best = [[Int?]](repeating: [Int?](repeating: nil, count: letters.count + 1), count: characters.count + 1)
+        var step = [[Int]](repeating: [Int](repeating: 0, count: letters.count + 1), count: characters.count + 1)
+        best[0][0] = 0
+        for i in characters.indices {
+            var ways: [(spelling: [UInt8], length: Int, cost: Int)] = []
+            for spelling in lexicon.spellings(of: characters[i]) where !spelling.isEmpty {
+                ways.append((spelling, spelling.count, 0))
+                let initial = spelling.count > 1 && [UInt8(ascii: "z"), UInt8(ascii: "c"), UInt8(ascii: "s")].contains(spelling[0])
+                    && spelling[1] == UInt8(ascii: "h") ? 2 : 1
+                if initial < spelling.count { ways.append((spelling, initial, 1)) }
+            }
+            for j in 0...letters.count {
+                guard let before = best[i][j] else { continue }
+                func reach(_ length: Int, _ cost: Int) {
+                    guard j + length <= letters.count, best[i + 1][j + length].map({ before + cost < $0 }) ?? true else { return }
+                    best[i + 1][j + length] = before + cost
+                    step[i + 1][j + length] = length
+                }
+                for (spelling, length, cost) in ways {
+                    let target = Array(spelling.prefix(length))
+                    if j + length <= letters.count, letters[j..<j + length].elementsEqual(target) { reach(length, cost) }
+                    // Where Rime's own spelling corrections read a slip, one edit off.
+                    guard cost == 0 else { continue }
+                    for typed in max(1, length - 1)...(length + 1) where j + typed <= letters.count
+                        && isOneEdit(Array(letters[j..<j + typed]), target) {
+                        reach(typed, editCost)
+                    }
+                }
+            }
+        }
+        guard best[characters.count][letters.count] != nil else { return nil }
+        var spans: [Range<Int>] = []
+        var end = letters.count
+        for i in stride(from: characters.count, to: 0, by: -1) {
+            let length = step[i][end]
+            spans.append(end - length..<end)
+            end -= length
+        }
+        return spans.reversed()
+    }
+
+    /// What one slip costs an alignment, against one initial.
+    static let editCost = 8
+
+    /// Whether `a` becomes `b` by one letter replaced, added, dropped, or two
+    /// neighbouring letters swapped.
+    static func isOneEdit(_ a: [UInt8], _ b: [UInt8]) -> Bool {
+        if a == b { return false }
+        if a.count == b.count {
+            let differ = a.indices.filter { a[$0] != b[$0] }
+            return differ.count == 1 || (differ.count == 2 && differ[1] == differ[0] + 1
+                && a[differ[0]] == b[differ[1]] && a[differ[1]] == b[differ[0]])
+        }
+        let (long, short) = a.count > b.count ? (a, b) : (b, a)
+        guard long.count == short.count + 1 else { return false }
+        var i = 0
+        while i < short.count, long[i] == short[i] { i += 1 }
+        return long[(i + 1)...].elementsEqual(short[i...])
+    }
+
     /// Keys within a key and a quarter on QWERTY, nearest first, as the
     /// Japanese keyboard's corrections measure them.
     static func neighbours(of letter: Character) -> [Character] { neighbourTable[letter] ?? [] }

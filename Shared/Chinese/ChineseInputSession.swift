@@ -43,7 +43,15 @@ final class ChineseInputSession: KeyboardInputSession {
     private var corrections: [(spelling: String, candidate: RimeCandidate)] = []
     private var correctionInput = ""
     private var correctionRequest: ChineseCandidateRanking.Request?
-    static let correctionDelay = 0.14
+    static let correctionDelay = 0.08
+    /// The model's sentence correction (ChineseSentenceCorrection), first
+    /// among `corrections` while it stands; it leads the list when it won clearly.
+    private var sentenceRequest: ChineseCandidateRanking.Request?
+    private var sentenceInput = ""
+    private var correctionLeads = false
+    private var sentenceCorrection: (spelling: String, candidate: RimeCandidate)?
+    private var sentenceLeads = false
+    private var wordCorrections: [(spelling: String, candidate: RimeCandidate)] = []
     static let shownCorrections = 2
     /// Rime's candidates waiting for the model before they show.
     private var ranking: (request: ChineseCandidateRanking.Request, candidates: [RimeCandidate])?
@@ -181,7 +189,10 @@ final class ChineseInputSession: KeyboardInputSession {
         if isComposing {
             // Space takes the first candidate shown, which the model may have moved.
             if candidatesAreCurrent, case .phrase(let index)? = slots.first { return choosePhrase(index) }
-            if candidatesAreCurrent, let first = order.first, first != 0 { enqueue(.select(first)) } else { enqueue(.space) }
+            if candidatesAreCurrent, case .correction(let index)? = slots.first {
+                let (spelling, candidate) = corrections[index]
+                enqueue(.selectSpelling(input: spelling, text: candidate.genuine))
+            } else if candidatesAreCurrent, let first = order.first, first != 0 { enqueue(.select(first)) } else { enqueue(.space) }
             return []
         }
         commitIsForgettable = false
@@ -452,7 +463,7 @@ final class ChineseInputSession: KeyboardInputSession {
         let previous = ranking?.candidates ?? state.candidates
         let candidatesChanged = next.candidates != previous || presentations.isEmpty != next.candidates.isEmpty
         state = next
-        if next.input != correctionInput { clearCorrections() }
+        if next.input != correctionInput, next.input != sentenceInput { clearCorrections() }
         guard candidatesChanged else { return }
         ranking?.request.cancel()
         ranking = nil
@@ -546,7 +557,12 @@ final class ChineseInputSession: KeyboardInputSession {
             let moved = Set(corrections.map(\.candidate.text))
             slots.removeAll { if case .rime(let index) = $0 { index != order.first && moved.contains(candidates[index].text) } else { false } }
             let shown = corrections.indices.filter { corrections[$0].candidate.text != candidates[order[0]].text }
-            slots.insert(contentsOf: shown.map(Slot.correction), at: 1)
+            if correctionLeads, shown.first == 0 {
+                slots.insert(.correction(0), at: 0)
+                slots.insert(contentsOf: shown.dropFirst().map(Slot.correction), at: min(2, slots.count))
+            } else {
+                slots.insert(contentsOf: shown.map(Slot.correction), at: 1)
+            }
         }
         phrases = userPhrases()
         if !phrases.isEmpty {
@@ -572,6 +588,7 @@ final class ChineseInputSession: KeyboardInputSession {
             }
         }
         scheduleCorrections()
+        scheduleSentenceCorrection()
     }
 
     // MARK: User phrases
@@ -601,6 +618,13 @@ final class ChineseInputSession: KeyboardInputSession {
         correctionRequest = nil
         correctionInput = ""
         corrections = []
+        wordCorrections = []
+        sentenceCorrection = nil
+        sentenceLeads = false
+        sentenceRequest?.cancel()
+        sentenceRequest = nil
+        sentenceInput = ""
+        correctionLeads = false
     }
 
     /// After a short pause, looks other spellings up when Rime reads the
@@ -635,13 +659,113 @@ final class ChineseInputSession: KeyboardInputSession {
             return (item.spelling, phrase)
         }
         // Commoner words first; equal ones keep the order of their edits.
-        corrections = phrases.enumerated().sorted {
+        wordCorrections = phrases.enumerated().sorted {
             $0.element.candidate.quality == $1.element.candidate.quality
                 ? $0.offset < $1.offset : $0.element.candidate.quality > $1.element.candidate.quality
         }.prefix(Self.shownCorrections).map(\.element)
-        guard !corrections.isEmpty, ranking == nil else { return }
+        guard !wordCorrections.isEmpty else { return }
+        refreshCorrections()
+    }
+
+    /// The sentence correction first, then the word ones, each phrase once.
+    private func refreshCorrections() {
+        var seen: Set<String> = []
+        let all = (sentenceCorrection.map { [$0] } ?? []) + wordCorrections
+        corrections = Array(all.filter { seen.insert($0.candidate.text).inserted }.prefix(Self.shownCorrections))
+        correctionLeads = sentenceLeads && sentenceCorrection != nil
+        guard ranking == nil else { return }
         show(shownCandidates, order: order)
         if received == sent { onCandidatesChange?() }
+    }
+
+    // MARK: Sentence correction
+
+    /// After a short pause, scores the shown sentence token by token, looks
+    /// up spellings one edit away around its weakest tokens, and weighs what
+    /// Rime makes of them against it (ChineseSentenceCorrection). A key typed
+    /// meanwhile cancels it.
+    private func scheduleSentenceCorrection() {
+        let input = state.input
+        let storage = JapaneseCandidateWorker.LanguageModelStorage.shared
+        guard sentenceInput != input, isComposing, echo.isEmpty, ranking == nil, usesModel,
+              ChineseSentenceCorrection.isEnabled, ChineseSentenceCorrection.wants(input),
+              storage.isReady(for: .chinese), !storage.isSuspended,
+              let first = order.first, shownCandidates.indices.contains(first) else { return }
+        let literal = shownCandidates[first]
+        guard literal.coversInput, literal.genuine.unicodeScalars.contains(where: { $0.properties.isIdeographic })
+        else { return }
+        let request = ChineseCandidateRanking.Request(deadline: .infinity)
+        sentenceRequest?.cancel()
+        sentenceRequest = request
+        sentenceInput = input
+        let context = VimeLanguageModel.sentenceContext(leftContextProvider?() ?? "")
+        let text = literal.genuine
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.correctionDelay) { [weak self] in
+            guard let self, self.sentenceRequest === request, !request.isCancelled else { return }
+            JapaneseCandidateWorker.modelQueue.async {
+                var found: (score: Double, spellings: [(spelling: String, edit: ChineseSentenceCorrection.Edit)])?
+                if !request.isCancelled, !storage.isSuspended, let model = storage.model(for: .chinese),
+                   let lexicon = ChinesePinyinLexicon.bundled,
+                   let tokens = try? model.tokenScores(context: context, text: text) {
+                    let windows = ChineseSentenceCorrection.windows(tokens: tokens, text: text, input: input, lexicon: lexicon)
+                    found = (tokens.reduce(0) { $0 + $1.logProbability },
+                             ChineseSentenceCorrection.spellings(for: input, windows: windows))
+                }
+                DispatchQueue.main.async {
+                    MainActor.assumeIsolated {
+                        self.lookUpSentenceSpellings(found, literal: text, input: input, context: context, request: request)
+                    }
+                }
+            }
+        }
+    }
+
+    private func lookUpSentenceSpellings(_ found: (score: Double, spellings: [(spelling: String, edit: ChineseSentenceCorrection.Edit)])?,
+                                         literal: String, input: String, context: String,
+                                         request: ChineseCandidateRanking.Request) {
+        guard sentenceRequest === request, !request.isCancelled, state.input == input else { return }
+        guard let found, !found.spellings.isEmpty else { sentenceRequest = nil; return }
+        let edits = Dictionary(found.spellings.map { ($0.spelling, $0.edit) }, uniquingKeysWith: { first, _ in first })
+        engine.lookUp(found.spellings.map(\.spelling), limit: ChineseSentenceCorrection.lookupLimit,
+                      isCancelled: { request.isCancelled }) { [weak self] converted in
+            MainActor.assumeIsolated {
+                guard let self, self.sentenceRequest === request, !request.isCancelled, self.state.input == input else { return }
+                let active = self.exclusionsActive, list = self.exclusions
+                let options = ChineseSentenceCorrection.options(converted, edits: edits, literal: literal) {
+                    LearningExclusionPolicy.allowsLearning($0, active: active, list: list)
+                }
+                guard !options.isEmpty else { self.sentenceRequest = nil; return }
+                self.scoreSentenceOptions(options, literal: found.score, context: context, input: input, request: request)
+            }
+        }
+    }
+
+    private func scoreSentenceOptions(_ options: [ChineseSentenceCorrection.Option], literal: Double, context: String,
+                                      input: String, request: ChineseCandidateRanking.Request) {
+        let storage = JapaneseCandidateWorker.LanguageModelStorage.shared
+        JapaneseCandidateWorker.modelQueue.async { [weak self] in
+            let stop = { request.isCancelled || storage.isSuspended }
+            var scores: [Double]?
+            if !stop(), let tokenizer = storage.model(for: .chinese)?.tokenizer,
+               let model = ChineseSentenceCorrection.Storage.shared.model() {
+                scores = try? ChinesePrefixScoring.scores(
+                    context: context, candidates: options.map(\.candidate.genuine),
+                    floors: options.map { ChineseSentenceCorrection.floor(literal: literal, option: $0) },
+                    model: model, tokenizer: tokenizer, cancelled: stop)
+            }
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    guard let self, self.sentenceRequest === request, !request.isCancelled, self.state.input == input else { return }
+                    self.sentenceRequest = nil
+                    guard let scores,
+                          let decision = ChineseSentenceCorrection.decide(literal: literal, options: options, scores: scores)
+                    else { return }
+                    self.sentenceCorrection = (decision.option.spelling, decision.option.candidate)
+                    self.sentenceLeads = decision.leads
+                    self.refreshCorrections()
+                }
+            }
+        }
     }
 }
 

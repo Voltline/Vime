@@ -1,0 +1,164 @@
+[
+  {
+    "metadataOutputVersion" : "3.0",
+    "shortDescription" : "vimeml-tiny-zh-v1 batched KV step v2 (read-only caches); FP32 compute.",
+    "outputSchema" : [
+      {
+        "hasShapeFlexibility" : "0",
+        "isOptional" : "0",
+        "dataType" : "Float32",
+        "formattedType" : "MultiArray (Float32)",
+        "shortDescription" : "",
+        "shape" : "[]",
+        "name" : "target_logprobs",
+        "type" : "MultiArray"
+      },
+      {
+        "hasShapeFlexibility" : "0",
+        "isOptional" : "0",
+        "dataType" : "Float32",
+        "formattedType" : "MultiArray (Float32)",
+        "shortDescription" : "",
+        "shape" : "[]",
+        "name" : "new_key",
+        "type" : "MultiArray"
+      },
+      {
+        "hasShapeFlexibility" : "0",
+        "isOptional" : "0",
+        "dataType" : "Float32",
+        "formattedType" : "MultiArray (Float32)",
+        "shortDescription" : "",
+        "shape" : "[]",
+        "name" : "new_value",
+        "type" : "MultiArray"
+      }
+    ],
+    "storagePrecision" : "Mixed (Float32, Int8)",
+    "modelParameters" : [
+
+    ],
+    "specificationVersion" : 9,
+    "mlProgramOperationTypeHistogram" : {
+      "Ios18.expandDims" : 9,
+      "Range1d" : 2,
+      "Ios18.mul" : 67,
+      "Ios18.rsqrt" : 19,
+      "Ios18.matmul" : 36,
+      "Ios16.reduceMean" : 19,
+      "Ios18.exp" : 18,
+      "Ios18.realDiv" : 9,
+      "Split" : 9,
+      "Ios18.greaterEqual" : 5,
+      "Select" : 4,
+      "Ios18.greater" : 1,
+      "Ios16.reduceMax" : 18,
+      "Ios18.gatherAlongAxis" : 1,
+      "Ios18.gather" : 5,
+      "Ios18.add" : 79,
+      "Ios16.reduceSum" : 18,
+      "Ios18.reshape" : 18,
+      "Shape" : 2,
+      "Ios18.maximum" : 9,
+      "Ios18.linear" : 46,
+      "Ios18.concat" : 2,
+      "Ios18.cast" : 2,
+      "Ios18.transpose" : 18,
+      "Ios18.pow" : 19,
+      "Ios18.sub" : 19,
+      "Ios18.silu" : 9,
+      "Ios16.reduceLogSumExp" : 1,
+      "Stack" : 2,
+      "Ios18.squeeze" : 28,
+      "Ios18.sliceByIndex" : 18,
+      "Ios18.constexprBlockwiseShiftScale" : 47
+    },
+    "computePrecision" : "Mixed (Float32, Int32)",
+    "isUpdatable" : "0",
+    "stateSchema" : [
+
+    ],
+    "availability" : {
+      "macOS" : "15.0",
+      "tvOS" : "18.0",
+      "visionOS" : "2.0",
+      "watchOS" : "11.0",
+      "iOS" : "18.0",
+      "macCatalyst" : "18.0"
+    },
+    "modelType" : {
+      "name" : "MLModelType_mlProgram"
+    },
+    "inputSchema" : [
+      {
+        "dataType" : "Int32",
+        "hasShapeFlexibility" : "1",
+        "isOptional" : "0",
+        "shapeFlexibility" : "1...16 × 1...128",
+        "shapeRange" : "[[1, 16], [1, 128]]",
+        "formattedType" : "MultiArray (Int32 16 × 1)",
+        "type" : "MultiArray",
+        "shape" : "[16, 1]",
+        "name" : "input_ids",
+        "shortDescription" : ""
+      },
+      {
+        "dataType" : "Int32",
+        "hasShapeFlexibility" : "1",
+        "isOptional" : "0",
+        "shapeFlexibility" : "1...16",
+        "shapeRange" : "[[1, 16]]",
+        "formattedType" : "MultiArray (Int32 16)",
+        "type" : "MultiArray",
+        "shape" : "[16]",
+        "name" : "position",
+        "shortDescription" : ""
+      },
+      {
+        "dataType" : "Float32",
+        "hasShapeFlexibility" : "1",
+        "isOptional" : "0",
+        "shapeFlexibility" : "9 × 1...16 × 6 × 1...128 × 64",
+        "shapeRange" : "[[9, 9], [1, 16], [6, 6], [1, 128], [64, 64]]",
+        "formattedType" : "MultiArray (Float32 9 × 16 × 6 × 32 × 64)",
+        "type" : "MultiArray",
+        "shape" : "[9, 16, 6, 32, 64]",
+        "name" : "key_cache",
+        "shortDescription" : ""
+      },
+      {
+        "dataType" : "Float32",
+        "hasShapeFlexibility" : "1",
+        "isOptional" : "0",
+        "shapeFlexibility" : "9 × 1...16 × 6 × 1...128 × 64",
+        "shapeRange" : "[[9, 9], [1, 16], [6, 6], [1, 128], [64, 64]]",
+        "formattedType" : "MultiArray (Float32 9 × 16 × 6 × 32 × 64)",
+        "type" : "MultiArray",
+        "shape" : "[9, 16, 6, 32, 64]",
+        "name" : "value_cache",
+        "shortDescription" : ""
+      },
+      {
+        "dataType" : "Int32",
+        "hasShapeFlexibility" : "1",
+        "isOptional" : "0",
+        "shapeFlexibility" : "1...16 × 1...128",
+        "shapeRange" : "[[1, 16], [1, 128]]",
+        "formattedType" : "MultiArray (Int32 16 × 1)",
+        "type" : "MultiArray",
+        "shape" : "[16, 1]",
+        "name" : "targets",
+        "shortDescription" : ""
+      }
+    ],
+    "userDefinedMetadata" : {
+      "com.github.apple.coremltools.conversion_date" : "2026-11-16",
+      "bundle_manifest_sha256" : "9d9dad19c573c84c84e6a78060d1999a0a7e978c90a9bd78ca844da565a6ae74",
+      "com.github.apple.coremltools.source" : "torch==2.7.1",
+      "com.github.apple.coremltools.version" : "9.0",
+      "com.github.apple.coremltools.source_dialect" : "TorchScript"
+    },
+    "generatedClassName" : "model",
+    "method" : "predict"
+  }
+]
