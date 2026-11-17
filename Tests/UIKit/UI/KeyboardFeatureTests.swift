@@ -360,9 +360,9 @@ final class KeyboardFeatureTests: XCTestCase {
             let arrows = try XCTUnwrap(descendants(panel).first { ($0 as? UIButton)?.title(for: .normal) == "箭头" } as? UIButton)
             arrows.sendActions(for: .touchUpInside); panel.layoutIfNeeded()
             let grid = try XCTUnwrap(descendants(panel).compactMap { $0 as? UICollectionView }.first)
-            XCTAssertGreaterThanOrEqual(grid.numberOfItems(inSection: 19), 4)
+            XCTAssertGreaterThanOrEqual(grid.numberOfItems(inSection: 23), 4)
             text.text = ""; text.selectedRange = NSRange(location: 0, length: 0)
-            for i in 0..<4 { panel.collectionView(grid, didSelectItemAt: IndexPath(item: i, section: 19)) }
+            for i in 0..<4 { panel.collectionView(grid, didSelectItemAt: IndexPath(item: i, section: 23)) }
             XCTAssertEqual(text.text, "↑↓←→")
             XCTAssertFalse(panel.isHidden)
             attachAppearance(keyboard, name: nineKey ? "symbols-arrows" : "symbols-arrows-full-numbers")
@@ -370,12 +370,17 @@ final class KeyboardFeatureTests: XCTestCase {
             let abc = try XCTUnwrap(descendants(keyboard).first { ($0 as? UIButton)?.title(for: .normal) == "ABC" } as? UIButton)
             abc.sendActions(for: .touchUpInside); keyboard.layoutIfNeeded()
         }
-        XCTAssertGreaterThan(KeyboardSymbolCatalog.symbols.flatMap(\.items).count, 450)
-        for group in KeyboardSymbolCatalog.symbols {
-            XCTAssertFalse(group.items.contains { $0.text.isEmpty })
-            XCTAssertEqual(Set(group.items.map(\.text)).count, group.items.count)
+        for chinese in [false, true] {
+            let symbols = KeyboardSymbolCatalog.symbols(chinese: chinese)
+            XCTAssertGreaterThan(symbols.flatMap(\.items).count, 450)
+            for group in symbols {
+                XCTAssertFalse(group.items.contains { $0.text.isEmpty })
+                XCTAssertEqual(Set(group.items.map(\.text)).count, group.items.count)
+            }
+            XCTAssertTrue(symbols.contains { $0.items.contains { $0.text == "|" } })
         }
-        XCTAssertTrue(KeyboardSymbolCatalog.symbols[0].items.contains { $0.text == "|" })
+        XCTAssertTrue(KeyboardSymbolCatalog.symbols(chinese: true)[0].items.contains { $0.text == "，" })
+        XCTAssertTrue(KeyboardSymbolCatalog.symbols(chinese: false)[0].items.contains { $0.text == "・" })
     }
 
     func testSymbolsScrollContinuouslyAndTabsTrackCategoryBoundaries() async throws {
@@ -395,7 +400,7 @@ final class KeyboardFeatureTests: XCTestCase {
                 KeyboardEmojiAvailability.load(group) { continuation.resume(returning: $0) }
             })
         }
-        groups += KeyboardSymbolCatalog.kaomoji.map(\.items) + KeyboardSymbolCatalog.symbols.map(\.items)
+        groups += KeyboardSymbolCatalog.kaomoji.map(\.items) + KeyboardSymbolCatalog.symbols(chinese: false).map(\.items)
         try await Task.sleep(for: .milliseconds(30)); panel.layoutIfNeeded(); grid.layoutIfNeeded()
         XCTAssertFalse(grid.isPagingEnabled, "Continuous scrolling must not snap to pages")
         XCTAssertEqual(descendants(panel).compactMap { $0 as? UICollectionView }.count, 1)
@@ -435,7 +440,7 @@ final class KeyboardFeatureTests: XCTestCase {
         for (section, items) in groups.enumerated() {
             XCTAssertEqual(grid.numberOfItems(inSection: section), items.count)
             var visited = Set<Int>()
-            for item in stride(from: 0, to: items.count, by: 20) {
+            for item in stride(from: 0, to: items.count, by: section < 10 ? 20 : 1) {  // Paged sections fill row by row.
                 grid.scrollToItem(at: IndexPath(item: item, section: section), at: .left, animated: false); grid.layoutIfNeeded()
                 for path in grid.indexPathsForVisibleItems where path.section == section {
                     visited.insert(path.item)
@@ -687,7 +692,7 @@ final class KeyboardFeatureTests: XCTestCase {
         try button("vime.symbols.category.1", in: panel).sendActions(for: .touchUpInside)
         panel.selectMode(.symbols)
         try await Task.sleep(for: .milliseconds(250))
-        XCTAssertEqual(grid.numberOfItems(inSection: 18), KeyboardSymbolCatalog.symbols[0].items.count,
+        XCTAssertEqual(grid.numberOfItems(inSection: 18), KeyboardSymbolCatalog.symbols(chinese: false)[0].items.count,
             "An old emoji availability request must never overwrite the symbol category")
         panel.selectMode(.emoji)
         try await Task.sleep(for: .milliseconds(250))

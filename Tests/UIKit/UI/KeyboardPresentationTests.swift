@@ -454,8 +454,15 @@ final class KeyboardPresentationTests: XCTestCase {
         panel.layoutIfNeeded()
         let close = try button("vime.symbols.close", in: panel)
         let modes = try XCTUnwrap(descendants(panel).first { $0.accessibilityIdentifier == "vime.symbols.mode" })
+        let categories = try XCTUnwrap(descendants(panel).first { $0.accessibilityIdentifier == "vime.symbols.categories" })
         capture(input, name: "symbol-top-spacing")
-        let initial = close.frame.minY
+        // Portrait: categories on top, ABC and the mode slider in a bottom bar.
+        let initial = categories.frame.minY
+        func bottomBarHolds() {
+            XCTAssertEqual(close.frame.maxY, panel.bounds.height - KeyboardSymbolPanel.bottomGap, accuracy: 0.001)
+            XCTAssertEqual(modes.frame.midY, close.frame.midY, accuracy: 0.001)
+        }
+        bottomBarHolds()
         XCTAssertGreaterThan(initial, 0, "Own a fixed top inset instead of allowing edge-flush controls")
         let controller = KeyboardViewController()
         controller.loadViewIfNeeded()
@@ -471,12 +478,13 @@ final class KeyboardPresentationTests: XCTestCase {
             input.frame.size.height = keyboard.preferredHeight(for: input.bounds.width)
             input.setNeedsLayout()
             input.layoutIfNeeded(); keyboard.layoutIfNeeded(); panel.layoutIfNeeded()
-            XCTAssertEqual(close.frame.minY, initial, accuracy: 0.001)
-            XCTAssertEqual(modes.frame.midY, close.frame.midY, accuracy: 0.001)
+            XCTAssertEqual(categories.frame.minY, initial, accuracy: 0.001)
             XCTAssertEqual(panel.frame, keyboard.bounds)
+            bottomBarHolds()
         }
         close.sendActions(for: .touchUpInside)
         emoji.sendActions(for: .touchUpInside); keyboard.layoutIfNeeded(); panel.layoutIfNeeded()
-        XCTAssertEqual(close.frame.minY, initial, accuracy: 0.001)
+        XCTAssertEqual(categories.frame.minY, initial, accuracy: 0.001)
+        bottomBarHolds()
     }
 }

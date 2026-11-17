@@ -34,6 +34,7 @@ extension KeyboardView {
         panelScroll.setContentOffset(.zero, animated: false)
         refresh()
         symbolPanel?.recents = preferences.emojiRecents
+        symbolPanel?.chineseSymbols = session.inputTraits.language == .chinese
         symbolPanel?.selectMode(mode)
     }
 
@@ -74,6 +75,11 @@ extension KeyboardView {
             panel.onClose = { [weak self] in self?.headerArrow() }
             panel.onEmojiUse = { [weak self] in self?.preferences.recordEmoji($0) }
             panel.onSearch = { [weak self] in self?.beginEmojiSearch() }
+            panel.onDelete = { [weak self] in
+                guard let self, self.hasDeletableContent else { return }
+                self.kanaToggle = nil
+                self.apply(self.session.backspace())
+            }
             addSubview(panel); symbolPanel = panel
             panel.applyTheme()
         }
