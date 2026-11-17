@@ -58,7 +58,8 @@ struct KeyboardMetrics {
     private var baseRowStep: CGFloat { compact ? 48 : regular ? padKeyHeight + 10 : 56 * scale }
     /// Space below the last row. iPad has no system bar there, so its keys need their own margin.
     private var bottomInset: CGFloat { regular ? 8 : 1.5 * scale }
-    // A shorter portrait preference must not squeeze the landscape key plane.
+    // A shorter portrait preference must not squeeze the landscape key plane
+    // on its own, but the rows always fit the height UIKit actually gives.
     private var effectiveHeightFactor: CGFloat {
         guard compact else {
             guard let availableHeight, availableHeight > 0 else { return heightFactor }
@@ -68,12 +69,12 @@ struct KeyboardMetrics {
             let keyPlane = availableHeight - headerHeight - footerHeight - bottomInset
             return max(0.1, keyPlane / (baseRowStep * 3 + baseKeyHeight))
         }
-        let minimum = max(1, heightFactor)
-        guard let availableHeight else { return minimum }
-        // UIKit may give the extension more height after rotation. Fill that
+        guard let availableHeight, availableHeight > 0 else { return max(1, heightFactor) }
+        // UIKit keeps the input view's height through a rotation, so a shorter
+        // portrait height can arrive in landscape (or a taller one). Fill that
         // actual key plane without feeding its imposed size into our intrinsic height.
         let keyPlane = availableHeight - headerHeight - footerHeight - bottomInset
-        return max(1, keyPlane / (baseRowStep * 3 + baseKeyHeight))
+        return max(0.1, keyPlane / (baseRowStep * 3 + baseKeyHeight))
     }
     var keyHeight: CGFloat { baseKeyHeight * effectiveHeightFactor }
     var rowStep: CGFloat { baseRowStep * effectiveHeightFactor }
