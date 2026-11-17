@@ -11379,30 +11379,58 @@
         }
       }
     },
-    "添加你的常用词" : {
+    "添加中文常用词" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Add Your Words"
+            "value" : "Add Chinese Words"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "よく使う言葉を追加"
+            "value" : "中国語の単語を追加"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "나만의 단어 추가"
+            "value" : "중국어 단어 추가"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "加入你的常用詞"
+            "value" : "加入中文常用詞"
+          }
+        }
+      }
+    },
+    "添加日语常用词" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add Japanese Words"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "日本語の単語を追加"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "일본어 단어 추가"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "加入日語常用詞"
           }
         }
       }
@@ -11969,30 +11997,58 @@
         }
       }
     },
-    "点右上角 +，记下姓名、专业词或常用短语。" : {
+    "点右上角 +，填写词语和拼音，打拼音时就会出现在候选里。" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tap + at the top right to add names, terms or phrases."
+            "value" : "Tap + at the top right and enter a word with its pinyin. It will show up among candidates as you type."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "右上の + をタップして、名前や専門用語、よく使う定型文を登録します。"
+            "value" : "右上の + をタップして単語とピンインを登録すると、ピンイン入力の候補に表示されます。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "오른쪽 상단의 +를 탭하여 이름, 용어 또는 문구를 추가하세요."
+            "value" : "오른쪽 상단의 +를 탭해 단어와 병음을 입력하면 병음 입력 후보에 표시됩니다."
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "點選右上角 +，記下姓名、專業詞或常用短語。"
+            "value" : "點選右上角 +，填寫詞語和拼音，輸入拼音時就會出現在候選中。"
+          }
+        }
+      }
+    },
+    "点右上角 +，填写词语和读音，转换时就会出现在候选里。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap + at the top right and enter a word with its reading. It will show up among conversion candidates."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "右上の + をタップして単語と読みを登録すると、変換候補に表示されます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "오른쪽 상단의 +를 탭해 단어와 읽기를 입력하면 변환 후보에 표시됩니다."
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "點選右上角 +，填寫詞語和讀音，轉換時就會出現在候選中。"
           }
         }
       }

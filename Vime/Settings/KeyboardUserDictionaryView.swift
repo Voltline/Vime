@@ -10,21 +10,17 @@ struct UserDictionaryDocument: FileDocument {
 }
 
 /// Japanese and Chinese keep separate dictionaries, a swipe apart; the page
-/// opens on the keyboard's current language.
+/// always opens on the first one, Japanese.
 struct KeyboardUserDictionaryView: View {
     enum Language: Hashable { case japanese, chinese }
-    @State private var language: Language
-    @State private var progress: CGFloat
+    @State private var language: Language = .japanese
+    @State private var progress: CGFloat = 0
     @State private var search = ""
     @State private var addRequests: [Language: Int] = [:]
     private let showsChinese: Bool
 
     init() {
-        let preferences = KeyboardPreferences()
-        showsChinese = preferences.chineseInputEnabled
-        let language: Language = showsChinese && preferences.inputLanguage == .chinese ? .chinese : .japanese
-        _language = State(initialValue: language)
-        _progress = State(initialValue: language == .chinese ? 1 : 0)
+        showsChinese = KeyboardPreferences().chineseInputEnabled
     }
 
     var body: some View {
@@ -91,9 +87,9 @@ private struct JapaneseUserDictionaryList: View {
         List {
             Section {
                 if visibleEntries.isEmpty {
-                    ContentUnavailableView(entries.isEmpty ? "添加你的常用词" : "没有匹配的词条",
-                        systemImage: "character.book.closed",
-                        description: Text(entries.isEmpty ? "点右上角 +，记下姓名、专业词或常用短语。" : "试试其他词语或读音。"))
+                    ContentUnavailableView(entries.isEmpty ? "添加日语常用词" : "没有匹配的词条",
+                        systemImage: "character.book.closed.ja",
+                        description: Text(entries.isEmpty ? "点右上角 +，填写词语和读音，转换时就会出现在候选里。" : "试试其他词语或读音。"))
                         .listRowBackground(Color.clear)
                 }
                 ForEach(visibleEntries) { entry in
