@@ -26,7 +26,7 @@ final class KeyboardExtensionSoakTests: XCTestCase {
         if !app.keys["vime.key.t"].waitForExistence(timeout: 3) {
             let globe = app.buttons.matching(NSPredicate(format: "label IN %@",
                 ["Next keyboard", "下一键盘", "下一个键盘", "切换系统键盘", "次のキーボード"] as NSArray)).firstMatch
-            for _ in 0..<6 {
+            for _ in 0..<15 {
                 guard !app.keys["vime.key.t"].exists, globe.exists else { break }
                 globe.tap()
                 _ = app.keys["vime.key.t"].waitForExistence(timeout: 1)
