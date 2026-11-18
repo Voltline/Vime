@@ -67,6 +67,11 @@ final class ChineseInputSession: KeyboardInputSession {
     private var round: Round?
     /// What the shown list, or the one on its way, was made from.
     private var roundKey: RoundKey?
+    /// A round shown without the model when it missed the window, and the
+    /// commands sent then: its scores may still reorder that list once.
+    private var late: (round: Round, sent: Int)?
+    /// How long a new list waits for the model; tests shorten it.
+    var rankingWindow = ChineseCandidateRanking.window
     private var chineseModelEnabled = true
     private let exclusions: LearningExclusionList
     private let exclusionsApply: () -> Bool
@@ -404,6 +409,7 @@ final class ChineseInputSession: KeyboardInputSession {
 
     /// Sends a command and returns at once; its result arrives in order.
     private func enqueue(_ command: RimeEngine.Command, echo count: Int = 0) {
+        dropLate()
         sent += 1
         let ticket = RimeResultInbox.Ticket(sequence: sent, era: era, echo: count)
         let inbox = inbox
@@ -417,6 +423,7 @@ final class ChineseInputSession: KeyboardInputSession {
 
     /// Runs a command and waits, returning its commit and any earlier one.
     private func run(_ command: RimeEngine.Command) -> [KeyboardEdit] {
+        dropLate()
         sent += 1
         let ticket = RimeResultInbox.Ticket(sequence: sent, era: era, echo: 0)
         // Earlier commands have delivered by the time this one runs.
@@ -553,6 +560,9 @@ final class ChineseInputSession: KeyboardInputSession {
     /// in before the list shows, once: Rime's candidates, the readings that
     /// keep typed words (looked up in Rime), and the model's scores of both
     /// in one call. Until then the previous list stays, not to be chosen.
+    /// When the model misses the window the list shows without it, and its
+    /// scores, if they come within `lateWindow` and before any other key,
+    /// reorder that list once (`refine`), as other keyboards refine theirs.
     private final class Round {
         let candidates: [RimeCandidate]
         let run: Range<Int>
@@ -561,9 +571,10 @@ final class ChineseInputSession: KeyboardInputSession {
         let splits: [[ChineseMixedInput.Segment]]
         let context: String
         let scores: Bool
-        /// The model's part ends with the window; the lookup has no deadline.
+        /// The model's part may run past the window, to refine the list
+        /// late (`late`); the lookup has no deadline.
         let model = ChineseCandidateRanking.Request(
-            deadline: ProcessInfo.processInfo.systemUptime + ChineseCandidateRanking.window)
+            deadline: ProcessInfo.processInfo.systemUptime + ChineseCandidateRanking.lateWindow)
         let lookup = ChineseCandidateRanking.Request(deadline: .infinity)
         /// Nil until looked up.
         var options: [ChineseMixedInput.Option]?
@@ -580,6 +591,7 @@ final class ChineseInputSession: KeyboardInputSession {
     private func startRound(_ next: RimeState, key: RoundKey) {
         round?.cancel()
         round = nil
+        dropLate()
         roundKey = key
         let active = exclusionsActive, list = exclusions
         let run = ChineseCandidateRanking.sentenceRun(next.candidates)
@@ -608,7 +620,7 @@ final class ChineseInputSession: KeyboardInputSession {
         self.round = round
         rankingStartedAt = KeyboardPerformance.start()
         if warm {
-            DispatchQueue.main.asyncAfter(deadline: .now() + ChineseCandidateRanking.window) { [weak self] in
+            DispatchQueue.main.asyncAfter(deadline: .now() + rankingWindow) { [weak self] in
                 guard let self, self.round === round else { return }
                 round.missedWindow = true
                 // Still looking up: the list shows once the readings are in.
@@ -627,7 +639,10 @@ final class ChineseInputSession: KeyboardInputSession {
                 round.options = ChineseMixedInput.options(splits, converted: converted).filter {
                     !rime.contains($0.genuine) && !self.blocklist.matches($0.genuine)
                 }
-                if round.scores, !round.missedWindow { self.scoreRound(round) } else { self.finishRound(round, scores: nil) }
+                if round.scores, !round.missedWindow { return self.scoreRound(round) }
+                self.finishRound(round, scores: nil)
+                // Too late for the window: the model may still refine the list.
+                if self.late?.round === round { self.scoreRound(round) }
             }
         }
     }
@@ -638,9 +653,25 @@ final class ChineseInputSession: KeyboardInputSession {
         let texts = round.slots.all.map { round.candidates[$0].genuine } + (round.options ?? []).map(\.genuine)
         guard round.scores, texts.count > 1 else { return finishRound(round, scores: nil) }
         ChineseCandidateRanking.score(texts, context: round.context, request: round.model) { [weak self] scores in
-            guard let self, self.round === round, !round.missedWindow else { return }
-            self.finishRound(round, scores: scores)
+            guard let self else { return }
+            if self.round === round, !round.missedWindow { return self.finishRound(round, scores: scores) }
+            guard let late = self.late, late.round === round else { return }
+            self.late = nil
+            guard let scores else {
+                // Not even late: weigh fewer sentences next time.
+                self.weighedSentences = max(ChineseCandidateRanking.fewestSentences, self.weighedSentences / 2)
+                return
+            }
+            guard late.sent == self.sent, self.received == self.sent, self.round == nil, self.echo.isEmpty,
+                  self.isComposing else { return }
+            self.refine(round, scores: scores)
         }
+    }
+
+    /// Stops a late refinement: a key or command came first.
+    private func dropLate() {
+        late?.round.cancel()
+        late = nil
     }
 
     /// Makes the list of a round still on its way at once, without the model
@@ -666,18 +697,37 @@ final class ChineseInputSession: KeyboardInputSession {
     /// when the model came in time, else the order without it.
     private func finishRound(_ round: Round, scores: [Double]?) {
         guard self.round === round else { return }
-        round.cancel()
         self.round = nil
+        // Shown without the model in time: its scores may still come late.
+        let goesLate = scores == nil && round.missedWindow && round.scores && !round.model.isCancelled
+            && round.slots.all.count + (round.options?.count ?? 0) > 1
+        if goesLate {
+            round.lookup.cancel()
+            late = (round, sent)
+        } else {
+            round.cancel()
+        }
         KeyboardPerformance.record(.chineseRankingWait, since: rankingStartedAt)
         rankingStartedAt = nil
         let elapsed = ProcessInfo.processInfo.systemUptime - round.startedAt
         let weighed = round.slots.sentences.count
-        if round.missedWindow {
+        if round.missedWindow, !goesLate {
             weighedSentences = max(ChineseCandidateRanking.fewestSentences, weighedSentences / 2)
         } else if scores != nil, weighed >= weighedSentences, elapsed < ChineseCandidateRanking.window * 0.4 {
             // Twice as many would still have come in time.
             weighedSentences = min(ChineseCandidateRanking.sentenceLimit, weighedSentences * 2)
         }
+        let order: [Int]
+        (order, mixedPlacement, mixed) = arrange(round, scores: scores)
+        show(round.candidates, order: order)
+        if received == sent { announceCandidates() }
+        finishPendingSpace()
+    }
+
+    /// A round's display order and readings, with the model's `scores`
+    /// (for Rime's slots, then the readings) or without them.
+    private func arrange(_ round: Round, scores: [Double]?)
+        -> (order: [Int], placement: ChineseCandidateList.MixedPlacement, mixed: [ChineseMixedInput.Option]) {
         let options = round.options ?? []
         let count = round.slots.all.count
         let scores = scores.flatMap { $0.count == count + options.count && $0.allSatisfy(\.isFinite) ? $0 : nil }
@@ -692,15 +742,33 @@ final class ChineseInputSession: KeyboardInputSession {
         }
         let lead = order.first
         let rival = lead.flatMap { lead in round.slots.all.firstIndex(of: lead).flatMap { rimeScores?[$0] } }
-        mixedPlacement = ChineseCandidateList.placement(
+        let placement = ChineseCandidateList.placement(
             readings: options.count, capitals: hasCapitals,
             rimeShort: lead.map { !round.candidates[$0].coversInput } ?? true,
             best: mixedScores?.max(), rival: rival)
-        mixed = Array(ChineseMixedInput.ranked(options, scores: mixedScores)
-            .prefix(mixedPlacement == .overRime ? 1 : ChineseMixedInput.shownOptions))
+        let mixed = Array(ChineseMixedInput.ranked(options, scores: mixedScores)
+            .prefix(placement == .overRime ? 1 : ChineseMixedInput.shownOptions))
+        return (order, placement, mixed)
+    }
+
+    /// The model's scores for a list shown without them, come late: the list
+    /// takes their order once, when they change it. A sentence correction
+    /// weighed against the old first sentence is weighed again.
+    private func refine(_ round: Round, scores: [Double]) {
+        let (order, placement, mixed) = arrange(round, scores: scores)
+        guard order != self.order || placement != mixedPlacement || mixed.map(\.genuine) != self.mixed.map(\.genuine)
+        else { return }
+        if order.first != self.order.first {
+            sentenceRequest?.cancel()
+            sentenceRequest = nil
+            sentenceCorrection = nil
+            sentenceLeads = false
+            sentenceInput = ""
+            collectCorrections()
+        }
+        (mixedPlacement, self.mixed) = (placement, mixed)
         show(round.candidates, order: order)
-        if received == sent { announceCandidates() }
-        finishPendingSpace()
+        onCandidatesChange?()
     }
 
     /// Tells the keyboard; once the latest key's candidates are final, it
@@ -931,13 +999,17 @@ final class ChineseInputSession: KeyboardInputSession {
     /// They come after the list shows, so they go after its first unless the
     /// model clearly prefers the sentence correction.
     private func refreshCorrections() {
+        collectCorrections()
+        guard round == nil else { return }
+        show(shownCandidates, order: order)
+        if received == sent { onCandidatesChange?() }
+    }
+
+    private func collectCorrections() {
         var seen: Set<String> = []
         let all = (sentenceCorrection.map { [$0] } ?? []) + wordCorrections
         corrections = Array(all.filter { seen.insert($0.candidate.text).inserted }.prefix(Self.shownCorrections))
         correctionLeads = sentenceLeads && sentenceCorrection != nil
-        guard round == nil else { return }
-        show(shownCandidates, order: order)
-        if received == sent { onCandidatesChange?() }
     }
 
     // MARK: Sentence correction

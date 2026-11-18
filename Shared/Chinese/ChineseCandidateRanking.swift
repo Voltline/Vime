@@ -15,6 +15,9 @@ nonisolated enum ChineseCandidateRanking {
     static let candidateLimit = 8
     /// The new list waits this long for the model, then shows Rime's order.
     static let window: TimeInterval = 0.060
+    /// Scores that come after the window but within this much of the key
+    /// still reorder the list it showed, once; a later key cancels them.
+    static let lateWindow: TimeInterval = 0.300
     /// Rime's order is the prior: each place further down costs this much
     /// log probability, so the model needs clear evidence to move a word up.
     static let placePenalty = 1.0
