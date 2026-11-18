@@ -352,11 +352,91 @@ final class ChineseInputSessionTests: XCTestCase {
         XCTAssertEqual(session.chooseCandidate(try XCTUnwrap(start.selectionToken)), [])
         waitUntilCurrent(session)
         XCTAssertTrue(session.markedText?.text.hasPrefix("为什么") == true, "\(session.markedText?.text ?? "")")
-        let lead = try waitForLead(session) { $0.hasPrefix("为什么") && $0.hasSuffix("vime") }
-        XCTAssertEqual(lead, "为什么这个输入法vime", "the readings go on from what was chosen")
-        XCTAssertFalse(session.candidatePresentations.contains { $0.text.hasPrefix("wsm") })
-        XCTAssertEqual(session.space().last, .insert(lead))
+        let lead = try waitForLead(session) { $0.hasSuffix("vime") }
+        XCTAssertEqual(lead, "这个输入法vime", "the readings are of the rest")
+        XCTAssertFalse(session.candidatePresentations.contains { $0.text.hasPrefix("wsm") || $0.text.hasPrefix("为什么") })
+        XCTAssertEqual(session.space().last, .insert("为什么这个输入法vime"), "what was chosen goes out in front")
         XCTAssertFalse(session.isComposing)
+    }
+
+    func testAWordRightAfterAChosenStartStillGoesOn() throws {
+        let session = try session()
+        session.setChineseLanguageModel(false)
+        _ = try waitForLead(session, typing: "woxianzailaishishizhegezuixindevimehaiyoumeiyouzhezhong") { $0.contains("vime") }
+        let start = try XCTUnwrap(session.candidatePresentations.first { $0.text == "我现在来试试这个最新的" },
+                                  "\(session.candidatePresentations.map(\.text))")
+        XCTAssertEqual(session.chooseCandidate(try XCTUnwrap(start.selectionToken)), [])
+        waitUntilCurrent(session)
+        XCTAssertTrue(session.markedText?.text.hasPrefix("我现在来试试这个最新的vime") == true, "\(session.markedText?.text ?? "")")
+        // Rime has nothing for a rest that starts with the word.
+        XCTAssertEqual(session.candidatePresentations.first?.text, "vime还有没有这种")
+        XCTAssertEqual(session.space().last, .insert("我现在来试试这个最新的vime还有没有这种"))
+        XCTAssertFalse(session.isComposing)
+    }
+
+    /// After a start is chosen, every candidate is for the rest: Rime's,
+    /// the readings keeping a word, and the corrections of a typo.
+    func testAChosenStartLeavesOnlyTheRest() throws {
+        for model in [false, true] {
+            let session = try session()
+            if model { try useModel() } else { session.setChineseLanguageModel(false) }
+            for (typed, start, rest, meant) in [("woxianzaiyongvimedazi", "我现在", "用vime打字", "我现在用vime打字"),
+                                                ("woxianzaishenem", "我现在", "什么", "我现在什么")] {
+                _ = session.type(typed)
+                waitUntilCurrent(session)
+                XCTAssertEqual(session.chooseCandidate(try token(start, in: session)), [], typed)
+                waitUntilCurrent(session)
+                // Corrections come after a pause.
+                RunLoop.main.run(until: Date().addingTimeInterval(0.4))
+                waitUntilCurrent(session)
+                let shown = session.candidatePresentations.map(\.text)
+                XCTAssertFalse(shown.contains { $0.hasPrefix(start) }, "\(typed) (model \(model)): \(shown)")
+                let index = try XCTUnwrap(shown.firstIndex(of: rest), "\(typed) (model \(model)): \(shown)")
+                let edits = session.chooseCandidate(try XCTUnwrap(session.candidatePresentations[index].selectionToken))
+                waitUntilCurrent(session)
+                XCTAssertEqual((batches.flatMap(\.edits) + edits).last, .insert(meant), "\(typed) (model \(model))")
+                XCTAssertFalse(session.isComposing)
+                batches = []
+                session.reset()
+            }
+        }
+    }
+
+    /// Typed key by key, a word in the sentence included, each key's list
+    /// shows once; at most a correction found after a pause moves it again.
+    func testEachKeyShowsItsListOnce() throws {
+        for model in [false, true] {
+            let session = try session()
+            if model { try useModel() } else { session.setChineseLanguageModel(false) }
+            var leads: [(text: String, source: CandidateSource)] = []
+            session.onCandidatesChange = {
+                guard session.candidatesAreCurrent, let first = session.candidatePresentations.first else { return }
+                if leads.last?.text != first.text { leads.append((first.text, first.source)) }
+            }
+            for input in ["woxianzaiyongvimedazi", "zhegegithubcangkuhenhaoyong", "jintianyongVimexiezuoye"] {
+                var typed = ""
+                for letter in input {
+                    typed.append(letter)
+                    leads = []
+                    _ = session.type(String(letter))
+                    RunLoop.main.run(until: Date().addingTimeInterval(0.3))
+                    waitUntilCurrent(session)
+                    let changes = leads.dropFirst()
+                    XCTAssertTrue(changes.count <= 1 && changes.allSatisfy { $0.source == .typoCorrection },
+                                  "\(typed) (model \(model)): \(leads.map(\.text))")
+                }
+                session.reset()
+            }
+        }
+    }
+
+    /// The bundled Chinese model, warm, in place of the keyboard's.
+    private func useModel() throws {
+        let model = try ChineseLanguageModel(bundle: Bundle(for: Self.self), preload: true)
+        let storage = JapaneseCandidateWorker.LanguageModelStorage.shared
+        JapaneseCandidateWorker.modelQueue.sync { storage.useChinese(model) }
+        storage.setSuspended(false)
+        addTeardownBlock { JapaneseCandidateWorker.modelQueue.sync { storage.release() } }
     }
 
     /// Types `input`, then waits for a first candidate `matching`.

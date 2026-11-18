@@ -41,21 +41,53 @@ nonisolated enum ChineseMixedInput {
         let found: [[Segment]]
         if letters.contains(where: \.isUppercase) {
             found = capitalSplits(letters[...], abbreviated: true)
+        } else if readable(letters[...], abbreviated: true) {
+            // Rime reads it all, but perhaps only by taking a word for
+            // abbreviations (zhegebugwo as 这个不过我, python as p-y-t-h-o-n):
+            // where the pinyin stops being spelled out, a word may be kept.
+            guard !readable(letters[...], abbreviated: false) else { return [] }
+            found = splits(letters[...], depth: mostRaw).filter(keepsWords)
         } else {
-            guard !readable(letters[...], abbreviated: true) else { return [] }
             found = splits(letters[...], depth: mostRaw, abbreviated: true)
         }
         // Stable: equal splits keep the order they were found in.
-        return found.enumerated().sorted {
-            let (a, b) = (penalty($0.element), penalty($1.element))
-            return a == b ? $0.offset < $1.offset : a < b
-        }.prefix(splitLimit).map(\.element)
+        let penalties = found.map(penalty)
+        return found.indices.sorted {
+            let (a, b) = (penalties[$0], penalties[$1])
+            return a == b ? $0 < $1 : a < b
+        }.prefix(splitLimit).map { found[$0] }
+    }
+
+    /// A split that keeps words where Rime read abbreviations: spelled-out
+    /// pinyin comes first (abbreviations at the start are Rime's, wsmzhege),
+    /// and each word has a vowel (bug, python, but not wsm or zgr).
+    private static func keepsWords(_ segments: [Segment]) -> Bool {
+        guard case .pinyin(let head)? = segments.first, PinyinSpellingCorrection.isFullSyllables(head) else { return false }
+        return segments.allSatisfy { if case .raw(let letters) = $0 { letters.contains(where: "aeiouy".contains) } else { true } }
     }
 
     /// Abbreviations (wsm for 为什么) read only before the first kept word,
     /// the part Rime itself converted; after it, nearly any letters would
     /// read as some abbreviation, so the pinyin there is spelled out.
     private static func splits(_ letters: ArraySlice<Character>, depth: Int, abbreviated: Bool = false) -> [[Segment]] {
+        var memo: [Memo: [[Segment]]] = [:]
+        return splits(letters, depth: depth, abbreviated: abbreviated, memo: &memo)
+    }
+
+    /// The splits of each rest, found once however many words lead to it.
+    private struct Memo: Hashable { let start, end, depth: Int; let abbreviated: Bool }
+
+    private static func splits(_ letters: ArraySlice<Character>, depth: Int, abbreviated: Bool,
+                               memo: inout [Memo: [[Segment]]]) -> [[Segment]] {
+        let key = Memo(start: letters.startIndex, end: letters.endIndex, depth: depth, abbreviated: abbreviated)
+        if let found = memo[key] { return found }
+        let found = unmemoizedSplits(letters, depth: depth, abbreviated: abbreviated, memo: &memo)
+        memo[key] = found
+        return found
+    }
+
+    private static func unmemoizedSplits(_ letters: ArraySlice<Character>, depth: Int, abbreviated: Bool,
+                                         memo: inout [Memo: [[Segment]]]) -> [[Segment]] {
         if readable(letters, abbreviated: abbreviated) { return letters.isEmpty ? [[]] : [[.pinyin(String(letters))]] }
         guard depth > 0 else { return [] }
         // The first letter no reading of what comes before it takes.
@@ -73,9 +105,11 @@ nonisolated enum ChineseMixedInput {
         var found: [[Segment]] = []
         for start in starts {
             let head: [Segment] = start == base ? [] : [.pinyin(String(letters[base..<start]))]
-            for end in (stuck + 1)...min(letters.endIndex, start + longestRaw) {
+            // Spelled out, the pinyin stops only after a word ending on an
+            // initial (bu|g|w for bug|wo), so the word may end before it.
+            for end in (abbreviated ? stuck + 1 : max(start + 1, stuck))...min(letters.endIndex, start + longestRaw) {
                 let raw = Segment.raw(String(letters[start..<end]))
-                for rest in splits(letters[end...], depth: depth - 1) {
+                for rest in splits(letters[end...], depth: depth - 1, abbreviated: false, memo: &memo) {
                     // A kept word never runs into the next one.
                     if case .raw? = rest.first { continue }
                     found.append(head + [raw] + rest)
@@ -176,10 +210,12 @@ nonisolated enum ChineseMixedInput {
     /// How unlike a typed word and the pinyin after it a split looks, for
     /// when the model cannot weigh them: words seldom end in i or u, and
     /// pinyin after a word seldom starts with a bare vowel (vim|e, vi|me);
-    /// pinyin between words is seldom abbreviated (git|hub|shang, not gi|t|hub).
-    /// Ties keep the order found, the latest start first.
+    /// pinyin between words is seldom abbreviated (git|hub|shang, not gi|t|hub),
+    /// and one word is likelier than two. Ties keep the order found, the latest start first.
     private static func penalty(_ segments: [Segment]) -> Int {
-        segments.indices.reduce(0) { total, index in
+        // One word is likelier than two with a syllable between (github, not git|hu|b).
+        let words = segments.filter { if case .raw(let letters) = $0 { !letters.contains(where: \.isUppercase) } else { false } }.count
+        return segments.indices.reduce(max(0, words - 1)) { total, index in
             if case .pinyin(let spelling) = segments[index] {
                 // Pinyin between words, or cut short right after one
                 // a capital's word (McDonal|d), is seldom what was meant.
@@ -195,6 +231,9 @@ nonisolated enum ChineseMixedInput {
                !PinyinSpellingCorrection.isFullSyllables(before) { cost += 1 }
             if index == 0, let first = letters.first, syllableStarts.contains(String(first)) { cost += 1 }
             if let last = letters.last, last.isLowercase, "iuv".contains(last) { cost += 1 }
+            // Nor is it an initial and then pinyin (zhegebu|gwo|ming, for bug|wo).
+            if letters.count > 2, letters.allSatisfy(\.isLowercase),
+               PinyinSpellingCorrection.isFullSyllables(String(letters.dropFirst())) { cost += 1 }
             if index + 1 < segments.count, case .pinyin(let next) = segments[index + 1],
                let first = next.first, "aeo".contains(first) { cost += 1 }
             return cost
