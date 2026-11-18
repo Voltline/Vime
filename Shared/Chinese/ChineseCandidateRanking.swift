@@ -122,9 +122,8 @@ nonisolated enum ChineseCandidateRanking {
         let warm = storage.isReady(for: .chinese)
         JapaneseCandidateWorker.modelQueue.async {
             var scores: [Double]?
-            if !request.isCancelled, !storage.isSuspended, let model = storage.model(for: .chinese), warm {
-                let cache = ScoreCache.shared.cache(for: model)
-                scores = try? model.scores(context: context, candidates: texts, conversionCache: cache,
+            if !request.isCancelled, !storage.isSuspended, let model = storage.chineseModel, warm {
+                scores = try? model.scores(context: context, candidates: texts,
                                            cancelled: { request.isCancelled || storage.isSuspended })
             }
             DispatchQueue.main.async { MainActor.assumeIsolated { completion(scores) } }
@@ -135,29 +134,7 @@ nonisolated enum ChineseCandidateRanking {
     static func release() {
         JapaneseCandidateWorker.modelQueue.async {
             JapaneseCandidateWorker.LanguageModelStorage.shared.release(.chinese)
-            ScoreCache.shared.clear()
             ChineseSentenceGeneration.Storage.shared.release()
-            ChineseSentenceCorrection.Storage.shared.release()
-        }
-    }
-
-    /// Prefix rows of recent scores, for the loaded model only. Model queue.
-    private final class ScoreCache: @unchecked Sendable {
-        static let shared = ScoreCache()
-        private var owner: ObjectIdentifier?
-        private var value = VimeLanguageModel.ConversionScoreCache()
-        func cache(for model: VimeLanguageModel) -> VimeLanguageModel.ConversionScoreCache {
-            dispatchPrecondition(condition: .onQueue(JapaneseCandidateWorker.modelQueue))
-            if owner != ObjectIdentifier(model) {
-                owner = ObjectIdentifier(model)
-                value = VimeLanguageModel.ConversionScoreCache()
-            }
-            return value
-        }
-        func clear() {
-            dispatchPrecondition(condition: .onQueue(JapaneseCandidateWorker.modelQueue))
-            owner = nil
-            value = VimeLanguageModel.ConversionScoreCache()
         }
     }
 }

@@ -42,36 +42,6 @@ nonisolated enum ChineseSentenceCorrection {
     static let lookupLimit = 8
     static let spellingLimit = 64
 
-    /// The package that scores the options: kvbatch-v3, also the one
-    /// sentence generation runs on, or the sequence package when v3 cannot
-    /// load (kept as a fallback until v3 is measured on devices). Released
-    /// with the reranking model by `ChineseCandidateRanking.release()`. Model queue.
-    final class Storage: @unchecked Sendable {
-        static let shared = Storage()
-        private var cached: ChinesePrefixScoring.Model?
-        private var attempted = false
-        func model(bundle: Bundle = .main) -> ChinesePrefixScoring.Model? {
-            dispatchPrecondition(condition: .onQueue(JapaneseCandidateWorker.modelQueue))
-            if !attempted {
-                attempted = true
-                cached = autoreleasepool {
-                    if let batch = try? VimeKVBatchLanguageModel(bundle: bundle) { return .batch(batch) }
-                    return (try? VimeKVSequenceLanguageModel(bundle: bundle)).map { .sequence($0) }
-                }
-            }
-            return cached
-        }
-        /// The v3 package, when that is what loaded.
-        func batch(bundle: Bundle = .main) -> VimeKVBatchLanguageModel? {
-            if case .batch(let batch) = model(bundle: bundle) { return batch }
-            return nil
-        }
-        func release() {
-            dispatchPrecondition(condition: .onQueue(JapaneseCandidateWorker.modelQueue))
-            cached = nil; attempted = false
-        }
-    }
-
     /// Whether `input` is searched at all: plain letters of a searched length.
     static func wants(_ input: String) -> Bool {
         letters.contains(input.count) && input.allSatisfy { ("a"..."z").contains($0) }

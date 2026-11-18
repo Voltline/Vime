@@ -4,8 +4,9 @@ import Accelerate
 import os
 
 /// The zh-v1 batched KV package (kvbatch-v3, VimeML's merged INT8 package):
-/// the same vimeml-tiny-zh-v1 checkpoint and INT8 weights as the stateless
-/// package, checked by VimeML against it. One package holds three functions,
+/// the vimeml-tiny-zh-v1 checkpoint with INT8 weights, checked by VimeML
+/// against its FP32 reference. `ChineseLanguageModel` holds the one instance
+/// reranking, sentence correction and generation share. One package holds three functions,
 /// each loaded as its own `MLModel` the first time it is needed:
 ///
 /// - `scored`: rows of new tokens, each on its own cache, after a prefix
@@ -18,7 +19,7 @@ import os
 ///   position (`target_logprobs`). It keeps no keys or values, which is all
 ///   whole-sentence scoring needs.
 /// - `logits`: the full logits after each row; only `logits(_:)` uses it,
-///   to check the package against the stateless one on devices.
+///   to check the package against VimeML's references.
 ///
 /// The prefix is passed once and read by every row, so no call copies it
 /// into its rows. Keys and values are (9, B, 6, S, 64) for the rows' own
@@ -45,6 +46,7 @@ nonisolated final class VimeKVBatchLanguageModel {
             let alignment_tolerance: Tolerance
         }
         let format: String
+        let release_name: String
         let tokenizer_sha256: String
         let kv_batch_v3: Batch
     }
@@ -75,7 +77,9 @@ nonisolated final class VimeKVBatchLanguageModel {
     /// Row tokens in one call when the footprint limit is unknown (16 × 16,
     /// what VimeML recommends per call; about 18.5 MiB at the peak).
     static let defaultRowTokens = 256
-    let vocabularySize = VimeLanguageModel.Variant.zhV1.vocabulary
+    let vocabularySize = ChineseLanguageModel.vocabulary
+    /// The release and package, for diagnostics.
+    let modelVersion: String
     let maximumBatch: Int
     let tolerance: Tolerance
     private let modelURL: URL
@@ -125,7 +129,7 @@ nonisolated final class VimeKVBatchLanguageModel {
         else { throw VimeLanguageModel.Failure.resources }
         let manifest = try JSONDecoder().decode(Manifest.self, from: Data(contentsOf: manifestURL))
         let batch = manifest.kv_batch_v3
-        guard manifest.format == Self.manifestFormat, batch.compute_units == "CPU_ONLY",
+        guard manifest.format == Self.manifestFormat, !manifest.release_name.isEmpty, batch.compute_units == "CPU_ONLY",
               Set(batch.functions.keys) == Set(Function.allCases.map(\.rawValue)),
               batch.batch_range.count == 2, batch.batch_range[0] == 1, batch.batch_range[1] >= 1,
               !batch.compiled_files_sha256.isEmpty,
@@ -135,6 +139,7 @@ nonisolated final class VimeKVBatchLanguageModel {
         guard let modelURL = bundle.url(forResource: name, withExtension: "mlmodelc")
         else { throw VimeLanguageModel.Failure.resources }
         self.modelURL = modelURL
+        modelVersion = manifest.release_name + "-kvbatch-v3"
         self.computeUnits = computeUnits
         maximumBatch = batch.batch_range[1]
         tolerance = batch.alignment_tolerance
@@ -153,6 +158,10 @@ nonisolated final class VimeKVBatchLanguageModel {
         models[function] = model
         return model
     }
+
+    /// Loads `function` now rather than on its first call (about 600 ms on
+    /// an iPhone 16 Pro Max), so a cold load holds no request.
+    func preload(_ function: Function) throws { _ = try model(function) }
 
     /// Bytes the own-cache buffers take.
     var bufferBytes: Int { 2 * Self.layers * rows * Self.heads * slots * Self.headDimension * 4 }
@@ -244,7 +253,7 @@ nonisolated final class VimeKVBatchLanguageModel {
     // MARK: Full logits (`logits`)
 
     /// The logits after `tokens` (BOS first), unnormalized, with no prefix
-    /// and no own cache: what the stateless package gives for its last position.
+    /// and no own cache: the logits of its last position.
     func logits(_ tokens: [Int32]) throws -> [Float] {
         guard !tokens.isEmpty, tokens.count <= Self.contextLength,
               tokens.allSatisfy({ $0 >= 0 && Int($0) < vocabularySize })

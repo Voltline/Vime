@@ -41,41 +41,15 @@ extension ChineseGenerationModel {
     }
 }
 
-extension VimeKVLanguageModel: ChineseGenerationModel {
-    typealias State = Cache
-    func start(_ prompt: [Int32]) throws -> (logits: [Float], state: Cache) {
-        let step = try forward(prompt)
-        return (step.logits, step.cache)
-    }
-    func extend(_ state: Cache, with token: Int32) throws -> (logits: [Float], state: Cache) {
-        let step = try forward([token], after: state)
-        return (step.logits, step.cache)
-    }
-}
-
-/// What the incremental search needs of a batched KV package: kvbatch-v3,
-/// or kvbatch-v2 as the fallback. Model queue.
-protocol ChineseKVBatchModel: AnyObject {
-    var maximumBatch: Int { get }
-    var vocabularySize: Int { get }
-    /// Calls so far, for tests and measurements.
-    var predictions: Int { get }
-    func prompt(_ tokens: [Int32], allowed: [Int32]) throws -> (logProbabilities: [Float], cache: VimeKVLanguageModel.Cache)
-    func scores(_ items: [(cache: VimeKVLanguageModel.Cache?, token: Int32)], allowed: [Int32]) throws
-        -> [(logProbabilities: [Float], cache: VimeKVLanguageModel.Cache)]
-}
-extension VimeKVBatchLanguageModel: ChineseKVBatchModel {}
-extension VimeKVBatchV2LanguageModel: ChineseKVBatchModel {}
-
-/// The zh-v1 batched KV package (kvbatch-v3, or v2) for the incremental search:
+/// The zh-v1 batched KV package (kvbatch-v3) for the incremental search:
 /// the prompt in one call, each bucket in calls of up to `maximumBatch` rows
 /// scoring only the tokens allowed there. It returns no full logits, so the
 /// root is scored per first letter (`scoresEveryToken` is false).
 nonisolated final class ChineseKVGenerator: ChineseScoringModel {
     typealias State = VimeKVLanguageModel.Cache
-    let batch: any ChineseKVBatchModel
+    let batch: VimeKVBatchLanguageModel
     var scoresEveryToken: Bool { false }
-    init(batch: any ChineseKVBatchModel) { self.batch = batch }
+    init(batch: VimeKVBatchLanguageModel) { self.batch = batch }
 
     func start(_ ids: [Int32], allowed: [Int32]?) throws -> (logProbabilities: [Float], state: State) {
         guard let allowed else { throw VimeLanguageModel.Failure.tensor }

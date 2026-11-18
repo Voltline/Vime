@@ -4,7 +4,8 @@ import CoreML
 
 /// The zh-v1 batched KV package (kvbatch-v3: the prompt as a prefix shared by
 /// every row, scores for the allowed ids only): VimeML's 16-row fixture, and
-/// rows that grow over several calls, against the stateless package.
+/// rows that grow over several calls, against a full pass of the `logits`
+/// function (no prefix, no cache).
 final class VimeKVBatchLanguageModelTests: XCTestCase {
     private var bundle: Bundle { Bundle(for: Self.self) }
 
@@ -39,13 +40,15 @@ final class VimeKVBatchLanguageModelTests: XCTestCase {
         XCTAssertEqual(outside, 0, "\(message): \(outside) values outside tolerance, worst \(worst); \(value.prefix(3)) vs \(reference.prefix(3))", file: file, line: line)
     }
 
-    /// The stateless package's log probabilities of `allowed` after `ids`.
-    private func reference(_ stateless: VimeLanguageModel, _ ids: [Int32], _ allowed: [Int32]) throws -> [Float] {
-        let full = try stateless.predict(ids)
-        let pointer = full.dataPointer.assumingMemoryBound(to: Float.self)
-            .advanced(by: (ids.count - 1) * full.strides[1].intValue)
-        let logits = (0..<12288).map { pointer[$0 * full.strides[2].intValue] }
-        return try ChineseConstrainedGeneration.logProbabilities(logits, of: allowed)
+    /// A full pass of `ids` through the `logits` function of another
+    /// instance (so it adds no calls to the one under test): the log
+    /// probabilities of `allowed` after them.
+    private func reference(_ full: VimeKVBatchLanguageModel, _ ids: [Int32], _ allowed: [Int32]) throws -> [Float] {
+        try ChineseConstrainedGeneration.logProbabilities(try full.logits(ids), of: allowed)
+    }
+
+    private func tokenizer() throws -> VimeSentenceTokenizer {
+        try ChineseLanguageModel(bundle: bundle).tokenizer
     }
 
     func testLoadsThePublishedPackage() throws {
@@ -94,15 +97,15 @@ final class VimeKVBatchLanguageModelTests: XCTestCase {
     }
 
     /// Rows keep growing across calls and branch, with another allowed list
-    /// each call; each matches a full pass of the stateless package.
+    /// each call; each matches a full pass.
     func testRowsGrowAndBranch() throws {
-        let stateless = try VimeLanguageModel(bundle: bundle, variant: .zhV1)
+        let full = try VimeKVBatchLanguageModel(bundle: bundle), tokenizer = try tokenizer()
         let batch = try VimeKVBatchLanguageModel(bundle: bundle)
         let texts = ["今天天气很好我们去公园", "中文输入法很好用", "我想吃饭了", "明天下午三点开会"]
-        let ids = try texts.map { [Int32(2)] + (try stateless.tokenizer.encode($0)) }
+        let ids = try texts.map { [Int32(2)] + (try tokenizer.encode($0)) }
         let first = (0..<300).map { Int32($0 * 40) }
         let start = try batch.prompt([2], allowed: first)
-        assertClose(start.logProbabilities, try reference(stateless, [2], first), tolerance: batch.tolerance, "prompt")
+        assertClose(start.logProbabilities, try reference(full, [2], first), tolerance: batch.tolerance, "prompt")
         var live: [(cache: VimeKVLanguageModel.Cache, ids: [Int32])] = ids.map { _ in (start.cache, [2]) }
         let steps = ids.map(\.count).min()! - 1
         for step in 1...steps {
@@ -122,42 +125,44 @@ final class VimeKVBatchLanguageModelTests: XCTestCase {
             let results = try batch.scores(items, allowed: allowed)
             live = zip(results, next).map { ($0.cache, $1) }
             for (index, (result, sequence)) in zip(results, next).enumerated() {
-                assertClose(result.logProbabilities, try reference(stateless, sequence, allowed),
+                assertClose(result.logProbabilities, try reference(full, sequence, allowed),
                             tolerance: batch.tolerance, "step \(step) row \(index)")
             }
         }
         XCTAssertEqual(batch.predictions, steps + 1)
     }
 
-    /// A long prompt in one call, and its cache, match the stateless package.
+    /// A long prompt in one call, and its cache, match a full pass.
     func testPromptInOneCall() throws {
-        let stateless = try VimeLanguageModel(bundle: bundle, variant: .zhV1)
+        let full = try VimeKVBatchLanguageModel(bundle: bundle), tokenizer = try tokenizer()
         let batch = try VimeKVBatchLanguageModel(bundle: bundle)
-        let ids = [Int32(2)] + (try stateless.tokenizer.encode("今天天气很好我们去公园散步吧，中文输入法很好用"))
+        let ids = [Int32(2)] + (try tokenizer.encode("今天天气很好我们去公园散步吧，中文输入法很好用"))
         let allowed = (0..<1024).map { Int32($0 * 12) }
         let prompt = try batch.prompt(ids, allowed: allowed)
         XCTAssertEqual(prompt.cache.length, ids.count)
-        assertClose(prompt.logProbabilities, try reference(stateless, ids, allowed), tolerance: batch.tolerance, "prompt")
-        let token = try stateless.tokenizer.encode("的")[0]
+        assertClose(prompt.logProbabilities, try reference(full, ids, allowed), tolerance: batch.tolerance, "prompt")
+        let token = try tokenizer.encode("的")[0]
         let child = try batch.scores([(prompt.cache, token)], allowed: allowed)[0]
-        assertClose(child.logProbabilities, try reference(stateless, ids + [token], allowed), tolerance: batch.tolerance, "child")
+        assertClose(child.logProbabilities, try reference(full, ids + [token], allowed), tolerance: batch.tolerance, "child")
         XCTAssertEqual(batch.predictions, 2)
     }
 
-    /// The `logits` function with no prefix and no own cache gives what the
-    /// stateless package gives, before the stateless one can go.
-    func testLogitsFunctionMatchesTheStatelessPackage() throws {
-        let stateless = try VimeLanguageModel(bundle: bundle, variant: .zhV1)
-        let batch = try VimeKVBatchLanguageModel(bundle: bundle)
+    /// `score` gives, at every position, what a full pass of `logits` up to
+    /// there gives for the next token.
+    func testScoreAgreesWithTheLogitsFunction() throws {
+        let batch = try VimeKVBatchLanguageModel(bundle: bundle), tokenizer = try tokenizer()
         for text in ["今天天气很好", "晚上一起吃饭吗，好的我七点到"] {
-            let ids = [Int32(2)] + (try stateless.tokenizer.encode(text))
-            let full = try stateless.predict(ids)
-            let pointer = full.dataPointer.assumingMemoryBound(to: Float.self)
-                .advanced(by: (ids.count - 1) * full.strides[1].intValue)
-            let reference = (0..<12288).map { pointer[$0 * full.strides[2].intValue] }
-            assertClose(try batch.logits(ids), reference, tolerance: batch.tolerance, text)
+            let ids = [Int32(2)] + (try tokenizer.encode(text))
+            let scores = try batch.scores(after: try batch.prefix([]), rows: [ids])[0]
+            XCTAssertEqual(scores.count, ids.count - 1)
+            for end in 1..<ids.count {
+                let expected = try ChineseConstrainedGeneration.logProbabilities(try batch.logits(Array(ids[..<end])),
+                                                                                of: [ids[end]])[0]
+                XCTAssertTrue(batch.tolerance.accepts(scores[end - 1], reference: expected),
+                              "\(text) token \(end): \(scores[end - 1]) vs \(expected)")
+            }
         }
-        XCTAssertEqual(batch.loadedFunctions, [.logits])
+        XCTAssertEqual(batch.loadedFunctions, [.score, .logits])
     }
 
     func testRejectsWhatDoesNotFit() throws {

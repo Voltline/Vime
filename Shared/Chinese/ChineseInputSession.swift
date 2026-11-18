@@ -827,10 +827,9 @@ final class ChineseInputSession: KeyboardInputSession {
         JapaneseCandidateWorker.modelQueue.async { [weak self] in
             var scores: [Double]?
             let stop = { request.isCancelled || storage.isSuspended }
-            if weighs, !stop(), let tokenizer = storage.model(for: .chinese)?.tokenizer,
-               let model = ChineseSentenceCorrection.Storage.shared.model() {
+            if weighs, !stop(), let model = storage.chineseModel {
                 scores = try? ChinesePrefixScoring.scores(context: context, candidates: options.map(\.genuine),
-                                                          model: model, tokenizer: tokenizer, cancelled: stop)
+                                                          model: model.batch, tokenizer: model.tokenizer, cancelled: stop)
             }
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
@@ -940,7 +939,7 @@ final class ChineseInputSession: KeyboardInputSession {
             guard let self, self.sentenceRequest === request, !request.isCancelled else { return }
             JapaneseCandidateWorker.modelQueue.async {
                 var found: (score: Double, spellings: [(spelling: String, edit: ChineseSentenceCorrection.Edit)])?
-                if !request.isCancelled, !storage.isSuspended, let model = storage.model(for: .chinese),
+                if !request.isCancelled, !storage.isSuspended, let model = storage.chineseModel,
                    let lexicon = ChinesePinyinLexicon.bundled,
                    let tokens = try? model.tokenScores(context: context, text: text) {
                     let windows = ChineseSentenceCorrection.windows(tokens: tokens, text: text, input: input, lexicon: lexicon)
@@ -982,12 +981,11 @@ final class ChineseInputSession: KeyboardInputSession {
         JapaneseCandidateWorker.modelQueue.async { [weak self] in
             let stop = { request.isCancelled || storage.isSuspended }
             var scores: [Double]?
-            if !stop(), let tokenizer = storage.model(for: .chinese)?.tokenizer,
-               let model = ChineseSentenceCorrection.Storage.shared.model() {
+            if !stop(), let model = storage.chineseModel {
                 scores = try? ChinesePrefixScoring.scores(
                     context: context, candidates: options.map(\.candidate.genuine),
                     floors: options.map { ChineseSentenceCorrection.floor(literal: literal, option: $0) },
-                    model: model, tokenizer: tokenizer, cancelled: stop)
+                    model: model.batch, tokenizer: model.tokenizer, cancelled: stop)
             }
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
