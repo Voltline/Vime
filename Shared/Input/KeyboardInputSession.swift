@@ -132,6 +132,9 @@ protocol KeyboardInputSession: AnyObject {
     func reset(preservingContext: Bool)
     func handleMemoryPressure()
     func releaseInactiveResources()
+    /// The keyboard leaves this session's language: its models go, so only
+    /// the language being typed keeps any loaded.
+    func releaseLanguageModels()
     func didApplyEdits(_ edits: [KeyboardEdit])
     func finishLearningFeedback()
     func invalidateLearningFeedback()
@@ -161,6 +164,7 @@ extension KeyboardInputSession {
     var neuralModeSuspendedForMemoryPressure: Bool { false }
     func handleMemoryPressure() {}
     func releaseInactiveResources() {}
+    func releaseLanguageModels() {}
     func reset() { reset(preservingContext: false) }
     var conversionRangeDescription: String? { nil }
     func adjustConversionRange(by delta: Int) {}

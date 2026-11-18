@@ -162,6 +162,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         apply(session.confirmAll())
         session.finishLearningFeedback()
         session.reset()
+        session.releaseLanguageModels()
         session.onCommittedEdits = nil
         session.onCandidatesChange = nil
         next.leftContextProvider = session.leftContextProvider

@@ -320,6 +320,12 @@ final class ChineseInputSession: KeyboardInputSession {
         ChineseCandidateRanking.release()
     }
 
+    /// The reranking model, the sentence scoring package and the score cache.
+    func releaseLanguageModels() {
+        finishRanking(order: nil)
+        ChineseCandidateRanking.release()
+    }
+
     /// The model stays loaded while hidden, as Japanese's does.
     func releaseInactiveResources() {
         finishRanking(order: nil)
