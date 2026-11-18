@@ -5,3 +5,5 @@ set -eu
 cd "${CI_PRIMARY_REPOSITORY_PATH:-$(dirname "$0")/..}"
 swift Scripts/seal_resource.swift open \
     ci_scripts/LearningExclusions.sealed Shared/Resources/LearningExclusions.bin
+swift Scripts/seal_resource.swift open \
+    ci_scripts/PredictionBlocklist.sealed Shared/Resources/PredictionBlocklist.bin
