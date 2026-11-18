@@ -15,6 +15,9 @@ nonisolated enum ChineseCandidateRanking {
     static let candidateLimit = 8
     /// The new list waits this long for the model, then shows Rime's order.
     static let window: TimeInterval = 0.060
+    /// Scores that come after the window but within this much of the key
+    /// still reorder the list it showed, once; a later key cancels them.
+    static let lateWindow: TimeInterval = 0.300
     /// Rime's order is the prior: each place further down costs this much
     /// log probability, so the model needs clear evidence to move a word up.
     static let placePenalty = 1.0
@@ -27,6 +30,23 @@ nonisolated enum ChineseCandidateRanking {
     static let sentencePlacePenalty = 0.1
     /// Sentences shown once the model has ordered them.
     static let shownSentences = 3
+    /// What the last key's first sentence settled (all of it but the
+    /// syllable being typed) resists change a little: a sentence keeping it
+    /// gains up to this much, in proportion to how much of it it keeps, so
+    /// the first sentence flips less between readings from key to key.
+    static let keepBonus = 1.0
+
+    /// How much of `settled` each of Rime's sentences keeps, as its share of
+    /// `keepBonus`: the characters it shares from the start, of all of them.
+    static func kept(_ settled: Substring, by candidates: [RimeCandidate], run: Range<Int>) -> [Int: Double] {
+        guard !settled.isEmpty else { return [:] }
+        var kept: [Int: Double] = [:]
+        for index in run {
+            let shared = zip(candidates[index].genuine, settled).prefix { $0 == $1 }.count
+            if shared > 0 { kept[index] = Double(shared) / Double(settled.count) }
+        }
+        return kept
+    }
 
     /// What the model scores: Rime's sentences, then the other candidates it
     /// may reorder, all as indices into the candidates.
@@ -75,21 +95,26 @@ nonisolated enum ChineseCandidateRanking {
     /// Display order, as indices into the candidates: `scores` belong to
     /// `slots.all`, in order. The best `shownSentences` of Rime's sentences
     /// lead; the best of them then competes with the other slots under
-    /// `placePenalty`, and the other candidates keep their places.
-    static func order(count: Int, sentences run: Range<Int>, slots: Slots, scores: [Double]) -> [Int] {
+    /// `placePenalty`, and the other candidates keep their places. Sentences
+    /// in `kept` gain their share (0...1) of `keepBonus`.
+    static func order(count: Int, sentences run: Range<Int>, slots: Slots, scores: [Double],
+                      kept: [Int: Double] = [:]) -> [Int] {
         let fallback = order(count: count, sentences: run)
         let all = slots.all
         guard all.count == scores.count, all.count > 1, scores.allSatisfy(\.isFinite) else { return fallback }
         let score = Dictionary(uniqueKeysWithValues: zip(all, scores))
-        func ranked(_ indices: [Int], penalty: Double) -> [Int] {
-            indices.indices.sorted { a, b in
-                let left = score[indices[a]]! - penalty * Double(a), right = score[indices[b]]! - penalty * Double(b)
+        func ranked(_ indices: [Int], penalty: Double, bonus: [Int: Double] = [:]) -> [Int] {
+            func value(_ place: Int) -> Double {
+                score[indices[place]]! - penalty * Double(place) + keepBonus * (bonus[indices[place]] ?? 0)
+            }
+            return indices.indices.sorted { a, b in
+                let left = value(a), right = value(b)
                 return left != right ? left > right : a < b
             }.map { indices[$0] }
         }
         var order = fallback
         if slots.sentences.count > 1 {
-            let best = ranked(slots.sentences, penalty: sentencePlacePenalty).prefix(shownSentences)
+            let best = ranked(slots.sentences, penalty: sentencePlacePenalty, bonus: kept).prefix(shownSentences)
             order = Array(best) + Array(run.upperBound..<max(count, run.upperBound))
         }
         let places = order.indices.filter { place in

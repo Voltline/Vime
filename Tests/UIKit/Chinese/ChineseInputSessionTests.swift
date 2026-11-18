@@ -403,7 +403,8 @@ final class ChineseInputSessionTests: XCTestCase {
     }
 
     /// Typed key by key, a word in the sentence included, each key's list
-    /// shows once; at most a correction found after a pause moves it again.
+    /// shows once; at most the model's late scores and a correction found
+    /// after a pause move it again, and never back to what it showed.
     func testEachKeyShowsItsListOnce() throws {
         for model in [false, true] {
             let session = try session()
@@ -419,16 +420,49 @@ final class ChineseInputSessionTests: XCTestCase {
                     typed.append(letter)
                     leads = []
                     _ = session.type(String(letter))
-                    RunLoop.main.run(until: Date().addingTimeInterval(0.3))
+                    RunLoop.main.run(until: Date().addingTimeInterval(0.45))
                     waitUntilCurrent(session)
                     let changes = leads.dropFirst()
-                    XCTAssertTrue(changes.count <= 1 && changes.allSatisfy { $0.source == .typoCorrection },
+                    let late = changes.filter { $0.source != .typoCorrection }
+                    XCTAssertTrue(late.count <= (model ? 1 : 0) && changes.count - late.count <= 1
+                                  && Set(leads.map(\.text)).count == leads.count,
                                   "\(typed) (model \(model)): \(leads.map(\.text))")
                 }
                 session.reset()
             }
         }
     }
+
+    /// The model missing the window: the list shows in Rime's order, then
+    /// takes the model's order once its scores come, as when they come in time.
+    func testLateScoresRefineTheListOnce() throws {
+        try useModel()
+        for input in Self.reorderedByModel {
+            let timely = try session()
+            _ = timely.type(input)
+            RunLoop.main.run(until: Date().addingTimeInterval(0.5))
+            waitUntilCurrent(timely)
+            let best = try XCTUnwrap(timely.candidatePresentations.first?.text)
+            timely.reset()
+
+            let session = try session()
+            session.rankingWindow = 0
+            var leads: [String] = []
+            session.onCandidatesChange = {
+                guard session.candidatesAreCurrent, let first = session.candidatePresentations.first?.text else { return }
+                if leads.last != first { leads.append(first) }
+            }
+            _ = session.type(input)
+            RunLoop.main.run(until: Date().addingTimeInterval(0.6))
+            waitUntilCurrent(session)
+            XCTAssertEqual(leads.count, 2, "\(input): \(leads)")
+            XCTAssertEqual(leads.last, best, input)
+            session.reset()
+        }
+    }
+
+    /// Inputs whose first sentence the model changes from Rime's.
+    private static let reorderedByModel = ["zhejiancanguantaiguile", "laoshibuzhidelianxitaiduole"]
 
     /// The bundled Chinese model, warm, in place of the keyboard's.
     private func useModel() throws {

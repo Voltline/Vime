@@ -42,6 +42,23 @@ final class ChineseCandidateRankingTests: XCTestCase {
                                                      scores: [-30, .nan, -40, -40]), [0, 4, 5, 6])
     }
 
+    func testSentencesKeepingTheLastLeadResistASmallEdge() {
+        let run = ChineseCandidateRanking.sentenceRun(candidates)
+        let slots = ChineseCandidateRanking.slots(candidates) { _ in true }
+        // 突破智慧 was shown: each sentence keeps what it shares from the start.
+        let kept = ChineseCandidateRanking.kept("突破智慧", by: candidates, run: run)
+        XCTAssertEqual(kept, [0: 0.5, 1: 1, 2: 0.5, 3: 1])
+        XCTAssertEqual(ChineseCandidateRanking.kept("", by: candidates, run: run), [:])
+        func lead(_ scores: [Double], kept: [Int: Double]) -> Int? {
+            ChineseCandidateRanking.order(count: candidates.count, sentences: run, slots: slots, scores: scores, kept: kept).first
+        }
+        // A small edge for 指挥 no longer flips it.
+        XCTAssertEqual(lead([-40, -30.2, -30, -40], kept: [:]), 2)
+        XCTAssertEqual(lead([-40, -30.2, -30, -40], kept: kept), 1)
+        // A clear one still does.
+        XCTAssertEqual(lead([-40, -31, -30, -40], kept: kept), 2)
+    }
+
     func testWordsKeepTheirRule() {
         // No sentences: the first eight complete candidates, one log probability a place.
         let words = [word("世界", covers: true), word("视界", covers: true), word("事界", covers: true), word("是")]
