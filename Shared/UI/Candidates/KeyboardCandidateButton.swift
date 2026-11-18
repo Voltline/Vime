@@ -3,7 +3,9 @@ import UIKit
 /// The visual selection follows the text width, independently of the button's
 /// hit area or a wider cell in the expanded candidate panel.
 final class KeyboardCandidateButton: UIButton {
-    private let underline = UIView()
+    /// The first candidate's box, a rounded key-coloured backing behind its
+    /// text, as the system keyboards mark the candidate Space takes.
+    private let highlight = UIView()
     private let separator = UIView()
     /// Next-word suggestions read as equal, divided slots (like QuickType)
     /// rather than a ranked list with a leading best guess.
@@ -63,11 +65,12 @@ final class KeyboardCandidateButton: UIButton {
         addTarget(self, action: #selector(cancelSelection), for: [.touchCancel, .touchUpOutside])
         contentHorizontalAlignment = .left
         titleLabel?.textAlignment = .left
-        underline.isUserInteractionEnabled = false
-        underline.backgroundColor = KeyboardPalette.accent
-        underline.accessibilityIdentifier = "vime.candidate.underline"
-        underline.layer.cornerRadius = 1
-        insertSubview(underline, at: 0)
+        highlight.isUserInteractionEnabled = false
+        highlight.backgroundColor = KeyboardPalette.key
+        highlight.accessibilityIdentifier = "vime.candidate.highlight"
+        highlight.layer.cornerCurve = .continuous
+        highlight.isHidden = true
+        insertSubview(highlight, at: 0)
         separator.isUserInteractionEnabled = false
         separator.backgroundColor = KeyboardPalette.text.withAlphaComponent(0.18)
         separator.isHidden = true
@@ -124,10 +127,10 @@ final class KeyboardCandidateButton: UIButton {
         }
         if presentedHighlight != highlighted {
             presentedHighlight = highlighted
-            setTitleColor(highlighted ? KeyboardPalette.accent : KeyboardPalette.text, for: .normal)
-            underline.isHidden = !highlighted
+            highlight.isHidden = !highlighted
         }
-        annotation.textColor = highlighted ? KeyboardPalette.accent : .secondaryLabel
+        setTitleColor(KeyboardPalette.text, for: .normal)
+        annotation.textColor = .secondaryLabel
         ruby.textColor = annotation.textColor
         if needsMeasurement {
             let startedAt = KeyboardPerformance.start()
@@ -150,12 +153,13 @@ final class KeyboardCandidateButton: UIButton {
 
     override func contentRect(forBounds bounds: CGRect) -> CGRect { bounds.insetBy(dx: 12, dy: 2) }
 
-    /// Gap between the text block and its selection underline.
-    static let underlineGap: CGFloat = 3
+    /// Room the highlight box leaves around the text block.
+    static let highlightPadding = CGSize(width: 7, height: 5)
 
     override func layoutSubviews() {
         super.layoutSubviews()
         let titleHeight = ceil(titleLabel?.font.lineHeight ?? 22)
+        var textTop = (bounds.height - titleHeight) / 2
         var textBottom = (bounds.height + titleHeight) / 2
         if titleLines > 1 && annotation.isHidden && ruby.isHidden {
             // Wrapped text fills the slot's width; the label truncates the
@@ -163,14 +167,14 @@ final class KeyboardCandidateButton: UIButton {
             let height = titleHeight * CGFloat(titleLines)
             let top = max(0, floor((bounds.height - height) / 2))
             titleLabel?.frame = CGRect(x: 12, y: top, width: max(0, bounds.width - 24), height: height)
-            textBottom = top + height
+            (textTop, textBottom) = (top, top + height)
         } else if !annotation.isHidden {
             let noteHeight = ceil(annotation.font.lineHeight)
             let top = max(0, (bounds.height - titleHeight - noteHeight - 3) / 2)
             titleLabel?.frame = CGRect(x: 12, y: top, width: max(0, bounds.width - 24), height: titleHeight)
             annotation.frame = CGRect(x: 12, y: top + titleHeight + 1,
                 width: max(0, bounds.width - 24), height: noteHeight)
-            textBottom = annotation.frame.maxY
+            (textTop, textBottom) = (top, annotation.frame.maxY)
         } else if !ruby.isHidden {
             // Like furigana: the reading sits centred over the word, and the
             // narrower of the two is centred under or over the wider one.
@@ -182,20 +186,24 @@ final class KeyboardCandidateButton: UIButton {
             ruby.frame = CGRect(x: 12 + floor((block - rubyWidth) / 2), y: top, width: rubyWidth, height: rubyHeight)
             titleLabel?.frame = CGRect(x: 12 + floor((block - titleWidth) / 2), y: top + rubyHeight + 1,
                 width: titleWidth, height: titleHeight)
-            textBottom = titleLabel?.frame.maxY ?? textBottom
+            (textTop, textBottom) = (top, titleLabel?.frame.maxY ?? textBottom)
         }
-        // Follow the text, not the strip: a full-height button would otherwise
-        // draw the line against the first key row.
-        underline.frame = CGRect(x: 12, y: min(max(0, bounds.height - 2), ceil(textBottom + Self.underlineGap)),
-            width: min(max(0, bounds.width - 24), ceil(measuredTextWidth)), height: 2)
+        // Follow the text, not the strip: a full-height box would otherwise
+        // run into the first key row.
+        let padding = Self.highlightPadding
+        let top = max(1, floor(textTop - padding.height)), bottom = min(bounds.height - 1, ceil(textBottom + padding.height))
+        let width = min(max(0, bounds.width - 24), ceil(measuredTextWidth)) + padding.width * 2
+        highlight.frame = CGRect(x: 12 - padding.width, y: top, width: min(bounds.width - (12 - padding.width) * 2, width),
+            height: max(0, bottom - top))
+        highlight.layer.cornerRadius = min(10, highlight.bounds.height / 2)
         let separatorHeight = min(bounds.height, 18)
         separator.frame = CGRect(x: -1, y: (bounds.height - separatorHeight) / 2, width: 1 / max(1, traitCollection.displayScale), height: separatorHeight)
     }
     func applyTheme() {
-        underline.backgroundColor = KeyboardPalette.accent
+        highlight.backgroundColor = KeyboardPalette.key
         separator.backgroundColor = KeyboardPalette.text.withAlphaComponent(0.18)
-        setTitleColor(presentedHighlight == true ? KeyboardPalette.accent : KeyboardPalette.text, for: .normal)
-        annotation.textColor = presentedHighlight == true ? KeyboardPalette.accent : .secondaryLabel
+        setTitleColor(KeyboardPalette.text, for: .normal)
+        annotation.textColor = .secondaryLabel
         ruby.textColor = annotation.textColor
     }
 }

@@ -74,21 +74,25 @@ final class KeyboardQuickInputTests: XCTestCase {
         attachment.name = "数字键盘-连续符号栏"; attachment.lifetime = .keepAlways; add(attachment)
     }
 
-    func testSelectedCandidateUsesTextUnderlineAndKeepsBottomEmojiEntry() async throws {
+    func testSelectedCandidateIsBoxedAndKeepsBottomEmojiEntry() async throws {
         let fixture = try await Fixture()
         defer { fixture.close() }
         for letter in "nihongo" { try fixture.tapKey(id: "vime.key." + String(letter)) }
         let candidate = try XCTUnwrap(fixture.descendants.compactMap { $0 as? KeyboardCandidateButton }.first { $0.tag == 0 })
-        let underline = try XCTUnwrap(candidate.subviews.first { $0.accessibilityIdentifier == "vime.candidate.underline" })
+        let box = try XCTUnwrap(candidate.subviews.first { $0.accessibilityIdentifier == "vime.candidate.highlight" })
         candidate.layoutIfNeeded()
-        XCTAssertFalse(underline.isHidden)
-        XCTAssertEqual(underline.bounds.height, 2)
+        XCTAssertFalse(box.isHidden)
         let title = try XCTUnwrap(candidate.titleLabel)
-        let textBottom = candidate.convert(title.bounds, from: title).maxY
-        XCTAssertGreaterThanOrEqual(underline.frame.minY, textBottom, "The line stays below the glyphs")
-        XCTAssertLessThanOrEqual(underline.frame.minY - textBottom, KeyboardCandidateButton.underlineGap + 4,
-            "The line hugs the candidate text instead of the key row")
-        XCTAssertLessThan(underline.frame.maxY, candidate.bounds.maxY - 4)
+        let text = candidate.convert(title.bounds, from: title)
+        XCTAssertLessThan(box.frame.minY, text.minY, "The box surrounds the glyphs")
+        XCTAssertGreaterThan(box.frame.maxY, text.maxY)
+        XCTAssertLessThanOrEqual(box.frame.minX, text.minX)
+        XCTAssertLessThan(box.frame.maxY, candidate.bounds.maxY, "The box stays off the key row")
+        XCTAssertGreaterThan(box.layer.cornerRadius, 0)
+        XCTAssertEqual(candidate.titleColor(for: .normal), KeyboardPalette.text, "The text keeps its colour inside the box")
+        if let second = fixture.descendants.compactMap({ $0 as? KeyboardCandidateButton }).first(where: { $0.tag == 1 }) {
+            XCTAssertEqual(second.subviews.first { $0.accessibilityIdentifier == "vime.candidate.highlight" }?.isHidden, true)
+        }
         let emoji = try XCTUnwrap(fixture.descendants.first { $0.accessibilityLabel == "表情" })
         XCTAssertFalse(emoji.isHidden)
         XCTAssertGreaterThan(emoji.frame.minY, candidate.frame.maxY)
