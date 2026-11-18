@@ -96,35 +96,39 @@ final class KeyboardQuickCandidateStrip: UIScrollView {
 
     func applyTheme() {
         for button in buttons {
-            button.setTitleColor(button.primaryResult ? KeyboardPalette.accent : KeyboardPalette.text, for: .normal)
+            button.setTitleColor(KeyboardPalette.text, for: .normal)
             button.setTitleColor(.secondaryLabel, for: .disabled)
-            button.underline.backgroundColor = KeyboardPalette.accent
+            button.highlight.backgroundColor = KeyboardPalette.key
         }
     }
 
     private final class QuickButton: UIButton {
-        let underline = UIView()
-        var primaryResult = false { didSet { underline.isHidden = !primaryResult } }
+        /// The result Space takes, boxed as the first candidate is.
+        let highlight = UIView()
+        var primaryResult = false { didSet { highlight.isHidden = !primaryResult } }
         var item: KeyboardQuickCandidate?
         private var armed = false
         private var touchedItem: KeyboardQuickCandidate?
         override init(frame: CGRect) {
             super.init(frame: frame)
-            underline.isUserInteractionEnabled = false
-            underline.isHidden = true
-            underline.layer.cornerRadius = 1
-            underline.accessibilityIdentifier = "vime.calculation.underline"
-            addSubview(underline)
+            highlight.isUserInteractionEnabled = false
+            highlight.isHidden = true
+            highlight.layer.cornerCurve = .continuous
+            highlight.accessibilityIdentifier = "vime.calculation.highlight"
+            insertSubview(highlight, at: 0)
             addTarget(self, action: #selector(arm), for: .touchDown)
             addTarget(self, action: #selector(cancel), for: [.touchCancel, .touchUpOutside])
         }
         required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
         override func layoutSubviews() {
             super.layoutSubviews()
-            let width = min(titleLabel?.intrinsicContentSize.width ?? 0, max(0, bounds.width - 24))
-            let textBottom = (bounds.height + ceil(titleLabel?.font.lineHeight ?? 22)) / 2
-            underline.frame = CGRect(x: (bounds.width - width) / 2,
-                y: min(max(0, bounds.height - 2), ceil(textBottom + KeyboardCandidateButton.underlineGap)), width: width, height: 2)
+            let padding = KeyboardCandidateButton.highlightPadding
+            let width = min(titleLabel?.intrinsicContentSize.width ?? 0, max(0, bounds.width - 24)) + padding.width * 2
+            let lineHeight = ceil(titleLabel?.font.lineHeight ?? 22)
+            let top = max(1, floor((bounds.height - lineHeight) / 2 - padding.height))
+            let bottom = min(bounds.height - 1, ceil((bounds.height + lineHeight) / 2 + padding.height))
+            highlight.frame = CGRect(x: (bounds.width - width) / 2, y: top, width: width, height: max(0, bottom - top))
+            highlight.layer.cornerRadius = min(10, highlight.bounds.height / 2)
         }
         @objc private func arm() { armed = true; touchedItem = item }
         @objc private func cancel() { armed = false; touchedItem = nil }
