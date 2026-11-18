@@ -12,25 +12,43 @@ final class ChineseSentenceCorrectionTests: XCTestCase {
 
     // MARK: Prefix scoring
 
-    func testPrefixScoringMatchesTheStatelessScores() throws {
-        let bundle = Bundle(for: Self.self)
-        let stateless = try VimeLanguageModel(bundle: bundle, variant: .zhV1)
-        let batch = try VimeKVBatchLanguageModel(bundle: bundle)
+    nonisolated(unsafe) private static var cachedModel: ChineseLanguageModel?
+    private func chinese() throws -> ChineseLanguageModel {
+        if let model = Self.cachedModel { return model }
+        let model = try ChineseLanguageModel(bundle: Bundle(for: Self.self))
+        Self.cachedModel = model
+        return model
+    }
+
+    /// Each text alone, the whole sequence in one row with nothing shared:
+    /// the log probabilities of its tokens after where it parts from the context.
+    private func unshared(context: String, texts: [String], model: ChineseLanguageModel) throws -> [Double] {
+        let contextIDs = [Int32(2)] + (context.isEmpty ? [] : try model.tokenizer.encode(context))
+        let empty = try model.batch.prefix([])
+        return try texts.map { text in
+            let sequence = [Int32(2)] + (try model.tokenizer.encode(context + text))
+            var start = 0
+            while start < min(contextIDs.count, sequence.count), contextIDs[start] == sequence[start] { start += 1 }
+            let values = try model.batch.scores(after: empty, rows: [sequence])[0]
+            // Entry i scores token i + 1.
+            return values.enumerated().reduce(0.0) { $0 + ($1.offset + 1 >= start ? Double($1.element) : 0) }
+        }
+    }
+
+    func testPrefixScoringMatchesEachSentenceAlone() throws {
+        let model = try chinese()
         let texts = ["想去看电影", "想去看点硬", "想去看电影了吗", "下雨了", "想去看电影"]
         for context in ["", "我今天"] {
-            // The stateless scorer takes each text once; the prefix scorer, repeats too.
-            let unique = Array(texts.prefix(4))
-            let once = try stateless.scores(context: context, candidates: unique)
-            let expected = texts.map { once[unique.firstIndex(of: $0)!] }
-            let scores = try ChinesePrefixScoring.scores(context: context, candidates: texts, model: batch,
-                                                         tokenizer: stateless.tokenizer)
+            let expected = try unshared(context: context, texts: texts, model: model)
+            let scores = try ChinesePrefixScoring.scores(context: context, candidates: texts, model: model.batch,
+                                                         tokenizer: model.tokenizer)
             XCTAssertEqual(scores.count, texts.count)
             for (score, reference) in zip(scores, expected) { XCTAssertEqual(score, reference, accuracy: 1e-3, context) }
 
             // A floor below a score keeps it exact; one above stops it.
             let floors = expected.enumerated().map { $0.offset.isMultiple(of: 2) ? $0.element - 0.5 : $0.element + 0.5 }
-            let pruned = try ChinesePrefixScoring.scores(context: context, candidates: texts, floors: floors, model: batch,
-                                                         tokenizer: stateless.tokenizer)
+            let pruned = try ChinesePrefixScoring.scores(context: context, candidates: texts, floors: floors,
+                                                         model: model.batch, tokenizer: model.tokenizer)
             for (index, score) in pruned.enumerated() {
                 if index.isMultiple(of: 2) { XCTAssertEqual(score, expected[index], accuracy: 1e-3) }
                 else { XCTAssertEqual(score, -.infinity, texts[index]) }
@@ -38,76 +56,110 @@ final class ChineseSentenceCorrectionTests: XCTestCase {
         }
     }
 
-    /// VimeML's fixture for the sequence package: the shared prefix once,
-    /// every continuation's tokens in one call per 16.
-    func testSequencePackageMatchesVimeMLFixture() throws {
+    /// VimeML's fixture for `score`: the shared prefix once, every
+    /// continuation's tokens in one call per 16.
+    func testScoreFunctionMatchesVimeMLFixture() throws {
         struct Case: Decodable {
             let context: String
             let candidates: [String]
             let prefix_ids: [Int32]
             let continuation_ids: [[Int32]]
             let scores_package: [Double]
+            let calls: Int
         }
         let bundle = Bundle(for: Self.self)
-        let url = try XCTUnwrap(bundle.url(forResource: "KVSequenceFixture-sequence", withExtension: "jsonl"))
+        let url = try XCTUnwrap(bundle.url(forResource: "KVBatchV3Fixture-score", withExtension: "jsonl"))
         let cases = try String(contentsOf: url, encoding: .utf8).split(separator: "\n")
             .map { try JSONDecoder().decode(Case.self, from: Data($0.utf8)) }
         XCTAssertEqual(cases.count, 8)
-        let model = try VimeKVSequenceLanguageModel(bundle: bundle)
-        let stateless = try VimeLanguageModel(bundle: bundle, variant: .zhV1)
+        // A fresh package, to see which functions load.
+        let chinese = try ChineseLanguageModel(bundle: bundle)
+        let model = chinese.batch
         XCTAssertEqual(model.maximumBatch, 16)
         for item in cases {
-            let tokens = try model.continuationScores(prefix: item.prefix_ids, continuations: item.continuation_ids)
+            let before = model.predictions
+            let prefix = try model.prefix(Array(item.prefix_ids.dropLast()))
+            let tokens = try model.scores(after: prefix, rows: item.continuation_ids.map { [item.prefix_ids.last!] + $0 })
+            XCTAssertEqual(model.predictions - before, item.calls, item.context)
             for (values, expected) in zip(tokens, item.scores_package) {
                 XCTAssertEqual(values.reduce(0) { $0 + Double($1) }, expected, accuracy: 1e-3, item.candidates.joined(separator: " "))
             }
             let scores = try ChinesePrefixScoring.scores(context: item.context, candidates: item.candidates, model: model,
-                                                         tokenizer: stateless.tokenizer)
+                                                         tokenizer: chinese.tokenizer)
             for (score, expected) in zip(scores, item.scores_package) { XCTAssertEqual(score, expected, accuracy: 1e-3) }
         }
+        XCTAssertEqual(model.loadedFunctions, [.scored, .score])
     }
 
-    func testSequenceScoringMatchesTheStatelessScores() throws {
-        let bundle = Bundle(for: Self.self)
-        let stateless = try VimeLanguageModel(bundle: bundle, variant: .zhV1)
-        let model = try VimeKVSequenceLanguageModel(bundle: bundle)
+    func testScoringManyRowsMatchesEachSentenceAlone() throws {
+        let model = try chinese()
         // More than one call's worth, of different lengths.
         let texts = (0..<20).map { "我想去看第\($0)场电影" + String(repeating: "了", count: $0 % 4) } + ["下雨了"]
         for context in ["", "晚上一起吃饭吗"] {
-            let expected = try stateless.scores(context: context, candidates: texts)
-            let scores = try ChinesePrefixScoring.scores(context: context, candidates: texts, model: model,
-                                                         tokenizer: stateless.tokenizer)
+            let expected = try unshared(context: context, texts: texts, model: model)
+            let scores = try ChinesePrefixScoring.scores(context: context, candidates: texts, model: model.batch,
+                                                         tokenizer: model.tokenizer)
             for (score, reference) in zip(scores, expected) { XCTAssertEqual(score, reference, accuracy: 1e-3, context) }
             let floors = expected.enumerated().map { $0.offset.isMultiple(of: 2) ? $0.element - 0.5 : $0.element + 0.5 }
-            let pruned = try ChinesePrefixScoring.scores(context: context, candidates: texts, floors: floors, model: model,
-                                                         tokenizer: stateless.tokenizer)
+            let pruned = try ChinesePrefixScoring.scores(context: context, candidates: texts, floors: floors,
+                                                         model: model.batch, tokenizer: model.tokenizer)
             for (index, score) in pruned.enumerated() where !index.isMultiple(of: 2) { XCTAssertEqual(score, -.infinity) }
         }
     }
 
-    /// Slicing the rows to bound a call's memory changes how many calls run,
-    /// not what they score.
-    func testSequenceScoringStaysWithinItsByteBudget() throws {
-        let bundle = Bundle(for: Self.self)
-        let stateless = try VimeLanguageModel(bundle: bundle, variant: .zhV1)
-        let model = try VimeKVSequenceLanguageModel(bundle: bundle)
+    /// The row tokens a call may take change how many calls run, not what they score.
+    func testScoringStaysWithinItsRowTokens() throws {
+        let chinese = try ChineseLanguageModel(bundle: Bundle(for: Self.self))
+        let model = chinese.batch
         let texts = (0..<16).map { "我想去看第\($0)场电影然后顺便吃个晚饭再回家休息一下明天还要早起" }
         let context = "我们今天下午三点在公司楼下的咖啡店见面"
-        XCTAssertGreaterThan(model.bytes(rows: 16, length: 24, slots: 16), model.byteBudget,
-                             "sixteen long rows are more than one call may hold")
-        let expected = try stateless.scores(context: context, candidates: texts)
+        XCTAssertGreaterThan(model.rowTokens(), 0)
+        let expected = try unshared(context: context, texts: texts, model: chinese)
         var calls: [Int] = []
-        for budget in [model.byteBudget, 1 << 40, 0] {
-            model.byteBudget = budget
+        for limit in [Int?.none, 1 << 20, 1] {
+            model.rowTokenLimit = limit
             let before = model.predictions
             let scores = try ChinesePrefixScoring.scores(context: context, candidates: texts, model: model,
-                                                         tokenizer: stateless.tokenizer)
+                                                         tokenizer: chinese.tokenizer)
             calls.append(model.predictions - before)
             for (score, reference) in zip(scores, expected) { XCTAssertEqual(score, reference, accuracy: 1e-3) }
         }
-        XCTAssertEqual(calls[1], 2, "unbounded: the shared prefix, then every tail at once")
-        XCTAssertGreaterThan(calls[0], calls[1])
-        XCTAssertEqual(calls[2], 1 + texts.count, "no budget: one row a call")
+        XCTAssertEqual(calls[1], 2, "unbounded: the shared prefix, then every row at once")
+        XCTAssertGreaterThanOrEqual(calls[0], calls[1])
+        XCTAssertEqual(calls[2], 1 + texts.count, "one row a call")
+    }
+
+    // MARK: The reranking scores
+
+    /// Reranking sums every candidate from where the first of them parts
+    /// from the context, so a candidate that merges with the context's last
+    /// character compares over the same tokens as the others.
+    func testRerankingScoresShareTheirStart() throws {
+        let model = try chinese()
+        let context = "我们明天去", texts = ["实验", "试验", "市演", "上海"]
+        let scores = try model.scores(context: context, candidates: texts)
+        let shared = try ChinesePrefixScoring.scores(context: context, candidates: texts, sharedStart: true,
+                                                     model: model.batch, tokenizer: model.tokenizer)
+        for (score, reference) in zip(scores, shared) { XCTAssertEqual(score, reference, accuracy: 1e-9) }
+        // One candidate: its own start is the shared one.
+        for text in texts {
+            XCTAssertEqual(try model.scores(context: context, candidates: [text])[0],
+                           try unshared(context: context, texts: [text], model: model)[0], accuracy: 1e-3, text)
+        }
+        XCTAssertThrowsError(try model.scores(context: context, candidates: ["实验", "实验"]), "repeats are ineligible")
+        XCTAssertThrowsError(try model.scores(context: context, candidates: ["实验"], cancelled: { true }))
+    }
+
+    func testTokenScoresAddUpToTheScore() throws {
+        let model = try chinese()
+        for (context, text) in [("", "今天天气很好"), ("我们明天去", "实验室做实验")] {
+            let tokens = try model.tokenScores(context: context, text: text)
+            XCTAssertFalse(tokens.isEmpty)
+            XCTAssertEqual(tokens.reduce(0) { $0 + $1.logProbability },
+                           try model.scores(context: context, candidates: [text])[0], accuracy: 1e-3)
+            XCTAssertTrue(tokens.allSatisfy { $0.logProbability <= 0 })
+            XCTAssertTrue(text.hasSuffix(tokens.last!.text))
+        }
     }
 
     // MARK: Where to look

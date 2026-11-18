@@ -42,26 +42,6 @@ nonisolated enum ChineseSentenceCorrection {
     static let lookupLimit = 8
     static let spellingLimit = 64
 
-    /// The sequence package that scores the options (released with the
-    /// reranking model by `ChineseCandidateRanking.release()`). Model queue.
-    final class Storage: @unchecked Sendable {
-        static let shared = Storage()
-        private var cached: VimeKVSequenceLanguageModel?
-        private var attempted = false
-        func model(bundle: Bundle = .main) -> VimeKVSequenceLanguageModel? {
-            dispatchPrecondition(condition: .onQueue(JapaneseCandidateWorker.modelQueue))
-            if !attempted {
-                attempted = true
-                cached = autoreleasepool { try? VimeKVSequenceLanguageModel(bundle: bundle) }
-            }
-            return cached
-        }
-        func release() {
-            dispatchPrecondition(condition: .onQueue(JapaneseCandidateWorker.modelQueue))
-            cached = nil; attempted = false
-        }
-    }
-
     /// Whether `input` is searched at all: plain letters of a searched length.
     static func wants(_ input: String) -> Bool {
         letters.contains(input.count) && input.allSatisfy { ("a"..."z").contains($0) }

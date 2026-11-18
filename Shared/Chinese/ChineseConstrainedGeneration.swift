@@ -41,19 +41,7 @@ extension ChineseGenerationModel {
     }
 }
 
-extension VimeKVLanguageModel: ChineseGenerationModel {
-    typealias State = Cache
-    func start(_ prompt: [Int32]) throws -> (logits: [Float], state: Cache) {
-        let step = try forward(prompt)
-        return (step.logits, step.cache)
-    }
-    func extend(_ state: Cache, with token: Int32) throws -> (logits: [Float], state: Cache) {
-        let step = try forward([token], after: state)
-        return (step.logits, step.cache)
-    }
-}
-
-/// The zh-v1 batched KV package (kvbatch-v2) for the incremental search:
+/// The zh-v1 batched KV package (kvbatch-v3) for the incremental search:
 /// the prompt in one call, each bucket in calls of up to `maximumBatch` rows
 /// scoring only the tokens allowed there. It returns no full logits, so the
 /// root is scored per first letter (`scoresEveryToken` is false).

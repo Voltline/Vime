@@ -6,7 +6,7 @@ import Foundation
 /// Not shown yet: Rime's candidates and their reranking
 /// (`ChineseCandidateRanking`) decide what the keyboard shows, and this path
 /// runs only behind `isEnabled`, a development switch. The generator is the
-/// zh-v1 batched KV package (kvbatch-v2) in lm mode for now — the prompt in
+/// zh-v1 batched KV package (kvbatch-v3) in lm mode for now — the prompt in
 /// one call, each bucket in one call scoring only its letter's tokens —
 /// searching forward only and kept across keystrokes (`ChineseIncrementalGeneration`); the three-task model puts the
 /// keys in the prompt, so it would search afresh with `mode: .task`.
@@ -47,21 +47,12 @@ nonisolated enum ChineseSentenceGeneration {
         }.map(\.element)
     }
 
-    /// Generates, drops what `allows` refuses (the same exclusions Rime's
-    /// candidates go through), and rescores with `scorer`. Model queue.
-    static func candidates<Model: ChineseGenerationModel>(
-        keys: String, leftContext: String, generator: Model, tokenizer: VimeSentenceTokenizer,
-        vocabulary: ChineseConstrainedGeneration.Vocabulary, lexicon: ChinesePinyinLexicon,
-        mode: ChineseConstrainedGeneration.Mode = Self.mode,
-        parameters: ChineseConstrainedGeneration.Parameters = Self.parameters,
-        scorer: VimeLanguageModel?, allows: (String) -> Bool, cancelled: () -> Bool
-    ) -> [Candidate]? {
-        guard let typed = ChinesePinyinKeys(keys) else { return nil }
-        let context = VimeLanguageModel.sentenceContext(leftContext)
-        guard let prompt = try? ChineseConstrainedGeneration.prompt(mode, context: context, keys: keys, tokenizer: tokenizer),
-              let generated = try? ChineseConstrainedGeneration.generate(model: generator, vocabulary: vocabulary,
-                  lexicon: lexicon, keys: typed, prompt: prompt, mode: mode, parameters: parameters, cancelled: cancelled)
-        else { return nil }
+    /// Drops what `allows` refuses (the same exclusions Rime's candidates go
+    /// through) and rescores with `scorer`; nil when nothing is left or
+    /// `cancelled`. Model queue.
+    static func finished(_ generated: [ChineseConstrainedGeneration.Result], context: String,
+                         scorer: ChineseLanguageModel?, allows: (String) -> Bool,
+                         cancelled: () -> Bool) -> [Candidate]? {
         let allowed = generated.filter { allows($0.text) }
         guard !allowed.isEmpty, !cancelled() else { return nil }
         let scores = scorer.flatMap {
@@ -69,6 +60,22 @@ nonisolated enum ChineseSentenceGeneration {
         }
         guard !cancelled() else { return nil }
         return rescored(allowed, modelScores: scores)
+    }
+
+    /// A fresh search for all of `keys` at once, then `finished`. Model queue.
+    static func candidates(keys: String, leftContext: String, generator: Storage.Generator,
+                           parameters: ChineseConstrainedGeneration.Parameters = Self.parameters,
+                           scorer: ChineseLanguageModel?, allows: (String) -> Bool,
+                           cancelled: () -> Bool) -> [Candidate]? {
+        let context = VimeLanguageModel.sentenceContext(leftContext)
+        guard let typed = ChinesePinyinKeys(keys),
+              let prompt = try? ChineseConstrainedGeneration.prompt(.lm, context: context, keys: "",
+                                                                    tokenizer: generator.tokenizer),
+              let session = try? ChineseIncrementalGeneration(model: generator.model, vocabulary: generator.vocabulary,
+                                                              lexicon: generator.lexicon, prompt: prompt, parameters: parameters),
+              let generated = try? session.update(typed, cancelled: cancelled)
+        else { return nil }
+        return finished(generated, context: context, scorer: scorer, allows: allows, cancelled: cancelled)
     }
 
     /// Whether `generate` rescores with the reranking model; off while the
@@ -88,24 +95,21 @@ nonisolated enum ChineseSentenceGeneration {
             var result: [Candidate]?
             let stop = { request.isCancelled || storage.isSuspended }
             let context = VimeLanguageModel.sentenceContext(leftContext)
-            if !stop(), let typed = ChinesePinyinKeys(keys), let session = Storage.shared.session(context: context),
+            if !stop(), let model = storage.chineseModel, let typed = ChinesePinyinKeys(keys),
+               let session = Storage.shared.session(context: context, model: model),
                let generated = try? session.update(typed, cancelled: stop) {
-                let allowed = generated.filter { allows($0.text) }
-                if !allowed.isEmpty, !stop() {
-                    let scorer = rescores && storage.isReady(for: .chinese) ? storage.model(for: .chinese) : nil
-                    let scores = scorer.flatMap {
-                        try? $0.scores(context: context, candidates: allowed.map(\.text), cancelled: stop)
-                    }
-                    if !stop() { result = rescored(allowed, modelScores: scores) }
-                }
+                result = finished(generated, context: context, scorer: rescores ? model : nil, allows: allows,
+                                  cancelled: stop)
             }
             DispatchQueue.main.async { MainActor.assumeIsolated { completion(result) } }
         }
     }
 
-    /// The batched KV package (released with the reranking model
-    /// by `ChineseCandidateRanking.release()`), their usable tokens, the
-    /// dictionary, and the search of the current context. Model queue.
+    /// What the search needs on top of the Chinese model (whose package and
+    /// tokenizer it uses): its usable tokens, the dictionary, and the search
+    /// of the current context. Dropped with the model by
+    /// `ChineseCandidateRanking.release()`, and rebuilt when the model is
+    /// another instance. Model queue.
     final class Storage: @unchecked Sendable {
         static let shared = Storage()
         struct Generator {
@@ -114,32 +118,32 @@ nonisolated enum ChineseSentenceGeneration {
             let vocabulary: ChineseConstrainedGeneration.Vocabulary
             let lexicon: ChinesePinyinLexicon
         }
-        private var cached: Generator?
-        private var attempted = false
+        private var cached: (owner: ObjectIdentifier, generator: Generator)?
         private var current: ChineseIncrementalGeneration<ChineseKVGenerator>?
 
-        func generator(bundle: Bundle = .main) -> Generator? {
+        func generator(for model: ChineseLanguageModel) -> Generator? {
             dispatchPrecondition(condition: .onQueue(JapaneseCandidateWorker.modelQueue))
-            if !attempted {
-                attempted = true
-                cached = autoreleasepool {
-                    let variant = VimeLanguageModel.Variant.zhV1
-                    guard let lexicon = ChinesePinyinLexicon.bundled,
-                          let tokenizerURL = bundle.url(forResource: variant.tokenizerResource, withExtension: "model"),
-                          let tokenizer = try? VimeSentenceTokenizer(url: tokenizerURL, vocabulary: variant.vocabulary),
-                          let batch = try? VimeKVBatchLanguageModel(bundle: bundle) else { return nil }
-                    let vocabulary = ChineseConstrainedGeneration.Vocabulary(
-                        tokenizer: tokenizer, size: batch.vocabularySize, lexicon: lexicon)
-                    return Generator(model: ChineseKVGenerator(batch: batch), tokenizer: tokenizer,
-                                     vocabulary: vocabulary, lexicon: lexicon)
-                }
+            if let cached, cached.owner == ObjectIdentifier(model) { return cached.generator }
+            release()
+            guard let generator = Self.generator(for: model) else { return nil }
+            cached = (ObjectIdentifier(model), generator)
+            return generator
+        }
+
+        /// The search's tokens and dictionary for `model`; nil without Rime's table.
+        static func generator(for model: ChineseLanguageModel) -> Generator? {
+            autoreleasepool {
+                guard let lexicon = ChinesePinyinLexicon.bundled else { return nil }
+                let vocabulary = ChineseConstrainedGeneration.Vocabulary(
+                    tokenizer: model.tokenizer, size: model.batch.vocabularySize, lexicon: lexicon)
+                return Generator(model: ChineseKVGenerator(batch: model.batch), tokenizer: model.tokenizer,
+                                 vocabulary: vocabulary, lexicon: lexicon)
             }
-            return cached
         }
 
         /// The search after `context`, kept while the context stays the same.
-        func session(context: String, bundle: Bundle = .main) -> ChineseIncrementalGeneration<ChineseKVGenerator>? {
-            guard let generator = generator(bundle: bundle),
+        func session(context: String, model: ChineseLanguageModel) -> ChineseIncrementalGeneration<ChineseKVGenerator>? {
+            guard let generator = generator(for: model),
                   let prompt = try? ChineseConstrainedGeneration.prompt(.lm, context: context, keys: "",
                                                                         tokenizer: generator.tokenizer)
             else { return nil }
@@ -151,7 +155,7 @@ nonisolated enum ChineseSentenceGeneration {
 
         func release() {
             dispatchPrecondition(condition: .onQueue(JapaneseCandidateWorker.modelQueue))
-            cached = nil; attempted = false; current = nil
+            cached = nil; current = nil
         }
     }
 }

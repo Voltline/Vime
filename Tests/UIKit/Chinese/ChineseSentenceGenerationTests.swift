@@ -1,50 +1,62 @@
 import XCTest
 @testable import Vime
 
-/// Constrained generation with the bundled zh-v1 KV package and Rime's
-/// dictionary, then rescoring with the stateless package.
+/// Sentence generation on the bundled zh-v1 kvbatch-v3 package and Rime's
+/// dictionary — forward only, kept across keystrokes — then rescoring with
+/// the same package.
 final class ChineseSentenceGenerationTests: XCTestCase {
     typealias Generation = ChineseConstrainedGeneration
 
     struct Setup {
-        let kv: VimeKVLanguageModel
-        let stateless: VimeLanguageModel
-        let lexicon: ChinesePinyinLexicon
-        let vocabulary: Generation.Vocabulary
-        /// The zh-v1 batched KV package (kvbatch-v2): prompts in one call,
-        /// allowed tokens scored only.
-        let batched: ChineseKVGenerator
+        let model: ChineseLanguageModel
+        let generator: ChineseSentenceGeneration.Storage.Generator
+        var lexicon: ChinesePinyinLexicon { generator.lexicon }
+        var vocabulary: Generation.Vocabulary { generator.vocabulary }
+        var tokenizer: VimeSentenceTokenizer { model.tokenizer }
+        /// The prompt in one call, allowed tokens scored only.
+        var batched: ChineseKVGenerator { generator.model }
     }
     nonisolated(unsafe) private static var cached: Setup?
 
     func setup() throws -> Setup {
         if let cached = Self.cached { return cached }
-        let bundle = Bundle(for: Self.self)
-        let stateless = try VimeLanguageModel(bundle: bundle, variant: .zhV1)
-        let kv = try VimeKVLanguageModel(bundle: bundle, tokenizer: stateless.tokenizer)
-        let lexicon = try XCTUnwrap(ChinesePinyinLexicon.bundled, "RimeData.bundle is not bundled")
-        let setup = Setup(kv: kv, stateless: stateless, lexicon: lexicon,
-                          vocabulary: Generation.Vocabulary(tokenizer: kv.tokenizer, size: kv.vocabularySize, lexicon: lexicon),
-                          batched: ChineseKVGenerator(batch: try VimeKVBatchLanguageModel(bundle: bundle)))
+        XCTAssertNotNil(ChinesePinyinLexicon.bundled, "RimeData.bundle is not bundled")
+        let model = try ChineseLanguageModel(bundle: Bundle(for: Self.self))
+        let setup = Setup(model: model, generator: try XCTUnwrap(ChineseSentenceGeneration.Storage.generator(for: model)))
         Self.cached = setup
         return setup
     }
 
-    func generate(_ keys: String, context: String = "", beam: Int = 16, count: Int = 10) throws -> [Generation.Result] {
+    private func incremental(context: String = "", beam: Int = 16,
+                             count: Int = 10) throws -> ChineseIncrementalGeneration<ChineseKVGenerator> {
         let s = try setup()
-        let prompt = try Generation.prompt(.lm, context: context, keys: keys, tokenizer: s.kv.tokenizer)
-        return try Generation.generate(model: s.kv, vocabulary: s.vocabulary, lexicon: s.lexicon,
-            keys: try XCTUnwrap(ChinesePinyinKeys(keys)), prompt: prompt, mode: .lm,
-            parameters: .init(beam: beam, count: count))
+        let prompt = try Generation.prompt(.lm, context: context, keys: "", tokenizer: s.tokenizer)
+        return try ChineseIncrementalGeneration(model: s.batched, vocabulary: s.vocabulary, lexicon: s.lexicon, prompt: prompt,
+                                                parameters: .init(beam: beam, count: count))
+    }
+
+    /// All of `keys` at once, on a fresh search.
+    func generate(_ keys: String, context: String = "", beam: Int = 16, count: Int = 10) throws -> [Generation.Result] {
+        try incremental(context: context, beam: beam, count: count).update(try XCTUnwrap(ChinesePinyinKeys(keys)))
+    }
+
+    /// Typed one key at a time; the results after the last.
+    private func typed(_ keys: String, on engine: ChineseIncrementalGeneration<ChineseKVGenerator>)
+        throws -> [Generation.Result] {
+        var results: [Generation.Result] = []
+        for end in 1...keys.count {
+            guard let prefix = ChinesePinyinKeys(String(keys.prefix(end))) else { continue }
+            results = try engine.update(prefix)
+        }
+        return results
     }
 
     private func candidates(_ keys: String, context: String = "", scorer: Bool = true,
                             allows: (String) -> Bool = { _ in true },
                             cancelled: () -> Bool = { false }) throws -> [ChineseSentenceGeneration.Candidate]? {
         let s = try setup()
-        return ChineseSentenceGeneration.candidates(keys: keys, leftContext: context, generator: s.kv,
-            tokenizer: s.kv.tokenizer, vocabulary: s.vocabulary, lexicon: s.lexicon,
-            scorer: scorer ? s.stateless : nil, allows: allows, cancelled: cancelled)
+        return ChineseSentenceGeneration.candidates(keys: keys, leftContext: context, generator: s.generator,
+            scorer: scorer ? s.model : nil, allows: allows, cancelled: cancelled)
     }
 
     func testTheDictionaryComesFromRimesTable() throws {
@@ -54,12 +66,12 @@ final class ChineseSentenceGenerationTests: XCTestCase {
         XCTAssertTrue(s.lexicon.readings["行"]?.isSuperset(of: ["xing", "hang"]) ?? false)
         XCTAssertTrue(s.lexicon.readings["绿"]?.contains("lv") ?? false, "ü is written v, as Rime spells it")
         XCTAssertGreaterThan(s.vocabulary.usableCount, 8000)
-        XCTAssertTrue(s.vocabulary.characters[Int(try s.kv.tokenizer.encode("中文")[0])] == ["中", "文"])
-        XCTAssertTrue(s.vocabulary.characters[Int(try s.kv.tokenizer.encode("，")[0])].isEmpty)
+        XCTAssertTrue(s.vocabulary.characters[Int(try s.tokenizer.encode("中文")[0])] == ["中", "文"])
+        XCTAssertTrue(s.vocabulary.characters[Int(try s.tokenizer.encode("，")[0])].isEmpty)
     }
 
     func testPromptsForBothModes() throws {
-        let tokenizer = try setup().kv.tokenizer
+        let tokenizer = try setup().tokenizer
         let context = try tokenizer.encode("今天"), keys = try tokenizer.encode("nihao")
         XCTAssertEqual(try Generation.prompt(.task, context: "今天", keys: "nihao", tokenizer: tokenizer),
                        [2, 4] + context + [5] + keys + [6])
@@ -94,7 +106,7 @@ final class ChineseSentenceGenerationTests: XCTestCase {
     }
 
     func testUnreachableKeysFallBack() throws {
-        XCTAssertThrowsError(try generate("iiii")) { XCTAssertEqual($0 as? Generation.Failure, .unreachable) }
+        XCTAssertEqual(try generate("iiii"), [])
         XCTAssertNil(try candidates("iiii"))
         XCTAssertNil(try candidates("ni hao"))
         XCTAssertNil(try candidates("nihao", cancelled: { true }))
@@ -104,7 +116,7 @@ final class ChineseSentenceGenerationTests: XCTestCase {
         let generated = try generate("shiyan", context: "我们明天去")
         let rescored = try XCTUnwrap(try candidates("shiyan", context: "我们明天去"))
         XCTAssertEqual(Set(rescored.map(\.text)), Set(generated.map(\.text)))
-        let model = try setup().stateless.scores(context: "我们明天去", candidates: rescored.map(\.text))
+        let model = try setup().model.scores(context: "我们明天去", candidates: rescored.map(\.text))
         for (candidate, score) in zip(rescored, model) {
             XCTAssertEqual(try XCTUnwrap(candidate.modelScore), score, accuracy: 1e-9)
             XCTAssertEqual(candidate.score, candidate.generationScore + 1.6 * score, accuracy: 1e-9)
@@ -176,7 +188,7 @@ final class ChineseSentenceGenerationTests: XCTestCase {
         let fixtures = try fixtures(), s = try setup()
         for item in fixtures.cases {
             let context = VimeLanguageModel.sentenceContext(item.context)
-            XCTAssertEqual(try Generation.prompt(.lm, context: context, keys: item.keys, tokenizer: s.kv.tokenizer),
+            XCTAssertEqual(try Generation.prompt(.lm, context: context, keys: item.keys, tokenizer: s.tokenizer),
                            item.prompt_ids, "\(item.id) prompt")
             let keys = try XCTUnwrap(ChinesePinyinKeys(item.keys))
             let spelling = Generation.Spelling(keys: keys, lexicon: s.lexicon, vocabulary: s.vocabulary)
@@ -190,20 +202,20 @@ final class ChineseSentenceGenerationTests: XCTestCase {
     }
 
     /// The generation scores VimeML reports are the model's log probability
-    /// of each sentence: within INT8 noise of what the KV package gives.
-    /// Rows where VimeML's own `v1_context_scores` disagree with its
-    /// generation score are left out (r1 had 171; r1 is withdrawn).
+    /// of each sentence after the prompt: within INT8 noise of what the
+    /// package's `score` function gives. Rows where VimeML's own
+    /// `v1_context_scores` disagree with its generation score are left out
+    /// (r1 had 171; r1 is withdrawn).
     func testGenerationScoresMatchVimeMLWhereItIsConsistent() throws {
         let fixtures = try fixtures(), s = try setup()
         var checked = 0
         for item in fixtures.cases {
-            for (top, check) in zip(item.top, item.v1_context_scores) where abs(top.gen_score - check) < 0.01 {
-                var step = try s.kv.forward(item.prompt_ids)
-                var score = 0.0
-                for id in top.ids {
-                    score += Double(step.logits[Int(id)]) - (try Generation.logNormalizer(step.logits))
-                    step = try s.kv.forward([id], after: step.cache)
-                }
+            let consistent = zip(item.top, item.v1_context_scores).filter { abs($0.gen_score - $1) < 0.01 }.map(\.0)
+            guard !consistent.isEmpty else { continue }
+            let prefix = try s.model.batch.prefix(Array(item.prompt_ids.dropLast()))
+            let rows = consistent.map { [item.prompt_ids.last!] + $0.ids }
+            for (top, values) in zip(consistent, try s.model.batch.scores(after: prefix, rows: rows)) {
+                let score = values.reduce(0) { $0 + Double($1) }
                 XCTAssertEqual(score, top.gen_score, accuracy: max(0.75, 0.005 * abs(top.gen_score)), "\(item.id) \(top.text)")
                 checked += 1
             }
@@ -211,52 +223,12 @@ final class ChineseSentenceGenerationTests: XCTestCase {
         XCTAssertGreaterThan(checked, 1000)
     }
 
-    /// The search itself against VimeML's top 10. Set VIME_GENERATION_REPORT
-    /// to a path for the differences.
-    /// FP32 there, INT8 here: VimeML expects the same texts, scores within
-    /// about 0.5 (0.56 seen) and rare swaps of near-tied neighbours.
-    func testMatchesVimeMLReference() throws {
-        let fixtures = try fixtures(), s = try setup()
-        var report: [String] = [], sameTop = 0, overlap = 0, worst = 0.0
-        for item in fixtures.cases {
-            let context = VimeLanguageModel.sentenceContext(item.context)
-            let prompt = try Generation.prompt(.lm, context: context, keys: item.keys, tokenizer: s.kv.tokenizer)
-            XCTAssertEqual(prompt, item.prompt_ids, "\(item.id) prompt")
-            let found = try generate(item.keys, context: context, beam: fixtures.search.beam, count: fixtures.search.topk)
-            let expected = Dictionary(uniqueKeysWithValues: item.top.map { ($0.text, $0) })
-            let shared = found.filter { expected[$0.text] != nil }
-            // A text can come from more than one token sequence; INT8 noise may pick another of near-equal score.
-            for result in shared {
-                let reference = expected[result.text]!
-                worst = max(worst, abs(result.score - reference.gen_score))
-                XCTAssertEqual(result.score, reference.gen_score, accuracy: 0.75, "\(item.id) \(result.text)")
-            }
-            XCTAssertTrue(found.prefix(3).contains { $0.text == item.top.first?.text },
-                          "\(item.id): \(found.map(\.text)) vs \(item.top.map(\.text))")
-            if found.first?.text == item.top.first?.text { sameTop += 1 }
-            overlap += shared.count
-            if shared.count < item.top.count || found.first?.text != item.top.first?.text {
-                report.append("\(item.id) shared \(shared.count)/\(item.top.count) found \(found.map(\.text)) expected \(item.top.map(\.text))")
-            }
-            if ProcessInfo.processInfo.environment["VIME_GENERATION_DUMP"] != nil,
-               let line = try? JSONSerialization.data(withJSONObject: ["id": item.id, "found": found.map { ["text": $0.text, "score": $0.score, "ids": $0.tokens.map(Int.init)] }]) {
-                report.append("DUMP " + String(decoding: line, as: UTF8.self))
-            }
-        }
-        report.insert("cases \(fixtures.cases.count) same top \(sameTop) shared \(overlap)/\(fixtures.cases.reduce(0) { $0 + $1.top.count }) worst score difference \(worst)", at: 0)
-        if let path = ProcessInfo.processInfo.environment["VIME_GENERATION_REPORT"] {
-            try? report.joined(separator: "\n").write(toFile: path, atomically: true, encoding: .utf8)
-        }
-        XCTAssertGreaterThanOrEqual(Double(sameTop), 0.95 * Double(fixtures.cases.count), report[0])
-        XCTAssertGreaterThanOrEqual(Double(overlap), 0.95 * Double(fixtures.cases.reduce(0) { $0 + $1.top.count }), report[0])
-    }
-
     /// The reranking scores VimeML computed for its top texts, one joint call each.
     func testContextScoresMatchVimeML() throws {
         let fixtures = try fixtures(), s = try setup()
         for item in fixtures.cases {
-            let scores = try s.stateless.scores(context: VimeLanguageModel.sentenceContext(item.context),
-                                                candidates: item.top.map(\.text))
+            let scores = try s.model.scores(context: VimeLanguageModel.sentenceContext(item.context),
+                                            candidates: item.top.map(\.text))
             for (index, score) in scores.enumerated() {
                 let expected = item.v1_context_scores[index]
                 XCTAssertEqual(score, expected, accuracy: max(0.75, 0.005 * abs(expected)), "\(item.id) \(item.top[index].text)")
@@ -265,25 +237,6 @@ final class ChineseSentenceGenerationTests: XCTestCase {
     }
 
     // MARK: Forward only, kept across keystrokes
-
-    private func incremental<Model: ChineseScoringModel>(_ model: Model, context: String = "", beam: Int = 16,
-                                                         count: Int = 10) throws -> ChineseIncrementalGeneration<Model> {
-        let s = try setup()
-        let prompt = try Generation.prompt(.lm, context: context, keys: "", tokenizer: s.kv.tokenizer)
-        return try ChineseIncrementalGeneration(model: model, vocabulary: s.vocabulary, lexicon: s.lexicon, prompt: prompt,
-                                                parameters: .init(beam: beam, count: count))
-    }
-
-    /// Typed one key at a time; the results after the last.
-    private func typed<Model: ChineseScoringModel>(_ keys: String, on engine: ChineseIncrementalGeneration<Model>)
-        throws -> [Generation.Result] {
-        var results: [Generation.Result] = []
-        for end in 1...keys.count {
-            guard let prefix = ChinesePinyinKeys(String(keys.prefix(end))) else { continue }
-            results = try engine.update(prefix)
-        }
-        return results
-    }
 
     /// Same texts; scores within what attention over more or fewer cache slots changes.
     private func assertSame(_ a: [Generation.Result], _ b: [Generation.Result], _ message: String,
@@ -295,8 +248,7 @@ final class ChineseSentenceGenerationTests: XCTestCase {
     }
 
     func testTypingFindsTheObviousSentence() throws {
-        let s = try setup()
-        let engine = try incremental(s.batched)
+        let engine = try incremental()
         for (keys, text) in [("nihao", "你好"), ("zhongwenshurufa", "中文输入法"), ("zwsrf", "中文输入法"),
                              ("jintiantianqihenhao", "今天天气很好"), ("woxiangchifan", "我想吃饭")] {
             XCTAssertEqual(try typed(keys, on: engine).first?.text, text, keys)
@@ -305,10 +257,10 @@ final class ChineseSentenceGenerationTests: XCTestCase {
 
     func testTypingKeyByKeyMatchesAllAtOnce() throws {
         let s = try setup()
-        let typing = try incremental(s.batched, context: "今天")
+        let typing = try incremental(context: "今天")
         for keys in ["women", "womenqugongyuansanbu", "wmqgy", "xi'an"] {
             let found = try typed(keys, on: typing)
-            assertSame(found, try incremental(s.batched, context: "今天").update(XCTUnwrap(ChinesePinyinKeys(keys))), keys)
+            assertSame(found, try generate(keys, context: "今天"), keys)
         }
         // Backspace and typing the same key again cost no model call.
         _ = try typing.update(XCTUnwrap(ChinesePinyinKeys("womenqugongyuan")))
@@ -317,95 +269,56 @@ final class ChineseSentenceGenerationTests: XCTestCase {
         XCTAssertEqual(try typing.update(XCTUnwrap(ChinesePinyinKeys("womenqugongyuan"))).first?.text, "我们去公园")
         XCTAssertFalse(short.isEmpty)
         XCTAssertEqual(s.batched.batch.predictions, calls)
+        // A new first letter runs only the prompt again.
+        let fresh = try incremental()
+        _ = try fresh.update(XCTUnwrap(ChinesePinyinKeys("nihao")))
+        let before = s.batched.batch.predictions
+        XCTAssertEqual(try fresh.update(XCTUnwrap(ChinesePinyinKeys("w"))).first?.text, try generate("w").first?.text)
+        XCTAssertEqual(s.batched.batch.predictions - before, 2, "the prompt again, then the fresh engine's prompt")
     }
 
-    func testBatchedAndSingleRowSearchesAgree() throws {
-        let s = try setup()
-        for keys in ["zhongwenshurufa", "wmmtjm"] {
-            assertSame(try incremental(s.batched).update(XCTUnwrap(ChinesePinyinKeys(keys))),
-                       try incremental(s.kv).update(XCTUnwrap(ChinesePinyinKeys(keys))), keys)
-        }
-    }
-
-    /// The batched package typed key by key finds what the chunk package
-    /// (the same zh-v1 INT8 weights, every token scored) finds with all the
-    /// keys at once, in the same order, on every r2 case; a new first letter
-    /// runs only the prompt again.
-    func testBatchedPackageSearchesLikeTheChunkPackage() throws {
-        let fixtures = try fixtures(), s = try setup()
-        var order = 0, worst = 0.0, differ: [String] = []
-        for item in fixtures.cases {
-            let context = VimeLanguageModel.sentenceContext(item.context)
-            let batched = try typed(item.keys, on: try incremental(s.batched, context: context, beam: fixtures.search.beam,
-                                                                   count: fixtures.search.topk))
-            let chunk = try incremental(s.kv, context: context, beam: fixtures.search.beam, count: fixtures.search.topk)
-                .update(XCTUnwrap(ChinesePinyinKeys(item.keys)))
-            if batched.map(\.text) == chunk.map(\.text) { order += 1 } else { differ.append("\(item.id) \(item.keys)") }
-            for (a, b) in zip(batched, chunk) where a.text == b.text { worst = max(worst, abs(a.score - b.score)) }
-        }
-        let summary = "batched vs chunk: same order \(order)/\(fixtures.cases.count), worst score difference \(worst); differ: \(differ)"
-        print(summary)
-        if let path = ProcessInfo.processInfo.environment["VIME_INCREMENTAL_REPORT"] {
-            try? summary.write(toFile: path + ".batched", atomically: true, encoding: .utf8)
-        }
-        XCTAssertEqual(order, fixtures.cases.count, summary)
-        XCTAssertLessThan(worst, 1e-3, summary)
-
-        let typing = try incremental(s.batched)
-        _ = try typing.update(XCTUnwrap(ChinesePinyinKeys("nihao")))
-        let calls = s.batched.batch.predictions
-        XCTAssertEqual(try typing.update(XCTUnwrap(ChinesePinyinKeys("w"))).first?.text,
-                       try incremental(s.batched).update(XCTUnwrap(ChinesePinyinKeys("w"))).first?.text)
-        XCTAssertEqual(s.batched.batch.predictions - calls, 2, "the prompt again, then the fresh engine's prompt")
-    }
-
-    /// Forward only against VimeML's r2 (which keeps only reachable key
-    /// positions) and against the reachable search here. Not expected to
-    /// match: VimeML makes r3 under the same rule. Set VIME_INCREMENTAL_REPORT
-    /// to a file path for the numbers and the cases that differ.
-    func testForwardOnlyAgainstTheReachableSearch() throws {
+    /// Typed key by key against VimeML's r2, which searches every key
+    /// position it can still reach rather than forward only, so the two are
+    /// not expected to match. Set VIME_INCREMENTAL_REPORT to a file path for
+    /// the numbers and the cases that differ.
+    func testForwardOnlyAgainstVimeML() throws {
         let fixtures = try fixtures(), s = try setup()
         var report: [String] = []
-        var top = 0, shared = 0, order = 0, sameSet = 0
-        var topReachable = 0, sharedReachable = 0, orderReachable = 0, setReachable = 0, total = 0, worst = 0.0
+        var top = 0, topThree = 0, order = 0, shared = 0, total = 0, worst = 0.0
         var calls: [Int] = []
         for item in fixtures.cases {
             let context = VimeLanguageModel.sentenceContext(item.context)
-            let engine = try incremental(s.batched, context: context, beam: fixtures.search.beam, count: fixtures.search.topk)
+            XCTAssertEqual(try Generation.prompt(.lm, context: context, keys: item.keys, tokenizer: s.tokenizer),
+                           item.prompt_ids, "\(item.id) prompt")
+            let engine = try incremental(context: context, beam: fixtures.search.beam, count: fixtures.search.topk)
             let before = s.batched.batch.predictions
             let found = try typed(item.keys, on: engine)
             calls.append(s.batched.batch.predictions - before)
-            let reachable = try generate(item.keys, context: context, beam: fixtures.search.beam, count: fixtures.search.topk)
-            let expected = item.top.map(\.text)
-            total += expected.count
-            if found.first?.text == expected.first { top += 1 }
-            if found.map(\.text) == expected { order += 1 }
-            if Set(found.map(\.text)) == Set(expected) { sameSet += 1 }
-            shared += found.filter { expected.contains($0.text) }.count
-            if found.first?.text == reachable.first?.text { topReachable += 1 }
-            if found.map(\.text) == reachable.map(\.text) { orderReachable += 1 }
-            if Set(found.map(\.text)) == Set(reachable.map(\.text)) { setReachable += 1 }
-            let scores = Dictionary(reachable.map { ($0.text, $0.score) }, uniquingKeysWith: max)
+            let expected = Dictionary(item.top.map { ($0.text, $0.gen_score) }, uniquingKeysWith: max)
+            total += item.top.count
+            if found.first?.text == item.top.first?.text { top += 1 }
+            if found.prefix(3).contains(where: { $0.text == item.top.first?.text }) { topThree += 1 }
+            if found.map(\.text) == item.top.map(\.text) { order += 1 }
             for result in found {
-                guard let score = scores[result.text] else { continue }
-                sharedReachable += 1; worst = max(worst, abs(score - result.score))
+                guard let score = expected[result.text] else { continue }
+                shared += 1; worst = max(worst, abs(score - result.score))
             }
-            if found.map(\.text) != reachable.map(\.text) {
-                report.append("\(item.id) keys \(item.keys) forward \(found.map(\.text)) reachable \(reachable.map(\.text))")
+            if found.first?.text != item.top.first?.text {
+                report.append("\(item.id) keys \(item.keys) forward \(found.map(\.text)) r2 \(item.top.map(\.text))")
             }
         }
         let n = fixtures.cases.count
         report.insert("""
-            cases \(n); against r2: same top \(top), same order \(order), same set \(sameSet), shared \(shared)/\(total); \
-            against the reachable search: same top \(topReachable), same order \(orderReachable), same set \(setReachable), \
-            shared \(sharedReachable)/\(total), worst shared score difference \(worst); \
-            batched calls per case typed key by key: mean \(Double(calls.reduce(0, +)) / Double(n)), max \(calls.max() ?? 0)
+            cases \(n); against r2: same top \(top), r2's top in the first three \(topThree), same order \(order), \
+            shared \(shared)/\(total), worst shared score difference \(worst); \
+            calls per case typed key by key: mean \(Double(calls.reduce(0, +)) / Double(n)), max \(calls.max() ?? 0)
             """, at: 0)
         if let path = ProcessInfo.processInfo.environment["VIME_INCREMENTAL_REPORT"] {
             try? report.joined(separator: "\n").write(toFile: path, atomically: true, encoding: .utf8)
         }
         print(report[0])
-        // A sanity floor only; the two rules differ by design.
-        XCTAssertGreaterThanOrEqual(Double(topReachable), 0.8 * Double(n), report[0])
+        // Sanity floors only; the two rules differ by design.
+        XCTAssertGreaterThanOrEqual(Double(topThree), 0.95 * Double(n), report[0])
+        XCTAssertLessThan(worst, 0.7, report[0])
     }
 }
