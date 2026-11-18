@@ -41,6 +41,23 @@ final class ChineseMixedInputTests: XCTestCase {
         XCTAssertEqual(texts("vimehenhaoyong").first, ["raw:vime", "py:henhaoyong"])
     }
 
+    func testOneWordComesBeforeTwo() {
+        XCTAssertEqual(texts("womenzaigithubshangtijiaole").first, ["py:womenzai", "raw:github", "py:shangtijiaole"],
+                       "not git|hu|bs|hang")
+    }
+
+    func testAWordRimeReadsAsAbbreviationsIsKeptToo() {
+        // Rime reads these whole (这个不过我, 我用朋友通红); the model weighs the words.
+        XCTAssertEqual(texts("zhegebugwomingtian").first, ["py:zhege", "raw:bug", "py:womingtian"], "not zhegebu|gwo")
+        XCTAssertEqual(texts("woyongpythonxielejiaoben").first, ["py:woyong", "raw:python", "py:xielejiaoben"])
+        XCTAssertTrue(texts("bangwokanyixiacommitxinxi").contains(["py:bangwokanyixia", "raw:commit", "py:xinxi"]))
+        XCTAssertTrue(texts("woyongxcodedabao").contains(["py:woyong", "raw:xcode", "py:dabao"]))
+        // A word needs a vowel and spelled-out pinyin before it.
+        XCTAssertEqual(texts("zhegedfwm").filter { $0.contains("raw:dfwm") }, [])
+        XCTAssertEqual(texts("nhzgsrf"), [])
+        XCTAssertEqual(texts("zhegebug"), [], "bu|g reads as pinyin until the next letter")
+    }
+
     func testOptionsJoinRimesReadings() {
         let splits = [[ChineseMixedInput.Segment.pinyin("jinxing"), .raw("vime"), .pinyin("de")],
                       [.pinyin("jinxing"), .raw("vimede")]]

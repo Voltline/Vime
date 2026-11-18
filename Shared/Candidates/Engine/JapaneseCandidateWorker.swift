@@ -115,6 +115,16 @@ final class JapaneseCandidateWorker {
             load(.chinese)
             return isSuspended ? nil : cachedChinese
         }
+        /// Uses `model` as the loaded Chinese model, for tests, whose bundle
+        /// carries the model the keyboard's main bundle would.
+        func useChinese(_ model: ChineseLanguageModel) {
+            dispatchPrecondition(condition: .onQueue(JapaneseCandidateWorker.modelQueue))
+            release()
+            cachedLanguage = .chinese
+            attempted = true
+            cachedChinese = model
+            setReady(.chinese)
+        }
         private func load(_ language: Language) {
             dispatchPrecondition(condition: .onQueue(JapaneseCandidateWorker.modelQueue))
             guard !isSuspended else { return }
