@@ -90,6 +90,9 @@ void vime_rime_set_learning_filter(VimeRimeLearningFilter filter);
 
 VimeRimeSession vime_rime_create_session(void);
 void vime_rime_destroy_session(VimeRimeSession session);
+/// Ends every session. Their learning is written first, and the user
+/// dictionaries close once nothing uses them, releasing their file locks.
+void vime_rime_destroy_all_sessions(void);
 bool vime_rime_select_schema(VimeRimeSession session, const char *schema);
 /// X11 keysym and Rime modifier mask. False when the engine did not use it.
 bool vime_rime_process_key(VimeRimeSession session, int32_t keycode, int32_t mask);

@@ -1,3 +1,4 @@
+import CRime
 import XCTest
 
 final class RimeEngineTests: XCTestCase {
@@ -196,6 +197,45 @@ final class RimeEngineTests: XCTestCase {
         XCTAssertEqual(engine.sendAndWait(.commitInput).commit, "xi'an")
         _ = engine.sendAndWait(.type("lv"))
         XCTAssertEqual(engine.sendAndWait(.clear).input, "")
+    }
+
+    func testClosingReleasesTheUserDictionaryAndKeepsWhatWasLearned() throws {
+        let engine = try engine()
+        _ = engine.sendAndWait(.clear)
+        let directory = try XCTUnwrap(RimeEngine.runningUserDirectory)
+        // A commit leaves Rime's learning transaction open; closing must write it.
+        XCTAssertEqual(engine.sendAndWait(.type("shurufa")).candidates.first?.text, "输入法")
+        XCTAssertEqual(engine.sendAndWait(.select(0)).commit, "输入法")
+        _ = engine.sendAndWait(.type("nihao"))
+        XCTAssertTrue(RimeEngine.userDictionaryIsOpen(), "a running session holds the user dictionary")
+
+        RimeEngine.closeUserDictionaries()
+        XCTAssertFalse(RimeEngine.userDictionaryIsOpen(), "closing releases the database and its LOCK")
+        let text = FileManager.default.temporaryDirectory.appendingPathComponent("RimeClosed-\(UUID().uuidString).txt")
+        defer { try? FileManager.default.removeItem(at: text) }
+        let database = directory.appendingPathComponent(ChineseLearnedWords.dictionary + ".userdb", isDirectory: true)
+        XCTAssertGreaterThan(vime_rime_userdb_export(database.path, ChineseLearnedWords.dictionary, text.path), 0)
+        XCTAssertTrue(try String(contentsOf: text, encoding: .utf8).contains("输入法\tshu ru fa\t"))
+
+        // Looking up continuations alone does not open it again.
+        XCTAssertEqual(engine.continuationsAndWait(of: "你好", code: "ni hao", limit: 3), [])
+        XCTAssertFalse(RimeEngine.userDictionaryIsOpen())
+
+        // The next key opens it again and carries on with the composition.
+        let resumed = engine.sendAndWait(.type("ma"))
+        print("RimeEngineTests reopen key: \(resumed.duration)")
+        XCTAssertEqual(resumed.input, "nihaoma")
+        XCTAssertEqual(resumed.candidates.first?.text, "你好吗")
+        XCTAssertTrue(RimeEngine.userDictionaryIsOpen())
+        XCTAssertLessThan(resumed.duration, .milliseconds(150))
+        _ = engine.sendAndWait(.clear)
+
+        // Opening ahead of the next key, as the keyboard does in the foreground.
+        RimeEngine.closeUserDictionaries()
+        RimeEngine.reopenUserDictionaries()
+        XCTAssertTrue(RimeEngine.userDictionaryIsOpen())
+        XCTAssertLessThan(engine.sendAndWait(.type("a")).duration, .milliseconds(100))
+        _ = engine.sendAndWait(.clear)
     }
 
     func testWarmCommandIsFast() throws {

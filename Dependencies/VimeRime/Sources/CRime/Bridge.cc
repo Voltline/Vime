@@ -273,6 +273,17 @@ void vime_rime_destroy_session(VimeRimeSession session) {
     guarded([&] { return bool(api()->destroy_session(session)); });
 }
 
+void vime_rime_destroy_all_sessions(void) {
+    {
+        std::lock_guard<std::mutex> lock(commit_lock);
+        last_commits.clear();
+    }
+    guarded([] {
+        rime::Service::instance().CleanupAllSessions();
+        return true;
+    });
+}
+
 bool vime_rime_select_schema(VimeRimeSession session, const char *schema) {
     return guarded([&] { return bool(api()->select_schema(session, schema)); });
 }

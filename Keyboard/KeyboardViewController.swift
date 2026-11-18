@@ -84,6 +84,10 @@ class KeyboardViewController: UIInputViewController {
             name: .NSExtensionHostWillResignActive, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(resumeClipboard),
             name: .NSExtensionHostDidBecomeActive, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(hostDidEnterBackground),
+            name: .NSExtensionHostDidEnterBackground, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(hostWillEnterForeground),
+            name: .NSExtensionHostWillEnterForeground, object: nil)
         host.onUndoAvailabilityChange = { [weak self] in self?.keyboard.canUndoLineDeletion = $0 }
     }
 
@@ -174,6 +178,7 @@ class KeyboardViewController: UIInputViewController {
     override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
         keyboard.releaseInactiveResources()
+        Self.closeSharedFiles()
         if let input = view as? KeyboardInputView {
             input.detachKeyboard()
         }
@@ -199,6 +204,22 @@ class KeyboardViewController: UIInputViewController {
         guard clipboardVisible, isViewLoaded, view.window != nil else { return }
         keyboard.reloadPreferences()
         keyboard.setClipboardActive(true)
+    }
+
+    @objc private func hostDidEnterBackground() { Self.closeSharedFiles() }
+    @objc private func hostWillEnterForeground() {
+        guard isViewLoaded, view.window != nil else { return }
+        RimeEngine.reopenUserDictionaries()
+    }
+
+    /// iOS kills a suspended extension that holds a file lock in the App Group
+    /// (0xdead10cc), and Rime's open user dictionary holds one. Closing it
+    /// waits for Rime's queue, so the process is kept awake meanwhile.
+    private static func closeSharedFiles() {
+        ProcessInfo.processInfo.performExpiringActivity(withReason: "Close the learned-word dictionary") { expired in
+            guard !expired else { return }
+            RimeEngine.closeUserDictionaries()
+        }
     }
 
     deinit {

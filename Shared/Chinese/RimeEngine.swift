@@ -99,8 +99,11 @@ nonisolated final class RimeEngine: @unchecked Sendable {
     nonisolated(unsafe) private static var startedUserDirectory: URL?
     /// The learned-word changes this process merged last.
     nonisolated(unsafe) private static var appliedLearnedWords: String??
-    /// Bumped when Rime restarts, which ends every session.
+    /// Bumped when Rime restarts or its sessions close, which ends every session.
     nonisolated(unsafe) private static var startCount = 0
+    /// Engines alive in this process, so their sessions close together.
+    /// Touched only on `queue`.
+    nonisolated(unsafe) private static let engines = NSHashTable<RimeEngine>.weakObjects()
 
     /// Shared by every engine: Rime's sessions live in one process-wide table,
     /// so an old engine destroying its session must not race a new one.
@@ -127,6 +130,10 @@ nonisolated final class RimeEngine: @unchecked Sendable {
     private var lookupStart = 0
     /// The lookup session's schema and simplifier option, set when they change.
     private var lookupOptions: (schema: String, traditional: Bool)?
+    /// Set when `closeUserDictionaries` ended this engine's session, with the
+    /// composition then, which the next session takes up.
+    private var reopens = false
+    private var closedInput: String?
 
     /// `userDirectory` holds the user dictionary. The first engine in a
     /// process decides it; Rime cannot switch directories while running.
@@ -138,11 +145,68 @@ nonisolated final class RimeEngine: @unchecked Sendable {
         self.data = data
         self.userDirectory = userDirectory
         self.resetRequests = resetRequests
+        Self.queue.async { [weak self] in
+            if let self { Self.engines.add(self) }
+        }
     }
 
     deinit {
         let sessions = [session, lookupSession].filter { $0 != 0 }
-        if !sessions.isEmpty { queue.async { sessions.forEach(vime_rime_destroy_session) } }
+        let start = sessionStart
+        // Sessions of an earlier start are gone, and a new one may reuse their ids.
+        if !sessions.isEmpty { queue.async { if start == Self.currentStart { sessions.forEach(vime_rime_destroy_session) } } }
+    }
+
+    /// Ends every session in the process, so Rime writes what it learned and
+    /// closes the user dictionaries. Their LevelDB locks sit in the App Group,
+    /// and iOS kills a suspended extension holding one (0xdead10cc). The next
+    /// command opens them again, typing an open composition back in. Waits for
+    /// the commands sent before; call it off the engine's queue.
+    static func closeUserDictionaries() {
+        queue.sync {
+            startLock.lock(); defer { startLock.unlock() }
+            guard startedUserDirectory != nil else { return }
+            for engine in engines.allObjects { engine.sessionsWillClose(start: startCount) }
+            vime_rime_destroy_all_sessions()
+            startCount += 1
+        }
+    }
+
+    /// Opens the sessions closed by `closeUserDictionaries` again ahead of
+    /// the next key.
+    static func reopenUserDictionaries() {
+        queue.async {
+            for engine in engines.allObjects where engine.reopens { _ = engine.prepare(checkingReset: false) }
+        }
+    }
+
+    /// Whether Rime has a user dictionary open, as far as this process can
+    /// tell: opening the database a second time fails while it is open.
+    static func userDictionaryIsOpen(_ name: String = ChineseLearnedWords.dictionary) -> Bool {
+        queue.sync {
+            guard let directory = startedUserDirectory else { return false }
+            return isOpen(name, in: directory)
+        }
+    }
+
+    /// The user directory of the running Rime, which the first engine decided.
+    static var runningUserDirectory: URL? { queue.sync { startedUserDirectory } }
+
+    private static func isOpen(_ name: String, in directory: URL) -> Bool {
+        let database = directory.appendingPathComponent(name + ".userdb", isDirectory: true)
+        guard FileManager.default.fileExists(atPath: database.path) else { return false }
+        let text = FileManager.default.temporaryDirectory.appendingPathComponent("RimeOpenCheck-\(UUID().uuidString).txt")
+        defer { try? FileManager.default.removeItem(at: text) }
+        return vime_rime_userdb_export(database.path, name, text.path) < 0
+    }
+
+    private func sessionsWillClose(start: Int) {
+        guard session != 0, sessionStart == start else { return }
+        reopens = true
+        closedInput = currentInput()
+        session = 0
+        lookupSession = 0
+        lookupOptions = nil
     }
 
     /// Runs `command` after every command sent before it and reports the
@@ -181,7 +245,8 @@ nonisolated final class RimeEngine: @unchecked Sendable {
     }
 
     private func continuations(_ word: String, code: String, limit: Int) -> [RimeContinuation] {
-        guard prepare(checkingReset: false) else { return [] }
+        // Arriving after the dictionaries closed for the background, it must not open them.
+        guard !reopens, prepare(checkingReset: false) else { return [] }
         var raw = vime_rime_continuations(session, word, code, Int32(limit), traditional)
         defer { vime_rime_continuations_free(&raw) }
         return (0..<Int(raw.count)).map { index in
@@ -212,7 +277,7 @@ nonisolated final class RimeEngine: @unchecked Sendable {
     }
 
     private func lookUp(_ spelling: String, limit: Int) -> [RimeCandidate] {
-        guard prepare(checkingReset: false) else { return [] }
+        guard !reopens, prepare(checkingReset: false) else { return [] }
         if lookupSession == 0 || lookupStart != sessionStart {
             lookupSession = vime_rime_create_session()
             lookupStart = sessionStart
@@ -290,8 +355,12 @@ nonisolated final class RimeEngine: @unchecked Sendable {
         if session != 0, sessionStart == started { return true }
         session = vime_rime_create_session()
         sessionStart = started
-        if session != 0 { selectSchema() }
-        return session != 0
+        guard session != 0 else { return false }
+        selectSchema()
+        if let input = closedInput { _ = vime_rime_set_input(session, input) }
+        reopens = false
+        closedInput = nil
+        return true
     }
 
     private func selectSchema() {
