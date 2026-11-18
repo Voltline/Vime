@@ -16,6 +16,8 @@ nonisolated final class JapaneseCandidateEngine {
     var contextCandidate: Candidate?
     let userDictionary: JapaneseUserDictionaryStore
     let textReplacer = TextReplacer.withDefaultEmojiDictionary()
+    /// Predictions complete what was typed; conversions of the typed reading stay.
+    var predictionBlocklist = PredictionBlocklist.shared
     let specialProviders: [any SpecialCandidateProvider] = [
         CalendarSpecialCandidateProvider(), TimeExpressionSpecialCandidateProvider(),
         CommaSeparatedNumberSpecialCandidateProvider()
@@ -191,6 +193,7 @@ nonisolated final class JapaneseCandidateEngine {
         guard let variants = spellingVariants(of: currentPool, cancelled: cancelled) else { return [] }
         currentPool += variants
         currentPool.removeAll { Self.isMalformedSurface($0.text, reading: $0.queryReading) }
+        currentPool.removeAll { $0.predictionStatus && predictionBlocklist.matches($0.text) }
         currentPool += rememberedConversions(builder: builder)
         trace?.record(.pooled, values: currentPool)
         if diagnosticsEnabled {

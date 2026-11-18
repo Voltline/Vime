@@ -69,6 +69,7 @@ final class ChineseInputSession: KeyboardInputSession {
     private var chineseModelEnabled = true
     private let exclusions: LearningExclusionList
     private let exclusionsApply: () -> Bool
+    private let blocklist: LearningExclusionList
     /// Whether the excluded-terms list applies, read once per composition.
     private var exclusionsActive: Bool
     private var expanded = false
@@ -102,11 +103,13 @@ final class ChineseInputSession: KeyboardInputSession {
 
     init(engine: RimeEngine, exclusions: LearningExclusionList = .shared,
          exclusionsApply: @escaping () -> Bool = { LearningExclusionPolicy.isActive() },
+         blocklist: LearningExclusionList = PredictionBlocklist.shared,
          userDictionary: ChineseUserDictionaryStore = ChineseUserDictionaryStore()) {
         self.engine = engine
         self.userDictionary = userDictionary
         self.exclusions = exclusions
         self.exclusionsApply = exclusionsApply
+        self.blocklist = blocklist
         exclusionsActive = exclusionsApply()
     }
 
@@ -432,13 +435,17 @@ final class ChineseInputSession: KeyboardInputSession {
     private func lookUpContinuations(of word: String, code: String) {
         let active = exclusionsActive
         // Text the learning filter excludes gets no suggestions, and suggestions never produce it.
-        guard LearningExclusionPolicy.allowsLearning(word, active: active, list: exclusions) else { return }
-        let request = suggestionGeneration, list = exclusions
+        guard LearningExclusionPolicy.allowsLearning(word, active: active, list: exclusions),
+              !blocklist.matches(word) else { return }
+        let request = suggestionGeneration, list = exclusions, blocklist = blocklist
         engine.continuations(of: word, code: code, limit: Self.suggestionLimit) { [weak self] found in
             MainActor.assumeIsolated {
                 guard let self, self.suggestionGeneration == request, self.suggestionsEnabled,
                       !self.english, !self.isComposing else { return }
-                let allowed = found.filter { LearningExclusionPolicy.allowsLearning(word + $0.genuine, active: active, list: list) }
+                let allowed = found.filter {
+                    LearningExclusionPolicy.allowsLearning(word + $0.genuine, active: active, list: list)
+                        && !blocklist.matches(word + $0.genuine)
+                }
                 guard !allowed.isEmpty else { return }
                 self.showSuggestions(allowed)
             }
@@ -877,7 +884,8 @@ final class ChineseInputSession: KeyboardInputSession {
         let phrases = found.compactMap { item -> (spelling: String, candidate: RimeCandidate)? in
             guard let phrase = PinyinSpellingCorrection.phrase(in: item.candidates),
                   seen.insert(phrase.text).inserted,
-                  LearningExclusionPolicy.allowsLearning(phrase.genuine, active: active, list: exclusions) else { return nil }
+                  LearningExclusionPolicy.allowsLearning(phrase.genuine, active: active, list: exclusions),
+                  !blocklist.matches(phrase.genuine) else { return nil }
             return (item.spelling, phrase)
         }
         // Commoner words first; equal ones keep the order of their edits.
@@ -952,9 +960,9 @@ final class ChineseInputSession: KeyboardInputSession {
                       isCancelled: { request.isCancelled }) { [weak self] converted in
             MainActor.assumeIsolated {
                 guard let self, self.sentenceRequest === request, !request.isCancelled, self.state.input == input else { return }
-                let active = self.exclusionsActive, list = self.exclusions
+                let active = self.exclusionsActive, list = self.exclusions, blocklist = self.blocklist
                 let options = ChineseSentenceCorrection.options(converted, edits: edits, literal: literal) {
-                    LearningExclusionPolicy.allowsLearning($0, active: active, list: list)
+                    LearningExclusionPolicy.allowsLearning($0, active: active, list: list) && !blocklist.matches($0)
                 }
                 guard !options.isEmpty else { self.sentenceRequest = nil; return }
                 self.scoreSentenceOptions(options, literal: found.score, context: context, input: input, request: request)

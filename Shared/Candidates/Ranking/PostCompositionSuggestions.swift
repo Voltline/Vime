@@ -36,10 +36,11 @@ nonisolated enum PostCompositionSuggestionReranker {
     static func hasNewSuggestions(_ values: [NextWordSuggestion], comparedTo published: [NextWordSuggestion]) -> Bool {
         values.contains { value in !published.contains { $0.hasSameOperation(as: value) } }
     }
-    static func merge(native: [NextWordSuggestion], neural: [NextWordSuggestion]) -> [NextWordSuggestion] {
+    static func merge(native: [NextWordSuggestion], neural: [NextWordSuggestion],
+                      blocklist: LearningExclusionList = PredictionBlocklist.shared) -> [NextWordSuggestion] {
         var pool: [String: NextWordSuggestion] = [:]
         for list in [native, neural] {
-            for (rank, original) in list.enumerated() {
+            for (rank, original) in list.enumerated() where !blocklist.matches(original.text) {
                 var value = original
                 value.score = Policy.sourceEvidence - Policy.orderCost * log1p(Double(rank)) + value.userScore
                 // Same visible text can have different host operations. Never dedup
