@@ -18,8 +18,8 @@ nonisolated struct LearningExclusionList: Sendable {
 
     var isAvailable: Bool { !blocked.isEmpty }
 
-    init(bundle: Bundle) {
-        guard let url = bundle.url(forResource: "LearningExclusions", withExtension: "bin"),
+    init(bundle: Bundle, resource: String = "LearningExclusions") {
+        guard let url = bundle.url(forResource: resource, withExtension: "bin"),
               let data = try? Data(contentsOf: url, options: .mappedIfSafe) else {
             self.init(data: Data()); return
         }
