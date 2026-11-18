@@ -694,6 +694,8 @@ final class KeyboardSession: KeyboardInputSession {
         engine?.clearLearning(); worker?.clearLearning()
     }
 
+    func releaseLanguageModels() { worker?.disableLanguageModel() }
+
     func handleMemoryPressure() {
         worker?.handleMemoryPressure()
         engine?.discardTransientCaches()

@@ -57,6 +57,18 @@ final class KeyboardLanguageSwitchTests: XCTestCase {
         XCTAssertTrue(edits.contains(.insert("你好")))
     }
 
+    func testLeavingALanguageReleasesItsModels() throws {
+        let preferences = KeyboardPreferences(defaults: try XCTUnwrap(UserDefaults(suiteName: suite)))
+        let leaving = ModelHoldingSession()
+        let keyboard = KeyboardView(frame: CGRect(x: 0, y: 0, width: 440, height: 350), session: leaving,
+                                    preferences: preferences)
+        keyboard.layoutIfNeeded()
+        let next = ModelHoldingSession()
+        keyboard.switchSession(to: next)
+        XCTAssertEqual(leaving.releasedModels, 1, "the language left behind keeps no model")
+        XCTAssertEqual(next.releasedModels, 0)
+    }
+
     func testContextProvidersMoveToTheNewSession() throws {
         let (keyboard, preferences) = try keyboard()
         keyboard.leftContextProvider = { "前文" }
@@ -355,4 +367,44 @@ final class KeyboardLanguageSwitchTests: XCTestCase {
     }
 
     private func descendants(_ view: UIView) -> [UIView] { [view] + view.subviews.flatMap(descendants) }
+}
+
+/// Counts how often the keyboard lets its models go.
+@MainActor
+private final class ModelHoldingSession: KeyboardInputSession {
+    private(set) var releasedModels = 0
+    func releaseLanguageModels() { releasedModels += 1 }
+    let id = UUID()
+    let inputTraits = KeyboardInputTraits(language: .japanese, modeLabel: "あ")
+    let candidatePresentations: [CandidatePresentation] = []
+    let hostEpoch = 0
+    var isComposing: Bool { false }
+    var composition: String { "" }
+    var markedText: KeyboardPreedit? { nil }
+    var stripPresentations: [CandidatePresentation] { [] }
+    var showsStrip: Bool { true }
+    var candidatesAreCurrent: Bool { true }
+    var selectedIndex: Int? { nil }
+    var candidateResultReadyAt: TimeInterval? { nil }
+    var onCandidatesChange: (() -> Void)?
+    var onCommittedEdits: ((KeyboardCommitBatch) -> Void)?
+    var leftContextProvider: (() -> String?)?
+    var learningContextProvider: (() -> KeyboardLearningContext?)?
+    func type(_ text: String) -> [KeyboardEdit] { [] }
+    func backspace() -> [KeyboardEdit] { [] }
+    func space() -> [KeyboardEdit] { [] }
+    func enter() -> [KeyboardEdit] { [] }
+    func confirm() -> [KeyboardEdit] { [] }
+    func confirmAll() -> [KeyboardEdit] { [] }
+    func dismissSuggestions() {}
+    func insertLiteral(_ text: String) -> [KeyboardEdit] { [] }
+    func chooseCandidate(_ token: CandidateSelectionToken) -> [KeyboardEdit] { [] }
+    func activateEnglish() -> [KeyboardEdit] { [] }
+    func toggleEnglish() -> [KeyboardEdit] { [] }
+    func togglePrimaryVariant() -> [KeyboardEdit] { [] }
+    func updateIntelligence(ranking: CandidateRankingMode, suggestionsEnabled: Bool) {}
+    func reset(preservingContext: Bool) {}
+    func didApplyEdits(_ edits: [KeyboardEdit]) {}
+    func invalidateLearningFeedback() {}
+    func takeInputTiming() -> TimeInterval? { nil }
 }
