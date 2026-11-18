@@ -9,10 +9,14 @@ final class ChinesePredictionBlocklistTests: XCTestCase {
         .appendingPathComponent("ChinesePredictionBlocklistTests-\(UUID().uuidString)")
 
     private func session(blocking terms: [String]) throws -> ChineseInputSession {
+        try session(blocklist: LearningExclusionList(data: LearningExclusionList.encode(blocked: terms, allowed: [])))
+    }
+
+    private func session(blocklist: LearningExclusionList) throws -> ChineseInputSession {
         let engine = RimeEngine(data: try XCTUnwrap(RimeEngine.bundledData, "RimeData.bundle is not bundled"), userDirectory: Self.user)
         // The regional list stays off: the blocklist does not depend on it.
         return ChineseInputSession(engine: engine, exclusions: LearningExclusionList(data: Data()), exclusionsApply: { false },
-            blocklist: LearningExclusionList(data: LearningExclusionList.encode(blocked: terms, allowed: [])))
+            blocklist: blocklist)
     }
 
     private func settle(_ session: ChineseInputSession, until done: () -> Bool = { true }, within seconds: TimeInterval) {
@@ -62,5 +66,19 @@ final class ChinesePredictionBlocklistTests: XCTestCase {
         settle(session, within: 3)
         XCTAssertTrue(commits.contains(.insert("电话")), "\(commits)")
         XCTAssertEqual(session.suggestionTexts, [])
+    }
+
+    /// Country names stay suggestible, and so do the everyday words after them.
+    func testBundledListKeepsEverydaySuggestionsAfterCountryNames() throws {
+        let bundled = PredictionBlocklist.shared
+        try XCTSkipUnless(bundled.isAvailable, "PredictionBlocklist.bin is not bundled")
+        for word in ["日本", "韩国", "日本人", "日本料理", "韩国旅游", "韩国料理", "韩国电影", "日本の伝統", "韓国の大学"] {
+            XCTAssertFalse(bundled.matches(word), word)
+        }
+        let session = try session(blocklist: bundled)
+        let japan = suggestions(after: "riben", in: session)
+        XCTAssertTrue(japan.contains("人"), "\(japan)")
+        let korea = suggestions(after: "hanguo", in: session)
+        XCTAssertTrue(korea.contains("料理") && korea.contains("电影"), "\(korea)")
     }
 }

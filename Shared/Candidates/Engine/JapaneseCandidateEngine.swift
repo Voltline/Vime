@@ -17,7 +17,7 @@ nonisolated final class JapaneseCandidateEngine {
     let userDictionary: JapaneseUserDictionaryStore
     let textReplacer = TextReplacer.withDefaultEmojiDictionary()
     /// Predictions complete what was typed; conversions of the typed reading stay.
-    var predictionBlocklist = PredictionBlocklist.shared
+    var predictionBlocklist = PredictionBlocklist.japanese
     let specialProviders: [any SpecialCandidateProvider] = [
         CalendarSpecialCandidateProvider(), TimeExpressionSpecialCandidateProvider(),
         CommaSeparatedNumberSpecialCandidateProvider()

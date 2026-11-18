@@ -526,7 +526,7 @@ final class JapaneseCandidateWorker {
             guard !request.isCancelled else { return }
             let native = storage.engine.postCompositionSuggestions(leftContext: leftContext)
             guard !request.isCancelled else { return }
-            let base = PostCompositionSuggestionReranker.merge(native: native, neural: [])
+            let base = PostCompositionSuggestionReranker.merge(native: native, neural: [], leftContext: leftContext)
             if !base.isEmpty {
                 guard prepare(base) else { return }
                 DispatchQueue.main.async { if !request.isCancelled { completion(base) } }
@@ -544,7 +544,7 @@ final class JapaneseCandidateWorker {
                 Self.candidateQueue.async {
                     guard !request.isCancelled, !LanguageModelStorage.shared.isSuspended else { return }
                     let neural = storage.engine.personalizedNextWords(words?.generated ?? [], history: words?.history ?? [], context: prompt)
-                    let pool = PostCompositionSuggestionReranker.merge(native: native, neural: neural)
+                    let pool = PostCompositionSuggestionReranker.merge(native: native, neural: neural, leftContext: leftContext)
                     let rankingQueuedAt = KeyboardPerformance.start()
                     guard PostCompositionSuggestionReranker.hasNewSuggestions(pool, comparedTo: base) else {
                         KeyboardPerformance.record(.suggestionFinalRankingSkipped, since: rankingQueuedAt)
