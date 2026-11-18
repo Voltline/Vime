@@ -37,8 +37,8 @@ nonisolated enum ChinesePrefixScoring {
                               cancelled: cancelled)
     }
 
-    /// The same sums on the sequence package: two calls for every 16
-    /// candidates, however long they are (`VimeKVSequenceLanguageModel.tokenScores`).
+    /// The same sums on the sequence package: a call for every 16
+    /// candidates' shared prefix and a few for the rest, however long they are (`VimeKVSequenceLanguageModel.tokenScores`).
     /// `floors` as above, applied to the finished sums.
     static func scores(context: String, candidates: [String], floors: [Double]? = nil,
                        model: VimeKVSequenceLanguageModel, tokenizer: VimeSentenceTokenizer,

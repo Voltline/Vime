@@ -85,6 +85,31 @@ final class ChineseSentenceCorrectionTests: XCTestCase {
         }
     }
 
+    /// Slicing the rows to bound a call's memory changes how many calls run,
+    /// not what they score.
+    func testSequenceScoringStaysWithinItsByteBudget() throws {
+        let bundle = Bundle(for: Self.self)
+        let stateless = try VimeLanguageModel(bundle: bundle, variant: .zhV1)
+        let model = try VimeKVSequenceLanguageModel(bundle: bundle)
+        let texts = (0..<16).map { "我想去看第\($0)场电影然后顺便吃个晚饭再回家休息一下明天还要早起" }
+        let context = "我们今天下午三点在公司楼下的咖啡店见面"
+        XCTAssertGreaterThan(model.bytes(rows: 16, length: 24, slots: 16), model.byteBudget,
+                             "sixteen long rows are more than one call may hold")
+        let expected = try stateless.scores(context: context, candidates: texts)
+        var calls: [Int] = []
+        for budget in [model.byteBudget, 1 << 40, 0] {
+            model.byteBudget = budget
+            let before = model.predictions
+            let scores = try ChinesePrefixScoring.scores(context: context, candidates: texts, model: model,
+                                                         tokenizer: stateless.tokenizer)
+            calls.append(model.predictions - before)
+            for (score, reference) in zip(scores, expected) { XCTAssertEqual(score, reference, accuracy: 1e-3) }
+        }
+        XCTAssertEqual(calls[1], 2, "unbounded: the shared prefix, then every tail at once")
+        XCTAssertGreaterThan(calls[0], calls[1])
+        XCTAssertEqual(calls[2], 1 + texts.count, "no budget: one row a call")
+    }
+
     // MARK: Where to look
 
     func testWindowsFollowTheWeakestTokens() throws {

@@ -280,4 +280,21 @@ final class KeyboardWorkerSchedulingTests: XCTestCase {
         XCTAssertTrue(trimmed.modelSuspendedForMemoryPressure)
         XCTAssertEqual(trimmed.modelLoadCount, loaded.modelLoadCount)
     }
+
+    func testPressurePauseLiftsOnAppearanceOnlyOnceMemoryRecovers() {
+        typealias Storage = JapaneseCandidateWorker.LanguageModelStorage
+        let storage = Storage.shared
+        let wasSuspended = storage.isSuspended
+        defer { storage.setSuspended(wasSuspended) }
+        storage.setSuspended(false)
+        XCTAssertFalse(storage.resumeAfterPressure(), "nothing to lift")
+        storage.setSuspended(true)
+        let now = ProcessInfo.processInfo.systemUptime
+        XCTAssertFalse(storage.resumeAfterPressure(now: now + 1, available: 0), "too soon after the warning")
+        XCTAssertFalse(storage.resumeAfterPressure(now: now + Storage.resumeDelay + 1, available: Storage.resumeMemory - 1),
+                       "memory has not recovered")
+        XCTAssertTrue(storage.isSuspended)
+        XCTAssertTrue(storage.resumeAfterPressure(now: now + Storage.resumeDelay + 1, available: Storage.resumeMemory))
+        XCTAssertFalse(storage.isSuspended)
+    }
 }
