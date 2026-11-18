@@ -135,6 +135,7 @@ nonisolated enum PinyinSpellingCorrection {
     /// whose edited letters read as full syllables; abbreviations elsewhere
     /// stay as typed. Where some edit leaves fewer abbreviations than were
     /// typed (zakzhang, with a stray k), only those, so the slip finds itself.
+    /// The last letter is never dropped: it is the syllable being typed.
     static func sentenceSpellings(for input: String) -> [(spelling: String, edit: Edit)] {
         let letters = Array(input)
         guard let typed = abbreviationCount(letters) else { return [] }
@@ -159,7 +160,9 @@ nonisolated enum PinyinSpellingCorrection {
                 add(replaced, .neighbour, index..<index + 1)
             }
         }
-        for index in letters.indices {
+        // Never the last letter: it starts the syllable being typed, and
+        // dropping it would shorten the sentence under the user's fingers.
+        for index in letters.indices.dropLast() {
             var dropped = letters
             dropped.remove(at: index)
             add(dropped, .drop, index - 1..<index + 1)

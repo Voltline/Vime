@@ -189,6 +189,16 @@ final class ChineseSentenceCorrectionTests: XCTestCase {
         }
     }
 
+    func testTheLastLetterIsNeverDropped() {
+        // A lone initial at the end is the next syllable starting; dropping
+        // it shortened the lead a moment after each such key.
+        for input in ["yidaoxiatianjiuyouk", "wozhiqianbuyeshuom", "danfanshim"] {
+            let spellings = Correction.spellings(for: input, windows: nil)
+            XCTAssertFalse(spellings.isEmpty, input)
+            XCTAssertFalse(spellings.contains { $0.spelling == String(input.dropLast()) }, input)
+        }
+    }
+
     // MARK: Weighing
 
     func testOptionsKeepWholeConversionsOnce() {
