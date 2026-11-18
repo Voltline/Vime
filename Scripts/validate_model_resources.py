@@ -97,7 +97,8 @@ def validate_zh_v1(resources):
         validate_compiled(resources / "TinyChineseV1KVChunkINT8.mlmodelc", kv["compiled_files_sha256"], "zh-v1 KV")
     elif (resources / "TinyChineseV1KVChunkINT8.mlmodelc").exists():
         raise ValueError("zh-v1 KV model is bundled without its manifest entry")
-    # The batched KV package of the same checkpoint (kvbatch-v2): up to 16
+    # The fallbacks kvbatch-v2 and kv_sequence stay until v3 is measured on
+    # devices. The batched KV package of the same checkpoint (kvbatch-v2): up to 16
     # rows, the prompt in one call, scores for a given id list only.
     v2_manifest = resources / "VimeLMManifestZhV1KVBatchV2.json"
     v2_model = resources / "TinyChineseV1KVBatchV2INT8.mlmodelc"
@@ -131,9 +132,28 @@ def validate_zh_v1(resources):
         validate_compiled(seq_model, seq["compiled_files_sha256"], "zh-v1 KV sequence")
     elif seq_model.exists():
         raise ValueError("zh-v1 KV sequence model is bundled without its manifest")
+    # The batched KV package of the same checkpoint (kvbatch-v3, merged):
+    # the functions logits, scored and score in one package, up to 16 rows,
+    # a prefix shared by every row; sentence correction and generation.
+    v3_manifest = resources / "VimeLMManifestZhV1KVBatchV3.json"
+    v3_model = resources / "TinyChineseV1KVBatchV3INT8.mlmodelc"
+    v3 = json.loads(v3_manifest.read_text())["kv_batch_v3"] if v3_manifest.exists() else None
+    if v3 is not None:
+        outer = json.loads(v3_manifest.read_text())
+        if (outer["format"] != "vime_ios_lm_zh_v1_kv_batch_v3"
+                or outer["tokenizer_sha256"] != manifest["tokenizer_sha256"]
+                or v3["resource"] != "TinyChineseV1KVBatchV3INT8.mlmodelc"
+                or set(v3["functions"]) != {"logits", "scored", "score"}
+                or v3["batch_range"] != [1, 16] or v3["compute_units"] != "CPU_ONLY"
+                or not {"atol", "rtol"} <= set(v3["alignment_tolerance"])):
+            raise ValueError("zh-v1 KV batch (kvbatch-v3) manifest identity is invalid")
+        validate_compiled(v3_model, v3["compiled_files_sha256"], "zh-v1 KV batch (kvbatch-v3)")
+    elif v3_model.exists():
+        raise ValueError("zh-v1 KV batch (kvbatch-v3) model is bundled without its manifest")
     return (manifest["model_version"] + (" + KV" if kv is not None else "")
             + (" + KV batch (kvbatch-v2)" if v2 is not None else "")
-            + (" + KV sequence" if seq is not None else ""))
+            + (" + KV sequence" if seq is not None else "")
+            + (" + KV batch (kvbatch-v3)" if v3 is not None else ""))
 
 
 def validate_compiled(model, expected, label):

@@ -2,30 +2,33 @@ import XCTest
 import CoreML
 @testable import Vime
 
-/// The zh-v1 batched KV package (kvbatch-v2: prompts in one call, scores
-/// for the allowed ids only): VimeML's 16-row fixture, and rows that grow over
-/// several calls, against the stateless package.
+/// The zh-v1 batched KV package (kvbatch-v3: the prompt as a prefix shared by
+/// every row, scores for the allowed ids only): VimeML's 16-row fixture, and
+/// rows that grow over several calls, against the stateless package.
 final class VimeKVBatchLanguageModelTests: XCTestCase {
     private var bundle: Bundle { Bundle(for: Self.self) }
 
     private struct Row: Decodable {
-        let text: String
-        let prefix_ids: [Int32]
+        let own_ids: [Int32]
         let token: Int32
-        let position: Int
     }
 
-    /// Rows, the allowed ids, and the stateless package's log probabilities of them.
-    private func fixture() throws -> (rows: [Row], allowed: [Int32], logProbabilities: [[Float]]) {
-        let lines = try String(contentsOf: try XCTUnwrap(bundle.url(forResource: "KVBatchV2Fixture-batch16", withExtension: "jsonl")),
+    private func load<T>(_ name: String, _ ext: String, as type: T.Type) throws -> [T] {
+        try Data(contentsOf: try XCTUnwrap(bundle.url(forResource: name, withExtension: ext)))
+            .withUnsafeBytes { Array($0.bindMemory(to: T.self)) }
+    }
+
+    /// The prompt, the rows (own tokens after it, then one more), the
+    /// allowed ids, and the package's log probabilities of them.
+    private func fixture() throws -> (prompt: [Int32], rows: [Row], allowed: [Int32], logProbabilities: [[Float]]) {
+        let lines = try String(contentsOf: try XCTUnwrap(bundle.url(forResource: "KVBatchV3Fixture-step", withExtension: "jsonl")),
                                encoding: .utf8).split(separator: "\n")
         let rows = try lines.map { try JSONDecoder().decode(Row.self, from: Data($0.utf8)) }
-        let allowed = try Data(contentsOf: try XCTUnwrap(bundle.url(forResource: "KVBatchV2Fixture-batch16-allowed", withExtension: "i32")))
-            .withUnsafeBytes { Array($0.bindMemory(to: Int32.self)) }
-        let floats = try Data(contentsOf: try XCTUnwrap(bundle.url(forResource: "KVBatchV2Fixture-batch16-logprobs", withExtension: "f32")))
-            .withUnsafeBytes { Array($0.bindMemory(to: Float.self)) }
+        let prompt = try load("KVBatchV3Fixture-step-prompt", "i32", as: Int32.self)
+        let allowed = try load("KVBatchV3Fixture-step-allowed", "i32", as: Int32.self)
+        let floats = try load("KVBatchV3Fixture-step-scored", "f32", as: Float.self)
         XCTAssertEqual(floats.count, rows.count * allowed.count)
-        return (rows, allowed, (0..<rows.count).map { Array(floats[$0 * allowed.count..<($0 + 1) * allowed.count]) })
+        return (prompt, rows, allowed, (0..<rows.count).map { Array(floats[$0 * allowed.count..<($0 + 1) * allowed.count]) })
     }
 
     private func assertClose(_ value: [Float], _ reference: [Float], tolerance: VimeKVLanguageModel.Tolerance,
@@ -51,29 +54,43 @@ final class VimeKVBatchLanguageModelTests: XCTestCase {
         XCTAssertEqual(batch.tolerance, VimeKVLanguageModel.Tolerance(atol: 3e-4, rtol: 3e-4))
     }
 
-    /// Each prompt in one call, then the 16 new tokens in one batch.
+    /// VimeML's fixture: the prompt in one call (the prefix), each row's own
+    /// tokens after it, then the 16 rows' next tokens in one call.
     func testMatchesVimeMLFixture() throws {
-        let (rows, allowed, logProbabilities) = try fixture()
+        let (promptIDs, rows, allowed, logProbabilities) = try fixture()
         XCTAssertEqual(rows.count, 16)
         let batch = try VimeKVBatchLanguageModel(bundle: bundle)
-        let prompts = try rows.map { row -> VimeKVLanguageModel.Cache in
-            XCTAssertEqual(row.prefix_ids.count, row.position)
-            return try batch.prompt(row.prefix_ids, allowed: allowed).cache
+        let prompt = try batch.prompt(promptIDs, allowed: allowed).cache
+        let own = try rows.map { row -> VimeKVLanguageModel.Cache in
+            var cache = prompt
+            for token in row.own_ids { cache = try batch.scores([(cache, token)], allowed: allowed)[0].cache }
+            return cache
         }
-        XCTAssertEqual(batch.predictions, rows.count)
-        let all = try batch.scores(zip(prompts, rows).map { ($0, $1.token) }, allowed: allowed)
+        let before = batch.predictions
+        let all = try batch.scores(zip(own, rows).map { ($0, $1.token) }, allowed: allowed)
+        XCTAssertEqual(batch.predictions - before, 1)
         for (index, result) in all.enumerated() {
-            assertClose(result.logProbabilities, logProbabilities[index], tolerance: batch.tolerance, "\(rows[index].text) batch 16")
-            XCTAssertEqual(result.cache.length, rows[index].position + 1)
+            assertClose(result.logProbabilities, logProbabilities[index], tolerance: batch.tolerance, "row \(index) batch 16")
+            XCTAssertEqual(result.cache.length, promptIDs.count + rows[index].own_ids.count + 1)
         }
-        for subset in [[5], [3, 0, 9, 15], [14, 2, 7, 1, 11, 8, 4]] {
-            let results = try batch.scores(subset.map { (prompts[$0], rows[$0].token) }, allowed: allowed)
-            for (index, result) in zip(subset, results) {
-                assertClose(result.logProbabilities, logProbabilities[index], tolerance: batch.tolerance,
-                            "\(rows[index].text) batch \(subset.count)")
-            }
+        // Fewer rows at once, in another order: the same values.
+        let subset = [5, 0, 11]
+        let results = try batch.scores(subset.map { (own[$0], rows[$0].token) }, allowed: allowed)
+        for (index, result) in zip(subset, results) {
+            assertClose(result.logProbabilities, logProbabilities[index], tolerance: batch.tolerance, "row \(index) batch 3")
         }
         XCTAssertEqual(batch.usesOutputBackings[16], true)
+        XCTAssertEqual(batch.loadedFunctions, [.scored])
+    }
+
+    /// Caches from two prompts cannot share a call: the prefix is one.
+    func testRejectsCachesFromDifferentPrompts() throws {
+        let batch = try VimeKVBatchLanguageModel(bundle: bundle)
+        let one = try batch.prompt([2, 973], allowed: [3]).cache
+        let two = try batch.prompt([2, 1992], allowed: [3]).cache
+        XCTAssertThrowsError(try batch.scores([(one, 7), (two, 7)], allowed: [3]))
+        // The older prompt still works on its own: its prefix is rebuilt.
+        XCTAssertNoThrow(try batch.scores([(one, 7)], allowed: [3]))
     }
 
     /// Rows keep growing across calls and branch, with another allowed list
@@ -125,6 +142,22 @@ final class VimeKVBatchLanguageModelTests: XCTestCase {
         let child = try batch.scores([(prompt.cache, token)], allowed: allowed)[0]
         assertClose(child.logProbabilities, try reference(stateless, ids + [token], allowed), tolerance: batch.tolerance, "child")
         XCTAssertEqual(batch.predictions, 2)
+    }
+
+    /// The `logits` function with no prefix and no own cache gives what the
+    /// stateless package gives, before the stateless one can go.
+    func testLogitsFunctionMatchesTheStatelessPackage() throws {
+        let stateless = try VimeLanguageModel(bundle: bundle, variant: .zhV1)
+        let batch = try VimeKVBatchLanguageModel(bundle: bundle)
+        for text in ["今天天气很好", "晚上一起吃饭吗，好的我七点到"] {
+            let ids = [Int32(2)] + (try stateless.tokenizer.encode(text))
+            let full = try stateless.predict(ids)
+            let pointer = full.dataPointer.assumingMemoryBound(to: Float.self)
+                .advanced(by: (ids.count - 1) * full.strides[1].intValue)
+            let reference = (0..<12288).map { pointer[$0 * full.strides[2].intValue] }
+            assertClose(try batch.logits(ids), reference, tolerance: batch.tolerance, text)
+        }
+        XCTAssertEqual(batch.loadedFunctions, [.logits])
     }
 
     func testRejectsWhatDoesNotFit() throws {

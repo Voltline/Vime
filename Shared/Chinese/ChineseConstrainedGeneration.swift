@@ -53,15 +53,29 @@ extension VimeKVLanguageModel: ChineseGenerationModel {
     }
 }
 
-/// The zh-v1 batched KV package (kvbatch-v2) for the incremental search:
+/// What the incremental search needs of a batched KV package: kvbatch-v3,
+/// or kvbatch-v2 as the fallback. Model queue.
+protocol ChineseKVBatchModel: AnyObject {
+    var maximumBatch: Int { get }
+    var vocabularySize: Int { get }
+    /// Calls so far, for tests and measurements.
+    var predictions: Int { get }
+    func prompt(_ tokens: [Int32], allowed: [Int32]) throws -> (logProbabilities: [Float], cache: VimeKVLanguageModel.Cache)
+    func scores(_ items: [(cache: VimeKVLanguageModel.Cache?, token: Int32)], allowed: [Int32]) throws
+        -> [(logProbabilities: [Float], cache: VimeKVLanguageModel.Cache)]
+}
+extension VimeKVBatchLanguageModel: ChineseKVBatchModel {}
+extension VimeKVBatchV2LanguageModel: ChineseKVBatchModel {}
+
+/// The zh-v1 batched KV package (kvbatch-v3, or v2) for the incremental search:
 /// the prompt in one call, each bucket in calls of up to `maximumBatch` rows
 /// scoring only the tokens allowed there. It returns no full logits, so the
 /// root is scored per first letter (`scoresEveryToken` is false).
 nonisolated final class ChineseKVGenerator: ChineseScoringModel {
     typealias State = VimeKVLanguageModel.Cache
-    let batch: VimeKVBatchLanguageModel
+    let batch: any ChineseKVBatchModel
     var scoresEveryToken: Bool { false }
-    init(batch: VimeKVBatchLanguageModel) { self.batch = batch }
+    init(batch: any ChineseKVBatchModel) { self.batch = batch }
 
     func start(_ ids: [Int32], allowed: [Int32]?) throws -> (logProbabilities: [Float], state: State) {
         guard let allowed else { throw VimeLanguageModel.Failure.tensor }

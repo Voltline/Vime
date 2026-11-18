@@ -9,36 +9,33 @@ import Foundation
 ///
 /// Model queue, like the package itself.
 nonisolated enum ChinesePrefixScoring {
-    private final class Node {
-        let token: Int32
-        /// Position of `token` in the sequences through this node.
-        let position: Int
-        var children: [Int32: Node] = [:]
-        /// The candidates whose sequences pass through this node.
-        var members: [Int] = []
-        var cache: VimeKVLanguageModel.Cache?
-        weak var parent: Node?
-        init(token: Int32, position: Int, parent: Node?) { self.token = token; self.position = position; self.parent = parent }
-    }
-
     static let bos: Int32 = 2
 
-    /// Summed log probabilities of each candidate after `context`, in order.
-    ///
-    /// A candidate whose sum is sure to end at or below its `floor` (log
-    /// probabilities are never positive, so a partial sum only falls) stops
-    /// there and scores -infinity; the others score exactly.
+    /// Summed log probabilities of each candidate after `context`, in order,
+    /// on the kvbatch-v3 package: the tokens every candidate shares run once
+    /// as the prefix, then every candidate's rest through `score` in as few
+    /// calls as the memory left allows (`VimeKVBatchLanguageModel.scores(after:rows:)`).
+    /// A candidate whose sum ends at or below its `floor` scores -infinity.
     static func scores(context: String, candidates: [String], floors: [Double]? = nil,
                        model: VimeKVBatchLanguageModel, tokenizer: VimeSentenceTokenizer,
                        cancelled: () -> Bool = { false }) throws -> [Double] {
         let (sequences, starts, shared) = try prepared(context: context, candidates: candidates, floors: floors,
                                                        tokenizer: tokenizer)
-        return try trieScores(sequences: sequences, starts: starts, shared: shared, floors: floors, model: model,
-                              cancelled: cancelled)
+        // The prefix holds the shared tokens but the last, which starts every row.
+        let prefix = try model.prefix(Array(sequences[0][..<(shared - 1)]))
+        let rows = sequences.map { Array($0[(shared - 1)...]) }
+        let tokens = try model.scores(after: prefix, rows: rows, cancelled: cancelled)
+        return zip(tokens, starts).enumerated().map { index, item in
+            let (values, start) = item
+            // Entry i scores the token at position shared + i.
+            let sum = values.enumerated().reduce(0.0) { $0 + ($1.offset + shared >= start ? Double($1.element) : 0) }
+            return floors.map { sum > $0[index] } ?? true ? sum : -.infinity
+        }
     }
 
-    /// The same sums on the sequence package: a call for every 16
-    /// candidates' shared prefix and a few for the rest, however long they are (`VimeKVSequenceLanguageModel.tokenScores`).
+    /// The same sums on the sequence package, the fallback while v3 is
+    /// measured on devices: a call for every 16 candidates' shared prefix
+    /// and a few for the rest (`VimeKVSequenceLanguageModel.tokenScores`).
     /// `floors` as above, applied to the finished sums.
     static func scores(context: String, candidates: [String], floors: [Double]? = nil,
                        model: VimeKVSequenceLanguageModel, tokenizer: VimeSentenceTokenizer,
@@ -51,6 +48,25 @@ nonisolated enum ChinesePrefixScoring {
             let (values, start) = item
             let sum = values.enumerated().reduce(0.0) { $0 + ($1.offset + 1 >= start ? Double($1.element) : 0) }
             return floors.map { sum > $0[index] } ?? true ? sum : -.infinity
+        }
+    }
+
+    /// The package the sums run on: kvbatch-v3, or the sequence package
+    /// when v3 cannot load.
+    enum Model {
+        case batch(VimeKVBatchLanguageModel)
+        case sequence(VimeKVSequenceLanguageModel)
+    }
+
+    static func scores(context: String, candidates: [String], floors: [Double]? = nil, model: Model,
+                       tokenizer: VimeSentenceTokenizer, cancelled: () -> Bool = { false }) throws -> [Double] {
+        switch model {
+        case .batch(let batch):
+            try scores(context: context, candidates: candidates, floors: floors, model: batch, tokenizer: tokenizer,
+                       cancelled: cancelled)
+        case .sequence(let sequence):
+            try scores(context: context, candidates: candidates, floors: floors, model: sequence, tokenizer: tokenizer,
+                       cancelled: cancelled)
         }
     }
 
@@ -87,69 +103,5 @@ nonisolated enum ChinesePrefixScoring {
         }
         guard shared >= 1 else { throw VimeLanguageModel.Failure.ineligible }
         return (sequences, starts, shared)
-    }
-
-    private static func trieScores(sequences: [[Int32]], starts: [Int], shared: Int, floors: [Double]?,
-                                   model: VimeKVBatchLanguageModel, cancelled: () -> Bool) throws -> [Double] {
-        let candidates = sequences
-        let root = Node(token: sequences[0][shared - 1], position: shared - 1, parent: nil)
-        root.members = Array(candidates.indices)
-        for (index, sequence) in sequences.enumerated() {
-            var node = root
-            for position in shared..<sequence.count {
-                let token = sequence[position]
-                let child = node.children[token] ?? Node(token: token, position: position, parent: node)
-                node.children[token] = child
-                child.members.append(index)
-                node = child
-            }
-        }
-
-        var sums = [Double](repeating: 0, count: candidates.count)
-        var alive = [Bool](repeating: true, count: candidates.count)
-        func assign(_ parent: Node, _ allowed: [Int32], _ values: [Float]) {
-            let index = Dictionary(uniqueKeysWithValues: allowed.enumerated().map { ($1, $0) })
-            for (token, child) in parent.children {
-                let value = Double(values[index[token]!])
-                for member in child.members where alive[member] && child.position >= starts[member] {
-                    sums[member] += value
-                    if let floors, sums[member] <= floors[member] { alive[member] = false }
-                }
-            }
-        }
-        let first = Array(root.children.keys).sorted()
-        let prompt = try model.prompt(Array(sequences[0][..<shared]), allowed: first)
-        assign(root, first, prompt.logProbabilities)
-        root.cache = prompt.cache
-
-        var level = Array(root.children.values)
-        while !level.isEmpty {
-            guard !cancelled() else { throw VimeLanguageModel.Failure.cancelled }
-            // A node runs only while a candidate through it is still in the running.
-            let parents = level.filter { node in !node.children.isEmpty && node.members.contains { alive[$0] } }
-            var index = 0
-            while index < parents.count {
-                // As many rows as fit one call: the batch size, and the allowed ids together.
-                var batch: [Node] = []
-                var allowed = Set<Int32>()
-                while index < parents.count, batch.count < model.maximumBatch {
-                    let next = allowed.union(parents[index].children.keys)
-                    guard next.count <= VimeKVBatchLanguageModel.maximumAllowed || batch.isEmpty else { break }
-                    allowed = next; batch.append(parents[index]); index += 1
-                }
-                let ids = allowed.sorted()
-                let items = try batch.map { node -> (cache: VimeKVLanguageModel.Cache?, token: Int32) in
-                    guard let cache = node.parent?.cache else { throw VimeLanguageModel.Failure.tensor }
-                    return (cache, node.token)
-                }
-                let results = try model.scores(items, allowed: ids)
-                for (node, result) in zip(batch, results) {
-                    assign(node, ids, result.logProbabilities)
-                    node.cache = result.cache
-                }
-            }
-            level = parents.flatMap { Array($0.children.values) }
-        }
-        return zip(sums, alive).map { $1 ? $0 : -.infinity }
     }
 }

@@ -103,7 +103,7 @@ nonisolated enum ChineseSentenceGeneration {
         }
     }
 
-    /// The batched KV package (released with the reranking model
+    /// The batched KV package, shared with sentence correction (released with the reranking model
     /// by `ChineseCandidateRanking.release()`), their usable tokens, the
     /// dictionary, and the search of the current context. Model queue.
     final class Storage: @unchecked Sendable {
@@ -127,7 +127,10 @@ nonisolated enum ChineseSentenceGeneration {
                     guard let lexicon = ChinesePinyinLexicon.bundled,
                           let tokenizerURL = bundle.url(forResource: variant.tokenizerResource, withExtension: "model"),
                           let tokenizer = try? VimeSentenceTokenizer(url: tokenizerURL, vocabulary: variant.vocabulary),
-                          let batch = try? VimeKVBatchLanguageModel(bundle: bundle) else { return nil }
+                          // The same v3 instance as sentence correction (one copy in
+                          // memory), or kvbatch-v2 as the fallback.
+                          let batch: any ChineseKVBatchModel = ChineseSentenceCorrection.Storage.shared.batch(bundle: bundle)
+                            ?? (try? VimeKVBatchV2LanguageModel(bundle: bundle)) else { return nil }
                     let vocabulary = ChineseConstrainedGeneration.Vocabulary(
                         tokenizer: tokenizer, size: batch.vocabularySize, lexicon: lexicon)
                     return Generator(model: ChineseKVGenerator(batch: batch), tokenizer: tokenizer,
