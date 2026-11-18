@@ -36,11 +36,23 @@ nonisolated enum PostCompositionSuggestionReranker {
     static func hasNewSuggestions(_ values: [NextWordSuggestion], comparedTo published: [NextWordSuggestion]) -> Bool {
         values.contains { value in !published.contains { $0.hasSameOperation(as: value) } }
     }
-    static func merge(native: [NextWordSuggestion], neural: [NextWordSuggestion],
-                      blocklist: LearningExclusionList = PredictionBlocklist.shared) -> [NextWordSuggestion] {
+    /// How much of the committed text a suggestion is checked against, so a
+    /// suggestion that only becomes unsuitable once joined to it is left out.
+    static let blocklistContextLength = 8
+
+    /// A suggestion is left out when it matches the list itself, or when
+    /// joining it to the end of the committed text forms a match that the
+    /// text alone did not have.
+    static func merge(native: [NextWordSuggestion], neural: [NextWordSuggestion], leftContext: String = "",
+                      blocklist: LearningExclusionList = PredictionBlocklist.japanese) -> [NextWordSuggestion] {
         var pool: [String: NextWordSuggestion] = [:]
+        func isBlocked(_ value: NextWordSuggestion) -> Bool {
+            if blocklist.matches(value.text) { return true }
+            let tail = String(leftContext.dropLast(value.nativePrediction?.replacedText.count ?? 0).suffix(blocklistContextLength))
+            return !tail.isEmpty && blocklist.matches(tail + value.text) && !blocklist.matches(tail)
+        }
         for list in [native, neural] {
-            for (rank, original) in list.enumerated() where !blocklist.matches(original.text) {
+            for (rank, original) in list.enumerated() where !isBlocked(original) {
                 var value = original
                 value.score = Policy.sourceEvidence - Policy.orderCost * log1p(Double(rank)) + value.userScore
                 // Same visible text can have different host operations. Never dedup

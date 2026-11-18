@@ -7,3 +7,5 @@ swift Scripts/seal_resource.swift open \
     ci_scripts/LearningExclusions.sealed Shared/Resources/LearningExclusions.bin
 swift Scripts/seal_resource.swift open \
     ci_scripts/PredictionBlocklist.sealed Shared/Resources/PredictionBlocklist.bin
+swift Scripts/seal_resource.swift open \
+    ci_scripts/PredictionBlocklistJapanese.sealed Shared/Resources/PredictionBlocklistJapanese.bin

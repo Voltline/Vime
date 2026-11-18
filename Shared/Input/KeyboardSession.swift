@@ -791,7 +791,8 @@ final class KeyboardSession: KeyboardInputSession {
         let context = committedLeftContext
         let requestedHost = learningContextProvider?()
         guard let worker else {
-            suggestionSnapshots = PostCompositionSuggestionReranker.merge(native: engine?.postCompositionSuggestions(leftContext: context) ?? [], neural: [])
+            suggestionSnapshots = PostCompositionSuggestionReranker.merge(
+                native: engine?.postCompositionSuggestions(leftContext: context) ?? [], neural: [], leftContext: context)
             suggestionAnchor = learningContextProvider?()
             candidateListGeneration += 1
             return

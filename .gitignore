@@ -59,8 +59,10 @@ __pycache__/
 # Opened from its sealed copy at build time
 /Shared/Resources/LearningExclusions.bin
 /Shared/Resources/PredictionBlocklist.bin
-# Prediction blocklist sources; only the sealed .bin is committed
+/Shared/Resources/PredictionBlocklistJapanese.bin
+# Prediction blocklist sources; only the sealed .bin files are committed
 /Scripts/prediction_blocklist.txt
+/Scripts/prediction_blocklist_japanese.txt
 /Scripts/prediction_blocklist_allowed.txt
 
 # Reviewed Rime downweight list; only its hashes (rime_downweights.sha256) are committed.
