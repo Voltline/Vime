@@ -48,15 +48,38 @@ final class JapaneseCandidateWorker {
             lock.lock(); defer { lock.unlock() }
             return readyLanguage == language && !suspended
         }
+        /// When memory pressure last suspended the model (system uptime).
+        private var suspendedAt: TimeInterval?
         func setSuspended(_ value: Bool) {
-            lock.lock(); suspended = value; lock.unlock()
+            lock.lock(); suspended = value; suspendedAt = value ? ProcessInfo.processInfo.systemUptime : nil; lock.unlock()
             KeyboardExtensionStatus.update { $0.modelPaused = value }
+        }
+        /// How long a pressure pause lasts at least, and how much memory the
+        /// extension must have left, before the keyboard's next appearance
+        /// lifts it by itself.
+        static let resumeDelay: TimeInterval = 30
+        static let resumeMemory = 96 << 20
+        /// Lifts a pressure pause once it is `resumeDelay` old and
+        /// `available` (bytes; 0 where the system sets no limit) is at least
+        /// `resumeMemory`. Only the keyboard's appearance asks: keystrokes
+        /// and host changes never reload the model. True when it lifted.
+        @discardableResult
+        func resumeAfterPressure(now: TimeInterval = ProcessInfo.processInfo.systemUptime,
+                                 available: Int = os_proc_available_memory()) -> Bool {
+            lock.lock()
+            guard suspended, let since = suspendedAt, now - since >= Self.resumeDelay,
+                  available == 0 || available >= Self.resumeMemory
+            else { lock.unlock(); return false }
+            suspended = false; suspendedAt = nil
+            lock.unlock()
+            KeyboardExtensionStatus.update { $0.modelPaused = false }
+            return true
         }
         func retry(requestID: String) -> Bool {
             lock.lock()
             guard requestID != handledRetryID else { lock.unlock(); return false }
             handledRetryID = requestID
-            suspended = false
+            suspended = false; suspendedAt = nil
             lock.unlock()
             KeyboardExtensionStatus.update { $0.modelPaused = false }
             return true

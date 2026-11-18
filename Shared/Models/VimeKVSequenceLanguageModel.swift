@@ -44,6 +44,19 @@ nonisolated final class VimeKVSequenceLanguageModel {
 
     /// For tests and measurements.
     private(set) var predictions = 0
+    /// About the most bytes one call's cache copies and outputs may take:
+    /// every row gets its own copy of the shared keys and values, and the
+    /// head's float32 output is the whole vocabulary (48 KiB) for each
+    /// padded token. All of it is transient, but the keyboard extension
+    /// gets a memory warning near 60 MiB.
+    var byteBudget = 8 << 20
+    /// What a call of `rows` rows of `length` tokens after `slots` cached
+    /// slots holds at once: the cache copies, the new keys and values, and
+    /// the head's output.
+    func bytes(rows: Int, length: Int, slots: Int) -> Int {
+        let perSlot = 2 * Self.layers * Self.heads * Self.headDimension * MemoryLayout<Float>.size
+        return rows * ((slots + length) * perSlot + length * vocabularySize * MemoryLayout<Float>.size)
+    }
 
     init(bundle: Bundle = .main, computeUnits: MLComputeUnits = .cpuOnly) throws {
         guard let manifestURL = bundle.url(forResource: Self.manifestResource, withExtension: "json")
@@ -90,8 +103,9 @@ nonisolated final class VimeKVSequenceLanguageModel {
     /// The log probability of every token after the first of each sequence
     /// (BOS first, two tokens or more), given the tokens before it. Sequences
     /// go in sorted groups of up to 16; each group's common prefix runs once
-    /// (its tokens scored by that same call) and the rest of every row in one
-    /// more call, so neighbours one slip apart share nearly everything.
+    /// (its tokens scored by that same call) and the rest of its rows in as
+    /// few more calls as `byteBudget` allows, so neighbours one slip apart
+    /// share nearly everything.
     /// `cancelled` is asked before each group.
     func tokenScores(_ sequences: [[Int32]], cancelled: () -> Bool = { false }) throws -> [[Float]] {
         guard !sequences.isEmpty, sequences.allSatisfy({ $0.count >= 2 && $0.count <= Self.contextLength }),
@@ -114,9 +128,24 @@ nonisolated final class VimeKVSequenceLanguageModel {
                 head = output.logProbabilities[0]
                 prefill = output.new
             }
-            let output = try run(ids: group.map { [prefix.last!] + $0[shared..<($0.count - 1)] },
-                                 targets: group.map { Array($0[shared...]) }, position: shared - 1, cache: prefill)
-            for (offset, tail) in output.logProbabilities.enumerated() { result[order[start + offset]] = head + tail }
+            // The tails go in slices within `byteBudget` (one row at least).
+            var first = 0
+            while first < group.count {
+                var end = first + 1, longest = group[first].count - shared
+                while end < group.count {
+                    let length = max(longest, group[end].count - shared)
+                    guard bytes(rows: end - first + 1, length: length, slots: shared - 1) <= byteBudget else { break }
+                    longest = length
+                    end += 1
+                }
+                let slice = group[first..<end]
+                let output = try run(ids: slice.map { [prefix.last!] + $0[shared..<($0.count - 1)] },
+                                     targets: slice.map { Array($0[shared...]) }, position: shared - 1, cache: prefill)
+                for (offset, tail) in output.logProbabilities.enumerated() {
+                    result[order[start + first + offset]] = head + tail
+                }
+                first = end
+            }
         }
         return result
     }
@@ -126,6 +155,13 @@ nonisolated final class VimeKVSequenceLanguageModel {
     /// Returns each row's target log probabilities, unpadded, and the new keys
     /// and values of row 0.
     private func run(ids: [[Int32]], targets: [[Int32]], position: Int, cache: (keys: [Float], values: [Float])?) throws
+        -> (logProbabilities: [[Float]], new: (keys: [Float], values: [Float])) {
+        // Everything Core ML autoreleases goes with the call (several
+        // MiB of it each time), not when the model queue's work item ends.
+        try autoreleasepool { try predict(ids: ids, targets: targets, position: position, cache: cache) }
+    }
+
+    private func predict(ids: [[Int32]], targets: [[Int32]], position: Int, cache: (keys: [Float], values: [Float])?) throws
         -> (logProbabilities: [[Float]], new: (keys: [Float], values: [Float])) {
         let rows = ids.count, length = ids.map(\.count).max()!
         let shape = [NSNumber(value: rows), NSNumber(value: length)]
@@ -169,24 +205,22 @@ nonisolated final class VimeKVSequenceLanguageModel {
         let features = try MLDictionaryFeatureProvider(dictionary: [
             "input_ids": idArray, "position": positions, "key_cache": keyCache, "value_cache": valueCache,
             "targets": targetArray])
-        return try autoreleasepool {
-            let output = try model.prediction(from: features)
-            predictions += 1
-            guard let logProbabilities = output.featureValue(for: "target_logprobs")?.multiArrayValue,
-                  let newKeys = output.featureValue(for: "new_key")?.multiArrayValue,
-                  let newValues = output.featureValue(for: "new_value")?.multiArrayValue,
-                  logProbabilities.dataType == .float32, newKeys.dataType == .float32, newValues.dataType == .float32,
-                  logProbabilities.shape.map(\.intValue) == [rows, length],
-                  newKeys.shape.map(\.intValue) == [Self.layers, rows, Self.heads, length, Self.headDimension],
-                  newValues.shape == newKeys.shape
-            else { throw VimeLanguageModel.Failure.tensor }
-            let strides = logProbabilities.strides.map(\.intValue)
-            let scores: [[Float]] = logProbabilities.withUnsafeBufferPointer(ofType: Float.self) { buffer in
-                (0..<rows).map { row in (0..<targets[row].count).map { buffer[row * strides[0] + $0 * strides[1]] } }
-            }
-            guard scores.allSatisfy({ $0.allSatisfy(\.isFinite) }) else { throw VimeLanguageModel.Failure.tensor }
-            return (scores, (Self.firstRow(newKeys, length: ids[0].count), Self.firstRow(newValues, length: ids[0].count)))
+        let output = try model.prediction(from: features)
+        predictions += 1
+        guard let logProbabilities = output.featureValue(for: "target_logprobs")?.multiArrayValue,
+              let newKeys = output.featureValue(for: "new_key")?.multiArrayValue,
+              let newValues = output.featureValue(for: "new_value")?.multiArrayValue,
+              logProbabilities.dataType == .float32, newKeys.dataType == .float32, newValues.dataType == .float32,
+              logProbabilities.shape.map(\.intValue) == [rows, length],
+              newKeys.shape.map(\.intValue) == [Self.layers, rows, Self.heads, length, Self.headDimension],
+              newValues.shape == newKeys.shape
+        else { throw VimeLanguageModel.Failure.tensor }
+        let strides = logProbabilities.strides.map(\.intValue)
+        let scores: [[Float]] = logProbabilities.withUnsafeBufferPointer(ofType: Float.self) { buffer in
+            (0..<rows).map { row in (0..<targets[row].count).map { buffer[row * strides[0] + $0 * strides[1]] } }
         }
+        guard scores.allSatisfy({ $0.allSatisfy(\.isFinite) }) else { throw VimeLanguageModel.Failure.tensor }
+        return (scores, (Self.firstRow(newKeys, length: ids[0].count), Self.firstRow(newValues, length: ids[0].count)))
     }
 
     /// Row 0 of a (9, B, 6, T, 64) output, its first `length` slots, as (9, 6, length, 64).

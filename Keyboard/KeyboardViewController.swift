@@ -119,6 +119,9 @@ class KeyboardViewController: UIInputViewController {
         host.abandon()
         consumedLineContext = nil
         keyboard.resetComposition()
+        // A pause for memory pressure ends here once memory has recovered,
+        // so it does not last until a manual retry.
+        JapaneseCandidateWorker.LanguageModelStorage.shared.resumeAfterPressure()
         keyboard.prepareForInput()
         keyboard.hasFullAccess = hasFullAccess
         updateKeyboardGeometry()
