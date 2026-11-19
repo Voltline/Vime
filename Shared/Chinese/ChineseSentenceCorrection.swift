@@ -122,15 +122,21 @@ nonisolated enum ChineseSentenceCorrection {
         let leads: Bool
     }
 
-    /// The best option against the sentence as typed (`literal`, its
-    /// score), when it beats it after its penalty; nil otherwise.
-    static func decide(literal: Double, options: [Option], scores: [Double]) -> Decision? {
+    /// Whether `correction` keeps all of `sentence` but its last character.
+    static func changesOnlyTheEnd(_ correction: String, of sentence: String) -> Bool {
+        zip(correction, sentence).prefix { $0 == $1 }.count >= sentence.count - 1
+    }
+
+    /// The best option against the sentence as typed (`text`, scoring
+    /// `literal`), when it beats it after its penalty; nil otherwise.
+    static func decide(literal: Double, text: String, options: [Option], scores: [Double]) -> Decision? {
         guard literal.isFinite, options.count == scores.count else { return nil }
         let best = zip(options, scores).filter { $0.1.isFinite }
             .map { (option: $0.0, gain: $0.1 - $0.0.penalty - literal) }
             .enumerated().max { $0.element.gain != $1.element.gain ? $0.element.gain < $1.element.gain : $0.offset > $1.offset }?
             .element
         guard let best, best.gain > showMargin else { return nil }
-        return Decision(option: best.option, leads: best.gain > leadMargin)
+        return Decision(option: best.option,
+                        leads: best.gain > leadMargin && !changesOnlyTheEnd(best.option.candidate.genuine, of: text))
     }
 }

@@ -1086,12 +1086,12 @@ final class ChineseInputSession: KeyboardInputSession {
                     LearningExclusionPolicy.allowsLearning($0, active: active, list: list) && !blocklist.matches($0)
                 }
                 guard !options.isEmpty else { self.sentenceRequest = nil; return }
-                self.scoreSentenceOptions(options, literal: found.score, context: context, key: key, request: request)
+                self.scoreSentenceOptions(options, literal: found.score, text: literal, context: context, key: key, request: request)
             }
         }
     }
 
-    private func scoreSentenceOptions(_ options: [ChineseSentenceCorrection.Option], literal: Double, context: String,
+    private func scoreSentenceOptions(_ options: [ChineseSentenceCorrection.Option], literal: Double, text: String, context: String,
                                       key: String, request: ChineseCandidateRanking.Request) {
         let storage = JapaneseCandidateWorker.LanguageModelStorage.shared
         JapaneseCandidateWorker.modelQueue.async { [weak self] in
@@ -1108,7 +1108,7 @@ final class ChineseInputSession: KeyboardInputSession {
                     guard let self, self.sentenceRequest === request, !request.isCancelled, self.openKey == key else { return }
                     self.sentenceRequest = nil
                     guard let scores,
-                          let decision = ChineseSentenceCorrection.decide(literal: literal, options: options, scores: scores)
+                          let decision = ChineseSentenceCorrection.decide(literal: literal, text: text, options: options, scores: scores)
                     else { return }
                     self.sentenceCorrection = (decision.option.spelling, decision.option.candidate)
                     self.sentenceLeads = decision.leads
