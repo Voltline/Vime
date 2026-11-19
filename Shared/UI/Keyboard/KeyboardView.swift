@@ -198,9 +198,47 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
             guard oldValue != keyboardType else { return }
             if [.numberPad, .decimalPad, .phonePad, .asciiCapableNumberPad, .numbersAndPunctuation].contains(keyboardType) { page = .numbers }
             else { page = .letters }
-            if [.emailAddress, .URL, .asciiCapable].contains(keyboardType) { apply(session.activateEnglish()) }
-            rebuildKeys()
+            fieldDidChange(wasLatin: Self.latinField(keyboardType: oldValue, contentType: textContentType) != nil)
         }
+    }
+    var textContentType: UITextContentType? {
+        didSet {
+            guard oldValue != textContentType else { return }
+            fieldDidChange(wasLatin: Self.latinField(keyboardType: keyboardType, contentType: oldValue) != nil)
+        }
+    }
+
+    /// A field that takes Latin text only, by its keyboard or content type.
+    enum LatinField { case email, url, other }
+    var latinField: LatinField? { Self.latinField(keyboardType: keyboardType, contentType: textContentType) }
+    static func latinField(keyboardType: UIKeyboardType, contentType: UITextContentType?) -> LatinField? {
+        if keyboardType == .emailAddress || contentType == .emailAddress { return .email }
+        if keyboardType == .URL || contentType == .URL { return .url }
+        if keyboardType == .asciiCapable || contentType == .username { return .other }
+        return nil
+    }
+    /// Set when a Latin-only field switched the keyboard to English, so the
+    /// next ordinary field gets the language back. Choosing a language in
+    /// the field keeps that choice instead.
+    var restoresLanguageAfterLatinField = false
+
+    private func fieldDidChange(wasLatin: Bool) {
+        let isLatin = latinField != nil
+        if isLatin && !wasLatin {
+            restoresLanguageAfterLatinField = !session.inputTraits.isEnglish
+            if restoresLanguageAfterLatinField { switchLanguageForField() }
+        } else if !isLatin && wasLatin {
+            if restoresLanguageAfterLatinField && session.inputTraits.isEnglish { switchLanguageForField() }
+            restoresLanguageAfterLatinField = false
+        }
+        rebuildKeys()
+        updateAutoCapitalization()
+    }
+
+    private func switchLanguageForField() {
+        apply(session.toggleEnglish())
+        shifted = false
+        capsLocked = false
     }
 
     enum Page { case letters, numbers, symbols }
@@ -262,7 +300,9 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     var displayedAlternateLanguage: KeyboardInputLanguage?
     let brandButton = KeyboardToolbarButton(type: .custom)
     let globeButton = UIButton(type: .custom)
-    let modeButton = KeyboardToolbarButton(type: .system)
+    /// A custom button: a system one cross-fades its new title and fades
+    /// back from the highlight, which made the toggle feel slow.
+    let modeButton = KeyboardToolbarButton(type: .custom)
     let neuralStatusLabel = UILabel()
     let undoButton = KeyboardToolbarButton(type: .system)
     let expandButton = KeyboardToolbarButton(type: .system)
@@ -371,6 +411,8 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         modeButton.titleLabel?.font = .systemFont(ofSize: 17, weight: .semibold)
         modeButton.backgroundColor = KeyboardPalette.key
         modeButton.tintColor = .secondaryLabel
+        modeButton.setTitleColor(.secondaryLabel, for: .normal)
+        modeButton.setTitleColor(.tertiaryLabel, for: .highlighted)
         modeButton.addTarget(self, action: #selector(toggleKana), for: .touchUpInside)
         modeButton.accessibilityLabel = String(localized: "切换平假名和片假名")
         header.addSubview(undoButton)

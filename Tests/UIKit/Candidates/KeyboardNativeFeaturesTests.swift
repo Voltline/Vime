@@ -249,6 +249,44 @@ final class KeyboardNativeFeaturesTests: XCTestCase {
         XCTAssertEqual(edits, [.insert("1")], "Normal text keeps the digit editable until confirmation")
     }
 
+    func testLatinFieldsTypeEnglishAndGiveTheLanguageBack() throws {
+        let session = KeyboardSession()
+        let keyboard = KeyboardView(frame: CGRect(x: 0, y: 0, width: 440, height: 350), session: session)
+        defer { keyboard.stopInteractions() }
+        var edits: [KeyboardEdit] = []; keyboard.onEdit = { edits += $0 }
+        func keys(_ view: UIView) -> [KeyboardKey] { (view as? KeyboardKey).map { [$0] } ?? view.subviews.flatMap(keys) }
+        func key(_ identifier: String) throws -> KeyboardKey {
+            try XCTUnwrap(keys(keyboard).first { $0.accessibilityIdentifier == identifier }, identifier)
+        }
+        XCTAssertFalse(session.inputTraits.isEnglish)
+
+        keyboard.keyboardType = .emailAddress
+        XCTAssertTrue(session.inputTraits.isEnglish, "An email field types English")
+        XCTAssertEqual(try key("vime.key.field-symbol").title(for: .normal), "@")
+        try key("vime.key.field-symbol").action?()
+        XCTAssertEqual(edits.last, .insert("@"))
+        try key("vime.key.field-symbol").alternateAction?()
+        XCTAssertEqual(edits.last, .insert("."), "The period stays on the swipe")
+
+        keyboard.keyboardType = .default
+        XCTAssertFalse(session.inputTraits.isEnglish, "The next ordinary field gets Japanese back")
+        XCTAssertEqual(try key("vime.key.comma").title(for: .normal), ",")
+
+        keyboard.textContentType = .URL
+        XCTAssertTrue(session.inputTraits.isEnglish, "The content type alone marks a web address field")
+        XCTAssertEqual(try key("vime.key.field-symbol").title(for: .normal), "/")
+        try key("vime.key.language").action?()
+        XCTAssertFalse(session.inputTraits.isEnglish)
+        keyboard.textContentType = nil
+        XCTAssertFalse(session.inputTraits.isEnglish, "A language chosen in the field is kept")
+
+        try key("vime.key.language").action?()
+        XCTAssertTrue(session.inputTraits.isEnglish)
+        keyboard.keyboardType = .emailAddress
+        keyboard.keyboardType = .default
+        XCTAssertTrue(session.inputTraits.isEnglish, "English chosen before the field stays English")
+    }
+
     func testNeuralRerankScoresSharedContinuationWithoutMergingHostOperations() throws {
         let engine = JapaneseCandidateEngine()
         let tokyo = try XCTUnwrap(engine.candidates(for: query("toukyou"), revision: 1, includeCorrections: false)
