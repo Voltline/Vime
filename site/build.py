@@ -37,6 +37,8 @@ LANGUAGES = {
     "en": ("en", "en-US", "Privacy.en.md", "UTC", "{weekday} {date} {time} UTC"),
     "ko": ("ko", "ko", "Privacy.ko.md", "Asia/Seoul", "{date} ({weekday}) {time}"),
 }
+# The App Store storefront each language links to.
+STOREFRONTS = {"zh-hans": "cn", "zh-hant": "tw", "ja": "jp", "en": "us", "ko": "kr"}
 PAGES = {"home": "", "privacy": "privacy/", "changelog": "changelog/"}
 # TestFlight cuts and the App Store submission, in Beijing time (weekdays, hour).
 SCHEDULE = {"next_cut": ((2, 3, 4), 3)}
@@ -180,7 +182,7 @@ def app_store_live():
         if results:
             app = results[0]
             return {"id": app["trackId"], "version": app.get("version"), "date": app.get("currentVersionReleaseDate"),
-                    "url": f"https://apps.apple.com/app/id{app['trackId']}"}
+                    "url": f"https://apps.apple.com/{{country}}/app/id{app['trackId']}"}
     return None
 
 
@@ -367,12 +369,18 @@ class Site:
 </html>
 """
 
+    def app_store_url(self, code):
+        """The App Store page in the storefront of the page's language; the
+        link without a storefront lands on the store's front page in
+        mainland China."""
+        return self.data["live"]["url"].format(country=STOREFRONTS[code])
+
     def home(self, code):
         home = self.content[code]["home"]
         live = self.data["live"]
         buttons = []
         if live:
-            buttons.append(f'<a class="button primary" href="{html.escape(live["url"])}" rel="noopener">'
+            buttons.append(f'<a class="button primary" href="{html.escape(self.app_store_url(code))}" rel="noopener">'
                            f'{html.escape(home["appstore"])}</a>')
         buttons.append(f'<a class="button" href="https://github.com/{REPOSITORY}" rel="noopener">'
                        f'{html.escape(home["source"])}</a>')
@@ -458,7 +466,7 @@ class Site:
         if live:
             card(status["appstore"], html.escape(live["version"]),
                  html.escape(status["released"].format(date=self.date(live["date"], code))),
-                 f'<a class="more" href="{html.escape(live["url"])}" rel="noopener">{html.escape(status["appstore_link"])} →</a>')
+                 f'<a class="more" href="{html.escape(self.app_store_url(code))}" rel="noopener">{html.escape(status["appstore_link"])} →</a>')
         else:
             card(status["appstore"], f'<span class="none">{html.escape(status["appstore_none"])}</span>')
         if asc and asc.get("review") is not None:

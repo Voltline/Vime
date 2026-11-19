@@ -1,8 +1,16 @@
+<div align="center">
+
+<img src="../../site/static/logo.svg" width="128" height="128" alt="Vime">
+
 # Vime
 
 [简体中文](../../README.md) | [繁體中文](README.zh-Hant.md) | **English** | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-![Platform](https://img.shields.io/badge/platform-iOS%2018%2B-blue) ![Swift](https://img.shields.io/badge/Swift-UIKit%20%2B%20SwiftUI-orange) ![License](https://img.shields.io/badge/license-GPL--3.0--or--later-green)
+<a href="https://apps.apple.com/us/app/id6819158776"><img src="https://toolbox.marketingtools.apple.com/api/v2/badges/download-on-the-app-store/black/en-us" width="110" alt="Download on the App Store"></a>
+
+[![App Store](https://img.shields.io/itunes/v/6819158776?label=App%20Store)](https://apps.apple.com/us/app/id6819158776) ![Platform](https://img.shields.io/badge/platform-iOS%2018%2B-blue) ![Swift](https://img.shields.io/badge/Swift-UIKit%20%2B%20SwiftUI-orange) ![License](https://img.shields.io/badge/license-GPL--3.0--or--later-green)
+
+</div>
 
 Vime is a fully offline multilingual keyboard for iOS that types Japanese, Chinese (pinyin, Simplified or Traditional) and English. Japanese offers a romaji QWERTY layout and a 12-key kana pad, and switches between hiragana, katakana and English at any time. Kana-kanji conversion is built on the [azooKey](https://github.com/azooKey/AzooKeyKanaKanjiConverter) dictionary engine, and Chinese pinyin input on [librime](https://github.com/rime/librime). Japanese and Chinese each have a small on-device Core ML language model that reranks candidates by what you wrote before and suggests the next word after you commit text. Conversion, correction, learning and suggestions all run on your device, and nothing you type is uploaded.
 
@@ -15,19 +23,15 @@ The companion app handles setup, typing practice, appearance and settings. The k
 - **Two Japanese layouts**: full romaji QWERTY, or a 12-key kana pad. On the pad, tap for the あ-column kana and flick left, up, right or down for the others; tapping the same key repeatedly cycles through its kana (toggle input). The pad has `↶` (step back), `゛゜小` (voiced / semi-voiced / small) and `→` (end the toggle) keys, plus a two-row 確定 key that is easy to hit.
 - **Instant kana draft**: kana appear as you type, and unfinished consonants stay as romaji. Conversion and predictions update in the background without blocking input.
 - **Direct English input** with a one-tap Japanese/English switch and word completion in the candidate bar; auto-capitalization and the double-space period can be turned on in Settings. The number page can be a 3×3 pad or a full row layout.
-- Move the cursor by dragging after a long press on the space bar, or by swiping across the keys; swipe up on a letter to enter its symbol.
-- Double-tap Shift for caps lock. On an iPhone in portrait, the **one-handed keyboard** moves the keys to the left or right.
 
 ### Conversion and candidates
 
 - **Whole-sentence and segmented conversion**: expand the candidates and use `−` / `+` to resize the first segment. After you confirm it, the rest keeps converting, and only confirmed text is written to the document.
-- **Undo a conversion**: right after confirming a conversion, tap ↩ at the start of the candidate bar to return to its reading and choose again; a setting makes backspace do the same.
 - **Live Conversion (ライブ変換)** (off by default): the converted text shows as you type, without pressing Space; Space moves to the next candidate (次候補), and Return waits for the result before committing. Turn it on in Settings or in the keyboard's quick settings.
 - **Smart ranking**: azooKey generates the candidates, and a local language model (INT8, CPU only) rescores them using the preceding text. Plain dictionary ranking is also available.
 - **Next-word suggestions**: after you commit text, the idle candidate bar shows likely next words; tap one to keep going.
 - **Correction candidates**: neighboring-key slips, similar sounds and a limited set of misreadings appear as candidates and are only applied when you pick them.
 - **Pinyin Lookup in Japanese**: in Japanese mode, kanji words can also be found by their Mandarin reading, e.g. `jiancha` → 検察, and pinyin and romaji can be mixed; the kana reading is shown above the candidate. Words whose Japanese meaning differs from Chinese (such as 手紙) are marked with their Japanese meaning, followed by the Japanese word for the Chinese meaning. This can be turned off in Settings.
-- **Format candidates**: half-width katakana (ｶﾞｯｺｳ) and full-width alphanumerics (ａｂｃ１２３).
 
 ### Chinese input
 
@@ -35,12 +39,9 @@ The companion app handles setup, typing practice, appearance and settings. The k
 - **Chinese smart ordering**: an on-device Chinese model (INT8, CPU only) reranks candidates by context, picks the most natural of the sentences Rime offers and swaps awkward words in long ones. It can be turned off in Settings.
 - **Pinyin typo correction**: neighbouring-key slips, swapped letters, and a missing or extra letter still find the word; typos across syllables and in a whole sentence get corrected candidates after a short pause.
 - **Fuzzy pinyin**: z/zh, c/ch, s/sh, front and back nasals, and n/l, f/h, r/l can each be turned on.
-- **Next-word suggestions**: after you commit Chinese, the candidate bar offers common words that follow, chaining as you pick them.
 - **Mixed Chinese and English**: type English words in the same input; a word starting with a capital (Vime, GPT) stays as typed in the sentence.
 - **Simplified or Traditional**: tap the 简 / 繁 button on the toolbar to switch; Traditional Chinese is converted with OpenCC.
-- **Switching between Japanese and Chinese**: swipe up on the language key. The Input Methods page sets the default language and turns off methods you don't use.
 - **On-device learning**: words you choose rank higher. If you delete a word with Backspace right after committing it, that learning is undone too. Learned words can be reviewed and deleted one by one, imported or exported as Rime text, or cleared at once.
-- **Chinese user dictionary**: put your own words first by their full pinyin or initials (such as `wm`).
 - The lexicon is generated from several open-source word lists and frequency data, plus newer brands, internet terms and game names; sources are listed in the third-party notices.
 
 ### Productivity
@@ -48,25 +49,23 @@ The companion app handles setup, typing practice, appearance and settings. The k
 - **User dictionaries and phrase shortcuts**: one for Japanese and one for Chinese, up to 1,024 entries each. The Japanese dictionary imports from Google Japanese Input, Microsoft IME, ATOK and macOS and exports as JSON or Google Japanese Input text; the Chinese one imports and exports JSON or text. Your iOS text replacements work too.
 - **Clipboard suggestions** (off by default): newly copied text appears in the candidate bar, and the last 24 hours of history stay on the device only.
 - **Calculator on the number page**: typing `1+1` offers `2` and `1+1=2`.
-- **Auto-paired brackets**: `()`, `（）`, `「」` and more, with the cursor placed between them.
 - **Symbol panel**: categorized symbols, emoji and kaomoji. In portrait, ABC, the panel switch, search and delete sit in a bottom bar, symbols come in pages, and the first page shows Chinese or Japanese punctuation to match the input language. The symbol column on the number page is customizable.
 
 ### Personalization
 
 - Built-in themes plus custom skins with your own background, key images and colors, shared as `.vimeskin` files.
 - Drag to resize the keyboard; key sounds and continuously adjustable haptic strength; key previews can stay up for 0–500 ms.
-- Learns your word choices on the device. Long-press a candidate to forget what was learned for it, or clear all learning at any time.
 - **Accessibility**: VoiceOver (kana flicks and swipe-up symbols are available as custom actions), the largest accessibility text sizes, Bold Text and Increase Contrast.
 
 ### Companion app
 
 - **Three-step setup**: add the keyboard, allow full access and switch to Vime; once done, the app opens the typing practice.
 - **Typing practice**: Japanese or Chinese sample sentences to match the input language; correct characters turn blue as you go.
-- **Input Methods settings**: choose Japanese romaji, the kana pad and Simplified Chinese. Conversion options are grouped by Japanese, Chinese and English, and the user dictionary has a Japanese page and a Chinese page.
-- A status card in Settings shows whether the keyboard is working, which model version is loaded and how much it has learned.
 - The interface is available in Simplified Chinese, Traditional Chinese, Japanese, English and Korean.
 
 ## Installation
+
+Vime is [available on the App Store](https://apps.apple.com/us/app/id6819158776). To build it from source instead:
 
 Requires iOS 18 or later and an Xcode version that supports the project's SDK.
 
