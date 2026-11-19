@@ -25,7 +25,13 @@ nonisolated enum PinyinLeadingSyllable {
     /// `input` with a syllable break after its first `syllable.count`
     /// letters, which must spell `syllable`. Breaks typed later stay.
     static func input(_ input: String, leadingWith syllable: String) -> String {
-        var remaining = syllable.count
+        Self.input(input, replacing: syllable.count, with: syllable)
+    }
+
+    /// `input` with its first `count` letters spelled as `syllable` and a
+    /// syllable break after them. Breaks typed later stay.
+    static func input(_ input: String, replacing count: Int, with syllable: String) -> String {
+        var remaining = count
         var rest = Substring(input)
         while remaining > 0, let first = rest.first {
             if first != "'" { remaining -= 1 }
@@ -42,4 +48,41 @@ nonisolated enum PinyinLeadingSyllable {
         guard let token, !token.isEmpty, token.allSatisfy({ ("a"..."z").contains($0) }) else { return nil }
         return token
     }
+
+    /// Other syllables `syllable` may have been meant as, which the column
+    /// offers as corrections: fuzzy sounds (z/zh, n/l, an/ang…) first, then
+    /// one letter swapped for a neighbouring key, nearest keys first.
+    static func alternatives(to syllable: String, excluding: Set<String>, limit: Int = 4) -> [String] {
+        var found: [String] = []
+        var seen = excluding.union([syllable])
+        func add(_ spelling: String) {
+            guard found.count < limit, PinyinSpellingCorrection.syllables.contains(spelling),
+                  spelling.contains(where: { "aeiouv".contains($0) }), seen.insert(spelling).inserted else { return }
+            found.append(spelling)
+        }
+        let initial = ["zh", "ch", "sh"].first { syllable.hasPrefix($0) } ?? String(syllable.prefix(1))
+        for swap in fuzzyInitials[initial] ?? [] { add(swap + syllable.dropFirst(initial.count)) }
+        for (long, short) in [("ang", "an"), ("eng", "en"), ("ing", "in")] {
+            if syllable.hasSuffix(long) { add(String(syllable.dropLast())) }
+            else if syllable.hasSuffix(short) { add(syllable + "g") }
+        }
+        let letters = Array(syllable)
+        var swaps: [(rank: Int, spelling: String)] = []
+        for (index, letter) in letters.enumerated() {
+            for (rank, neighbour) in PinyinSpellingCorrection.neighbours(of: letter).enumerated() {
+                var changed = letters
+                changed[index] = neighbour
+                swaps.append((rank, String(changed)))
+            }
+        }
+        for swap in swaps.enumerated().sorted(by: { ($0.element.rank, $0.offset) < ($1.element.rank, $1.offset) }) {
+            add(swap.element.spelling)
+        }
+        return found
+    }
+
+    private static let fuzzyInitials: [String: [String]] = [
+        "zh": ["z"], "z": ["zh"], "ch": ["c"], "c": ["ch"], "sh": ["s"], "s": ["sh"],
+        "n": ["l"], "l": ["n", "r"], "r": ["l"], "f": ["h"], "h": ["f"],
+    ]
 }

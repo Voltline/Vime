@@ -556,6 +556,13 @@ final class ChineseInputSessionTests: XCTestCase {
         XCTAssertEqual(PinyinLeadingSyllable.input("xi'anren", leadingWith: "xia"), "xia'nren")
         XCTAssertEqual(PinyinLeadingSyllable.input("xian'ren", leadingWith: "xian"), "xian'ren")
         XCTAssertEqual(PinyinLeadingSyllable.input("xian", leadingWith: "xian"), "xian")
+        XCTAssertEqual(PinyinLeadingSyllable.input("zifu", replacing: 2, with: "zhi"), "zhi'fu")
+        XCTAssertEqual(PinyinLeadingSyllable.alternatives(to: "zi", excluding: []).first, "zhi")
+        XCTAssertEqual(PinyinLeadingSyllable.alternatives(to: "lan", excluding: []).prefix(3), ["nan", "ran", "lang"])
+        XCTAssertEqual(PinyinLeadingSyllable.alternatives(to: "xian", excluding: ["xia"]).first, "xiang")
+        XCTAssertTrue(PinyinLeadingSyllable.alternatives(to: "wo", excluding: []).allSatisfy {
+            PinyinSpellingCorrection.syllables.contains($0) && $0 != "wo" })
+        XCTAssertLessThanOrEqual(PinyinLeadingSyllable.alternatives(to: "de", excluding: []).count, 4)
     }
 
     /// The panel's syllable column: picking xi of xianren lists what starts
@@ -565,13 +572,13 @@ final class ChineseInputSessionTests: XCTestCase {
         session.setChineseLanguageModel(false)
         _ = session.type("xianren")
         waitUntilCurrent(session)
-        XCTAssertEqual(session.leadingSyllables, ["xian", "xia", "xi"])
+        XCTAssertEqual(session.leadingSyllables.prefix(3), ["xian", "xia", "xi"])
         XCTAssertEqual(session.currentLeadingSyllable, "xian")
         XCTAssertEqual(session.chooseLeadingSyllable("xi"), [])
         waitUntilCurrent(session)
         XCTAssertEqual(session.raw, "xi'anren")
         XCTAssertEqual(session.currentLeadingSyllable, "xi")
-        XCTAssertEqual(session.leadingSyllables, ["xian", "xia", "xi"], "the column keeps the input's options")
+        XCTAssertEqual(session.leadingSyllables.prefix(3), ["xian", "xia", "xi"], "the column keeps the input's options")
         let shown = session.candidatePresentations.map(\.text)
         XCTAssertTrue(shown.contains("西") && !shown.contains("先") && !shown.contains("现"), "\(shown)")
         // Rime's own reading puts the input back as typed.
@@ -586,7 +593,7 @@ final class ChineseInputSessionTests: XCTestCase {
         XCTAssertTrue(session.isComposing)
         XCTAssertTrue(session.markedText?.text.hasPrefix("西") == true, session.markedText?.text ?? "")
         XCTAssertEqual(session.currentLeadingSyllable, "an")
-        XCTAssertEqual(session.leadingSyllables, ["an", "a"])
+        XCTAssertEqual(session.leadingSyllables.prefix(2), ["an", "a"])
         session.reset()
         // The column stays for each piece, one with a single reading too.
         _ = session.type("xianshi")
@@ -598,7 +605,7 @@ final class ChineseInputSessionTests: XCTestCase {
         _ = session.chooseCandidate(try token("安", in: session))
         waitUntilCurrent(session)
         XCTAssertTrue(batches.isEmpty, "the rest is still being typed")
-        XCTAssertEqual(session.leadingSyllables, ["shi"])
+        XCTAssertEqual(session.leadingSyllables.first, "shi")
         XCTAssertEqual(session.currentLeadingSyllable, "shi")
         session.reset()
         _ = session.type("xianren")
@@ -626,7 +633,7 @@ final class ChineseInputSessionTests: XCTestCase {
         keyboard.refresh()
         keyboard.layoutIfNeeded()
         XCTAssertFalse(keyboard.syllableColumn.isHidden)
-        XCTAssertEqual(keyboard.syllableButtons.map { $0.title(for: .normal) }, ["xian", "xia", "xi"])
+        XCTAssertEqual(keyboard.syllableButtons.prefix(3).map { $0.title(for: .normal) }, ["xian", "xia", "xi"])
         XCTAssertEqual(keyboard.syllableButtons.first?.isSelected, true)
         let firstCandidate = try XCTUnwrap(keyboard.panelCandidates.first)
         XCTAssertGreaterThanOrEqual(firstCandidate.frame.minX, keyboard.syllableColumn.frame.maxX, "candidates sit right of the column")
@@ -638,6 +645,56 @@ final class ChineseInputSessionTests: XCTestCase {
         keyboard.toggleExpanded()
         keyboard.layoutIfNeeded()
         XCTAssertTrue(keyboard.syllableColumn.isHidden)
+        session.reset()
+    }
+
+    /// A similar sound in the column respells the syllable: zi read as zhi.
+    func testSyllableColumnOffersCorrections() throws {
+        let session = try session()
+        session.setChineseLanguageModel(false)
+        _ = session.type("zifu")
+        waitUntilCurrent(session)
+        XCTAssertTrue(session.correctedLeadingSyllables.contains("zhi"), "\(session.leadingSyllables)")
+        XCTAssertEqual(session.chooseLeadingSyllable("zhi"), [])
+        waitUntilCurrent(session)
+        XCTAssertEqual(session.raw, "zhi'fu")
+        XCTAssertEqual(session.currentLeadingSyllable, "zhi")
+        XCTAssertTrue(session.candidatePresentations.map(\.text).contains("支付"), "\(session.candidatePresentations.map(\.text))")
+        // Rime's own reading puts the typed letters back.
+        _ = session.chooseLeadingSyllable("zi")
+        waitUntilCurrent(session)
+        XCTAssertEqual(session.raw, "zifu")
+        session.reset()
+    }
+
+    /// Picking a syllable after a chosen start keeps the panel open.
+    func testPickingAfterAChosenStartKeepsThePanel() throws {
+        let session = try session()
+        session.setChineseLanguageModel(false)
+        let keyboard = KeyboardView(frame: CGRect(x: 0, y: 0, width: 440, height: 350), session: session)
+        var edits: [KeyboardEdit] = []
+        keyboard.onEdit = { edits += $0 }
+        keyboard.layoutIfNeeded()
+        keyboard.apply(session.type("xianren"))
+        waitUntilCurrent(session)
+        keyboard.toggleExpanded()
+        waitUntilCurrent(session)
+        keyboard.refresh()
+        keyboard.syllableButtons[2].sendActions(for: .touchUpInside)
+        waitUntilCurrent(session)
+        keyboard.refresh()
+        keyboard.apply(session.chooseCandidate(try token("西", in: session)))
+        waitUntilCurrent(session)
+        keyboard.refresh()
+        XCTAssertEqual(keyboard.panel, .candidates)
+        let a = try XCTUnwrap(keyboard.syllableButtons.first { $0.title(for: .normal) == "a" })
+        a.sendActions(for: .touchUpInside)
+        waitUntilCurrent(session)
+        keyboard.refresh()
+        XCTAssertEqual(edits, [.insert("西")])
+        XCTAssertEqual(session.raw, "a'nren")
+        XCTAssertEqual(keyboard.panel, .candidates, "the panel stays open")
+        XCTAssertFalse(keyboard.syllableColumn.isHidden)
         session.reset()
     }
 
