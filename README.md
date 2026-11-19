@@ -6,7 +6,7 @@
 
 **简体中文** | [繁體中文](Docs/i18n/README.zh-Hant.md) | [English](Docs/i18n/README.en.md) | [日本語](Docs/i18n/README.ja.md) | [한국어](Docs/i18n/README.ko.md)
 
-<a href="https://apps.apple.com/app/id6819158776"><img src="https://toolbox.marketingtools.apple.com/api/v2/badges/download-on-the-app-store/black/zh-cn" width="150" alt="在 App Store 下载"></a>
+<a href="https://apps.apple.com/app/id6819158776"><img src="https://toolbox.marketingtools.apple.com/api/v2/badges/download-on-the-app-store/black/zh-cn" width="120" alt="在 App Store 下载"></a>
 
 ![Platform](https://img.shields.io/badge/platform-iOS%2018%2B-blue) ![Swift](https://img.shields.io/badge/Swift-UIKit%20%2B%20SwiftUI-orange) ![License](https://img.shields.io/badge/license-GPL--3.0--or--later-green)
 
