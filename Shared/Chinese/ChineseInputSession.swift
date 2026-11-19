@@ -960,12 +960,24 @@ final class ChineseInputSession: KeyboardInputSession {
         return (open.input, currentLeadingSyllable)
     }
 
-    var leadingSyllables: [String] {
-        guard isComposing, echo.isEmpty, !hasCapitals else { return [] }
+    /// The input's own readings of its start, then other spellings of the
+    /// one in use (fuzzy sounds, neighbouring keys) as corrections.
+    private var leadingColumn: (exact: [String], corrections: [String], anchor: String?) {
+        guard isComposing, echo.isEmpty, !hasCapitals else { return ([], [], nil) }
+        let base = leadingBase
         // A single option still shows, so the column stays put while the
         // input is chosen piece by piece.
-        return PinyinLeadingSyllable.options(for: Self.letters(leadingBase.input))
+        let exact = PinyinLeadingSyllable.options(for: Self.letters(base.input))
+        guard let anchor = base.natural.flatMap({ exact.contains($0) ? $0 : nil }) ?? exact.first else { return ([], [], nil) }
+        return (exact, PinyinLeadingSyllable.alternatives(to: anchor, excluding: Set(exact)), anchor)
     }
+
+    var leadingSyllables: [String] {
+        let column = leadingColumn
+        return column.exact + column.corrections
+    }
+
+    var correctedLeadingSyllables: Set<String> { Set(leadingColumn.corrections) }
 
     var currentLeadingSyllable: String? {
         guard isComposing else { return nil }
@@ -974,22 +986,29 @@ final class ChineseInputSession: KeyboardInputSession {
     }
 
     /// Reads the open input as starting with `syllable`, so the list shows
-    /// what starts with it. Text chosen before it is committed first, since
-    /// Rime takes a new input whole; Rime's own reading restores the input.
+    /// what starts with it; a correction respells the syllable in use.
+    /// Text chosen before it is committed first, since Rime takes a new input
+    /// whole; Rime's own reading restores the input.
     func chooseLeadingSyllable(_ syllable: String) -> [KeyboardEdit] {
-        guard candidatesAreCurrent, leadingSyllables.contains(syllable) else { return [] }
+        let column = leadingColumn
+        guard candidatesAreCurrent, let anchor = column.anchor,
+              column.exact.contains(syllable) || column.corrections.contains(syllable) else { return [] }
         let base = leadingBase
-        var edits: [KeyboardEdit] = []
+        let input = syllable == base.natural ? base.input
+            : column.exact.contains(syllable) ? PinyinLeadingSyllable.input(base.input, leadingWith: syllable)
+            : PinyinLeadingSyllable.input(base.input, replacing: anchor.count, with: syllable)
         let chosen = open.chosen
-        if !chosen.isEmpty {
-            edits = run(.clear) + [.insert(chosen)]
-            clearSuggestions()
-            commitIsForgettable = false
-        }
-        let input = syllable == base.natural ? base.input : PinyinLeadingSyllable.input(base.input, leadingWith: syllable)
         leadingPick = input == base.input ? nil : (base.input, base.natural, input)
-        if input != state.input { enqueue(.setInput(input)) }
-        return edits
+        guard !chosen.isEmpty else {
+            if input != state.input { enqueue(.setInput(input)) }
+            return []
+        }
+        // The new input goes in before returning, so the keyboard sees the
+        // composition go on and keeps the panel open.
+        let edits = run(.clear) + [.insert(chosen)]
+        clearSuggestions()
+        commitIsForgettable = false
+        return edits + run(.setInput(input))
     }
 
     // MARK: Spelling corrections

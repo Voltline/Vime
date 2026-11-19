@@ -129,6 +129,7 @@ extension KeyboardView {
     func refreshSyllableColumn() {
         let syllables = panel == .candidates ? session.leadingSyllables : []
         let current = session.currentLeadingSyllable
+        let corrected = session.correctedLeadingSyllables
         let hidden = syllables.isEmpty
         if syllableColumn.isHidden != hidden || syllableButtons.map({ $0.title(for: .normal) ?? "" }) != syllables {
             setNeedsLayout()
@@ -150,7 +151,9 @@ extension KeyboardView {
         for (button, syllable) in zip(syllableButtons, syllables) {
             let selected = syllable == current
             button.setTitle(syllable, for: .normal)
-            button.setTitleColor(selected ? KeyboardPalette.accent : KeyboardPalette.text, for: .normal)
+            // Corrections read as suggestions, set apart from the input's own readings.
+            button.setTitleColor(selected ? KeyboardPalette.accent
+                : corrected.contains(syllable) ? .secondaryLabel : KeyboardPalette.text, for: .normal)
             button.setTitleColor(.tertiaryLabel, for: .highlighted)
             button.backgroundColor = selected ? KeyboardPalette.key : .clear
             button.isSelected = selected

@@ -104,6 +104,8 @@ protocol KeyboardInputSession: AnyObject {
     var leadingSyllables: [String] { get }
     /// The one Rime reads the input as starting with.
     var currentLeadingSyllable: String? { get }
+    /// Those of `leadingSyllables` that respell the input (similar sounds, neighbouring keys).
+    var correctedLeadingSyllables: Set<String> { get }
     func chooseLeadingSyllable(_ syllable: String) -> [KeyboardEdit]
     func activateEnglish() -> [KeyboardEdit]
     func toggleEnglish() -> [KeyboardEdit]
@@ -164,6 +166,7 @@ extension KeyboardInputSession {
     func forgetCandidate(_ token: CandidateSelectionToken) {}
     var leadingSyllables: [String] { [] }
     var currentLeadingSyllable: String? { nil }
+    var correctedLeadingSyllables: Set<String> { [] }
     func chooseLeadingSyllable(_ syllable: String) -> [KeyboardEdit] { [] }
     var raw: String { "" }
     func prepareForInput() {}
