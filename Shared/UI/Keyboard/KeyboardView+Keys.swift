@@ -256,6 +256,7 @@ extension KeyboardView {
                     }
                     if r == 3 && value == "换行" {
                         returnKey = item.0; item.0.accessibilityIdentifier = "vime.key.return"
+                        configureReturnHold(item.0)
                     }
                     if value == "空格" {
                         spaceKey = item.0; item.0.accessibilityIdentifier = "vime.key.space"
@@ -340,6 +341,7 @@ extension KeyboardView {
         enter.0.fillColor = KeyboardPalette.utility
         enter.0.setTitleColor(.label, for: .normal)
         enter.0.accessibilityIdentifier = "vime.key.return"
+        configureReturnHold(enter.0)
         returnKey = enter.0
         bottom.append(enter)
         rows.append(bottom)
@@ -347,6 +349,25 @@ extension KeyboardView {
         updateKeyLabels()
         refresh()
         setNeedsLayout()
+    }
+
+    /// Holding a Send key starts a new line instead of sending: what is being
+    /// typed goes in, then a carriage return, which chat apps that send on a
+    /// line feed let through as a line break.
+    func configureReturnHold(_ key: KeyboardKey) {
+        key.holdAccessibilityName = String(localized: "换行")
+        key.holdAction = { [weak self] in
+            guard let self, self.returnKeyType == .send else { return false }
+            self.insertLineBreak()
+            return true
+        }
+    }
+
+    func insertLineBreak() {
+        let edits = session.confirmAll()
+        session.invalidateLearningFeedback()
+        session.reset()
+        apply(edits + [.insert("\r")])
     }
 
     func deleteKey(weight: CGFloat) -> (KeyboardKey, CGFloat) {
