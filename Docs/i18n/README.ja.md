@@ -8,7 +8,7 @@
 
 <a href="https://apps.apple.com/jp/app/id6819158776"><img src="https://toolbox.marketingtools.apple.com/api/v2/badges/download-on-the-app-store/black/ja-jp" width="110" alt="App Store でダウンロード"></a>
 
-[![App Store](https://img.shields.io/itunes/v/6819158776?label=App%20Store)](https://apps.apple.com/jp/app/id6819158776) ![Platform](https://img.shields.io/badge/platform-iOS%2018%2B-blue) ![Swift](https://img.shields.io/badge/Swift-UIKit%20%2B%20SwiftUI-orange) [![Offline](https://img.shields.io/badge/offline-100%25-brightgreen)](../Guides/Privacy.ja.md) ![License](https://img.shields.io/badge/license-GPL--3.0--or--later-green)
+[![App Store](https://img.shields.io/itunes/v/6819158776?label=App%20Store)](https://apps.apple.com/jp/app/id6819158776) ![Platform](https://img.shields.io/badge/platform-iOS%2018%2B-blue) ![Swift](https://img.shields.io/badge/Swift-UIKit%20%2B%20SwiftUI-orange) ![License](https://img.shields.io/badge/license-GPL--3.0--or--later-green)
 
 </div>
 
