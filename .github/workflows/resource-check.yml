@@ -2,7 +2,8 @@ name: Resource check
 
 # Runs Scripts/validate_app_resources.py for pull requests: component license
 # notices, privacy policies in every language and their public Markdown, and
-# string translations. Documentation changes run it too, since the public
+# string translations. Scripts/validate_rime_words.py checks the readings,
+# sections and order of the Chinese word list. Documentation changes run it too, since the public
 # privacy policies live under Docs.
 on:
   pull_request:
@@ -25,3 +26,12 @@ jobs:
 
       - name: Validate App resources
         run: python3 Scripts/validate_app_resources.py
+
+      # The pinned pinyin sources the word list is checked against, about 10 MB.
+      - uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/rime-sources
+          key: rime-sources-${{ hashFiles('Scripts/build_rime_dicts.py') }}
+
+      - name: Validate the Chinese word list
+        run: python3 Scripts/validate_rime_words.py --cache "$RUNNER_TEMP/rime-sources"

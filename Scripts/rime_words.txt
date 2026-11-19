@@ -1,7 +1,8 @@
 # Newer words the frequency sources lack or rank too low, collected and reviewed
 # for Vime. Scripts/build_rime_dicts.py gives each at least NEW_WORD_FREQUENCY.
 # One word per line: the word, a tab, its toneless pinyin with spaces; a word
-# with two readings takes two lines. Keep each section to its own domain.
+# with two readings takes two lines. Keep each section to its own domain and
+# sorted; Scripts/validate_rime_words.py checks this and the readings.
 
 ## Internet slang and everyday expressions
 上麦	shang mai
@@ -1997,6 +1998,7 @@
 宋佳	song jia
 完售	wan shou
 完成率	wan cheng lv
+宏碁	hong ji
 宏碁	hong qi
 定焦	ding jiao
 家校	jia xiao
