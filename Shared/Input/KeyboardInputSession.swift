@@ -99,6 +99,12 @@ protocol KeyboardInputSession: AnyObject {
     /// dakuten and small kana). nil: nothing to edit; type a new character.
     func replaceLastKana(_ transform: (Character) -> Character?) -> [KeyboardEdit]?
     func chooseCandidate(_ token: CandidateSelectionToken) -> [KeyboardEdit]
+    /// Chinese: the syllables the open input can start with, for the
+    /// expanded panel's column; empty when there is no choice.
+    var leadingSyllables: [String] { get }
+    /// The one Rime reads the input as starting with.
+    var currentLeadingSyllable: String? { get }
+    func chooseLeadingSyllable(_ syllable: String) -> [KeyboardEdit]
     func activateEnglish() -> [KeyboardEdit]
     func toggleEnglish() -> [KeyboardEdit]
     func togglePrimaryVariant() -> [KeyboardEdit]
@@ -156,6 +162,9 @@ extension KeyboardInputSession {
     func reconvertCommit() -> [KeyboardEdit] { [] }
     func forgettableCandidate(_ token: CandidateSelectionToken) -> String? { nil }
     func forgetCandidate(_ token: CandidateSelectionToken) {}
+    var leadingSyllables: [String] { [] }
+    var currentLeadingSyllable: String? { nil }
+    func chooseLeadingSyllable(_ syllable: String) -> [KeyboardEdit] { [] }
     var raw: String { "" }
     func prepareForInput() {}
     func setCandidatePresentationPreparation(_ prepare: @escaping @Sendable (CandidatePresentation, Bool) -> Void) {}

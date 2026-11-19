@@ -101,6 +101,7 @@ extension KeyboardView {
     }
 
     func rebuildCandidatePanel() {
+        refreshSyllableColumn()
         let values = session.candidatePage(offset: 0, limit: panelLimit)
         while panelCandidates.count > values.count {
             let button = panelCandidates.removeLast()
@@ -120,6 +121,61 @@ extension KeyboardView {
             presentCandidate(button, presentation: values[index], index: index)
             button.isUserInteractionEnabled = session.candidatesAreCurrent && button.selectionToken != nil
         }
+    }
+
+    static let syllableColumnWidth: CGFloat = 64
+
+    /// The syllables the input can start with, Rime's current one marked.
+    func refreshSyllableColumn() {
+        let syllables = panel == .candidates ? session.leadingSyllables : []
+        let current = session.currentLeadingSyllable
+        let hidden = syllables.isEmpty
+        if syllableColumn.isHidden != hidden || syllableButtons.map({ $0.title(for: .normal) ?? "" }) != syllables {
+            setNeedsLayout()
+            syllableColumn.setContentOffset(.zero, animated: false)
+        }
+        syllableColumn.isHidden = hidden
+        syllableDivider.isHidden = hidden
+        while syllableButtons.count > syllables.count { syllableButtons.removeLast().removeFromSuperview() }
+        while syllableButtons.count < syllables.count {
+            let button = UIButton(type: .custom)
+            button.titleLabel?.font = .systemFont(ofSize: 17)
+            button.titleLabel?.adjustsFontSizeToFitWidth = true
+            button.titleLabel?.minimumScaleFactor = 0.7
+            button.layer.cornerRadius = 6
+            button.addTarget(self, action: #selector(chooseSyllable(_:)), for: .touchUpInside)
+            syllableColumn.addSubview(button)
+            syllableButtons.append(button)
+        }
+        for (button, syllable) in zip(syllableButtons, syllables) {
+            let selected = syllable == current
+            button.setTitle(syllable, for: .normal)
+            button.setTitleColor(selected ? KeyboardPalette.accent : KeyboardPalette.text, for: .normal)
+            button.setTitleColor(.tertiaryLabel, for: .highlighted)
+            button.backgroundColor = selected ? KeyboardPalette.key : .clear
+            button.isSelected = selected
+            button.accessibilityIdentifier = "vime.syllable.\(syllable)"
+            button.accessibilityTraits = selected ? [.button, .selected] : .button
+            button.isUserInteractionEnabled = session.candidatesAreCurrent
+        }
+    }
+
+    func layoutSyllableColumn() {
+        let width = syllableColumn.bounds.width
+        for (index, button) in syllableButtons.enumerated() {
+            button.frame = CGRect(x: 0, y: CGFloat(index) * KeyboardCandidatePanelLayout.rowPitch,
+                                  width: width, height: KeyboardCandidatePanelLayout.rowHeight)
+        }
+        syllableColumn.contentSize = CGSize(width: width,
+            height: CGFloat(syllableButtons.count) * KeyboardCandidatePanelLayout.rowPitch)
+    }
+
+    @objc func chooseSyllable(_ sender: UIButton) {
+        guard let syllable = sender.title(for: .normal), !sender.isSelected else { return }
+        playFeedback()
+        panelLimit = 40
+        panelScroll.setContentOffset(.zero, animated: false)
+        apply(session.chooseLeadingSyllable(syllable))
     }
 
     func quickCandidateItems() -> [KeyboardQuickCandidate] {

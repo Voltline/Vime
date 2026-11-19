@@ -177,6 +177,11 @@ extension KeyboardView {
         if panelOpen { keysContainer.cancelAllPresses() }
         keysContainer.isHidden = panelOpen
         panelScroll.isHidden = panel != .candidates
+        if panel != .candidates, !syllableColumn.isHidden {
+            syllableColumn.isHidden = true
+            syllableDivider.isHidden = true
+            setNeedsLayout()
+        }
         symbolPanel?.isHidden = panel != .symbols
         settingsPanel?.isHidden = panel != .settings
         clipboardHistoryPanel?.isHidden = panel != .clipboardHistory

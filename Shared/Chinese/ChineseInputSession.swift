@@ -388,6 +388,7 @@ final class ChineseInputSession: KeyboardInputSession {
         era += 1
         echo = ""
         spaceWaits = false
+        leadingPick = nil
         clearSuggestions()
         commitIsForgettable = false
         exclusionsActive = exclusionsApply()
@@ -943,6 +944,51 @@ final class ChineseInputSession: KeyboardInputSession {
         let rest = String(state.preedit.dropFirst(chosen.count).filter { ("a"..."z").contains($0) })
         guard !rest.isEmpty, state.input.filter({ $0 != "'" }).hasSuffix(rest) else { return nil }
         return (chosen, rest)
+    }
+
+    // MARK: Leading syllable
+
+    /// The open input before a syllable was picked, Rime's first syllable
+    /// for it, and the input the pick made; kept while that input stands.
+    private var leadingPick: (original: String, natural: String?, picked: String)?
+
+    /// The input the syllable column reads: from before a pick while it stands.
+    private var leadingBase: (input: String, natural: String?) {
+        if let leadingPick, leadingPick.picked == state.input, Self.unchosen(state)?.chosen.isEmpty != false {
+            return (leadingPick.original, leadingPick.natural)
+        }
+        return (open.input, currentLeadingSyllable)
+    }
+
+    var leadingSyllables: [String] {
+        guard isComposing, echo.isEmpty, !hasCapitals else { return [] }
+        let options = PinyinLeadingSyllable.options(for: Self.letters(leadingBase.input))
+        return options.count > 1 ? options : []
+    }
+
+    var currentLeadingSyllable: String? {
+        guard isComposing else { return nil }
+        let chosen = Self.unchosen(state)?.chosen ?? ""
+        return PinyinLeadingSyllable.first(ofPreedit: String(state.preedit.dropFirst(chosen.count)))
+    }
+
+    /// Reads the open input as starting with `syllable`, so the list shows
+    /// what starts with it. Text chosen before it is committed first, since
+    /// Rime takes a new input whole; Rime's own reading restores the input.
+    func chooseLeadingSyllable(_ syllable: String) -> [KeyboardEdit] {
+        guard candidatesAreCurrent, leadingSyllables.contains(syllable) else { return [] }
+        let base = leadingBase
+        var edits: [KeyboardEdit] = []
+        let chosen = open.chosen
+        if !chosen.isEmpty {
+            edits = run(.clear) + [.insert(chosen)]
+            clearSuggestions()
+            commitIsForgettable = false
+        }
+        let input = syllable == base.natural ? base.input : PinyinLeadingSyllable.input(base.input, leadingWith: syllable)
+        leadingPick = input == base.input ? nil : (base.input, base.natural, input)
+        if input != state.input { enqueue(.setInput(input)) }
+        return edits
     }
 
     // MARK: Spelling corrections

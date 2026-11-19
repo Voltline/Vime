@@ -279,6 +279,10 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     let previewOverlay = UIView()
     let keysContainer = KeyboardTouchSurface()
     let panelScroll = UIScrollView()
+    /// Chinese: the syllables the input can start with, left of the panel.
+    let syllableColumn = UIScrollView()
+    let syllableDivider = UIView()
+    var syllableButtons: [UIButton] = []
     var panelCandidates: [KeyboardCandidateButton] = []
     var sparePanelButtons: [KeyboardCandidateButton] = []
     var settingsPanel: KeyboardSettingsPanel?
@@ -348,6 +352,10 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         addSubview(keysContainer)
         addSubview(panelScroll)
         panelScroll.isHidden = true
+        addSubview(syllableColumn)
+        addSubview(syllableDivider)
+        syllableColumn.isHidden = true
+        syllableDivider.isHidden = true
         header.addSubview(brandButton)
         brandButton.setImage(KeyboardGlyphs.logo(), for: .normal)
         brandArtwork.contentMode = .scaleAspectFit; brandArtwork.isUserInteractionEnabled = false
@@ -383,6 +391,9 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         configureScroll(candidateScroll)
         configureScroll(panelScroll)
         panelScroll.accessibilityIdentifier = "vime.candidates.panel"
+        configureScroll(syllableColumn)
+        syllableColumn.accessibilityIdentifier = "vime.syllables"
+        syllableDivider.backgroundColor = .separator
         candidateScroll.showsHorizontalScrollIndicator = false
         candidateScroll.addSubview(candidateRow)
         header.addSubview(quickCandidates)
@@ -666,8 +677,17 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         // Candidate refreshes and layout changes must never raise a sibling
         // above held key previews. This overlay also stays transparent to input.
         bringSubviewToFront(previewOverlay)
-        let panelLeft: CGFloat = aligned ? metrics.contentLeft : 8
-        let panelWidth: CGFloat = aligned ? metrics.contentWidth : width - 20
+        var panelLeft: CGFloat = aligned ? metrics.contentLeft : 8
+        var panelWidth: CGFloat = aligned ? metrics.contentWidth : width - 20
+        if !syllableColumn.isHidden {
+            // The syllable column takes the panel's first slot; candidates
+            // keep their grid in the rest.
+            syllableColumn.frame = CGRect(x: panelLeft, y: body.minY, width: Self.syllableColumnWidth, height: body.height)
+            syllableDivider.frame = CGRect(x: syllableColumn.frame.maxX + 3.75, y: body.minY + 6, width: 0.5, height: body.height - 12)
+            layoutSyllableColumn()
+            panelLeft += Self.syllableColumnWidth + 8
+            panelWidth -= Self.syllableColumnWidth + 8
+        }
         let columns = metrics.regular ? max(5, Int(panelWidth / 150)) : width > 600 ? 5 : 3
         let cellWidth = aligned ? (panelWidth + 8) / CGFloat(columns) : panelWidth / CGFloat(columns)
         // Long sentences take wider slots, up to a whole row and two lines;
