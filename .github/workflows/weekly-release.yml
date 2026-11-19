@@ -1,10 +1,10 @@
 name: Weekly App Store release
 
-# Saturday 10:00 Asia/Shanghai. Submits this week's accepted TestFlight build
-# for review, then moves main to beta and tags the version.
+# Submits the accepted TestFlight build for review, then moves main to beta and
+# tags the version. Run by hand while features still change often, so the
+# screenshots and notes can be updated first; a Saturday schedule
+# (cron "0 2 * * 6", 10:00 Asia/Shanghai) can return once releases settle.
 on:
-  schedule:
-    - cron: "0 2 * * 6"
   workflow_dispatch:
     inputs:
       submit:

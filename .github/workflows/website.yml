@@ -1,8 +1,8 @@
 name: Website
 
 # Builds site/ from dev and deploys it to GitHub Pages. The privacy policy
-# comes from main (the released app). main only moves in the Saturday
-# workflow, so the run after it picks up main's changes; the github-pages
+# comes from main (the released app). main only moves in the App Store
+# release workflow, so the run after it picks up main's changes; the github-pages
 # environment only accepts deployments from dev. The version status is also
 # refreshed every morning, after Xcode Cloud has uploaded that day's
 # TestFlight build.
