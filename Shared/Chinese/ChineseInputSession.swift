@@ -962,8 +962,9 @@ final class ChineseInputSession: KeyboardInputSession {
 
     var leadingSyllables: [String] {
         guard isComposing, echo.isEmpty, !hasCapitals else { return [] }
-        let options = PinyinLeadingSyllable.options(for: Self.letters(leadingBase.input))
-        return options.count > 1 ? options : []
+        // A single option still shows, so the column stays put while the
+        // input is chosen piece by piece.
+        return PinyinLeadingSyllable.options(for: Self.letters(leadingBase.input))
     }
 
     var currentLeadingSyllable: String? {

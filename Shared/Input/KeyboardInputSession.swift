@@ -100,7 +100,7 @@ protocol KeyboardInputSession: AnyObject {
     func replaceLastKana(_ transform: (Character) -> Character?) -> [KeyboardEdit]?
     func chooseCandidate(_ token: CandidateSelectionToken) -> [KeyboardEdit]
     /// Chinese: the syllables the open input can start with, for the
-    /// expanded panel's column; empty when there is no choice.
+    /// expanded panel's column; empty when none spells a syllable.
     var leadingSyllables: [String] { get }
     /// The one Rime reads the input as starting with.
     var currentLeadingSyllable: String? { get }
