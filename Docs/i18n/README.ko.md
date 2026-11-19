@@ -6,13 +6,13 @@
 
 완전히 오프라인으로 동작하는 iOS 다국어 키보드
 
-<a href="https://apps.apple.com/app/id6819158776"><img src="https://toolbox.marketingtools.apple.com/api/v2/badges/download-on-the-app-store/black/ko-kr" height="54" alt="App Store에서 다운로드"></a>
+<a href="https://apps.apple.com/app/id6819158776"><img src="https://toolbox.marketingtools.apple.com/api/v2/badges/download-on-the-app-store/black/ko-kr" width="160" alt="App Store에서 다운로드"></a>
 
 <a href="../../README.md">简体中文</a> · <a href="README.zh-Hant.md">繁體中文</a> · <a href="README.en.md">English</a> · <a href="README.ja.md">日本語</a> · <b>한국어</b>
 
-</div>
-
 일본어, 중국어, 영어를 키보드 하나로. 후보 정렬, 오타 교정, 다음 단어 제안은 기기 내 모델이 처리하므로 입력 내용이 휴대폰 밖으로 나가지 않습니다.
+
+</div>
 
 <p align="center">
   <img src="../../site/static/shots/ja-segments.jpg" width="240" alt="">

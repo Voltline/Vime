@@ -6,13 +6,13 @@
 
 A fully offline multilingual keyboard for iOS
 
-<a href="https://apps.apple.com/app/id6819158776"><img src="https://toolbox.marketingtools.apple.com/api/v2/badges/download-on-the-app-store/black/en-us" height="54" alt="Download on the App Store"></a>
+<a href="https://apps.apple.com/app/id6819158776"><img src="https://toolbox.marketingtools.apple.com/api/v2/badges/download-on-the-app-store/black/en-us" width="160" alt="Download on the App Store"></a>
 
 <a href="../../README.md">简体中文</a> · <a href="README.zh-Hant.md">繁體中文</a> · <b>English</b> · <a href="README.ja.md">日本語</a> · <a href="README.ko.md">한국어</a>
 
-</div>
-
 Japanese, Chinese and English in one keyboard. On-device models rank candidates, fix typos and suggest the next word, so what you type never leaves your phone.
+
+</div>
 
 <p align="center">
   <img src="../../site/static/shots/ja-segments.jpg" width="240" alt="">

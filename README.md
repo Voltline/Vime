@@ -6,13 +6,13 @@
 
 完全离线的 iOS 多语言输入法
 
-<a href="https://apps.apple.com/app/id6819158776"><img src="https://toolbox.marketingtools.apple.com/api/v2/badges/download-on-the-app-store/black/zh-cn" height="54" alt="在 App Store 下载"></a>
+<a href="https://apps.apple.com/app/id6819158776"><img src="https://toolbox.marketingtools.apple.com/api/v2/badges/download-on-the-app-store/black/zh-cn" width="160" alt="在 App Store 下载"></a>
 
 <b>简体中文</b> · <a href="Docs/i18n/README.zh-Hant.md">繁體中文</a> · <a href="Docs/i18n/README.en.md">English</a> · <a href="Docs/i18n/README.ja.md">日本語</a> · <a href="Docs/i18n/README.ko.md">한국어</a>
 
-</div>
-
 日语、中文、英文，一个键盘就够。候选排序、纠错和联想都由设备上的模型完成，输入内容不离开你的手机。
+
+</div>
 
 <p align="center">
   <img src="site/static/shots/zh-next.jpg" width="240" alt="">

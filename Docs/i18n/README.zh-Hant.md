@@ -6,13 +6,13 @@
 
 完全離線的 iOS 多語言輸入法
 
-<a href="https://apps.apple.com/app/id6819158776"><img src="https://toolbox.marketingtools.apple.com/api/v2/badges/download-on-the-app-store/black/zh-tw" height="54" alt="在 App Store 下載"></a>
+<a href="https://apps.apple.com/app/id6819158776"><img src="https://toolbox.marketingtools.apple.com/api/v2/badges/download-on-the-app-store/black/zh-tw" width="160" alt="在 App Store 下載"></a>
 
 <a href="../../README.md">简体中文</a> · <b>繁體中文</b> · <a href="README.en.md">English</a> · <a href="README.ja.md">日本語</a> · <a href="README.ko.md">한국어</a>
 
-</div>
-
 日文、中文、英文，一個鍵盤就夠。候選排序、糾錯和聯想都由裝置上的模型完成，輸入內容不離開你的手機。
+
+</div>
 
 <p align="center">
   <img src="../../site/static/shots/zh-next.jpg" width="240" alt="">

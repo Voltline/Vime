@@ -6,13 +6,13 @@
 
 完全オフラインで動く iOS の多言語キーボード
 
-<a href="https://apps.apple.com/app/id6819158776"><img src="https://toolbox.marketingtools.apple.com/api/v2/badges/download-on-the-app-store/black/ja-jp" height="54" alt="App Store でダウンロード"></a>
+<a href="https://apps.apple.com/app/id6819158776"><img src="https://toolbox.marketingtools.apple.com/api/v2/badges/download-on-the-app-store/black/ja-jp" width="160" alt="App Store でダウンロード"></a>
 
 <a href="../../README.md">简体中文</a> · <a href="README.zh-Hant.md">繁體中文</a> · <a href="README.en.md">English</a> · <b>日本語</b> · <a href="README.ko.md">한국어</a>
 
-</div>
-
 日本語、中国語、英語をひとつのキーボードで。候補の並べ替え、誤入力補正、予測は端末上のモデルが行い、入力内容が外に出ることはありません。
+
+</div>
 
 <p align="center">
   <img src="../../site/static/shots/ja-segments.jpg" width="240" alt="">
