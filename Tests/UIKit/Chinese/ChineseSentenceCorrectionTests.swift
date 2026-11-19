@@ -219,21 +219,34 @@ final class ChineseSentenceCorrectionTests: XCTestCase {
         let drop = Correction.Option(spelling: "a", edit: .drop, rank: 0, candidate: candidate("甲"))
         let swap = Correction.Option(spelling: "b", edit: .swap, rank: 0, candidate: candidate("乙"))
         let literal = -20.0
-        XCTAssertNil(Correction.decide(literal: literal, options: [drop, swap], scores: [-21, -18]),
+        XCTAssertNil(Correction.decide(literal: literal, text: "丙丁", options: [drop, swap], scores: [-21, -18]),
                      "a swap pays its penalty")
-        XCTAssertNil(Correction.decide(literal: literal, options: [drop], scores: [-19]),
+        XCTAssertNil(Correction.decide(literal: literal, text: "丙丁", options: [drop], scores: [-19]),
                      "a narrow win does not show")
-        let second = Correction.decide(literal: literal, options: [drop, swap], scores: [-16, -30])
+        let second = Correction.decide(literal: literal, text: "丙丁", options: [drop, swap], scores: [-16, -30])
         XCTAssertEqual(second?.option, drop)
         XCTAssertEqual(second?.leads, false)
-        let first = Correction.decide(literal: literal, options: [drop, swap], scores: [-16, -10])
+        let first = Correction.decide(literal: literal, text: "丙丁", options: [drop, swap], scores: [-16, -10])
         XCTAssertEqual(first?.option, swap)
         XCTAssertEqual(first?.leads, true, "beats the sentence by 10 - 3")
-        XCTAssertNil(Correction.decide(literal: literal, options: [drop], scores: [-.infinity]), "stopped by its floor")
+        XCTAssertNil(Correction.decide(literal: literal, text: "丙丁", options: [drop], scores: [-.infinity]), "stopped by its floor")
         // The floor is exactly where an option stops being able to show.
-        XCTAssertNil(Correction.decide(literal: literal, options: [swap], scores: [Correction.floor(literal: literal, option: swap)]))
-        XCTAssertNotNil(Correction.decide(literal: literal, options: [swap],
+        XCTAssertNil(Correction.decide(literal: literal, text: "丙丁", options: [swap], scores: [Correction.floor(literal: literal, option: swap)]))
+        XCTAssertNotNil(Correction.decide(literal: literal, text: "丙丁", options: [swap],
                                           scores: [Correction.floor(literal: literal, option: swap) + 0.01]))
+    }
+
+    func testACorrectionOfOnlyTheLastCharacterNeverLeads() {
+        XCTAssertTrue(Correction.changesOnlyTheEnd("我想去", of: "我想区"))
+        XCTAssertTrue(Correction.changesOnlyTheEnd("我想", of: "我想区"), "one shorter")
+        XCTAssertTrue(Correction.changesOnlyTheEnd("我想去哪", of: "我想区"))
+        XCTAssertFalse(Correction.changesOnlyTheEnd("我像去", of: "我想区"))
+        let end = Correction.Option(spelling: "woxiangqu", edit: .neighbour, rank: 0, candidate: candidate("我想去"))
+        let middle = Correction.Option(spelling: "woxianqu", edit: .drop, rank: 0, candidate: candidate("我先去"))
+        let decision = Correction.decide(literal: -20, text: "我想区", options: [end], scores: [-5])
+        XCTAssertEqual(decision?.option, end)
+        XCTAssertEqual(decision?.leads, false, "it still shows second")
+        XCTAssertEqual(Correction.decide(literal: -20, text: "我想区", options: [middle], scores: [-5])?.leads, true)
     }
 
     func testOnlyPlainLettersOfASearchedLengthAreSearched() {
