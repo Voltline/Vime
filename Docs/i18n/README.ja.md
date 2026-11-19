@@ -6,7 +6,7 @@
 
 [简体中文](../../README.md) | [繁體中文](README.zh-Hant.md) | [English](README.en.md) | **日本語** | [한국어](README.ko.md)
 
-<a href="https://apps.apple.com/app/id6819158776"><img src="https://toolbox.marketingtools.apple.com/api/v2/badges/download-on-the-app-store/black/ja-jp" width="120" alt="App Store でダウンロード"></a>
+<a href="https://apps.apple.com/jp/app/id6819158776"><img src="https://toolbox.marketingtools.apple.com/api/v2/badges/download-on-the-app-store/black/ja-jp" width="110" alt="App Store でダウンロード"></a>
 
 ![Platform](https://img.shields.io/badge/platform-iOS%2018%2B-blue) ![Swift](https://img.shields.io/badge/Swift-UIKit%20%2B%20SwiftUI-orange) ![License](https://img.shields.io/badge/license-GPL--3.0--or--later-green)
 
@@ -65,7 +65,7 @@ Vime は完全オフラインで動く iOS 向けの多言語キーボードで�
 
 ## インストールと有効化
 
-[App Store からダウンロード](https://apps.apple.com/app/id6819158776)できます。ソースからビルドする手順は次のとおりです。
+[App Store からダウンロード](https://apps.apple.com/jp/app/id6819158776)できます。ソースからビルドする手順は次のとおりです。
 
 iOS 18 以降と、プロジェクトの SDK に対応した Xcode が必要です。
 

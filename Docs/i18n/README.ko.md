@@ -6,7 +6,7 @@
 
 [简体中文](../../README.md) | [繁體中文](README.zh-Hant.md) | [English](README.en.md) | [日本語](README.ja.md) | **한국어**
 
-<a href="https://apps.apple.com/app/id6819158776"><img src="https://toolbox.marketingtools.apple.com/api/v2/badges/download-on-the-app-store/black/ko-kr" width="120" alt="App Store에서 다운로드"></a>
+<a href="https://apps.apple.com/kr/app/id6819158776"><img src="https://toolbox.marketingtools.apple.com/api/v2/badges/download-on-the-app-store/black/ko-kr" width="110" alt="App Store에서 다운로드"></a>
 
 ![Platform](https://img.shields.io/badge/platform-iOS%2018%2B-blue) ![Swift](https://img.shields.io/badge/Swift-UIKit%20%2B%20SwiftUI-orange) ![License](https://img.shields.io/badge/license-GPL--3.0--or--later-green)
 
@@ -65,7 +65,7 @@ Vime은 완전히 오프라인으로 동작하는 iOS용 다국어 키보드로,
 
 ## 설치와 활성화
 
-[App Store에서 다운로드](https://apps.apple.com/app/id6819158776)할 수 있습니다. 소스에서 빌드하는 방법은 다음과 같습니다.
+[App Store에서 다운로드](https://apps.apple.com/kr/app/id6819158776)할 수 있습니다. 소스에서 빌드하는 방법은 다음과 같습니다.
 
 iOS 18 이상과 프로젝트의 SDK를 지원하는 Xcode가 필요합니다.
 

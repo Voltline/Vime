@@ -6,7 +6,7 @@
 
 [简体中文](../../README.md) | **繁體中文** | [English](README.en.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-<a href="https://apps.apple.com/app/id6819158776"><img src="https://toolbox.marketingtools.apple.com/api/v2/badges/download-on-the-app-store/black/zh-tw" width="120" alt="在 App Store 下載"></a>
+<a href="https://apps.apple.com/tw/app/id6819158776"><img src="https://toolbox.marketingtools.apple.com/api/v2/badges/download-on-the-app-store/black/zh-tw" width="110" alt="在 App Store 下載"></a>
 
 ![Platform](https://img.shields.io/badge/platform-iOS%2018%2B-blue) ![Swift](https://img.shields.io/badge/Swift-UIKit%20%2B%20SwiftUI-orange) ![License](https://img.shields.io/badge/license-GPL--3.0--or--later-green)
 
@@ -65,7 +65,7 @@ Vime 是一款完全離線的 iOS 多語言輸入法，可以輸入日語、中�
 
 ## 安裝與啟用
 
-可以直接[從 App Store 下載](https://apps.apple.com/app/id6819158776)。以下是從原始碼建置的步驟。
+可以直接[從 App Store 下載](https://apps.apple.com/tw/app/id6819158776)。以下是從原始碼建置的步驟。
 
 需要 iOS 18 或以上版本，以及支援目前 SDK 的 Xcode。
 

@@ -6,7 +6,7 @@
 
 [简体中文](../../README.md) | [繁體中文](README.zh-Hant.md) | **English** | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-<a href="https://apps.apple.com/app/id6819158776"><img src="https://toolbox.marketingtools.apple.com/api/v2/badges/download-on-the-app-store/black/en-us" width="120" alt="Download on the App Store"></a>
+<a href="https://apps.apple.com/us/app/id6819158776"><img src="https://toolbox.marketingtools.apple.com/api/v2/badges/download-on-the-app-store/black/en-us" width="110" alt="Download on the App Store"></a>
 
 ![Platform](https://img.shields.io/badge/platform-iOS%2018%2B-blue) ![Swift](https://img.shields.io/badge/Swift-UIKit%20%2B%20SwiftUI-orange) ![License](https://img.shields.io/badge/license-GPL--3.0--or--later-green)
 
@@ -65,7 +65,7 @@ The companion app handles setup, typing practice, appearance and settings. The k
 
 ## Installation
 
-Vime is [available on the App Store](https://apps.apple.com/app/id6819158776). To build it from source instead:
+Vime is [available on the App Store](https://apps.apple.com/us/app/id6819158776). To build it from source instead:
 
 Requires iOS 18 or later and an Xcode version that supports the project's SDK.
 
