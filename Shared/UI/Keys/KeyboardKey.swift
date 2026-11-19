@@ -9,6 +9,14 @@ final class KeyboardKey: UIButton {
     /// Recheck the host before each repeat, including accessibility activation.
     var canRepeat: (() -> Bool)?
     var alternateAction: (() -> Void)?
+    /// Runs once the key has been held for `holdDelay`; when it returns
+    /// true the release does nothing more, otherwise `action` runs as usual.
+    var holdAction: (() -> Bool)?
+    /// VoiceOver's name for the hold, which it cannot make.
+    var holdAccessibilityName: String?
+    static let holdDelay: TimeInterval = 0.45
+    private var holdTimer: Timer?
+    private var holdFired = false
     var alternateTitle: String?
     /// The letter this key types, for hit correction between letter keys.
     var correctionLetter: Character?
@@ -280,7 +288,7 @@ final class KeyboardKey: UIButton {
         }
         // The surface owns selection per finger; UIButton's shared swipe/up
         // state must not decide another simultaneous finger's character.
-        if !cancelled && !repeats {
+        if !cancelled && !repeats && !holdFired {
             if let flickAction { flickAction(flick) }
             else if alternate { alternateAction?() }
             else { action?() }
@@ -307,6 +315,13 @@ final class KeyboardKey: UIButton {
                     guard let self, let alternateAction = self.alternateAction else { return false }
                     self.feedback?()
                     alternateAction()
+                    return true
+                })
+            }
+            if let name = holdAccessibilityName, holdAction != nil {
+                actions.append(UIAccessibilityCustomAction(name: name) { [weak self] _ in
+                    guard let self, self.holdAction?() == true else { return false }
+                    self.feedback?()
                     return true
                 })
             }
@@ -397,6 +412,20 @@ final class KeyboardKey: UIButton {
         // only its repeats wait for something to remove.
         feedback?()
         guard !repeats || repeatIsAllowed else { return }
+        holdFired = false
+        if holdAction != nil, !repeats, holdTimer == nil {
+            let timer = Timer(timeInterval: Self.holdDelay, repeats: false) { [weak self] _ in
+                guard let self else { return }
+                self.holdTimer = nil
+                guard self.isHighlighted || self.isTracking, !self.usedAlternate, !self.swipe.alternate,
+                      self.holdAction?() == true else { return }
+                self.holdFired = true
+                self.feedback?()
+                self.preview?.removeFromSuperview(); self.preview = nil
+            }
+            holdTimer = timer
+            RunLoop.main.add(timer, forMode: .common)
+        }
         if repeats {
             if !deferred { action?() }
             // Two fingers can own this key. Keep one repeat stream and don't
@@ -428,7 +457,7 @@ final class KeyboardKey: UIButton {
     @objc private func up() {
         KeyboardTouchDiagnostics.record("KeyboardKey.touchUpInside", view: self)
         stopTracking(holdingPreview: true)
-        if !repeats && !usedAlternate { action?() }
+        if !repeats && !usedAlternate && !holdFired { action?() }
     }
 
     @objc private func cancel() {
@@ -444,6 +473,8 @@ final class KeyboardKey: UIButton {
     /// `holdingPreview`: a released key keeps its preview for `previewHold`
     /// seconds, so a quick tap is still readable. A cancel hides it at once.
     func stopTracking(holdingPreview: Bool = false) {
+        holdTimer?.invalidate()
+        holdTimer = nil
         delayTimer?.invalidate()
         repeatTimer?.invalidate()
         delayTimer = nil
@@ -466,7 +497,7 @@ final class KeyboardKey: UIButton {
     var isHoldingPreview: Bool { previewHideWork != nil }
 
     override func didMoveToWindow() { if window == nil { stopTracking() } }
-    deinit { delayTimer?.invalidate(); repeatTimer?.invalidate() }
+    deinit { delayTimer?.invalidate(); repeatTimer?.invalidate(); holdTimer?.invalidate() }
 }
 
 /// A flick key's selection. Raw values index KeyboardKey.flickOutputs.

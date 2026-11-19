@@ -124,6 +124,40 @@ final class KeyboardIntegrationTests: XCTestCase {
         XCTAssertEqual(edits.last, .insert("a"))
     }
 
+    func testHoldingSendStartsANewLine() throws {
+        let keyboard = makeKeyboard()
+        var edits: [KeyboardEdit] = []
+        keyboard.onEdit = { edits += $0 }
+        let surface = try XCTUnwrap(descendants(keyboard).compactMap { $0 as? KeyboardTouchSurface }.first)
+        let enter = try button("vime.key.return", in: keyboard)
+        let center = enter.convert(CGPoint(x: enter.bounds.midX, y: enter.bounds.midY), to: surface)
+        func press(holding: Bool) {
+            surface.beginPress(id: 1, at: center)
+            RunLoop.main.run(until: Date().addingTimeInterval(holding ? KeyboardKey.holdDelay + 0.15 : 0.05))
+            surface.endPress(id: 1, at: center)
+        }
+        keyboard.returnKeyType = .send
+        press(holding: false)
+        XCTAssertEqual(edits, [.returnKey], "a tap still sends")
+        edits = []
+        press(holding: true)
+        XCTAssertEqual(edits, [.insert("\r")], "a hold starts a new line and sends nothing")
+        // What is being typed goes in first.
+        edits = []
+        for character in "nihongo" { try button("vime.key." + String(character), in: keyboard).sendActions(for: .touchUpInside) }
+        press(holding: true)
+        XCTAssertEqual(edits.count, 2)
+        XCTAssertEqual(edits.last, .insert("\r"))
+        XCTAssertFalse(keyboard.session.isComposing)
+        // Without a Send key, holding Return is Return.
+        edits = []
+        keyboard.returnKeyType = .default
+        press(holding: true)
+        XCTAssertEqual(edits, [.returnKey])
+        let actions = try XCTUnwrap(enter.accessibilityCustomActions)
+        XCTAssertTrue(actions.contains { $0.name == "换行" })
+    }
+
     func testDarkAndNarrowKeyboardSnapshots() throws {
         let keyboard = makeKeyboard()
         keyboard.overrideUserInterfaceStyle = .dark
