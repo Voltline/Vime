@@ -260,6 +260,7 @@ class KeyboardViewController: UIInputViewController {
     private func updateTraits() {
         keyboard.hasFullAccess = hasFullAccess
         keyboard.returnKeyType = textDocumentProxy.returnKeyType ?? .default
+        keyboard.textContentType = textDocumentProxy.textContentType ?? nil
         keyboard.keyboardType = textDocumentProxy.keyboardType ?? .default
         keyboard.autocapitalizationType = textDocumentProxy.autocapitalizationType ?? .sentences
     }

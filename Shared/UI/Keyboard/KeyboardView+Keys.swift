@@ -301,17 +301,23 @@ extension KeyboardView {
         let emoji = symbol("face.smiling", label: String(localized: "表情"), weight: 1) { [weak self] in self?.toggleEmoji() }
         emoji.0.accessibilityIdentifier = "vime.key.emoji"
         bottom.append(emoji)
-        let comma = key(page == .letters ? "," : String(localized: "符号"), utility: page != .letters, weight: 1) { [weak self] in
+        // An email or web address field gets @ or / where the comma is; the
+        // period stays on the swipe.
+        let fieldSymbol: String? = switch latinField { case .email: "@"; case .url: "/"; default: nil }
+        let letterSymbol = fieldSymbol ?? ","
+        let comma = key(page == .letters ? letterSymbol : String(localized: "符号"), utility: page != .letters, weight: 1) { [weak self] in
             guard let self else { return }
             if self.page != .letters { self.openSymbolPanel(mode: .symbols); return }
-            self.apply(self.session.insertLiteral(self.session.inputTraits.comma))
+            self.apply(self.session.insertLiteral(fieldSymbol ?? self.session.inputTraits.comma))
         }
-        comma.0.accessibilityIdentifier = page == .letters ? "vime.key.comma" : "vime.key.symbols"
+        comma.0.accessibilityIdentifier = page == .letters ? (fieldSymbol == nil ? "vime.key.comma" : "vime.key.field-symbol") : "vime.key.symbols"
         comma.0.hint = page == .letters ? "°" : nil
-        comma.0.alternateTitle = page == .letters ? session.inputTraits.period : nil
+        // Addresses take an ASCII period whatever the language's own period is.
+        let period = fieldSymbol == nil ? session.inputTraits.period : "."
+        comma.0.alternateTitle = page == .letters ? period : nil
         comma.0.alternateAction = { [weak self] in
             guard let self else { return }
-            self.apply(self.session.insertLiteral(self.session.inputTraits.period))
+            self.apply(self.session.insertLiteral(fieldSymbol == nil ? self.session.inputTraits.period : "."))
         }
         bottom.append(comma)
         let space = key("", weight: 1) { [weak self] in self?.space() }
@@ -322,6 +328,7 @@ extension KeyboardView {
         let language = key("", weight: 1) { [weak self] in
             guard let self else { return }
             self.apply(self.session.toggleEnglish())
+            self.restoresLanguageAfterLatinField = false
             self.shifted = false
             self.capsLocked = false
             self.rebuildKeys()
