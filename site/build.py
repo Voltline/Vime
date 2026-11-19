@@ -39,7 +39,7 @@ LANGUAGES = {
 }
 PAGES = {"home": "", "privacy": "privacy/", "changelog": "changelog/"}
 # TestFlight cuts and the App Store submission, in Beijing time (weekdays, hour).
-SCHEDULE = {"next_cut": ((2, 3, 4), 3), "next_submit": ((5,), 10)}
+SCHEDULE = {"next_cut": ((2, 3, 4), 3)}
 BEIJING = ZoneInfo("Asia/Shanghai")
 # App Store versions shown as "in review": submitted and not yet on sale.
 REVIEW_STATES = {"WAITING_FOR_REVIEW", "READY_FOR_REVIEW", "IN_REVIEW", "PENDING_APPLE_RELEASE",

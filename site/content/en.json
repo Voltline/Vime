@@ -132,11 +132,10 @@
     "rhythm": [
       "Changes are merged into the development branch at any time.",
       "**Tuesday to Thursday 19:00 UTC** (Wednesday to Friday 03:00 in Beijing): when the development branch has new changes, a beta is built and uploaded to TestFlight, once a day.",
-      "Wednesday to Friday: the latest TestFlight build is checked and the release notes are written.",
-      "**Saturday 02:00 UTC** (10:00 in Beijing): the checked build is submitted for App Store review and released automatically once approved."
+      "The latest TestFlight build is checked and the release notes are written.",
+      "Once the build is checked and the screenshots are ready, it is submitted for App Store review by hand and released automatically once approved. While features change often, there is no fixed submission day."
     ],
     "next_cut": "Next TestFlight build: {date}",
-    "next_submit": "Next submission: {date}",
     "updated": "Updated {date}",
     "weekdays": [
       "Mon",
