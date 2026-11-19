@@ -31,10 +31,10 @@ nonisolated enum ChineseCandidateRanking {
     /// Sentences shown once the model has ordered them.
     static let shownSentences = 3
     /// What the last key's first sentence settled (all of it but the
-    /// syllable being typed) resists change a little: a sentence keeping it
+    /// syllable being typed) resists change: a sentence keeping it
     /// gains up to this much, in proportion to how much of it it keeps, so
     /// the first sentence flips less between readings from key to key.
-    static let keepBonus = 1.0
+    static let keepBonus = 2.0
 
     /// How much of `settled` each of Rime's sentences keeps, as its share of
     /// `keepBonus`: the characters it shares from the start, of all of them.

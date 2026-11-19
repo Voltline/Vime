@@ -56,7 +56,7 @@ final class ChineseCandidateRankingTests: XCTestCase {
         XCTAssertEqual(lead([-40, -30.2, -30, -40], kept: [:]), 2)
         XCTAssertEqual(lead([-40, -30.2, -30, -40], kept: kept), 1)
         // A clear one still does.
-        XCTAssertEqual(lead([-40, -31, -30, -40], kept: kept), 2)
+        XCTAssertEqual(lead([-40, -32, -30, -40], kept: kept), 2)
     }
 
     func testWordsKeepTheirRule() {
