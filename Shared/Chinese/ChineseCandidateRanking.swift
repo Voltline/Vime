@@ -162,4 +162,11 @@ nonisolated enum ChineseCandidateRanking {
             ChineseSentenceGeneration.Storage.shared.release()
         }
     }
+
+    /// Drops the cached prefix KV while keeping the model loaded.
+    static func forgetPrefix() {
+        JapaneseCandidateWorker.modelQueue.async {
+            JapaneseCandidateWorker.LanguageModelStorage.shared.chineseModel?.batch.forgetPrefix()
+        }
+    }
 }

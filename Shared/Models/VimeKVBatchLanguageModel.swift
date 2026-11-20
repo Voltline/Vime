@@ -61,6 +61,7 @@ nonisolated final class VimeKVBatchLanguageModel {
         let length: Int
         fileprivate let keys: MLMultiArray
         fileprivate let values: MLMultiArray
+        var capacity: Int { keys.shape[3].intValue }
     }
 
     static let manifestResource = "VimeLMManifestZhV1KVBatchV3"
@@ -98,6 +99,15 @@ nonisolated final class VimeKVBatchLanguageModel {
     /// The prefix built for the last root cache the steps ran after.
     private var current: (root: UInt64, prefix: Prefix)?
     private var emptyPrefix: Prefix?
+    /// The tokens of the last prefix `prefix(_:)` built, and the prefix: the
+    /// context before the caret rarely changes from key to key, and when it
+    /// does it mostly grows, so the next prefix reuses what it shares with
+    /// this one and runs only the tokens after.
+    private var kept: (tokens: [Int32], prefix: Prefix)?
+    /// Whether `prefix(_:)` reuses the last prefix; off only to measure.
+    var reusesPrefixes = true
+    /// Hints every function is loaded with; set before the first load.
+    var optimizationHints = MLOptimizationHints()
     /// Per batch size: inputs and preallocated outputs; outputs nil once Core ML refused them.
     private struct Arrays {
         let ids: MLMultiArray, positions: MLMultiArray
@@ -121,6 +131,15 @@ nonisolated final class VimeKVBatchLanguageModel {
     private(set) var predictionSeconds = 0.0
     private(set) var outputSeconds = 0.0
     private(set) var writeSeconds = 0.0
+    /// `prefix(_:)` and `scores(after:rows:)`: seconds, tokens the prefix
+    /// calls ran, prefixes reused whole, and the row tokens `score` ran
+    /// (padding included) against those that count.
+    private(set) var prefixSeconds = 0.0
+    private(set) var scoreSeconds = 0.0
+    private(set) var prefixTokensRun = 0
+    private(set) var prefixesReused = 0
+    private(set) var scoreTokensRun = 0
+    private(set) var scoreTokensUsed = 0
     /// The functions loaded so far.
     var loadedFunctions: Set<Function> { Set(models.keys) }
 
@@ -154,6 +173,7 @@ nonisolated final class VimeKVBatchLanguageModel {
         let configuration = MLModelConfiguration()
         configuration.computeUnits = computeUnits
         configuration.functionName = function.rawValue
+        configuration.optimizationHints = optimizationHints
         let model = try autoreleasepool { try MLModel(contentsOf: modelURL, configuration: configuration) }
         models[function] = model
         return model
@@ -179,17 +199,107 @@ nonisolated final class VimeKVBatchLanguageModel {
         return max(1, min(maximumBatch * 16, budget / Self.bytesPerRowToken))
     }
 
+    /// Extra trailing slots tolerated when reusing a longer cached prefix
+    /// before slicing it down to keep masked attention and memory tight.
+    private static let prefixSlack = 16
+
     /// `tokens` (BOS first) run once, as the prefix for `scores(after:rows:)`;
-    /// nothing runs for none.
+    /// nothing runs for none. What they share with the last prefix built is
+    /// not run again: a prefix of it is reused as it is (the slots past its
+    /// length are masked, or sliced down if many slots would go unused), and
+    /// only the tokens after what they share run, after it.
     func prefix(_ tokens: [Int32]) throws -> Prefix {
         guard !tokens.isEmpty else { return try empty() }
         guard tokens.count < Self.contextLength, tokens.allSatisfy({ $0 >= 0 && Int($0) < vocabularySize })
         else { throw VimeLanguageModel.Failure.tensor }
-        return try autoreleasepool {
-            let output = try promptCall(tokens, allowed: [0])
-            return Prefix(length: tokens.count, keys: output.newKeys, values: output.newValues)
+        let started = ProcessInfo.processInfo.systemUptime
+        defer { prefixSeconds += ProcessInfo.processInfo.systemUptime - started }
+        var shared = 0
+        if reusesPrefixes, let kept {
+            let limit = min(kept.tokens.count, tokens.count)
+            while shared < limit, kept.tokens[shared] == tokens[shared] { shared += 1 }
+            if shared == tokens.count {
+                prefixesReused += 1
+                if kept.prefix.keys.shape[3].intValue <= shared + Self.prefixSlack {
+                    return Prefix(length: shared, keys: kept.prefix.keys, values: kept.prefix.values)
+                }
+                let trimmed = try autoreleasepool {
+                    Prefix(length: shared, keys: try Self.sliced(kept.prefix.keys, count: shared),
+                           values: try Self.sliced(kept.prefix.values, count: shared))
+                }
+                self.kept = (tokens, trimmed)
+                return trimmed
+            }
         }
+        let prefix: Prefix = try autoreleasepool {
+            guard shared > 0, let kept else {
+                let output = try promptCall(tokens, allowed: [0])
+                prefixTokensRun += tokens.count
+                return Prefix(length: tokens.count, keys: output.newKeys, values: output.newValues)
+            }
+            let base: Prefix
+            if kept.prefix.keys.shape[3].intValue <= shared + Self.prefixSlack {
+                base = Prefix(length: shared, keys: kept.prefix.keys, values: kept.prefix.values)
+            } else {
+                base = Prefix(length: shared, keys: try Self.sliced(kept.prefix.keys, count: shared),
+                              values: try Self.sliced(kept.prefix.values, count: shared))
+            }
+            let rest = Array(tokens[shared...])
+            let output = try promptCall(rest, allowed: [0], after: base)
+            prefixTokensRun += rest.count
+            return Prefix(length: tokens.count, keys: try Self.joined(base.keys, shared, output.newKeys),
+                          values: try Self.joined(base.values, shared, output.newValues))
+        }
+        if reusesPrefixes { kept = (tokens, prefix) }
+        return prefix
     }
+
+    /// The first `count` slots of `source`, (9, 1, 6, ·, 64).
+    private static func sliced(_ source: MLMultiArray, count: Int) throws -> MLMultiArray {
+        try copied([(source, count)], total: count)
+    }
+
+    /// The first `count` slots of `head` then every slot of `tail`, both
+    /// (9, 1, 6, ·, 64): one prefix array.
+    private static func joined(_ head: MLMultiArray, _ count: Int, _ tail: MLMultiArray) throws -> MLMultiArray {
+        let added = tail.shape[3].intValue
+        return try copied([(head, count), (tail, added)], total: count + added)
+    }
+
+    /// Concatenates the first `slots` along axis 3 from each (9, 1, 6, ·, 64) part.
+    private static func copied(_ parts: [(MLMultiArray, Int)], total: Int) throws -> MLMultiArray {
+        let shape = [layers, 1, heads, total, headDimension].map { NSNumber(value: $0) }
+        let array = try MLMultiArray(shape: shape, dataType: .float32)
+        let target = array.dataPointer.assumingMemoryBound(to: Float.self)
+        let strides = array.strides.map(\.intValue)
+        var from = 0
+        for (source, slots) in parts {
+            let sourceStrides = source.strides.map(\.intValue)
+            source.withUnsafeBufferPointer(ofType: Float.self) { buffer in
+                let base = buffer.baseAddress!
+                for layer in 0..<layers {
+                    for head in 0..<heads {
+                        let input = base.advanced(by: layer * sourceStrides[0] + head * sourceStrides[2])
+                        let output = target.advanced(by: layer * strides[0] + head * strides[2] + from * strides[3])
+                        if sourceStrides[4] == 1, sourceStrides[3] == headDimension, strides[3] == headDimension {
+                            output.update(from: input, count: slots * headDimension)
+                        } else {
+                            for slot in 0..<slots {
+                                for d in 0..<headDimension {
+                                    output[slot * strides[3] + d * strides[4]] = input[slot * sourceStrides[3] + d * sourceStrides[4]]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            from += slots
+        }
+        return array
+    }
+
+    /// Forgets the prefix kept for the next call (memory pressure, or to measure).
+    func forgetPrefix() { kept = nil }
 
     /// The log probability of every token after the first of each row
     /// (two tokens or more), after `prefix` and the tokens before it in the
@@ -201,6 +311,8 @@ nonisolated final class VimeKVBatchLanguageModel {
               rows.allSatisfy({ $0.count >= 2 && prefix.length + $0.count - 1 <= Self.contextLength }),
               rows.allSatisfy({ $0.allSatisfy { $0 >= 0 && Int($0) < vocabularySize } })
         else { throw VimeLanguageModel.Failure.tensor }
+        let started = ProcessInfo.processInfo.systemUptime
+        defer { scoreSeconds += ProcessInfo.processInfo.systemUptime - started }
         let order = rows.indices.sorted { rows[$0].count > rows[$1].count }
         let limit = rowTokens()
         var result = [[Float]](repeating: [], count: rows.count)
@@ -211,6 +323,8 @@ nonisolated final class VimeKVBatchLanguageModel {
             let count = max(1, min(maximumBatch, order.count - first, limit / length))
             let slice = order[first..<first + count].map { rows[$0] }
             let scores = try autoreleasepool { try scoreCall(slice, length: length, prefix: prefix) }
+            scoreTokensRun += count * length
+            scoreTokensUsed += slice.reduce(0) { $0 + $1.count - 1 }
             for (offset, values) in scores.enumerated() { result[order[first + offset]] = values }
             first += count
         }
@@ -323,9 +437,9 @@ nonisolated final class VimeKVBatchLanguageModel {
         }
     }
 
-    /// `tokens` with nothing before them: the log probabilities of `allowed`
-    /// after them, and their keys and values, (9, 1, 6, T, 64) each.
-    private func promptCall(_ tokens: [Int32], allowed: [Int32]) throws
+    /// `tokens` after `base` (nothing by default): the log probabilities of
+    /// `allowed` after them, and their keys and values, (9, 1, 6, T, 64) each.
+    private func promptCall(_ tokens: [Int32], allowed: [Int32], after base: Prefix? = nil) throws
         -> (logProbabilities: [Float], newKeys: MLMultiArray, newValues: MLMultiArray) {
         var clock = ProcessInfo.processInfo.systemUptime
         func lap(_ total: inout Double) {
@@ -335,11 +449,12 @@ nonisolated final class VimeKVBatchLanguageModel {
         let ids = try MLMultiArray(shape: [1, NSNumber(value: count)], dataType: .int32)
         let idPointer = ids.dataPointer.assumingMemoryBound(to: Int32.self)
         for (index, token) in tokens.enumerated() { idPointer[index] = token }
-        // No own cache and no prefix: one slot of each, ignored, but zeroed.
+        // No own cache (and no prefix unless `base`): one slot of each, ignored, but zeroed.
         let none = try empty()
+        let prefix = base ?? none
         let features = try MLDictionaryFeatureProvider(dictionary: [
             "input_ids": ids, "position": try Self.scalar(0), "key_cache": none.keys, "value_cache": none.values,
-            "prefix_length": try Self.scalar(0), "prefix_key": none.keys, "prefix_value": none.values,
+            "prefix_length": try Self.scalar(prefix.length), "prefix_key": prefix.keys, "prefix_value": prefix.values,
             "allowed": try allowedView(allowed)])
         lap(&inputSeconds)
         let output = try model(.scored).prediction(from: features)
