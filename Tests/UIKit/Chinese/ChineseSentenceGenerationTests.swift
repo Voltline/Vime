@@ -21,7 +21,7 @@ final class ChineseSentenceGenerationTests: XCTestCase {
     func setup() throws -> Setup {
         if let cached = Self.cached { return cached }
         XCTAssertNotNil(ChinesePinyinLexicon.bundled, "RimeData.bundle is not bundled")
-        let model = try ChineseLanguageModel(bundle: Bundle(for: Self.self))
+        let model = try ChineseLanguageModel(bundle: Bundle(for: Self.self), version: .v1)
         let setup = Setup(model: model, generator: try XCTUnwrap(ChineseSentenceGeneration.Storage.generator(for: model)))
         Self.cached = setup
         return setup

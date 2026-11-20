@@ -27,7 +27,7 @@ struct KeyboardPreferences {
     }
     private static let sharedKeys = ["vime.sound", "vime.hapticLevel", "vime.hapticIntensity", "vime.nineKeyNumbers", "vime.kanaLayout",
         "vime.prolongedKey", "vime.previews", "vime.previewHold", "vime.theme", "vime.candidateRanking", "vime.phraseSuggestions", "vime.clipboardSuggestions", "vime.autoPairBrackets", "vime.autoCapitalize", "vime.doubleSpacePeriod", "vime.undoConversionOnBackspace", "vime.fullWidthSpace", "vime.liveConversion", "vime.textReplacements", "vime.englishCompletion", "vime.oneHanded", "vime.customSkinID", "vime.skinRevision", "vime.numberSymbols", "vime.inputLanguage",
-        "vime.chineseInputEnabled", "vime.japaneseInputEnabled", "vime.pinyinLookupInJapanese", "vime.traditionalChinese", "vime.chineseLanguageModel",
+        "vime.chineseInputEnabled", "vime.japaneseInputEnabled", "vime.pinyinLookupInJapanese", "vime.traditionalChinese", "vime.chineseLanguageModel", "vime.chineseModelVersion",
         "vime.fuzzyRetroflex", "vime.fuzzyNasal", "vime.fuzzyInitials", "vime.chinesePunctuation", "vime.japaneseFullWidthSymbols", "vime.correctionSpellingHints"]
     var store: UserDefaults { defaults }
     struct Snapshot: Equatable {
@@ -63,6 +63,7 @@ struct KeyboardPreferences {
         let pinyinLookupInJapanese: Bool
         let traditionalChinese: Bool
         let chineseLanguageModel: Bool
+        let chineseModelVersion: ChineseLanguageModel.Version
         let fuzzyPinyin: FuzzyPinyin
         let chinesePunctuation: Bool
         let japaneseFullWidthSymbols: Bool
@@ -82,7 +83,7 @@ struct KeyboardPreferences {
                 .map { $0 ?? "" }.joined(separator: "|"),
             inputLanguage: inputLanguage, chineseInputEnabled: chineseInputEnabled, japaneseInputEnabled: japaneseInputEnabled,
             pinyinLookupInJapanese: pinyinLookupInJapanese, traditionalChinese: traditionalChinese,
-            chineseLanguageModel: chineseLanguageModel, fuzzyPinyin: fuzzyPinyin,
+            chineseLanguageModel: chineseLanguageModel, chineseModelVersion: chineseModelVersion, fuzzyPinyin: fuzzyPinyin,
             chinesePunctuation: chinesePunctuation, japaneseFullWidthSymbols: japaneseFullWidthSymbols,
             correctionSpellingHints: correctionSpellingHints)
     }
@@ -157,6 +158,19 @@ struct KeyboardPreferences {
         nonmutating set {
             if newValue && !chineseLanguageModel { requestNeuralRetry() }
             defaults.set(newValue, forKey: "vime.chineseLanguageModel")
+        }
+    }
+    /// Which bundled Chinese model (and matching decoding mode) is active:
+    /// v2 (task mode + self rescoring, default) or v1 (lm mode fallback).
+    var chineseModelVersion: ChineseLanguageModel.Version {
+        get {
+            guard let raw = defaults.string(forKey: ChineseLanguageModel.versionPreferenceKey),
+                  let version = ChineseLanguageModel.Version(rawValue: raw) else { return ChineseLanguageModel.defaultVersion }
+            return version
+        }
+        nonmutating set {
+            defaults.set(newValue.rawValue, forKey: ChineseLanguageModel.versionPreferenceKey)
+            if newValue == .v2 { ChineseModelFallback.shared.resetForManualV2Selection() }
         }
     }
     /// Fuzzy pinyin groups for Chinese input, all off by default.

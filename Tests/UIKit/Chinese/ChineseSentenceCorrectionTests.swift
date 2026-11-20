@@ -73,7 +73,7 @@ final class ChineseSentenceCorrectionTests: XCTestCase {
             .map { try JSONDecoder().decode(Case.self, from: Data($0.utf8)) }
         XCTAssertEqual(cases.count, 8)
         // A fresh package, to see which functions load.
-        let chinese = try ChineseLanguageModel(bundle: bundle)
+        let chinese = try ChineseLanguageModel(bundle: bundle, version: .v1)
         let model = chinese.batch
         XCTAssertEqual(model.maximumBatch, 16)
         for item in cases {

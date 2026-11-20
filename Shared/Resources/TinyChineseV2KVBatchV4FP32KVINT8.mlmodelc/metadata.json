@@ -1,0 +1,696 @@
+[
+  {
+    "metadataOutputVersion" : "3.0",
+    "storagePrecision" : "Mixed (Float32, Int8)",
+    "outputSchema" : [
+      {
+        "hasShapeFlexibility" : "0",
+        "isOptional" : "0",
+        "dataType" : "Float32",
+        "formattedType" : "MultiArray (Float32)",
+        "shortDescription" : "",
+        "shape" : "[]",
+        "name" : "target_logprobs",
+        "type" : "MultiArray"
+      }
+    ],
+    "modelParameters" : [
+
+    ],
+    "specificationVersion" : 9,
+    "functions" : [
+      {
+        "inputSchema" : [
+          {
+            "dataType" : "Int32",
+            "hasShapeFlexibility" : "1",
+            "isOptional" : "0",
+            "shapeFlexibility" : "1...16 × 1...128",
+            "shapeRange" : "[[1, 16], [1, 128]]",
+            "formattedType" : "MultiArray (Int32 16 × 1)",
+            "type" : "MultiArray",
+            "shape" : "[16, 1]",
+            "name" : "input_ids",
+            "shortDescription" : ""
+          },
+          {
+            "dataType" : "Int32",
+            "hasShapeFlexibility" : "1",
+            "isOptional" : "0",
+            "shapeFlexibility" : "1...16",
+            "shapeRange" : "[[1, 16]]",
+            "formattedType" : "MultiArray (Int32 16)",
+            "type" : "MultiArray",
+            "shape" : "[16]",
+            "name" : "position",
+            "shortDescription" : ""
+          },
+          {
+            "dataType" : "Float32",
+            "hasShapeFlexibility" : "1",
+            "isOptional" : "0",
+            "shapeFlexibility" : "9 × 1...16 × 6 × 1...128 × 64",
+            "shapeRange" : "[[9, 9], [1, 16], [6, 6], [1, 128], [64, 64]]",
+            "formattedType" : "MultiArray (Float32 9 × 16 × 6 × 8 × 64)",
+            "type" : "MultiArray",
+            "shape" : "[9, 16, 6, 8, 64]",
+            "name" : "key_cache",
+            "shortDescription" : ""
+          },
+          {
+            "dataType" : "Float32",
+            "hasShapeFlexibility" : "1",
+            "isOptional" : "0",
+            "shapeFlexibility" : "9 × 1...16 × 6 × 1...128 × 64",
+            "shapeRange" : "[[9, 9], [1, 16], [6, 6], [1, 128], [64, 64]]",
+            "formattedType" : "MultiArray (Float32 9 × 16 × 6 × 8 × 64)",
+            "type" : "MultiArray",
+            "shape" : "[9, 16, 6, 8, 64]",
+            "name" : "value_cache",
+            "shortDescription" : ""
+          },
+          {
+            "hasShapeFlexibility" : "0",
+            "isOptional" : "0",
+            "dataType" : "Int32",
+            "formattedType" : "MultiArray (Int32 1)",
+            "shortDescription" : "",
+            "shape" : "[1]",
+            "name" : "prefix_length",
+            "type" : "MultiArray"
+          },
+          {
+            "dataType" : "Float32",
+            "hasShapeFlexibility" : "1",
+            "isOptional" : "0",
+            "shapeFlexibility" : "9 × 1 × 6 × 1...128 × 64",
+            "shapeRange" : "[[9, 9], [1, 1], [6, 6], [1, 128], [64, 64]]",
+            "formattedType" : "MultiArray (Float32 9 × 1 × 6 × 32 × 64)",
+            "type" : "MultiArray",
+            "shape" : "[9, 1, 6, 32, 64]",
+            "name" : "prefix_key",
+            "shortDescription" : ""
+          },
+          {
+            "dataType" : "Float32",
+            "hasShapeFlexibility" : "1",
+            "isOptional" : "0",
+            "shapeFlexibility" : "9 × 1 × 6 × 1...128 × 64",
+            "shapeRange" : "[[9, 9], [1, 1], [6, 6], [1, 128], [64, 64]]",
+            "formattedType" : "MultiArray (Float32 9 × 1 × 6 × 32 × 64)",
+            "type" : "MultiArray",
+            "shape" : "[9, 1, 6, 32, 64]",
+            "name" : "prefix_value",
+            "shortDescription" : ""
+          }
+        ],
+        "computePrecision" : "Mixed (Float32, Int32)",
+        "storagePrecision" : "Mixed (Float32, Int8)",
+        "stateSchema" : [
+
+        ],
+        "outputSchema" : [
+          {
+            "hasShapeFlexibility" : "0",
+            "isOptional" : "0",
+            "dataType" : "Float32",
+            "formattedType" : "MultiArray (Float32)",
+            "shortDescription" : "",
+            "shape" : "[]",
+            "name" : "logits",
+            "type" : "MultiArray"
+          },
+          {
+            "hasShapeFlexibility" : "0",
+            "isOptional" : "0",
+            "dataType" : "Float32",
+            "formattedType" : "MultiArray (Float32)",
+            "shortDescription" : "",
+            "shape" : "[]",
+            "name" : "new_key",
+            "type" : "MultiArray"
+          },
+          {
+            "hasShapeFlexibility" : "0",
+            "isOptional" : "0",
+            "dataType" : "Float32",
+            "formattedType" : "MultiArray (Float32)",
+            "shortDescription" : "",
+            "shape" : "[]",
+            "name" : "new_value",
+            "type" : "MultiArray"
+          }
+        ],
+        "name" : "logits",
+        "mlProgramOperationTypeHistogram" : {
+          "Ios18.expandDims" : 12,
+          "Range1d" : 3,
+          "Ios18.mul" : 77,
+          "Ios18.rsqrt" : 19,
+          "Ios18.matmul" : 54,
+          "Ios16.reduceMean" : 19,
+          "Ios18.exp" : 27,
+          "Ios18.realDiv" : 9,
+          "Split" : 9,
+          "Ios18.greaterEqual" : 6,
+          "Select" : 4,
+          "Ios18.greater" : 1,
+          "Ios16.reduceMax" : 27,
+          "Ios18.gather" : 6,
+          "Ios18.add" : 107,
+          "Ios16.reduceSum" : 27,
+          "Ios18.reshape" : 18,
+          "Shape" : 3,
+          "Ios18.maximum" : 18,
+          "Ios18.linear" : 46,
+          "Ios18.concat" : 2,
+          "Ios18.cast" : 3,
+          "Ios18.transpose" : 18,
+          "Ios18.pow" : 19,
+          "Ios18.sub" : 27,
+          "Ios18.silu" : 9,
+          "Stack" : 2,
+          "Ios18.squeeze" : 27,
+          "Ios18.sliceByIndex" : 37,
+          "Ios18.constexprBlockwiseShiftScale" : 47
+        }
+      },
+      {
+        "inputSchema" : [
+          {
+            "dataType" : "Int32",
+            "hasShapeFlexibility" : "1",
+            "isOptional" : "0",
+            "shapeFlexibility" : "1...16 × 1...128",
+            "shapeRange" : "[[1, 16], [1, 128]]",
+            "formattedType" : "MultiArray (Int32 16 × 1)",
+            "type" : "MultiArray",
+            "shape" : "[16, 1]",
+            "name" : "input_ids",
+            "shortDescription" : ""
+          },
+          {
+            "dataType" : "Int32",
+            "hasShapeFlexibility" : "1",
+            "isOptional" : "0",
+            "shapeFlexibility" : "1...16",
+            "shapeRange" : "[[1, 16]]",
+            "formattedType" : "MultiArray (Int32 16)",
+            "type" : "MultiArray",
+            "shape" : "[16]",
+            "name" : "position",
+            "shortDescription" : ""
+          },
+          {
+            "dataType" : "Float32",
+            "hasShapeFlexibility" : "1",
+            "isOptional" : "0",
+            "shapeFlexibility" : "9 × 1...16 × 6 × 1...128 × 64",
+            "shapeRange" : "[[9, 9], [1, 16], [6, 6], [1, 128], [64, 64]]",
+            "formattedType" : "MultiArray (Float32 9 × 16 × 6 × 8 × 64)",
+            "type" : "MultiArray",
+            "shape" : "[9, 16, 6, 8, 64]",
+            "name" : "key_cache",
+            "shortDescription" : ""
+          },
+          {
+            "dataType" : "Float32",
+            "hasShapeFlexibility" : "1",
+            "isOptional" : "0",
+            "shapeFlexibility" : "9 × 1...16 × 6 × 1...128 × 64",
+            "shapeRange" : "[[9, 9], [1, 16], [6, 6], [1, 128], [64, 64]]",
+            "formattedType" : "MultiArray (Float32 9 × 16 × 6 × 8 × 64)",
+            "type" : "MultiArray",
+            "shape" : "[9, 16, 6, 8, 64]",
+            "name" : "value_cache",
+            "shortDescription" : ""
+          },
+          {
+            "hasShapeFlexibility" : "0",
+            "isOptional" : "0",
+            "dataType" : "Int32",
+            "formattedType" : "MultiArray (Int32 1)",
+            "shortDescription" : "",
+            "shape" : "[1]",
+            "name" : "prefix_length",
+            "type" : "MultiArray"
+          },
+          {
+            "dataType" : "Float32",
+            "hasShapeFlexibility" : "1",
+            "isOptional" : "0",
+            "shapeFlexibility" : "9 × 1 × 6 × 1...128 × 64",
+            "shapeRange" : "[[9, 9], [1, 1], [6, 6], [1, 128], [64, 64]]",
+            "formattedType" : "MultiArray (Float32 9 × 1 × 6 × 32 × 64)",
+            "type" : "MultiArray",
+            "shape" : "[9, 1, 6, 32, 64]",
+            "name" : "prefix_key",
+            "shortDescription" : ""
+          },
+          {
+            "dataType" : "Float32",
+            "hasShapeFlexibility" : "1",
+            "isOptional" : "0",
+            "shapeFlexibility" : "9 × 1 × 6 × 1...128 × 64",
+            "shapeRange" : "[[9, 9], [1, 1], [6, 6], [1, 128], [64, 64]]",
+            "formattedType" : "MultiArray (Float32 9 × 1 × 6 × 32 × 64)",
+            "type" : "MultiArray",
+            "shape" : "[9, 1, 6, 32, 64]",
+            "name" : "prefix_value",
+            "shortDescription" : ""
+          },
+          {
+            "dataType" : "Int32",
+            "hasShapeFlexibility" : "1",
+            "isOptional" : "0",
+            "shapeFlexibility" : "1...1024",
+            "shapeRange" : "[[1, 1024]]",
+            "formattedType" : "MultiArray (Int32 160)",
+            "type" : "MultiArray",
+            "shape" : "[160]",
+            "name" : "allowed",
+            "shortDescription" : ""
+          }
+        ],
+        "computePrecision" : "Mixed (Float32, Int32)",
+        "storagePrecision" : "Mixed (Float32, Int8)",
+        "stateSchema" : [
+
+        ],
+        "outputSchema" : [
+          {
+            "hasShapeFlexibility" : "0",
+            "isOptional" : "0",
+            "dataType" : "Float32",
+            "formattedType" : "MultiArray (Float32)",
+            "shortDescription" : "",
+            "shape" : "[]",
+            "name" : "logsumexp",
+            "type" : "MultiArray"
+          },
+          {
+            "hasShapeFlexibility" : "0",
+            "isOptional" : "0",
+            "dataType" : "Float32",
+            "formattedType" : "MultiArray (Float32)",
+            "shortDescription" : "",
+            "shape" : "[]",
+            "name" : "allowed_logits",
+            "type" : "MultiArray"
+          },
+          {
+            "hasShapeFlexibility" : "0",
+            "isOptional" : "0",
+            "dataType" : "Float32",
+            "formattedType" : "MultiArray (Float32)",
+            "shortDescription" : "",
+            "shape" : "[]",
+            "name" : "new_key",
+            "type" : "MultiArray"
+          },
+          {
+            "hasShapeFlexibility" : "0",
+            "isOptional" : "0",
+            "dataType" : "Float32",
+            "formattedType" : "MultiArray (Float32)",
+            "shortDescription" : "",
+            "shape" : "[]",
+            "name" : "new_value",
+            "type" : "MultiArray"
+          }
+        ],
+        "name" : "scored",
+        "mlProgramOperationTypeHistogram" : {
+          "Ios18.expandDims" : 12,
+          "Range1d" : 3,
+          "Ios18.mul" : 77,
+          "Ios18.rsqrt" : 19,
+          "Ios18.matmul" : 54,
+          "Ios16.reduceMean" : 19,
+          "Ios18.exp" : 27,
+          "Ios18.realDiv" : 9,
+          "Split" : 9,
+          "Ios18.greaterEqual" : 8,
+          "Select" : 6,
+          "Ios18.greater" : 1,
+          "Ios16.reduceMax" : 27,
+          "Ios18.gather" : 7,
+          "Ios18.add" : 109,
+          "Ios16.reduceSum" : 27,
+          "Ios18.reshape" : 18,
+          "Shape" : 3,
+          "Ios18.maximum" : 18,
+          "Ios18.linear" : 46,
+          "Ios18.concat" : 2,
+          "Ios18.cast" : 3,
+          "Ios18.transpose" : 18,
+          "Ios18.pow" : 19,
+          "Ios18.sub" : 27,
+          "Ios18.silu" : 9,
+          "Stack" : 2,
+          "Ios16.reduceLogSumExp" : 1,
+          "Ios18.squeeze" : 27,
+          "Ios18.sliceByIndex" : 37,
+          "Ios18.constexprBlockwiseShiftScale" : 47
+        }
+      },
+      {
+        "inputSchema" : [
+          {
+            "dataType" : "Int32",
+            "hasShapeFlexibility" : "1",
+            "isOptional" : "0",
+            "shapeFlexibility" : "1...16 × 1...128",
+            "shapeRange" : "[[1, 16], [1, 128]]",
+            "formattedType" : "MultiArray (Int32 16 × 8)",
+            "type" : "MultiArray",
+            "shape" : "[16, 8]",
+            "name" : "input_ids",
+            "shortDescription" : ""
+          },
+          {
+            "dataType" : "Int32",
+            "hasShapeFlexibility" : "1",
+            "isOptional" : "0",
+            "shapeFlexibility" : "1...16 × 1...128",
+            "shapeRange" : "[[1, 16], [1, 128]]",
+            "formattedType" : "MultiArray (Int32 16 × 8)",
+            "type" : "MultiArray",
+            "shape" : "[16, 8]",
+            "name" : "targets",
+            "shortDescription" : ""
+          },
+          {
+            "hasShapeFlexibility" : "0",
+            "isOptional" : "0",
+            "dataType" : "Int32",
+            "formattedType" : "MultiArray (Int32 1)",
+            "shortDescription" : "",
+            "shape" : "[1]",
+            "name" : "prefix_length",
+            "type" : "MultiArray"
+          },
+          {
+            "dataType" : "Float32",
+            "hasShapeFlexibility" : "1",
+            "isOptional" : "0",
+            "shapeFlexibility" : "9 × 1 × 6 × 1...128 × 64",
+            "shapeRange" : "[[9, 9], [1, 1], [6, 6], [1, 128], [64, 64]]",
+            "formattedType" : "MultiArray (Float32 9 × 1 × 6 × 32 × 64)",
+            "type" : "MultiArray",
+            "shape" : "[9, 1, 6, 32, 64]",
+            "name" : "prefix_key",
+            "shortDescription" : ""
+          },
+          {
+            "dataType" : "Float32",
+            "hasShapeFlexibility" : "1",
+            "isOptional" : "0",
+            "shapeFlexibility" : "9 × 1 × 6 × 1...128 × 64",
+            "shapeRange" : "[[9, 9], [1, 1], [6, 6], [1, 128], [64, 64]]",
+            "formattedType" : "MultiArray (Float32 9 × 1 × 6 × 32 × 64)",
+            "type" : "MultiArray",
+            "shape" : "[9, 1, 6, 32, 64]",
+            "name" : "prefix_value",
+            "shortDescription" : ""
+          }
+        ],
+        "computePrecision" : "Mixed (Float32, Int32)",
+        "storagePrecision" : "Mixed (Float32, Int8)",
+        "stateSchema" : [
+
+        ],
+        "outputSchema" : [
+          {
+            "hasShapeFlexibility" : "0",
+            "isOptional" : "0",
+            "dataType" : "Float32",
+            "formattedType" : "MultiArray (Float32)",
+            "shortDescription" : "",
+            "shape" : "[]",
+            "name" : "target_logprobs",
+            "type" : "MultiArray"
+          }
+        ],
+        "name" : "score",
+        "mlProgramOperationTypeHistogram" : {
+          "Ios18.expandDims" : 9,
+          "Range1d" : 2,
+          "Ios18.mul" : 67,
+          "Ios18.rsqrt" : 19,
+          "Ios18.matmul" : 36,
+          "Ios16.reduceMean" : 19,
+          "Ios18.exp" : 18,
+          "Ios18.realDiv" : 9,
+          "Split" : 9,
+          "Ios18.greaterEqual" : 5,
+          "Select" : 4,
+          "Ios18.greater" : 1,
+          "Ios16.reduceMax" : 18,
+          "Ios18.gatherAlongAxis" : 1,
+          "Ios18.gather" : 5,
+          "Ios18.add" : 79,
+          "Ios16.reduceSum" : 18,
+          "Ios18.reshape" : 18,
+          "Shape" : 2,
+          "Ios18.maximum" : 9,
+          "Ios18.linear" : 46,
+          "Ios18.concat" : 2,
+          "Ios18.cast" : 2,
+          "Ios18.transpose" : 18,
+          "Ios18.pow" : 19,
+          "Ios18.sub" : 19,
+          "Ios18.silu" : 9,
+          "Ios16.reduceLogSumExp" : 1,
+          "Ios18.squeeze" : 28,
+          "Ios18.sliceByIndex" : 18,
+          "Ios18.constexprBlockwiseShiftScale" : 47
+        }
+      },
+      {
+        "inputSchema" : [
+          {
+            "dataType" : "Int32",
+            "hasShapeFlexibility" : "1",
+            "isOptional" : "0",
+            "shapeFlexibility" : "1 × 1...128",
+            "shapeRange" : "[[1, 1], [1, 128]]",
+            "formattedType" : "MultiArray (Int32 1 × 16)",
+            "type" : "MultiArray",
+            "shape" : "[1, 16]",
+            "name" : "input_ids",
+            "shortDescription" : ""
+          },
+          {
+            "hasShapeFlexibility" : "0",
+            "isOptional" : "0",
+            "dataType" : "Int32",
+            "formattedType" : "MultiArray (Int32 1)",
+            "shortDescription" : "",
+            "shape" : "[1]",
+            "name" : "prefix_length",
+            "type" : "MultiArray"
+          },
+          {
+            "dataType" : "Float32",
+            "hasShapeFlexibility" : "1",
+            "isOptional" : "0",
+            "shapeFlexibility" : "9 × 1 × 6 × 1...128 × 64",
+            "shapeRange" : "[[9, 9], [1, 1], [6, 6], [1, 128], [64, 64]]",
+            "formattedType" : "MultiArray (Float32 9 × 1 × 6 × 32 × 64)",
+            "type" : "MultiArray",
+            "shape" : "[9, 1, 6, 32, 64]",
+            "name" : "prefix_key",
+            "shortDescription" : ""
+          },
+          {
+            "dataType" : "Float32",
+            "hasShapeFlexibility" : "1",
+            "isOptional" : "0",
+            "shapeFlexibility" : "9 × 1 × 6 × 1...128 × 64",
+            "shapeRange" : "[[9, 9], [1, 1], [6, 6], [1, 128], [64, 64]]",
+            "formattedType" : "MultiArray (Float32 9 × 1 × 6 × 32 × 64)",
+            "type" : "MultiArray",
+            "shape" : "[9, 1, 6, 32, 64]",
+            "name" : "prefix_value",
+            "shortDescription" : ""
+          }
+        ],
+        "computePrecision" : "Mixed (Float32, Int32)",
+        "storagePrecision" : "Mixed (Float32, Int8)",
+        "stateSchema" : [
+
+        ],
+        "outputSchema" : [
+          {
+            "hasShapeFlexibility" : "0",
+            "isOptional" : "0",
+            "dataType" : "Float32",
+            "formattedType" : "MultiArray (Float32)",
+            "shortDescription" : "",
+            "shape" : "[]",
+            "name" : "new_key",
+            "type" : "MultiArray"
+          },
+          {
+            "hasShapeFlexibility" : "0",
+            "isOptional" : "0",
+            "dataType" : "Float32",
+            "formattedType" : "MultiArray (Float32)",
+            "shortDescription" : "",
+            "shape" : "[]",
+            "name" : "new_value",
+            "type" : "MultiArray"
+          }
+        ],
+        "name" : "prefix",
+        "mlProgramOperationTypeHistogram" : {
+          "Ios18.expandDims" : 8,
+          "Range1d" : 2,
+          "Ios18.mul" : 60,
+          "Ios18.rsqrt" : 17,
+          "Ios18.matmul" : 32,
+          "Ios16.reduceMean" : 17,
+          "Ios18.exp" : 16,
+          "Ios18.realDiv" : 8,
+          "Split" : 9,
+          "Ios18.greaterEqual" : 5,
+          "Select" : 4,
+          "Ios18.greater" : 1,
+          "Ios16.reduceMax" : 16,
+          "Ios18.gather" : 4,
+          "Ios18.add" : 71,
+          "Ios16.reduceSum" : 16,
+          "Ios18.reshape" : 17,
+          "Shape" : 2,
+          "Ios18.maximum" : 8,
+          "Ios18.linear" : 41,
+          "Ios18.cast" : 2,
+          "Ios18.transpose" : 17,
+          "Ios18.sub" : 16,
+          "Ios18.pow" : 17,
+          "Ios18.silu" : 8,
+          "Stack" : 2,
+          "Ios18.sliceByIndex" : 16,
+          "Ios18.squeeze" : 26,
+          "Ios18.constexprBlockwiseShiftScale" : 43
+        }
+      }
+    ],
+    "mlProgramOperationTypeHistogram" : {
+      "Ios18.expandDims" : 9,
+      "Range1d" : 2,
+      "Ios18.mul" : 67,
+      "Ios18.rsqrt" : 19,
+      "Ios18.matmul" : 36,
+      "Ios16.reduceMean" : 19,
+      "Ios18.exp" : 18,
+      "Ios18.realDiv" : 9,
+      "Split" : 9,
+      "Ios18.greaterEqual" : 5,
+      "Select" : 4,
+      "Ios18.greater" : 1,
+      "Ios16.reduceMax" : 18,
+      "Ios18.gatherAlongAxis" : 1,
+      "Ios18.gather" : 5,
+      "Ios18.add" : 79,
+      "Ios16.reduceSum" : 18,
+      "Ios18.reshape" : 18,
+      "Shape" : 2,
+      "Ios18.maximum" : 9,
+      "Ios18.linear" : 46,
+      "Ios18.concat" : 2,
+      "Ios18.cast" : 2,
+      "Ios18.transpose" : 18,
+      "Ios18.pow" : 19,
+      "Ios18.sub" : 19,
+      "Ios18.silu" : 9,
+      "Ios16.reduceLogSumExp" : 1,
+      "Ios18.squeeze" : 28,
+      "Ios18.sliceByIndex" : 18,
+      "Ios18.constexprBlockwiseShiftScale" : 47
+    },
+    "isUpdatable" : "0",
+    "stateSchema" : [
+
+    ],
+    "availability" : {
+      "macOS" : "15.0",
+      "tvOS" : "18.0",
+      "visionOS" : "2.0",
+      "watchOS" : "11.0",
+      "iOS" : "18.0",
+      "macCatalyst" : "18.0"
+    },
+    "computePrecision" : "Mixed (Float32, Int32)",
+    "modelType" : {
+      "name" : "MLModelType_mlProgram"
+    },
+    "inputSchema" : [
+      {
+        "dataType" : "Int32",
+        "hasShapeFlexibility" : "1",
+        "isOptional" : "0",
+        "shapeFlexibility" : "1...16 × 1...128",
+        "shapeRange" : "[[1, 16], [1, 128]]",
+        "formattedType" : "MultiArray (Int32 16 × 8)",
+        "type" : "MultiArray",
+        "shape" : "[16, 8]",
+        "name" : "input_ids",
+        "shortDescription" : ""
+      },
+      {
+        "dataType" : "Int32",
+        "hasShapeFlexibility" : "1",
+        "isOptional" : "0",
+        "shapeFlexibility" : "1...16 × 1...128",
+        "shapeRange" : "[[1, 16], [1, 128]]",
+        "formattedType" : "MultiArray (Int32 16 × 8)",
+        "type" : "MultiArray",
+        "shape" : "[16, 8]",
+        "name" : "targets",
+        "shortDescription" : ""
+      },
+      {
+        "hasShapeFlexibility" : "0",
+        "isOptional" : "0",
+        "dataType" : "Int32",
+        "formattedType" : "MultiArray (Int32 1)",
+        "shortDescription" : "",
+        "shape" : "[1]",
+        "name" : "prefix_length",
+        "type" : "MultiArray"
+      },
+      {
+        "dataType" : "Float32",
+        "hasShapeFlexibility" : "1",
+        "isOptional" : "0",
+        "shapeFlexibility" : "9 × 1 × 6 × 1...128 × 64",
+        "shapeRange" : "[[9, 9], [1, 1], [6, 6], [1, 128], [64, 64]]",
+        "formattedType" : "MultiArray (Float32 9 × 1 × 6 × 32 × 64)",
+        "type" : "MultiArray",
+        "shape" : "[9, 1, 6, 32, 64]",
+        "name" : "prefix_key",
+        "shortDescription" : ""
+      },
+      {
+        "dataType" : "Float32",
+        "hasShapeFlexibility" : "1",
+        "isOptional" : "0",
+        "shapeFlexibility" : "9 × 1 × 6 × 1...128 × 64",
+        "shapeRange" : "[[9, 9], [1, 1], [6, 6], [1, 128], [64, 64]]",
+        "formattedType" : "MultiArray (Float32 9 × 1 × 6 × 32 × 64)",
+        "type" : "MultiArray",
+        "shape" : "[9, 1, 6, 32, 64]",
+        "name" : "prefix_value",
+        "shortDescription" : ""
+      }
+    ],
+    "defaultFunctionName" : "score",
+    "generatedClassName" : "model",
+    "userDefinedMetadata" : {
+
+    },
+    "method" : "predict"
+  }
+]

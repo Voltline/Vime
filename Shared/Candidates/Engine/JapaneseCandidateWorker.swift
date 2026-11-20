@@ -84,7 +84,17 @@ final class JapaneseCandidateWorker {
             KeyboardExtensionStatus.update { $0.modelPaused = false }
             return true
         }
-        private func setReady(_ value: Language?) { lock.lock(); readyLanguage = value; lock.unlock() }
+        private var loadedChineseVersion: ChineseLanguageModel.Version?
+        var chineseModelVersion: ChineseLanguageModel.Version? {
+            lock.lock(); defer { lock.unlock() }
+            return readyLanguage == .chinese ? loadedChineseVersion : nil
+        }
+        private func setReady(_ value: Language?, chineseVersion: ChineseLanguageModel.Version? = nil) {
+            lock.lock()
+            readyLanguage = value
+            loadedChineseVersion = value == .chinese ? chineseVersion : nil
+            lock.unlock()
+        }
         private var cachedModel: VimeLanguageModel?
         private var cachedChinese: ChineseLanguageModel?
         private var cachedLanguage: Language = .japanese
@@ -123,7 +133,7 @@ final class JapaneseCandidateWorker {
             cachedLanguage = .chinese
             attempted = true
             cachedChinese = model
-            setReady(.chinese)
+            setReady(.chinese, chineseVersion: model.version)
         }
         private func load(_ language: Language) {
             dispatchPrecondition(condition: .onQueue(JapaneseCandidateWorker.modelQueue))
@@ -131,6 +141,11 @@ final class JapaneseCandidateWorker {
             if language != cachedLanguage {
                 release()
                 cachedLanguage = language
+            }
+            if language == .chinese, let loaded = cachedChinese, loaded.version != ChineseLanguageModel.effectiveVersion {
+                release()
+                ChineseSentenceGeneration.Storage.shared.release()
+                cachedLanguage = .chinese
             }
             guard !attempted else { return }
             attempted = true
@@ -145,7 +160,22 @@ final class JapaneseCandidateWorker {
                             log.error("Model \(variant.rawValue, privacy: .public) unavailable (\(String(describing: error), privacy: .public)); trying fallback.")
                         }
                     case .chinese:
-                        chinese = try ChineseLanguageModel(preload: true)
+                        let fallback = ChineseModelFallback.shared
+                        var target = ChineseLanguageModel.effectiveVersion
+                        if target == .v2, !fallback.beginV2Load() {
+                            target = .v1
+                        }
+                        if target == .v2 {
+                            do {
+                                chinese = try ChineseLanguageModel(version: .v2, preload: true)
+                                fallback.finishV2LoadSuccess()
+                            } catch {
+                                fallback.recordRuntimeFailure(reason: "load_error: \(error)")
+                                chinese = try ChineseLanguageModel(version: .v1, preload: true)
+                            }
+                        } else {
+                            chinese = try ChineseLanguageModel(version: .v1, preload: true)
+                        }
                     }
                 }
                 let version = japanese?.modelVersion ?? chinese?.modelVersion ?? ""
@@ -157,7 +187,7 @@ final class JapaneseCandidateWorker {
                 // publish the new model or start its first prediction.
                 guard !isSuspended else { return }
                 cachedModel = japanese; cachedChinese = chinese
-                setReady(language)
+                setReady(language, chineseVersion: chinese?.version)
                 KeyboardExtensionStatus.update { $0.modelVersion = version; $0.modelPaused = false }
             } catch {
                 log.error("Model unavailable (\(String(describing: error), privacy: .public)); retaining dictionary candidates.")
