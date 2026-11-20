@@ -49,45 +49,29 @@ nonisolated final class VimeLanguageModel {
         let tokenizer_sha256: String
         let compiled_files_sha256: [String: String]
     }
-    /// Bundled model generations. V4.2 (8K tokenizer) is the runtime default;
-    /// V2.1 ships alongside it as the fallback resource set. The Chinese
-    /// keyboard's model is `ChineseLanguageModel`.
+    /// Bundled Japanese model generation. V4.2 (8K tokenizer) is the runtime
+    /// model; the Chinese keyboard's model is `ChineseLanguageModel`.
     enum Variant: String, Sendable, CaseIterable {
-        case v21, v42
-        /// Load order for the keyboard. A later entry is used only when an
-        /// earlier set is missing or fails its identity / Core ML checks.
-        static let runtimePreference: [Variant] = [.v42, .v21]
+        case v42
+        /// Load order for the keyboard.
+        static let runtimePreference: [Variant] = [.v42]
         static var runtimeDefault: Variant { runtimePreference[0] }
-        var displayVersion: String {
-            switch self { case .v21: "2.1"; case .v42: "4.2" }
-        }
-        var modelResource: String {
-            switch self { case .v21: "TinyJapaneseV21INT8"; case .v42: "TinyJapaneseV42INT8" }
-        }
-        var tokenizerResource: String {
-            switch self { case .v21: "VimeJapaneseTokenizerV2"; case .v42: "VimeJapaneseTokenizerV4" }
-        }
-        var manifestResource: String {
-            switch self { case .v21: "VimeLMManifestV21"; case .v42: "VimeLMManifestV42" }
-        }
-        var format: String {
-            switch self { case .v21: "vime_ios_lm_v2"; case .v42: "vime_ios_lm_v4" }
-        }
-        var architecture: String {
-            switch self { case .v21: "tiny_gpt_v2"; case .v42: "tiny_gpt_v4" }
-        }
-        var vocabulary: Int {
-            switch self { case .v21: 16384; case .v42: 8192 }
-        }
+        var displayVersion: String { "4.2" }
+        var modelResource: String { "TinyJapaneseV42INT8" }
+        var tokenizerResource: String { "VimeJapaneseTokenizerV4" }
+        var manifestResource: String { "VimeLMManifestV42" }
+        var format: String { "vime_ios_lm_v4" }
+        var architecture: String { "tiny_gpt_v4" }
+        var vocabulary: Int { 8192 }
         /// V4 and zh-v1 reserve 4–6 as conversion markers: never ordinary text input or output.
-        var reservedTokens: Set<Int32> { self == .v21 ? [] : [4, 5, 6] }
+        var reservedTokens: Set<Int32> { [4, 5, 6] }
     }
     let tokenizer: VimeSentenceTokenizer
     private let model: MLModel
     let variant: Variant
     let vocabularySize: Int
-    /// V2.1 vocabulary; instances report their own `vocabularySize`.
-    static let vocabulary = 16384
+    /// Default Japanese vocabulary (V4.2); instances report their own `vocabularySize`.
+    static let vocabulary = 8192
     static let contextLength = 128
     /// Model-queue confined. Cache causal output rows, never full prediction
     /// tensors. Exact token prefixes remain valid when the reading/candidate
