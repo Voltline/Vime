@@ -117,6 +117,7 @@ final class ChineseSentenceCorrectionTests: XCTestCase {
         let expected = try unshared(context: context, texts: texts, model: chinese)
         var calls: [Int] = []
         for limit in [Int?.none, 1 << 20, 1] {
+            model.forgetPrefix()
             model.rowTokenLimit = limit
             let before = model.predictions
             let scores = try ChinesePrefixScoring.scores(context: context, candidates: texts, model: model,

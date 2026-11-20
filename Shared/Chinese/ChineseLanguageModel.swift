@@ -18,14 +18,17 @@ nonisolated final class ChineseLanguageModel {
     let tokenizer: VimeSentenceTokenizer
     var modelVersion: String { batch.modelVersion }
 
-    /// `preload` loads the `score` function now, as the keyboard does so
-    /// that a cold load never holds a request.
+    /// `preload` loads `score` and `scored` now, as the keyboard does so that a
+    /// cold load never holds either the prefix or the candidate scoring request.
     init(bundle: Bundle = .main, preload: Bool = false) throws {
         guard let tokenizerURL = bundle.url(forResource: Self.tokenizerResource, withExtension: "model")
         else { throw VimeLanguageModel.Failure.resources }
         batch = try VimeKVBatchLanguageModel(bundle: bundle)
         tokenizer = try VimeSentenceTokenizer(url: tokenizerURL, vocabulary: Self.vocabulary)
-        if preload { try batch.preload(.score) }
+        if preload {
+            try batch.preload(.score)
+            try batch.preload(.scored)
+        }
     }
 
     /// Reranking: each candidate's summed log probability after `context`,

@@ -165,6 +165,82 @@ final class VimeKVBatchLanguageModelTests: XCTestCase {
         XCTAssertEqual(batch.loadedFunctions, [.score, .logits])
     }
 
+    /// A prefix built from the last one (the same tokens, fewer, more, or
+    /// another ending) scores as a prefix built afresh, and runs only the
+    /// tokens it does not share.
+    func testPrefixReusesTheLastOne() throws {
+        let tokenizer = try tokenizer()
+        let reusing = try VimeKVBatchLanguageModel(bundle: bundle)
+        let fresh = try VimeKVBatchLanguageModel(bundle: bundle)
+        fresh.reusesPrefixes = false
+        let rows = try ["我们去公园", "开会讨论"].map { [Int32(2)] + (try tokenizer.encode($0)) }.map { Array($0.dropFirst()) }
+        func ids(_ text: String) throws -> [Int32] { [Int32(2)] + (try tokenizer.encode(text)) }
+        let contexts = try ["明天下午三点", "明天下午三点", "明天下午三点在公司", "明天", "明天上午九点半在家里", "今天晚上"].map(ids)
+        var expectedRuns = 0
+        var last: [Int32] = []
+        for context in contexts {
+            var shared = 0
+            while shared < min(last.count, context.count), last[shared] == context[shared] { shared += 1 }
+            expectedRuns += context.count - shared
+            last = context
+            let before = reusing.prefixTokensRun
+            let reused = try reusing.scores(after: try reusing.prefix(context), rows: rows)
+            let expected = try fresh.scores(after: try fresh.prefix(context), rows: rows)
+            XCTAssertEqual(reusing.prefixTokensRun - before, context.count - shared, "\(context)")
+            for (a, b) in zip(reused, expected) {
+                assertClose(a, b, tolerance: reusing.tolerance, "context \(context)")
+            }
+        }
+        XCTAssertEqual(reusing.prefixTokensRun, expectedRuns)
+        XCTAssertEqual(reusing.prefixesReused, 2) // the repeat, and the shorter one
+        XCTAssertEqual(fresh.prefixTokensRun, contexts.map(\.count).reduce(0, +))
+    }
+
+    /// Dropping from a long context to a much shorter shared prefix slices the
+    /// cached KV down without rerunning the model, and `forgetPrefix` clears it.
+    func testPrefixTrimsLongCacheWhenContextShrinks() throws {
+        let tokenizer = try tokenizer()
+        let reusing = try VimeKVBatchLanguageModel(bundle: bundle)
+        let fresh = try VimeKVBatchLanguageModel(bundle: bundle)
+        fresh.reusesPrefixes = false
+        let rows = try ["我们去公园", "开会讨论"].map { try tokenizer.encode($0) }
+        func ids(_ text: String) throws -> [Int32] { [Int32(2)] + (try tokenizer.encode(text)) }
+
+        let long = try ids("明天下午三点在公司会议室讨论下一个季度的工作计划和人员安排，然后再一起去附近的公园散步")
+        let short = Array(long.prefix(2))
+        XCTAssertGreaterThan(long.count - short.count, 16)
+
+        _ = try reusing.prefix(long)
+        let beforeShrink = reusing.prefixTokensRun
+        let trimmed = try reusing.prefix(short)
+        XCTAssertEqual(reusing.prefixTokensRun, beforeShrink)
+        XCTAssertEqual(trimmed.length, short.count)
+        XCTAssertEqual(trimmed.capacity, short.count)
+
+        let reusedScores = try reusing.scores(after: trimmed, rows: rows)
+        let freshScores = try fresh.scores(after: try fresh.prefix(short), rows: rows)
+        for (a, b) in zip(reusedScores, freshScores) {
+            assertClose(a, b, tolerance: reusing.tolerance, "trimmed prefix")
+        }
+
+        // Branching early from a long prefix also trims before running the tail.
+        _ = try reusing.prefix(long)
+        let branched = try ids("明天早晨九点出发")
+        let branchPrefix = try reusing.prefix(branched)
+        XCTAssertEqual(branchPrefix.capacity, branched.count)
+        let branchScores = try reusing.scores(after: branchPrefix, rows: rows)
+        let freshBranchScores = try fresh.scores(after: try fresh.prefix(branched), rows: rows)
+        for (a, b) in zip(branchScores, freshBranchScores) {
+            assertClose(a, b, tolerance: reusing.tolerance, "early branch")
+        }
+
+        // Forgetting the cached prefix forces the next identical call to rerun.
+        reusing.forgetPrefix()
+        let beforeRerun = reusing.prefixTokensRun
+        _ = try reusing.prefix(branched)
+        XCTAssertEqual(reusing.prefixTokensRun - beforeRerun, branched.count)
+    }
+
     func testRejectsWhatDoesNotFit() throws {
         let batch = try VimeKVBatchLanguageModel(bundle: bundle)
         let prompt = try batch.prompt([2], allowed: [3]).cache

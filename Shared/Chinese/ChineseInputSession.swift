@@ -358,9 +358,11 @@ final class ChineseInputSession: KeyboardInputSession {
         ChineseCandidateRanking.release()
     }
 
-    /// The model stays loaded while hidden, as Japanese's does.
+    /// The model stays loaded while hidden, as Japanese's does, but its cached
+    /// prefix KV is dropped so it does not linger in memory.
     func releaseInactiveResources() {
         settleRound()
+        ChineseCandidateRanking.forgetPrefix()
     }
 
     func setTraditionalChinese(_ enabled: Bool) {
