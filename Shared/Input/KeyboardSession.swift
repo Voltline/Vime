@@ -192,8 +192,15 @@ final class KeyboardSession: KeyboardInputSession {
         worker = asynchronousCandidates ? JapaneseCandidateWorker(memoryDirectoryURL: memoryDirectoryURL) : nil
     }
 
+    private var compositionMode: InputMode { mode == .english ? previousJapaneseMode : mode }
+    private(set) var suppressesEnglishCompletions = false
+
+    private static func isEnglishWordText(_ text: String) -> Bool {
+        !text.isEmpty && text.allSatisfy { $0.isLetter || $0.isNumber || $0 == "'" }
+    }
+
     var isComposing: Bool { !composing.isEmpty }
-    var composition: String { PreeditPresentation.kana(for: composing, mode: mode) }
+    var composition: String { PreeditPresentation.kana(for: composing, mode: compositionMode) }
     var preedit: String? {
         if let live = livePreedit { return live }
         let selection = selectedIndex.map { index -> String in
@@ -202,17 +209,17 @@ final class KeyboardSession: KeyboardInputSession {
             if snapshot.source == .pinyinLookup, let rest = PinyinLookupCandidates.typedLetters(snapshot.remainingComposition) {
                 return snapshot.text + rest
             }
-            return snapshot.text + PreeditPresentation.kana(for: snapshot.remainingComposition, mode: mode)
+            return snapshot.text + PreeditPresentation.kana(for: snapshot.remainingComposition, mode: compositionMode)
         }
         if selection == nil, showsPinyinLetters { return raw }
-        return PreeditPresentation.text(for: composing, mode: mode, selected: selection)
+        return PreeditPresentation.text(for: composing, mode: compositionMode, selected: selection)
     }
     /// Letters typed as pinyin show as typed (jingji, not じんgじ), and 確定
     /// commits them, as Return does in Chinese IMEs; Space still picks a word.
     /// Once shown, letters stay for the rest of the composition, so the
     /// preedit does not flip back to kana on the next key or backspace.
     var showsPinyinLetters: Bool {
-        guard pinyinLookupEnabled, pinyinLookup != nil, mode != .english, conversionLength == nil, isComposing,
+        guard pinyinLookupEnabled, pinyinLookup != nil, conversionLength == nil, isComposing,
               PinyinLookupCandidates.typedLetters(composing) != nil else { return false }
         return pinyinLettersLatched || PinyinLookupCandidates.showsLetters(composing: composing,
             lookupLeads: candidateSnapshots.first?.source == .pinyinLookup)
@@ -325,7 +332,17 @@ final class KeyboardSession: KeyboardInputSession {
     func type(_ text: String) -> [KeyboardEdit] {
         inputStartedAt = KeyboardPerformance.start()
         clearSuggestions()
-        if mode == .english { undoableCommit = nil; finishLearningFeedback(); return [.insert(text)] }
+        if mode == .english {
+            undoableCommit = nil
+            finishLearningFeedback()
+            if isComposing {
+                let edits = commitRawAndClear()
+                suppressesEnglishCompletions = Self.isEnglishWordText(text)
+                return edits + [.insert(text)]
+            }
+            if !Self.isEnglishWordText(text) { suppressesEnglishCompletions = false }
+            return [.insert(text)]
+        }
         var edits: [KeyboardEdit] = []
         // Preserve the word boundary even when typing resumes before a queued
         // space conversion or Return finishes; what is shown is a safe fallback.
@@ -393,7 +410,14 @@ final class KeyboardSession: KeyboardInputSession {
         if pendingConfirm { return confirm() + space(alternateWidth: alternateWidth) }
         guard isComposing else {
             undoableCommit = nil; finishLearningFeedback(); clearSuggestions()
+            suppressesEnglishCompletions = false
             return [.insert(!inputTraits.isEnglish && fullWidthSpace != alternateWidth ? "\u{3000}" : " ")]
+        }
+        if mode == .english {
+            if candidatesAreCurrent, !candidateSnapshots.isEmpty {
+                return choose(selectedIndex ?? 0, feedbackKind: .conversionConfirmation)
+            }
+            return confirm()
         }
         // A trailing n already reads as ん in per-key requests; this covers a
         // request issued before that rule, such as one made by deletion.
@@ -413,7 +437,12 @@ final class KeyboardSession: KeyboardInputSession {
     }
 
     func enter() -> [KeyboardEdit] {
-        guard isComposing else { undoableCommit = nil; finishLearningFeedback(); clearSuggestions(); return [.returnKey] }
+        guard isComposing else {
+            undoableCommit = nil; finishLearningFeedback(); clearSuggestions()
+            suppressesEnglishCompletions = false
+            return [.returnKey]
+        }
+        if mode == .english { return confirm() }
         // A second Return, or Return before live conversion was ever shown,
         // commits now. Otherwise wait briefly for the pending conversion.
         guard !pendingConfirm, convertsLive, worker != nil, candidatesPending,
@@ -494,7 +523,7 @@ final class KeyboardSession: KeyboardInputSession {
         if composing.isEmpty { reset(preservingContext: true); requestSuggestions() }
         else { refresh(leftContextOverride: committedLeftContext) }
         engine?.flushLearning()
-        if composing.isEmpty, snapshot.text != PreeditPresentation.kana(for: reading, mode: mode) {
+        if composing.isEmpty, snapshot.text != PreeditPresentation.kana(for: reading, mode: compositionMode) {
             undoableCommit = (snapshot.text, reading)
         }
         return [.insert(snapshot.text)]
@@ -583,7 +612,7 @@ final class KeyboardSession: KeyboardInputSession {
             var prefix = composing
             _ = prefix.moveCursorFromCursorPosition(count: length - prefix.convertTargetCursorPosition)
             prefix = prefix.prefixToCursorPosition()
-            let text = PreeditPresentation.kana(for: PreeditPresentation.finalized(prefix), mode: mode)
+            let text = PreeditPresentation.kana(for: PreeditPresentation.finalized(prefix), mode: compositionMode)
             let remainder = CompositionSegmentBoundary.remainder(of: composing, consuming: length)
             engine?.reset(preservingContext: true)
             worker?.reset(preservingContext: true)
@@ -600,10 +629,22 @@ final class KeyboardSession: KeyboardInputSession {
         // with a trailing n read as ん like the kana fallback.
         let live = livePreedit.map { PreeditPresentation.endsWithPendingN(composing) && $0.hasSuffix("n") ? String($0.dropLast()) + "ん" : $0 }
         let text = showsPinyinLetters ? raw
-            : selectedText ?? live ?? PreeditPresentation.kana(for: PreeditPresentation.finalized(composing), mode: mode)
+            : selectedText ?? live ?? PreeditPresentation.kana(for: PreeditPresentation.finalized(composing), mode: compositionMode)
         committedLeftContext = String((committedLeftContext + text).suffix(96))
         reset(preservingContext: true)
         requestSuggestions()
+        return [.insert(text)]
+    }
+
+    /// Commits the raw typed characters (romaji or kana) and clears the composition
+    /// without requesting next-word suggestions.
+    private func commitRawAndClear() -> [KeyboardEdit] {
+        clearPendingConfirm()
+        finishLearningFeedback()
+        let text = raw
+        reset(preservingContext: true)
+        guard !text.isEmpty else { return [] }
+        committedLeftContext = String((committedLeftContext + text).suffix(96))
         return [.insert(text)]
     }
 
@@ -614,6 +655,7 @@ final class KeyboardSession: KeyboardInputSession {
         clearSuggestions()
         requestSuggestions()
         undoableCommit = nil
+        suppressesEnglishCompletions = false
         return edits + [.insert(text)]
     }
 
@@ -625,6 +667,7 @@ final class KeyboardSession: KeyboardInputSession {
 
     func setMode(_ newMode: InputMode) -> [KeyboardEdit] {
         undoableCommit = nil
+        suppressesEnglishCompletions = false
         if mode != .english && newMode != .english {
             if pendingConfirm {
                 let edits = confirm()
@@ -646,7 +689,21 @@ final class KeyboardSession: KeyboardInputSession {
     }
 
     func toggleEnglish() -> [KeyboardEdit] {
-        setMode(mode == .english ? previousJapaneseMode : .english)
+        if mode != .english {
+            guard isComposing else { return setMode(.english) }
+            undoableCommit = nil
+            clearSuggestions()
+            previousJapaneseMode = mode
+            mode = .english
+            suppressesEnglishCompletions = false
+            return []
+        }
+        suppressesEnglishCompletions = false
+        guard isComposing else { return setMode(previousJapaneseMode) }
+        let edits = commitRawAndClear()
+        mode = previousJapaneseMode
+        hostEpoch += 1
+        return edits
     }
 
     func toggleKana() -> [KeyboardEdit] {
@@ -657,7 +714,7 @@ final class KeyboardSession: KeyboardInputSession {
         undoableCommit = nil
         candidateRequestStartedAt = nil
         candidateInitialRequestStartedAt = nil
-        if !preservingContext { hostEpoch += 1; finishLearningFeedback() }
+        if !preservingContext { hostEpoch += 1; suppressesEnglishCompletions = false; finishLearningFeedback() }
         candidateListGeneration += 1
         clearSuggestions()
         revision += 1
@@ -834,7 +891,7 @@ final class KeyboardSession: KeyboardInputSession {
     /// range-limited conversion converts only part of the reading, so it
     /// gets none. The lookup takes well under a millisecond.
     private func addingPinyinLookup(to values: [CandidateSnapshot], revision: Int) -> [CandidateSnapshot] {
-        guard pinyinLookupEnabled, mode != .english, conversionLength == nil, isComposing,
+        guard pinyinLookupEnabled, conversionLength == nil, isComposing,
               let pinyinLookup else { return values }
         return PinyinLookupCandidates.merge(values, composing: composing, revision: revision, lookup: pinyinLookup,
                                             pinyinContext: pinyinLettersLatched)
@@ -862,15 +919,15 @@ final class KeyboardSession: KeyboardInputSession {
             engine?.reconcileContext(leftContext)
             if isComposing { candidateRequestCount += 1 }
             candidateSnapshots = engine?.candidates(for: boundary ? PreeditPresentation.finalized(composing) : composing,
-                katakana: mode == .katakana, revision: revision, conversionLength: conversionLength) ?? []
+                katakana: compositionMode == .katakana, revision: revision, conversionLength: conversionLength) ?? []
             if expandedCandidates {
                 candidateSnapshots = engine?.addingWidthCandidates(to: candidateSnapshots,
                     for: boundary ? PreeditPresentation.finalized(composing) : composing,
-                    katakana: mode == .katakana, revision: revision, conversionLength: conversionLength) ?? candidateSnapshots
+                    katakana: compositionMode == .katakana, revision: revision, conversionLength: conversionLength) ?? candidateSnapshots
             }
             if expandedCandidates && conversionLength == nil {
                 candidateSnapshots = engine?.addingPrefixCandidates(to: candidateSnapshots, for: composing,
-                    katakana: mode == .katakana, revision: revision) ?? candidateSnapshots
+                    katakana: compositionMode == .katakana, revision: revision) ?? candidateSnapshots
             }
             // Live order first: a looked-up word placed ahead of it then
             // shows letters, which turns live conversion off.
@@ -896,7 +953,7 @@ final class KeyboardSession: KeyboardInputSession {
         // engine's own first choice is what it should keep stable.
         let continuity = candidateSnapshots.first(where: { $0.source != .pinyinLookup }).map { CandidateContinuity(surface: $0.text, reading: $0.reading, input: lastPublishedInput) }
         worker.candidates(for: boundary ? PreeditPresentation.finalized(composing) : composing,
-                          katakana: mode == .katakana, revision: requestedRevision, leftContext: leftContext, continuity: continuity,
+                          katakana: compositionMode == .katakana, revision: requestedRevision, leftContext: leftContext, continuity: continuity,
                           ranking: candidateRanking, conversionLength: conversionLength, expanded: expandedCandidates) { [weak self] values, resultReadyAt, supplementary in
             if let self, self.revision == requestedRevision { self.lastPublishedInput = requestedInput }
             self?.acceptCandidateUpdate(values, revision: requestedRevision, readyAt: resultReadyAt, supplementary: supplementary)

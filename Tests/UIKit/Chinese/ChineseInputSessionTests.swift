@@ -499,18 +499,71 @@ final class ChineseInputSessionTests: XCTestCase {
         XCTAssertEqual(session.hostEpoch, epoch + 1)
     }
 
-    func testEnglishConfirmsAndTypesLetters() throws {
+    func testEnglishPreservesCandidatesAndCommitsLettersOnTypingOrToggleBack() throws {
         let session = try session()
+        // 1. Toggle to English keeps candidates; typing commits raw pinyin + letter and suppresses completions.
         _ = session.type("zhongwen")
-        let epoch = session.hostEpoch
-        XCTAssertEqual(session.toggleEnglish(), [.insert("中文")])
+        waitUntilCurrent(session)
+        XCTAssertFalse(session.candidatePresentations.isEmpty)
+        XCTAssertEqual(session.toggleEnglish(), [])
         XCTAssertEqual(session.inputTraits.language, .english)
-        XCTAssertGreaterThan(session.hostEpoch, epoch)
-        XCTAssertEqual(session.type("A"), [.insert("A")])
+        XCTAssertTrue(session.isComposing)
+        XCTAssertFalse(session.candidatePresentations.isEmpty)
         XCTAssertEqual(session.inputTraits.comma, ",")
+        XCTAssertEqual(session.type("A"), [.insert("zhongwen"), .insert("A")])
+        XCTAssertFalse(session.isComposing)
+        XCTAssertTrue(session.candidatePresentations.isEmpty)
+        XCTAssertTrue(session.suppressesEnglishCompletions)
+        XCTAssertEqual(session.type("b"), [.insert("b")])
+        XCTAssertTrue(session.suppressesEnglishCompletions)
+        XCTAssertEqual(session.space(), [.insert(" ")])
+        XCTAssertFalse(session.suppressesEnglishCompletions)
         XCTAssertEqual(session.toggleEnglish(), [])
         XCTAssertEqual(session.inputTraits.language, .chinese)
         XCTAssertEqual(session.inputTraits.comma, "，")
+
+        // 2. Backspace keeps Chinese candidates; Space commits the first candidate.
+        var commits: [String] = []
+        session.onCommittedEdits = { batch in
+            for case .insert(let text) in batch.edits { commits.append(text) }
+        }
+        _ = session.type("zhongwen")
+        waitUntilCurrent(session)
+        XCTAssertEqual(session.toggleEnglish(), [])
+        XCTAssertEqual(session.backspace(), [])
+        waitUntilCurrent(session)
+        XCTAssertTrue(session.isComposing)
+        XCTAssertEqual(session.raw, "zhongwe")
+        XCTAssertFalse(session.candidatePresentations.isEmpty)
+        let lead = try XCTUnwrap(session.candidatePresentations.first?.text)
+        let immediate = session.space()
+        waitUntilCurrent(session)
+        let spaceCommitted = immediate.compactMap { if case .insert(let t) = $0 { return t }; return nil } + commits
+        XCTAssertEqual(spaceCommitted.joined(), lead)
+        XCTAssertFalse(session.isComposing)
+        XCTAssertEqual(session.inputTraits.language, .english)
+
+        // 3. Return commits directly while candidates are kept in English.
+        commits = []
+        XCTAssertEqual(session.toggleEnglish(), [])
+        _ = session.type("nihao")
+        waitUntilCurrent(session)
+        XCTAssertEqual(session.toggleEnglish(), [])
+        _ = session.enter()
+        waitUntilCurrent(session)
+        XCTAssertEqual(commits.joined(), "nihao")
+        XCTAssertFalse(session.isComposing)
+
+        // 4. Toggling back to Chinese while composing commits raw letters with no candidates left.
+        XCTAssertEqual(session.toggleEnglish(), [])
+        _ = session.type("nihao")
+        waitUntilCurrent(session)
+        XCTAssertEqual(session.toggleEnglish(), [])
+        XCTAssertTrue(session.isComposing)
+        XCTAssertEqual(session.toggleEnglish(), [.insert("nihao")])
+        XCTAssertEqual(session.inputTraits.language, .chinese)
+        XCTAssertFalse(session.isComposing)
+        XCTAssertTrue(session.candidatePresentations.isEmpty)
     }
 
     func testExpandedPanelGetsALongerList() throws {

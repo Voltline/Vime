@@ -158,7 +158,8 @@ final class ChineseInputSession: KeyboardInputSession {
             primaryVariantAccessibilityLabel: String(localized: "切换简体和繁体"), compositionInputSymbols: ["'"],
             comma: english ? "," : "，", period: english ? "." : "。")
     }
-    var isComposing: Bool { !english && (state.isComposing || !echo.isEmpty) }
+    var isComposing: Bool { state.isComposing || !echo.isEmpty }
+    private(set) var suppressesEnglishCompletions = false
     var composition: String { markedText?.text ?? "" }
     var raw: String { isComposing ? state.input + echo : "" }
     /// Rime separates syllables with a space; a full space reads as a gap
@@ -181,9 +182,22 @@ final class ChineseInputSession: KeyboardInputSession {
 
     // MARK: Commands
 
+    private static func isEnglishWordText(_ text: String) -> Bool {
+        !text.isEmpty && text.allSatisfy { $0.isLetter || $0.isNumber || $0 == "'" }
+    }
+
     func type(_ text: String) -> [KeyboardEdit] {
         clearSuggestions()
-        if english { commitIsForgettable = false; return settle() + [.insert(text)] }
+        if english {
+            commitIsForgettable = false
+            if isComposing {
+                let edits = commitTyped()
+                suppressesEnglishCompletions = Self.isEnglishWordText(text)
+                return edits + [.insert(text)]
+            }
+            if !Self.isEnglishWordText(text) { suppressesEnglishCompletions = false }
+            return settle() + [.insert(text)]
+        }
         // A capital composes too, never as pinyin: it stays as typed (ChineseMixedInput).
         let pinyin = text.unicodeScalars.allSatisfy {
             ("a"..."z").contains($0) || ("A"..."Z").contains($0) || ($0 == "'" && isComposing)
@@ -219,6 +233,7 @@ final class ChineseInputSession: KeyboardInputSession {
             return []
         }
         commitIsForgettable = false
+        suppressesEnglishCompletions = false
         return settle() + [.insert(" ")]
     }
 
@@ -228,6 +243,7 @@ final class ChineseInputSession: KeyboardInputSession {
         if isComposing, hasCapitals { return commitTyped() }
         if isComposing { enqueue(.commitInput); return [] }
         commitIsForgettable = false
+        suppressesEnglishCompletions = false
         return settle() + [.returnKey]
     }
 
@@ -243,6 +259,7 @@ final class ChineseInputSession: KeyboardInputSession {
         let edits = confirmAll()
         clearSuggestions()
         commitIsForgettable = false
+        suppressesEnglishCompletions = false
         return edits + [.insert(text)]
     }
 
@@ -298,15 +315,24 @@ final class ChineseInputSession: KeyboardInputSession {
         let edits = confirmAll()
         clearSuggestions()
         english = true
+        suppressesEnglishCompletions = false
         hostEpoch += 1
         return edits
     }
 
     func toggleEnglish() -> [KeyboardEdit] {
-        guard english else { return activateEnglish() }
+        if !english {
+            clearSuggestions()
+            english = true
+            suppressesEnglishCompletions = false
+            if !isComposing { hostEpoch += 1 }
+            return []
+        }
         english = false
+        suppressesEnglishCompletions = false
+        let edits = isComposing ? commitTyped() : []
         hostEpoch += 1
-        return []
+        return edits
     }
 
     /// The 简/繁 button, where Japanese has the kana toggle.
@@ -386,7 +412,7 @@ final class ChineseInputSession: KeyboardInputSession {
     }
 
     func reset(preservingContext: Bool) {
-        if !preservingContext { hostEpoch += 1 }
+        if !preservingContext { hostEpoch += 1; suppressesEnglishCompletions = false }
         era += 1
         echo = ""
         spaceWaits = false

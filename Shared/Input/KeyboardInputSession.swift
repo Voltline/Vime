@@ -63,6 +63,7 @@ protocol KeyboardInputSession: AnyObject {
     func resetConversionRange()
     func setExpandedCandidates(_ enabled: Bool)
     var inputTraits: KeyboardInputTraits { get }
+    var suppressesEnglishCompletions: Bool { get }
     var hostEpoch: Int { get }
     var isComposing: Bool { get }
     var composition: String { get }
@@ -169,6 +170,7 @@ extension KeyboardInputSession {
     var correctedLeadingSyllables: Set<String> { [] }
     func chooseLeadingSyllable(_ syllable: String) -> [KeyboardEdit] { [] }
     var raw: String { "" }
+    var suppressesEnglishCompletions: Bool { false }
     func prepareForInput() {}
     func setCandidatePresentationPreparation(_ prepare: @escaping @Sendable (CandidatePresentation, Bool) -> Void) {}
     var candidateInitialRequestStartedAt: TimeInterval? { nil }
