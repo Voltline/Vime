@@ -22,9 +22,68 @@ final class KeyboardPreeditTests: XCTestCase {
         _ = session.toggleKana(); XCTAssertEqual(session.preedit, "カナ")
         _ = session.toggleKana(); XCTAssertEqual(session.preedit, "かな")
         _ = session.backspace(); XCTAssertEqual(session.preedit, "か")
-        XCTAssertEqual(session.toggleEnglish(), [.insert("か")])
+        XCTAssertEqual(session.toggleEnglish(), [])
+        XCTAssertEqual(session.preedit, "か")
+        XCTAssertEqual(session.type("Hello"), [.insert("ka"), .insert("Hello")])
         XCTAssertNil(session.preedit)
-        XCTAssertEqual(session.type("Hello"), [.insert("Hello")])
+        XCTAssertTrue(session.suppressesEnglishCompletions)
+    }
+
+    func testToggleEnglishPreservesCandidatesAndCommitsRawOnTypingOrToggleBack() {
+        let session = KeyboardSession(asynchronousCandidates: false, memoryDirectoryURL: isolatedLearningDirectory())
+        // 1. Toggle to English keeps candidates; typing commits raw romaji + new letter and suppresses English completions.
+        _ = session.type("nihon")
+        XCTAssertEqual(session.preedit, "にほn")
+        XCTAssertFalse(session.candidatePresentations.isEmpty)
+        XCTAssertEqual(session.toggleEnglish(), [])
+        XCTAssertEqual(session.inputTraits.language, .english)
+        XCTAssertTrue(session.isComposing)
+        XCTAssertFalse(session.candidatePresentations.isEmpty)
+        XCTAssertEqual(session.type("a"), [.insert("nihon"), .insert("a")])
+        XCTAssertFalse(session.isComposing)
+        XCTAssertTrue(session.candidatePresentations.isEmpty)
+        XCTAssertTrue(session.suppressesEnglishCompletions)
+        XCTAssertEqual(session.type("b"), [.insert("b")])
+        XCTAssertTrue(session.suppressesEnglishCompletions)
+        XCTAssertEqual(session.space(), [.insert(" ")])
+        XCTAssertFalse(session.suppressesEnglishCompletions)
+
+        // 2. Backspace while in English keeps Japanese composing & candidates; Space commits first candidate.
+        _ = session.toggleEnglish()
+        _ = session.type("nihon")
+        let firstBefore = session.candidatePresentations.first?.text
+        XCTAssertNotNil(firstBefore)
+        XCTAssertEqual(session.toggleEnglish(), [])
+        XCTAssertEqual(session.backspace(), [])
+        XCTAssertEqual(session.preedit, "にほ")
+        XCTAssertFalse(session.candidatePresentations.isEmpty)
+        let firstAfterBackspace = try! XCTUnwrap(session.candidatePresentations.first?.text)
+        XCTAssertEqual(session.space(), [.insert(firstAfterBackspace)])
+        XCTAssertFalse(session.isComposing)
+        XCTAssertEqual(session.inputTraits.language, .english)
+
+        // 3. Return commits directly while candidates are kept in English.
+        _ = session.toggleEnglish()
+        _ = session.type("kana")
+        XCTAssertEqual(session.toggleEnglish(), [])
+        XCTAssertEqual(session.enter(), [.insert("かな")])
+        XCTAssertFalse(session.isComposing)
+
+        // 4. Toggling back to Japanese while still composing commits raw romaji with no candidates left.
+        _ = session.toggleEnglish()
+        _ = session.type("tokyo")
+        XCTAssertEqual(session.toggleEnglish(), [])
+        XCTAssertTrue(session.isComposing)
+        XCTAssertEqual(session.toggleEnglish(), [.insert("tokyo")])
+        XCTAssertEqual(session.inputTraits.language, .japanese)
+        XCTAssertFalse(session.isComposing)
+        XCTAssertTrue(session.candidatePresentations.isEmpty)
+
+        // 5. Direct kana input (flick/9-key) followed by English typing commits the kana + letter.
+        _ = session.type("こん")
+        XCTAssertEqual(session.toggleEnglish(), [])
+        XCTAssertEqual(session.type("a"), [.insert("こん"), .insert("a")])
+        XCTAssertTrue(session.suppressesEnglishCompletions)
     }
 
     func testDoubleNBatchInsertionAndKanaDeletion() {
