@@ -18,3 +18,12 @@ $(SRCROOT)/Shared/Resources/TinyChineseKVBatchV4FP32KVINT8.mlmodelc/metadata.jso
 $(SRCROOT)/Shared/Resources/TinyChineseKVBatchV4FP32KVINT8.mlmodelc/model.mil
 $(SRCROOT)/Shared/Resources/TinyChineseKVBatchV4FP32KVINT8.mlmodelc/weights
 $(SRCROOT)/Shared/Resources/TinyChineseKVBatchV4FP32KVINT8.mlmodelc/weights/weight.bin
+$(SRCROOT)/Shared/Resources/VimeLMManifestZhV2KVBatchV4-fp32kv.json
+$(SRCROOT)/Shared/Resources/TinyChineseV2KVBatchV4FP32KVINT8.mlmodelc
+$(SRCROOT)/Shared/Resources/TinyChineseV2KVBatchV4FP32KVINT8.mlmodelc/analytics
+$(SRCROOT)/Shared/Resources/TinyChineseV2KVBatchV4FP32KVINT8.mlmodelc/analytics/coremldata.bin
+$(SRCROOT)/Shared/Resources/TinyChineseV2KVBatchV4FP32KVINT8.mlmodelc/coremldata.bin
+$(SRCROOT)/Shared/Resources/TinyChineseV2KVBatchV4FP32KVINT8.mlmodelc/metadata.json
+$(SRCROOT)/Shared/Resources/TinyChineseV2KVBatchV4FP32KVINT8.mlmodelc/model.mil
+$(SRCROOT)/Shared/Resources/TinyChineseV2KVBatchV4FP32KVINT8.mlmodelc/weights
+$(SRCROOT)/Shared/Resources/TinyChineseV2KVBatchV4FP32KVINT8.mlmodelc/weights/weight.bin

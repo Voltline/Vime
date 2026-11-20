@@ -59,6 +59,25 @@ nonisolated final class VimeKVBatchLanguageModel {
 
     enum Function: String, CaseIterable { case logits, scored, score, prefix }
 
+    enum Variant: String, CaseIterable, Sendable {
+        case v1
+        case v2
+
+        var manifestResource: String {
+            switch self {
+            case .v1: "VimeLMManifestZhKVBatchV4-fp32kv"
+            case .v2: "VimeLMManifestZhV2KVBatchV4-fp32kv"
+            }
+        }
+
+        var releaseName: String {
+            switch self {
+            case .v1: "vimeml-tiny-zh-v1"
+            case .v2: "vimeml-zh-v2-20m"
+            }
+        }
+    }
+
     /// Keys and values shared by every row of a call, (9, 1, 6, P, 64) each,
     /// of which the first `length` slots are real.
     struct Prefix {
@@ -68,7 +87,7 @@ nonisolated final class VimeKVBatchLanguageModel {
         var capacity: Int { keys.shape[3].intValue }
     }
 
-    static let manifestResource = "VimeLMManifestZhKVBatchV4-fp32kv"
+    static let manifestResource = Variant.v1.manifestResource
     static let manifestFormat = "vime_ios_lm_zh_kv_batch_v4"
     /// Most allowed ids in one call.
     static let maximumAllowed = 1024
@@ -147,8 +166,8 @@ nonisolated final class VimeKVBatchLanguageModel {
     /// The functions loaded so far.
     var loadedFunctions: Set<Function> { Set(models.keys) }
 
-    init(bundle: Bundle = .main, computeUnits: MLComputeUnits = .cpuOnly) throws {
-        guard let manifestURL = bundle.url(forResource: Self.manifestResource, withExtension: "json")
+    init(bundle: Bundle = .main, variant: Variant = .v1, computeUnits: MLComputeUnits = .cpuOnly) throws {
+        guard let manifestURL = bundle.url(forResource: variant.manifestResource, withExtension: "json")
         else { throw VimeLanguageModel.Failure.resources }
         let manifest = try JSONDecoder().decode(Manifest.self, from: Data(contentsOf: manifestURL))
         let batch = manifest.kv_batch_v4
@@ -167,7 +186,7 @@ nonisolated final class VimeKVBatchLanguageModel {
         guard let modelURL = bundle.url(forResource: name, withExtension: "mlmodelc")
         else { throw VimeLanguageModel.Failure.resources }
         self.modelURL = modelURL
-        modelVersion = "vimeml-tiny-zh-v1-kvbatch-v4-" + batch.variant.name
+        modelVersion = "\(variant.releaseName)-kvbatch-v4-" + batch.variant.name
         self.computeUnits = computeUnits
         maximumBatch = scoreRange[1]
         tolerance = batch.alignment_tolerance
@@ -446,6 +465,26 @@ nonisolated final class VimeKVBatchLanguageModel {
         }
     }
 
+    /// Runs `tokens` after a shared `base` prefix (built via `prefix(_:)`):
+    /// returns the log probabilities of `allowed` after `base + tokens`, and
+    /// sets the combined KV as the active prefix for subsequent `scores` steps.
+    func prompt(_ tokens: [Int32], after base: Prefix, allowed: [Int32]) throws -> (logProbabilities: [Float], cache: Cache) {
+        guard base.length > 0 else { return try prompt(tokens, allowed: allowed) }
+        guard !tokens.isEmpty, base.length + tokens.count <= Self.contextLength,
+              tokens.allSatisfy({ $0 >= 0 && Int($0) < vocabularySize })
+        else { throw VimeLanguageModel.Failure.tensor }
+        try checked(allowed)
+        return try autoreleasepool {
+            let output = try promptCall(tokens, allowed: allowed, after: base)
+            let total = base.length + tokens.count
+            let fullKeys = try Self.joined(base.keys, base.length, output.newKeys)
+            let fullValues = try Self.joined(base.values, base.length, output.newValues)
+            let cache = Cache(parent: nil, start: 0, count: total, rows: [])
+            current = (cache.id, Prefix(length: total, keys: fullKeys, values: fullValues))
+            return (output.logProbabilities, cache)
+        }
+    }
+
     /// `tokens` after `base` (nothing by default) through the head-free `prefix`
     /// function: returns only their keys and values, (9, 1, 6, T, 64) each.
     private func prefixCall(_ tokens: [Int32], after base: Prefix? = nil) throws
@@ -529,6 +568,7 @@ nonisolated final class VimeKVBatchLanguageModel {
     private func prefix(for root: Cache?) throws -> Prefix {
         guard let root else { return try empty() }
         if let current, current.root == root.id { return current.prefix }
+        guard root.rows.count == 2 * Self.rowFloats * root.count else { throw VimeLanguageModel.Failure.tensor }
         let shape = [Self.layers, 1, Self.heads, root.count, Self.headDimension].map { NSNumber(value: $0) }
         let keys = try VimeKVLanguageModel.zeroed(shape), values = try VimeKVLanguageModel.zeroed(shape)
         for (array, half) in [(keys, 0), (values, Self.rowFloats)] {

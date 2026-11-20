@@ -754,6 +754,10 @@ final class ChineseInputSession: KeyboardInputSession {
         KeyboardPerformance.record(.chineseRankingWait, since: rankingStartedAt)
         rankingStartedAt = nil
         let elapsed = ProcessInfo.processInfo.systemUptime - round.startedAt
+        if scores != nil, JapaneseCandidateWorker.LanguageModelStorage.shared.chineseModelVersion == .v2,
+           ChineseModelFallback.shared.recordKeyLatency(milliseconds: elapsed * 1000) {
+            ChineseCandidateRanking.release()
+        }
         let weighed = round.slots.sentences.count
         if round.missedWindow, !goesLate {
             weighedSentences = max(ChineseCandidateRanking.fewestSentences, weighedSentences / 2)

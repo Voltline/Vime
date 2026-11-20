@@ -41,15 +41,20 @@ extension ChineseGenerationModel {
     }
 }
 
-/// The zh-v1 batched KV package (kvbatch-v3) for the incremental search:
-/// the prompt in one call, each bucket in calls of up to `maximumBatch` rows
-/// scoring only the tokens allowed there. It returns no full logits, so the
-/// root is scored per first letter (`scoresEveryToken` is false).
+/// The zh-v1/v2 batched KV package (kvbatch-v4) for constrained search:
+/// the prompt in one call (or a shared context prefix via `prefix` extended by
+/// the key suffix), each bucket in calls of up to `maximumBatch` rows scoring
+/// only the tokens allowed there. It returns no full logits, so the root is
+/// scored per allowed set (`scoresEveryToken` is false).
 nonisolated final class ChineseKVGenerator: ChineseScoringModel {
     typealias State = VimeKVLanguageModel.Cache
     let batch: VimeKVBatchLanguageModel
     var scoresEveryToken: Bool { false }
     init(batch: VimeKVBatchLanguageModel) { self.batch = batch }
+
+    func prefix(_ ids: [Int32]) throws -> VimeKVBatchLanguageModel.Prefix {
+        try batch.prefix(ids)
+    }
 
     func start(_ ids: [Int32], allowed: [Int32]?) throws -> (logProbabilities: [Float], state: State) {
         guard let allowed else { throw VimeLanguageModel.Failure.tensor }
@@ -57,19 +62,60 @@ nonisolated final class ChineseKVGenerator: ChineseScoringModel {
         let step = try batch.prompt(ids, allowed: allowed.isEmpty ? [0] : allowed)
         return (allowed.isEmpty ? [] : step.logProbabilities, step.cache)
     }
+
+    func start(_ ids: [Int32], after base: VimeKVBatchLanguageModel.Prefix, allowed: [Int32]) throws
+        -> (logProbabilities: [Float], state: State) {
+        if allowed.isEmpty {
+            let step = try batch.prompt(ids, after: base, allowed: [0])
+            return ([], step.cache)
+        }
+        if allowed.count <= VimeKVBatchLanguageModel.maximumAllowed {
+            let step = try batch.prompt(ids, after: base, allowed: allowed)
+            return (step.logProbabilities, step.cache)
+        }
+        var combined: [Float] = []
+        combined.reserveCapacity(allowed.count)
+        var state: State?
+        var offset = 0
+        while offset < allowed.count {
+            let end = min(allowed.count, offset + VimeKVBatchLanguageModel.maximumAllowed)
+            let step = try batch.prompt(ids, after: base, allowed: Array(allowed[offset..<end]))
+            combined.append(contentsOf: step.logProbabilities)
+            if state == nil { state = step.cache }
+            offset = end
+        }
+        return (combined, state!)
+    }
+
     func extend(_ items: [(state: State, token: Int32)], allowed: [Int32]) throws
         -> [(logProbabilities: [Float], state: State)] {
-        var results: [(logProbabilities: [Float], state: State)] = []
-        results.reserveCapacity(items.count)
-        var start = 0
-        while start < items.count {
-            let chunk = items[start..<min(items.count, start + batch.maximumBatch)]
-            results += try batch.scores(chunk.map { (cache: Optional($0.state), token: $0.token) },
-                                        allowed: allowed.isEmpty ? [0] : allowed)
-                .map { (allowed.isEmpty ? [] : $0.logProbabilities, $0.cache) }
-            start += chunk.count
+        if allowed.count <= VimeKVBatchLanguageModel.maximumAllowed {
+            var results: [(logProbabilities: [Float], state: State)] = []
+            results.reserveCapacity(items.count)
+            var start = 0
+            while start < items.count {
+                let chunk = items[start..<min(items.count, start + batch.maximumBatch)]
+                results += try batch.scores(chunk.map { (cache: Optional($0.state), token: $0.token) },
+                                            allowed: allowed.isEmpty ? [0] : allowed)
+                    .map { (allowed.isEmpty ? [] : $0.logProbabilities, $0.cache) }
+                start += chunk.count
+            }
+            return results
         }
-        return results
+        var scores = [[Float]](repeating: [], count: items.count)
+        for i in scores.indices { scores[i].reserveCapacity(allowed.count) }
+        var states: [State?] = Array(repeating: nil, count: items.count)
+        var offset = 0
+        while offset < allowed.count {
+            let end = min(allowed.count, offset + VimeKVBatchLanguageModel.maximumAllowed)
+            let part = try extend(items, allowed: Array(allowed[offset..<end]))
+            for (index, step) in part.enumerated() {
+                scores[index].append(contentsOf: step.logProbabilities)
+                if states[index] == nil { states[index] = step.state }
+            }
+            offset = end
+        }
+        return zip(scores, states).map { ($0, $1!) }
     }
 }
 
@@ -180,17 +226,31 @@ nonisolated enum ChineseConstrainedGeneration {
     /// task: [BOS, CTX] + context + [READ] + keys + [OUT]; lm: [BOS] + context.
     /// The context must encode and decode back exactly, without markers.
     static func prompt(_ mode: Mode, context: String, keys: String, tokenizer: VimeSentenceTokenizer) throws -> [Int32] {
-        func encode(_ text: String) throws -> [Int32] {
-            guard !text.isEmpty else { return [] }
-            let ids = try tokenizer.encode(text)
-            guard try tokenizer.decode(ids).utf8.elementsEqual(text.utf8),
-                  !ids.contains(where: { (bos...outputMarker).contains($0) }) else { throw Failure.prompt }
-            return ids
-        }
         switch mode {
-        case .task: return [bos, contextMarker] + (try encode(context)) + [readingMarker] + (try encode(keys)) + [outputMarker]
-        case .lm: return [bos] + (try encode(context))
+        case .task:
+            let parts = try taskPromptParts(context: context, keys: keys, tokenizer: tokenizer)
+            return parts.contextPrefix + parts.keySuffix
+        case .lm:
+            return [bos] + (try encodePromptText(context, tokenizer: tokenizer))
         }
+    }
+
+    /// Splits the task prompt into the key-independent context prefix
+    /// (`[BOS, CTX] + encode(context)`) and the per-keystroke suffix
+    /// (`[READ] + encode(keys) + [OUT]`).
+    static func taskPromptParts(context: String, keys: String, tokenizer: VimeSentenceTokenizer) throws
+        -> (contextPrefix: [Int32], keySuffix: [Int32]) {
+        let contextIDs = try encodePromptText(context, tokenizer: tokenizer)
+        let keyIDs = try encodePromptText(keys, tokenizer: tokenizer)
+        return ([bos, contextMarker] + contextIDs, [readingMarker] + keyIDs + [outputMarker])
+    }
+
+    private static func encodePromptText(_ text: String, tokenizer: VimeSentenceTokenizer) throws -> [Int32] {
+        guard !text.isEmpty else { return [] }
+        let ids = try tokenizer.encode(text)
+        guard try tokenizer.decode(ids).utf8.elementsEqual(text.utf8),
+              !ids.contains(where: { (bos...outputMarker).contains($0) }) else { throw Failure.prompt }
+        return ids
     }
 
     /// Which letter positions can still be spelled through to the end:
@@ -394,6 +454,129 @@ nonisolated enum ChineseConstrainedGeneration {
         return finished.values.sorted {
             $0.score != $1.score ? $0.score > $1.score : $0.tokens.lexicographicallyPrecedes($1.tokens)
         }.prefix(parameters.count).map { $0 }
+    }
+
+    struct TaskSearchStats: Sendable {
+        var calls = 0
+        var rows = 0
+        var prefixSeconds = 0.0
+        var modelSeconds = 0.0
+        var settleSeconds = 0.0
+    }
+
+    /// Batched task-mode beam search on `ChineseKVGenerator`:
+    /// builds `[BOS, CTX] + context` once through `prefix` (reused across
+    /// keystrokes), extends it with `[READ] + keys + [OUT]`, runs one batched
+    /// `scored` call per reachable key bucket scoring only the tokens allowed
+    /// there, and finishes with one batched EOS (`3`) step at `keys.count`.
+    static func generateTask(
+        model: ChineseKVGenerator, vocabulary: Vocabulary, lexicon: ChinesePinyinLexicon, keys: ChinesePinyinKeys,
+        contextPrefix: [Int32], keySuffix: [Int32], parameters: Parameters = Parameters(),
+        cancelled: () -> Bool = { false }
+    ) throws -> (results: [Result], stats: TaskSearchStats) {
+        var stats = TaskSearchStats()
+        guard parameters.beam > 0, parameters.count > 0 else { return ([], stats) }
+        let promptCount = contextPrefix.count + keySuffix.count
+        guard !contextPrefix.isEmpty, !keySuffix.isEmpty, promptCount < parameters.maximumLength else { throw Failure.prompt }
+        let spelling = Spelling(keys: keys, lexicon: lexicon, vocabulary: vocabulary)
+        guard spelling.reachable[0] else { throw Failure.unreachable }
+        func check() throws { if cancelled() { throw Failure.cancelled } }
+
+        let n = keys.count
+        let room = parameters.maximumLength - promptCount
+        let steps0 = spelling.steps(from: 0)
+        let allowed0 = uniqueSortedTokens(steps0)
+        guard !allowed0.isEmpty else { return ([], stats) }
+
+        try check()
+        let prefixStarted = ProcessInfo.processInfo.systemUptime
+        let basePrefix = try model.prefix(contextPrefix)
+        stats.prefixSeconds = ProcessInfo.processInfo.systemUptime - prefixStarted
+
+        try check()
+        let rootStarted = ProcessInfo.processInfo.systemUptime
+        let root = try model.start(keySuffix, after: basePrefix, allowed: allowed0)
+        stats.modelSeconds += ProcessInfo.processInfo.systemUptime - rootStarted
+        stats.calls += 1
+        stats.rows += 1
+
+        var buckets = [Bucket<ChineseKVGenerator.State>](repeating: Bucket(beam: parameters.beam), count: n + 1)
+        if 1 < room {
+            let settleStarted = ProcessInfo.processInfo.systemUptime
+            let index0 = tokenIndex(allowed0)
+            for next in steps0 {
+                let score = Double(root.logProbabilities[index0[next.token]!])
+                guard score.isFinite else { continue }
+                buckets[next.end].add([], next.token, score: score, state: root.state)
+            }
+            stats.settleSeconds += ProcessInfo.processInfo.systemUptime - settleStarted
+        }
+
+        var finished: [String: Result] = [:]
+        for position in 1...n where !buckets[position].isEmpty {
+            let kept = buckets[position].best()
+            buckets[position] = Bucket(beam: parameters.beam)
+            try check()
+            if position == n {
+                let started = ProcessInfo.processInfo.systemUptime
+                let eosSteps = try model.extend(kept.map { ($0.state!, $0.tokens.last!) }, allowed: [eos])
+                stats.modelSeconds += ProcessInfo.processInfo.systemUptime - started
+                stats.calls += 1
+                stats.rows += kept.count
+                let settleStarted = ProcessInfo.processInfo.systemUptime
+                for (hypothesis, step) in zip(kept, eosSteps) {
+                    let score = hypothesis.score + Double(step.logProbabilities[0])
+                    guard score.isFinite else { continue }
+                    let text = String(String.UnicodeScalarView(hypothesis.tokens.flatMap { vocabulary.characters[Int($0)] }))
+                    if let known = finished[text], known.score >= score { continue }
+                    finished[text] = Result(text: text, tokens: hypothesis.tokens, score: score)
+                }
+                stats.settleSeconds += ProcessInfo.processInfo.systemUptime - settleStarted
+                break
+            }
+            let steps = spelling.steps(from: position)
+            let runnable = kept.filter { $0.tokens.count + 1 < room }
+            guard !runnable.isEmpty, !steps.isEmpty else { continue }
+            let allowed = uniqueSortedTokens(steps)
+            let started = ProcessInfo.processInfo.systemUptime
+            let batchSteps = try model.extend(runnable.map { ($0.state!, $0.tokens.last!) }, allowed: allowed)
+            stats.modelSeconds += ProcessInfo.processInfo.systemUptime - started
+            stats.calls += 1
+            stats.rows += runnable.count
+            let settleStarted = ProcessInfo.processInfo.systemUptime
+            let index = tokenIndex(allowed)
+            for (hypothesis, step) in zip(runnable, batchSteps) {
+                for next in steps {
+                    let score = hypothesis.score + Double(step.logProbabilities[index[next.token]!])
+                    guard score.isFinite else { continue }
+                    buckets[next.end].add(hypothesis.tokens, next.token, score: score, state: step.state)
+                }
+            }
+            stats.settleSeconds += ProcessInfo.processInfo.systemUptime - settleStarted
+        }
+
+        let results = finished.values.sorted {
+            $0.score != $1.score ? $0.score > $1.score : $0.tokens.lexicographicallyPrecedes($1.tokens)
+        }.prefix(parameters.count).map { $0 }
+        return (results, stats)
+    }
+
+    private static func uniqueSortedTokens(_ steps: [(token: Int32, end: Int)]) -> [Int32] {
+        var result: [Int32] = []
+        result.reserveCapacity(steps.count)
+        var last: Int32 = -1
+        for step in steps where step.token != last {
+            result.append(step.token)
+            last = step.token
+        }
+        return result
+    }
+
+    private static func tokenIndex(_ allowed: [Int32]) -> [Int32: Int] {
+        var map: [Int32: Int] = [:]
+        map.reserveCapacity(allowed.count)
+        for (idx, id) in allowed.enumerated() { map[id] = idx }
+        return map
     }
 
     /// log Σ exp(logits) in single precision, for the incremental search;
