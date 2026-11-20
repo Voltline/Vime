@@ -73,28 +73,34 @@ def validate_v42(resources):
 
 
 def validate_zh_v1(resources):
-    """The Chinese keyboard's model: zh-v1 as the kvbatch-v3 package (logits, scored
-    and score in one package, up to 16 rows, a prefix shared by every row) and its
-    tokenizer; reranking, sentence correction and generation. Keyboard extension only."""
-    manifest = json.loads((resources / "VimeLMManifestZhV1KVBatchV3.json").read_text())
-    v3 = manifest["kv_batch_v3"]
-    if (manifest["format"] != "vime_ios_lm_zh_v1_kv_batch_v3"
-            or not manifest["release_name"]
-            or v3["resource"] != "TinyChineseV1KVBatchV3INT8.mlmodelc"
-            or set(v3["functions"]) != {"logits", "scored", "score"}
-            or v3["batch_range"] != [1, 16] or v3["compute_units"] != "CPU_ONLY"
-            or not {"atol", "rtol"} <= set(v3["alignment_tolerance"])):
-        raise ValueError("zh-v1 kvbatch-v3 manifest identity is invalid")
+    """The Chinese keyboard's model: zh-v1 as the kvbatch-v4 fp32kv package (logits,
+    scored, score and prefix in one package, up to 16 rows, a shared prefix built
+    without the output head) and its tokenizer; reranking, sentence correction and
+    generation. Keyboard extension only."""
+    manifest = json.loads((resources / "VimeLMManifestZhKVBatchV4-fp32kv.json").read_text())
+    v4 = manifest["kv_batch_v4"]
+    variant = v4.get("variant", {})
+    functions = v4.get("functions", {})
+    if (manifest["format"] != "vime_ios_lm_zh_kv_batch_v4"
+            or v4["resource"] != "TinyChineseKVBatchV4FP32KVINT8.mlmodelc"
+            or variant.get("name") != "fp32kv"
+            or variant.get("kv") != "fp32" or variant.get("compute") != "fp32"
+            or set(functions) != {"logits", "scored", "score", "prefix"}
+            or any(functions[fn].get("batch_range") != [1, 16] for fn in ("logits", "scored", "score"))
+            or functions["prefix"].get("batch_range") != [1, 1]
+            or not {"atol", "rtol"} <= set(v4["alignment_tolerance"])):
+        raise ValueError("zh-v1 kvbatch-v4 manifest identity is invalid")
     if digest(resources / "VimeChineseTokenizerV1.model") != manifest["tokenizer_sha256"]:
         raise ValueError("zh-v1 tokenizer checksum mismatch")
-    validate_compiled(resources / "TinyChineseV1KVBatchV3INT8.mlmodelc", v3["compiled_files_sha256"],
-                      "zh-v1 kvbatch-v3")
-    retired = [name for name in ("VimeLMManifestZhV1.json", "TinyChineseV1INT8.mlmodelc",
-                                 "TinyChineseV1KVChunkINT8.mlmodelc", "TinyChineseV1KVBatchV2INT8.mlmodelc",
+    validate_compiled(resources / "TinyChineseKVBatchV4FP32KVINT8.mlmodelc", v4["compiled_files_sha256"],
+                      "zh-v1 kvbatch-v4")
+    retired = [name for name in ("VimeLMManifestZhV1.json", "VimeLMManifestZhV1KVBatchV3.json",
+                                 "TinyChineseV1INT8.mlmodelc", "TinyChineseV1KVChunkINT8.mlmodelc",
+                                 "TinyChineseV1KVBatchV2INT8.mlmodelc", "TinyChineseV1KVBatchV3INT8.mlmodelc",
                                  "TinyChineseV1KVSequenceINT8.mlmodelc") if (resources / name).exists()]
     if retired:
         raise ValueError(f"retired zh-v1 packages are still bundled: {', '.join(retired)}")
-    return manifest["release_name"] + " kvbatch-v3"
+    return "vimeml-tiny-zh-v1 kvbatch-v4-fp32kv"
 
 
 def validate_compiled(model, expected, label):

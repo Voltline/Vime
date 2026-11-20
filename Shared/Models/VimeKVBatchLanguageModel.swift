@@ -37,23 +37,27 @@ nonisolated final class VimeKVBatchLanguageModel {
     typealias Cache = VimeKVLanguageModel.Cache
     typealias Tolerance = VimeKVLanguageModel.Tolerance
     private struct Manifest: Decodable {
+        struct Variant: Decodable {
+            let name: String
+            let kv: String
+            let compute: String
+        }
+        struct FunctionSpec: Decodable {
+            let batch_range: [Int]
+        }
         struct Batch: Decodable {
             let resource: String
+            let variant: Variant
             let compiled_files_sha256: [String: String]
-            let functions: [String: [String: AnyCodable]]
-            let batch_range: [Int]
-            let compute_units: String
+            let functions: [String: FunctionSpec]
             let alignment_tolerance: Tolerance
         }
         let format: String
-        let release_name: String
         let tokenizer_sha256: String
-        let kv_batch_v3: Batch
+        let kv_batch_v4: Batch
     }
-    /// Accepts any JSON value; only the function names are checked.
-    private struct AnyCodable: Decodable { init(from decoder: Decoder) throws {} }
 
-    enum Function: String, CaseIterable { case logits, scored, score }
+    enum Function: String, CaseIterable { case logits, scored, score, prefix }
 
     /// Keys and values shared by every row of a call, (9, 1, 6, P, 64) each,
     /// of which the first `length` slots are real.
@@ -64,8 +68,8 @@ nonisolated final class VimeKVBatchLanguageModel {
         var capacity: Int { keys.shape[3].intValue }
     }
 
-    static let manifestResource = "VimeLMManifestZhV1KVBatchV3"
-    static let manifestFormat = "vime_ios_lm_zh_v1_kv_batch_v3"
+    static let manifestResource = "VimeLMManifestZhKVBatchV4-fp32kv"
+    static let manifestFormat = "vime_ios_lm_zh_kv_batch_v4"
     /// Most allowed ids in one call.
     static let maximumAllowed = 1024
     static let layers = VimeKVLanguageModel.layers, heads = VimeKVLanguageModel.heads
@@ -147,10 +151,15 @@ nonisolated final class VimeKVBatchLanguageModel {
         guard let manifestURL = bundle.url(forResource: Self.manifestResource, withExtension: "json")
         else { throw VimeLanguageModel.Failure.resources }
         let manifest = try JSONDecoder().decode(Manifest.self, from: Data(contentsOf: manifestURL))
-        let batch = manifest.kv_batch_v3
-        guard manifest.format == Self.manifestFormat, !manifest.release_name.isEmpty, batch.compute_units == "CPU_ONLY",
+        let batch = manifest.kv_batch_v4
+        let batchedFunctions: [Function] = [.logits, .scored, .score]
+        guard manifest.format == Self.manifestFormat,
+              batch.variant.name == "fp32kv", batch.variant.kv == "fp32", batch.variant.compute == "fp32",
               Set(batch.functions.keys) == Set(Function.allCases.map(\.rawValue)),
-              batch.batch_range.count == 2, batch.batch_range[0] == 1, batch.batch_range[1] >= 1,
+              let scoreRange = batch.functions[Function.score.rawValue]?.batch_range,
+              scoreRange.count == 2, scoreRange[0] == 1, scoreRange[1] >= 1,
+              batchedFunctions.allSatisfy({ batch.functions[$0.rawValue]?.batch_range == scoreRange }),
+              batch.functions[Function.prefix.rawValue]?.batch_range == [1, 1],
               !batch.compiled_files_sha256.isEmpty,
               batch.compiled_files_sha256.keys.allSatisfy({ !$0.hasPrefix("/") && !$0.split(separator: "/").contains("..") })
         else { throw VimeLanguageModel.Failure.integrity }
@@ -158,9 +167,9 @@ nonisolated final class VimeKVBatchLanguageModel {
         guard let modelURL = bundle.url(forResource: name, withExtension: "mlmodelc")
         else { throw VimeLanguageModel.Failure.resources }
         self.modelURL = modelURL
-        modelVersion = manifest.release_name + "-kvbatch-v3"
+        modelVersion = "vimeml-tiny-zh-v1-kvbatch-v4-" + batch.variant.name
         self.computeUnits = computeUnits
-        maximumBatch = batch.batch_range[1]
+        maximumBatch = scoreRange[1]
         tolerance = batch.alignment_tolerance
         allowedIDs = .allocate(capacity: Self.maximumAllowed)
         allowedLogits = .allocate(capacity: maximumBatch * Self.maximumAllowed)
@@ -233,7 +242,7 @@ nonisolated final class VimeKVBatchLanguageModel {
         }
         let prefix: Prefix = try autoreleasepool {
             guard shared > 0, let kept else {
-                let output = try promptCall(tokens, allowed: [0])
+                let output = try prefixCall(tokens)
                 prefixTokensRun += tokens.count
                 return Prefix(length: tokens.count, keys: output.newKeys, values: output.newValues)
             }
@@ -245,7 +254,7 @@ nonisolated final class VimeKVBatchLanguageModel {
                               values: try Self.sliced(kept.prefix.values, count: shared))
             }
             let rest = Array(tokens[shared...])
-            let output = try promptCall(rest, allowed: [0], after: base)
+            let output = try prefixCall(rest, after: base)
             prefixTokensRun += rest.count
             return Prefix(length: tokens.count, keys: try Self.joined(base.keys, shared, output.newKeys),
                           values: try Self.joined(base.values, shared, output.newValues))
@@ -435,6 +444,36 @@ nonisolated final class VimeKVBatchLanguageModel {
             current = (cache.id, Prefix(length: count, keys: output.newKeys, values: output.newValues))
             return (output.logProbabilities, cache)
         }
+    }
+
+    /// `tokens` after `base` (nothing by default) through the head-free `prefix`
+    /// function: returns only their keys and values, (9, 1, 6, T, 64) each.
+    private func prefixCall(_ tokens: [Int32], after base: Prefix? = nil) throws
+        -> (newKeys: MLMultiArray, newValues: MLMultiArray) {
+        var clock = ProcessInfo.processInfo.systemUptime
+        func lap(_ total: inout Double) {
+            let now = ProcessInfo.processInfo.systemUptime; total += now - clock; clock = now
+        }
+        let count = tokens.count
+        let ids = try MLMultiArray(shape: [1, NSNumber(value: count)], dataType: .int32)
+        let idPointer = ids.dataPointer.assumingMemoryBound(to: Int32.self)
+        for (index, token) in tokens.enumerated() { idPointer[index] = token }
+        let prefix = try base ?? empty()
+        let features = try MLDictionaryFeatureProvider(dictionary: [
+            "input_ids": ids, "prefix_length": try Self.scalar(prefix.length),
+            "prefix_key": prefix.keys, "prefix_value": prefix.values])
+        lap(&inputSeconds)
+        let output = try model(.prefix).prediction(from: features)
+        lap(&predictionSeconds)
+        predictions += 1; rowsPredicted += 1
+        guard let newKeys = output.featureValue(for: "new_key")?.multiArrayValue,
+              let newValues = output.featureValue(for: "new_value")?.multiArrayValue,
+              newKeys.dataType == .float32, newValues.dataType == .float32,
+              newKeys.shape.map(\.intValue) == [Self.layers, 1, Self.heads, count, Self.headDimension],
+              newValues.shape == newKeys.shape
+        else { throw VimeLanguageModel.Failure.tensor }
+        lap(&outputSeconds)
+        return (newKeys, newValues)
     }
 
     /// `tokens` after `base` (nothing by default): the log probabilities of
