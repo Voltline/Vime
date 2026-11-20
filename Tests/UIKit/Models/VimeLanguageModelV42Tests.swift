@@ -19,8 +19,8 @@ final class VimeLanguageModelV42Tests: XCTestCase {
         return try JSONDecoder().decode(Fixtures.self, from: Data(contentsOf: url))
     }
 
-    func testRuntimePrefersV42AndKeepsV21Fallback() throws {
-        XCTAssertEqual(VimeLanguageModel.Variant.runtimePreference, [.v42, .v21])
+    func testRuntimeUsesV42Only() throws {
+        XCTAssertEqual(VimeLanguageModel.Variant.runtimePreference, [.v42])
         XCTAssertEqual(try VimeLanguageModel().variant, .v42)
         XCTAssertEqual(try VimeLanguageModel.runtime().variant, .v42)
         var failed: [VimeLanguageModel.Variant] = []
@@ -28,10 +28,10 @@ final class VimeLanguageModelV42Tests: XCTestCase {
         try FileManager.default.createDirectory(at: empty, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: empty) }
         XCTAssertThrowsError(try VimeLanguageModel.runtime(bundle: try XCTUnwrap(Bundle(path: empty.path))) { variant, _ in failed.append(variant) })
-        XCTAssertEqual(failed, [.v42, .v21], "Every variant is tried in order before dictionary fallback")
+        XCTAssertEqual(failed, [.v42], "Every variant is tried in order before dictionary fallback")
     }
 
-    func testLoadsV42IdentityAndExplicitV21() throws {
+    func testLoadsV42Identity() throws {
         let v42 = try VimeLanguageModel(variant: .v42)
         XCTAssertEqual(v42.variant, .v42)
         XCTAssertEqual(v42.vocabularySize, 8192)
@@ -40,9 +40,6 @@ final class VimeLanguageModelV42Tests: XCTestCase {
         XCTAssertEqual(logits.shape.map(\.intValue).last, 8192)
         XCTAssertEqual(try VimeLanguageModel.logProbabilities(logits, row: 0).count, 8192)
         XCTAssertThrowsError(try v42.predict([2, 8192]))
-        let v21 = try VimeLanguageModel(variant: .v21)
-        XCTAssertEqual(v21.variant, .v21)
-        XCTAssertEqual(v21.vocabularySize, VimeLanguageModel.vocabulary)
     }
 
     func testNativeSentencePieceMatchesFrozenV4Corpus() throws {

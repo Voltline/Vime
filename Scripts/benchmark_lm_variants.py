@@ -35,7 +35,7 @@ def main():
     parser.add_argument("--xctestrun", type=Path, required=True)
     parser.add_argument("--destination", required=True)
     parser.add_argument("--rounds", type=int, default=3)
-    parser.add_argument("--variants", default="v21,v42")
+    parser.add_argument("--variants", default="v42")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if args.output.exists():
