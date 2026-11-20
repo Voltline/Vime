@@ -78,7 +78,8 @@ extension KeyboardView {
     /// replacements first, then spelling completions. Choosing one replaces
     /// the word and adds a space.
     func englishWordItems() -> [KeyboardQuickCandidate] {
-        guard session.inputTraits.isEnglish, page == .letters, panel == .keyboard, !session.isComposing,
+        guard session.inputTraits.isEnglish, !session.suppressesEnglishCompletions,
+              page == .letters, panel == .keyboard, !session.isComposing,
               let preferences = appliedPreferences, preferences.textReplacements || preferences.englishCompletion,
               onReplaceText != nil, let anchor = learningContextProvider?(), !anchor.hasSelection,
               let before = anchor.before else { return [] }

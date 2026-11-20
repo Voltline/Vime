@@ -5,7 +5,7 @@ import KanaKanjiConverterModuleWithDefaultDictionary
 /// resolves them; only a boundary or a trailing n finalizes the query snapshot.
 enum PreeditPresentation {
     static func text(for composing: ComposingText, mode: InputMode, selected: String? = nil) -> String? {
-        guard !composing.isEmpty, mode != .english else { return nil }
+        guard !composing.isEmpty else { return nil }
         return selected ?? kana(for: composing, mode: mode)
     }
 

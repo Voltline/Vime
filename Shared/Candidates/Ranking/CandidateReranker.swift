@@ -244,6 +244,7 @@ nonisolated struct CandidateReranker {
             if $0.consumedInputCount != $1.consumedInputCount { return $0.consumedInputCount > $1.consumedInputCount }
             return $0.source.rawValue < $1.source.rawValue
         }
+        ranked = CandidateLearnedReadingPolicy.ordered(ranked)
         // Selection memory is keyed by a clause's own reading: a learned で is
         // no evidence for splitting では. The complete reading leads; the
         // clause stays one tap away. An explicit range is the user's split.
@@ -294,6 +295,40 @@ nonisolated enum CandidatePrefixPolicy {
             }
         }
         return result
+    }
+}
+
+/// Learning says which spelling of a reading the user prefers, not that they
+/// meant another reading. A learned 呼び出し reached from よびだす only by a
+/// key correction (す→し) must not lead 呼び出す, which reads exactly what was
+/// typed. A candidate of another reading (correction, alternative reading,
+/// completion) that ranks above the first exact word only thanks to its
+/// learning bonus moves just behind it, unless its reading is clearly better
+/// than the typed one. The lattice always segments some exact spelling of a
+/// real typo (ヨブだし for よぶだし); there the corrected reading gains a lot
+/// over it and learning still lifts the correction (呼び出し). One that leads
+/// on its own evidence keeps its place, and with no exact word nothing moves.
+nonisolated enum CandidateLearnedReadingPolicy {
+    /// Per-kana lattice quality, after the edit cost, a reading must gain over
+    /// the typed one before learning may lift it above an exact word. よびだす
+    /// → よびだし gains about 1.5; typos such as よぶだし and よびだあひ gain 4 to 5.
+    static let typoGain = 3.0
+
+    static func doubtfulReading(_ value: CandidateSnapshot) -> Bool {
+        (value.correction != nil || value.source == .readingAlternative || (value.isPrediction && !value.exactReading))
+            && value.interpretationGain < typoGain
+    }
+
+    static func ordered(_ values: [CandidateSnapshot]) -> [CandidateSnapshot] {
+        guard let exact = values.firstIndex(where: CandidatePrefixPolicy.spellsInputExactly), exact > 0 else { return values }
+        let bar = values[exact].features.total
+        let leadsOnlyByLearning = { (value: CandidateSnapshot) in
+            doubtfulReading(value) && value.features.userLearning > 0 && value.features.total - value.features.userLearning < bar
+        }
+        let ahead = values[..<exact]
+        guard ahead.contains(where: leadsOnlyByLearning) else { return values }
+        return ahead.filter { !leadsOnlyByLearning($0) } + [values[exact]]
+            + ahead.filter(leadsOnlyByLearning) + values[(exact + 1)...]
     }
 }
 

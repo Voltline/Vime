@@ -68,25 +68,38 @@ nonisolated enum ChineseSentenceGeneration {
                            scorer: ChineseLanguageModel?, allows: (String) -> Bool,
                            cancelled: () -> Bool) -> [Candidate]? {
         let context = VimeLanguageModel.sentenceContext(leftContext)
-        guard let typed = ChinesePinyinKeys(keys),
-              let prompt = try? ChineseConstrainedGeneration.prompt(.lm, context: context, keys: "",
-                                                                    tokenizer: generator.tokenizer),
-              let session = try? ChineseIncrementalGeneration(model: generator.model, vocabulary: generator.vocabulary,
-                                                              lexicon: generator.lexicon, prompt: prompt, parameters: parameters),
-              let generated = try? session.update(typed, cancelled: cancelled)
-        else { return nil }
+        guard let typed = ChinesePinyinKeys(keys) else { return nil }
+        let generated: [ChineseConstrainedGeneration.Result]
+        switch generator.mode {
+        case .task:
+            guard let parts = try? ChineseConstrainedGeneration.taskPromptParts(
+                      context: context, keys: keys, tokenizer: generator.tokenizer),
+                  let output = try? ChineseConstrainedGeneration.generateTask(
+                      model: generator.model, vocabulary: generator.vocabulary, lexicon: generator.lexicon,
+                      keys: typed, contextPrefix: parts.contextPrefix, keySuffix: parts.keySuffix,
+                      parameters: parameters, cancelled: cancelled)
+            else { return nil }
+            generated = output.results
+        case .lm:
+            guard let prompt = try? ChineseConstrainedGeneration.prompt(.lm, context: context, keys: "",
+                                                                        tokenizer: generator.tokenizer),
+                  let session = try? ChineseIncrementalGeneration(model: generator.model, vocabulary: generator.vocabulary,
+                                                                  lexicon: generator.lexicon, prompt: prompt, parameters: parameters),
+                  let output = try? session.update(typed, cancelled: cancelled)
+            else { return nil }
+            generated = output
+        }
         return finished(generated, context: context, scorer: scorer, allows: allows, cancelled: cancelled)
     }
 
-    /// Whether `generate` rescores with the reranking model; off while the
-    /// incremental search is measured on its own.
+    /// Whether `generate` rescores with the reranking model in lm mode (v1);
+    /// task mode (v2) always rescores with its own LM scores.
     static let rescores = false
 
-    /// Generates on the model queue, reusing the search for the same context
-    /// across keystrokes, and reports on the main queue: the generated
-    /// sentences that `allows` keeps, best first, or nil (cancelled, no model,
-    /// nothing spelled). `request` is the reranking's: a new key cancels it,
-    /// and what the search finished stays for the next key. lm mode only.
+    /// Generates on the model queue (v2: task mode with self rescoring;
+    /// v1: incremental lm mode reused across keystrokes), and reports on the
+    /// main queue: the generated sentences that `allows` keeps, best first, or
+    /// nil (cancelled, no model, nothing spelled).
     static func generate(keys: String, leftContext: String, request: ChineseCandidateRanking.Request,
                          allows: @escaping @Sendable (String) -> Bool,
                          completion: @escaping @MainActor ([Candidate]?) -> Void) {
@@ -96,10 +109,18 @@ nonisolated enum ChineseSentenceGeneration {
             let stop = { request.isCancelled || storage.isSuspended }
             let context = VimeLanguageModel.sentenceContext(leftContext)
             if !stop(), let model = storage.chineseModel, let typed = ChinesePinyinKeys(keys),
-               let session = Storage.shared.session(context: context, model: model),
-               let generated = try? session.update(typed, cancelled: stop) {
-                result = finished(generated, context: context, scorer: rescores ? model : nil, allows: allows,
-                                  cancelled: stop)
+               let generator = Storage.shared.generator(for: model) {
+                switch model.decodingMode {
+                case .task:
+                    result = candidates(keys: keys, leftContext: leftContext, generator: generator,
+                                        scorer: model, allows: allows, cancelled: stop)
+                case .lm:
+                    if let session = Storage.shared.session(context: context, model: model),
+                       let generated = try? session.update(typed, cancelled: stop) {
+                        result = finished(generated, context: context, scorer: rescores ? model : nil, allows: allows,
+                                          cancelled: stop)
+                    }
+                }
             }
             DispatchQueue.main.async { MainActor.assumeIsolated { completion(result) } }
         }
@@ -113,6 +134,7 @@ nonisolated enum ChineseSentenceGeneration {
     final class Storage: @unchecked Sendable {
         static let shared = Storage()
         struct Generator {
+            let mode: ChineseConstrainedGeneration.Mode
             let model: ChineseKVGenerator
             let tokenizer: VimeSentenceTokenizer
             let vocabulary: ChineseConstrainedGeneration.Vocabulary
@@ -136,8 +158,8 @@ nonisolated enum ChineseSentenceGeneration {
                 guard let lexicon = ChinesePinyinLexicon.bundled else { return nil }
                 let vocabulary = ChineseConstrainedGeneration.Vocabulary(
                     tokenizer: model.tokenizer, size: model.batch.vocabularySize, lexicon: lexicon)
-                return Generator(model: ChineseKVGenerator(batch: model.batch), tokenizer: model.tokenizer,
-                                 vocabulary: vocabulary, lexicon: lexicon)
+                return Generator(mode: model.decodingMode, model: ChineseKVGenerator(batch: model.batch),
+                                 tokenizer: model.tokenizer, vocabulary: vocabulary, lexicon: lexicon)
             }
         }
 

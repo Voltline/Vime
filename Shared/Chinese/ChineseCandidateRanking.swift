@@ -147,12 +147,38 @@ nonisolated enum ChineseCandidateRanking {
         let warm = storage.isReady(for: .chinese)
         JapaneseCandidateWorker.modelQueue.async {
             var scores: [Double]?
-            if !request.isCancelled, !storage.isSuspended, let model = storage.chineseModel, warm {
-                scores = try? model.scores(context: context, candidates: texts,
-                                           cancelled: { request.isCancelled || storage.isSuspended })
+            let cancelled = { request.isCancelled || storage.isSuspended }
+            if !cancelled(), let model = storage.chineseModel, warm, !texts.isEmpty {
+                do {
+                    let result = try model.scores(context: context, candidates: texts, cancelled: cancelled)
+                    if result.count == texts.count, !result.isEmpty, result.allSatisfy(\.isFinite) {
+                        scores = result
+                    } else if model.version == .v2 {
+                        scores = fallbackScoreToV1(texts, context: context, reason: "invalid_scores",
+                                                   storage: storage, cancelled: cancelled)
+                    }
+                } catch VimeLanguageModel.Failure.cancelled, VimeLanguageModel.Failure.ineligible {
+                    scores = nil
+                } catch {
+                    if model.version == .v2 {
+                        scores = fallbackScoreToV1(texts, context: context, reason: "runtime_error: \(error)",
+                                                   storage: storage, cancelled: cancelled)
+                    }
+                }
             }
             DispatchQueue.main.async { MainActor.assumeIsolated { completion(scores) } }
         }
+    }
+
+    private static func fallbackScoreToV1(
+        _ texts: [String], context: String, reason: String,
+        storage: JapaneseCandidateWorker.LanguageModelStorage, cancelled: () -> Bool
+    ) -> [Double]? {
+        ChineseModelFallback.shared.recordRuntimeFailure(reason: reason)
+        storage.release(.chinese)
+        ChineseSentenceGeneration.Storage.shared.release()
+        guard !cancelled(), let v1 = storage.chineseModel, v1.version == .v1 else { return nil }
+        return try? v1.scores(context: context, candidates: texts, cancelled: cancelled)
     }
 
     /// Releases the Chinese model, for example when ranking is turned off.
@@ -160,6 +186,13 @@ nonisolated enum ChineseCandidateRanking {
         JapaneseCandidateWorker.modelQueue.async {
             JapaneseCandidateWorker.LanguageModelStorage.shared.release(.chinese)
             ChineseSentenceGeneration.Storage.shared.release()
+        }
+    }
+
+    /// Drops the cached prefix KV while keeping the model loaded.
+    static func forgetPrefix() {
+        JapaneseCandidateWorker.modelQueue.async {
+            JapaneseCandidateWorker.LanguageModelStorage.shared.chineseModel?.batch.forgetPrefix()
         }
     }
 }
