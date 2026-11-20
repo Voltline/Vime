@@ -128,7 +128,7 @@ final class ChineseRerankingBenchmarkTests: XCTestCase {
                 model.batch.optimizationHints = configuration.hints
                 let loadStart = ProcessInfo.processInfo.systemUptime
                 try model.batch.preload(.score)
-                try model.batch.preload(.scored)
+                try model.batch.preload(.prefix)
                 let loadMS = (ProcessInfo.processInfo.systemUptime - loadStart) * 1000
                 var entry: [String: Any] = ["load_ms": loadMS]
                 var worstDifference = 0.0

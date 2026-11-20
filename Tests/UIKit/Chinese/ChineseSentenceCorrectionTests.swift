@@ -68,7 +68,7 @@ final class ChineseSentenceCorrectionTests: XCTestCase {
             let calls: Int
         }
         let bundle = Bundle(for: Self.self)
-        let url = try XCTUnwrap(bundle.url(forResource: "KVBatchV3Fixture-score", withExtension: "jsonl"))
+        let url = try XCTUnwrap(bundle.url(forResource: "KVBatchV4Fixture-fp32kv-score", withExtension: "jsonl"))
         let cases = try String(contentsOf: url, encoding: .utf8).split(separator: "\n")
             .map { try JSONDecoder().decode(Case.self, from: Data($0.utf8)) }
         XCTAssertEqual(cases.count, 8)
@@ -88,7 +88,7 @@ final class ChineseSentenceCorrectionTests: XCTestCase {
                                                          tokenizer: chinese.tokenizer)
             for (score, expected) in zip(scores, item.scores_package) { XCTAssertEqual(score, expected, accuracy: 1e-3) }
         }
-        XCTAssertEqual(model.loadedFunctions, [.scored, .score])
+        XCTAssertEqual(model.loadedFunctions, [.prefix, .score])
     }
 
     func testScoringManyRowsMatchesEachSentenceAlone() throws {

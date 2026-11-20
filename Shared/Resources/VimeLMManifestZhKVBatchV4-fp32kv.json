@@ -1,16 +1,22 @@
 {
-  "format": "vime_ios_lm_zh_v1_kv_batch_v3",
-  "release_name": "vimeml-tiny-zh-v1",
+  "format": "vime_ios_lm_zh_kv_batch_v4",
   "bundle_manifest_sha256": "9d9dad19c573c84c84e6a78060d1999a0a7e978c90a9bd78ca844da565a6ae74",
   "tokenizer_sha256": "68bd37c45bcb018b32b2eef5b241561ab5b6dc1b77c1c3aadcc1b41c4bf47e5a",
-  "kv_batch_v3": {
-    "resource": "TinyChineseV1KVBatchV3INT8.mlmodelc",
-    "source_manifest_sha256": "7e4c01d2af202a725d2c6145e62eaeb0fc39ee74e65322ab0a7692f5d1eefd7b",
+  "kv_batch_v4": {
+    "resource": "TinyChineseKVBatchV4FP32KVINT8.mlmodelc",
+    "variant": {
+      "name": "fp32kv",
+      "kv": "fp32",
+      "compute": "fp32",
+      "tolerance": 0.0003,
+      "sum_tolerance": 0.001
+    },
+    "source_manifest_sha256": "98f096379a6d99bbe0e6b7b2a024ba3a0d73ba83474e1bee4b61e1327eaa15d9",
     "compiled_files_sha256": {
-      "analytics/coremldata.bin": "f2f5fe54b26cc91e7af45ee8d918bf3a3942087d59835a7499f58103923ebd89",
-      "coremldata.bin": "76c236290d5f6c64426f289ed4cab1cb3120cf87d3b107afb853ed12c81b54b9",
-      "metadata.json": "02eefb4d4aa17a36ad9c55858aabfc98f26e6c53f87978ff72565115f5c2923d",
-      "model.mil": "1504e4e8cbae8e1761a4d2be97ba6e143007346adc11281319f3dc2efa9acdc3",
+      "analytics/coremldata.bin": "0f44217cfbc495e8bcc2714570b2e77664dc13841a2bbf08a7ec9819d0200bde",
+      "coremldata.bin": "072d929a17e85e150836e3b1a2a7ad3d7a8f82e50dd36db4e1094056695fb043",
+      "metadata.json": "442ce9abadc0552465720759999e4d697f5a6a02fb2b877f4e9c23af6644030d",
+      "model.mil": "6b4dd59e659b687c4e7ba669e47eea7704d90ce99b5511cda126f0df31b45e7f",
       "weights/weight.bin": "7fa1b5c803017953dfcd56552e328b3d4a6ddecd30042b35f6ba8532bb49b822"
     },
     "functions": {
@@ -24,7 +30,10 @@
           "logits": "float32 [B,12288]; last new token, no softmax",
           "new_key/new_value": "float32 (9,B,6,T,64); the caller appends them to row b's own cache (or, for a prompt call, uses them as the prefix)"
         },
-        "vocab_chunks": 1
+        "batch_range": [
+          1,
+          16
+        ]
       },
       "scored": {
         "interface": {
@@ -38,7 +47,10 @@
           "allowed_logits": "float32 [B,K]; log P = allowed_logits - logsumexp",
           "new_key/new_value": "float32 (9,B,6,T,64); the caller appends them to row b's own cache (or, for a prompt call, uses them as the prefix)"
         },
-        "vocab_chunks": 1
+        "batch_range": [
+          1,
+          16
+        ]
       },
       "score": {
         "interface": {
@@ -48,50 +60,45 @@
           "prefix_key/prefix_value": "float32 (9,1,6,P,64), 1<=P<=128; shared by every row; slots >= prefix_length are masked but must be finite",
           "target_logprobs": "float32 [B,T]; log P(targets[b,t] | prefix + row b through t), normalized over all 12,288 logits; ignore padded positions"
         },
-        "vocab_chunks": 1
+        "batch_range": [
+          1,
+          16
+        ]
+      },
+      "prefix": {
+        "interface": {
+          "input_ids": "int32 [1,T]; token t sits at prefix_length + t (< 128)",
+          "prefix_length": "int32 [1]; valid prefix slots, 0 = no prefix (P=1 of zeros)",
+          "prefix_key/prefix_value": "float32 (9,1,6,P,64); slots >= prefix_length masked but finite",
+          "new_key/new_value": "float32 (9,1,6,T,64); append to the prefix's valid slots"
+        },
+        "batch_range": [
+          1,
+          1
+        ]
       }
     },
-    "loading": "MLModelConfiguration.functionName = \"logits\" | \"scored\" | \"score\" (iOS 18); one MLModel per function",
-    "batch_range": [
-      1,
-      16
-    ],
+    "loading": "MLModelConfiguration.functionName = \"logits\" | \"scored\" | \"score\" | \"prefix\" (iOS 18); one MLModel per function",
     "alignment_tolerance": {
       "atol": 0.0003,
       "rtol": 0.0003,
       "per_sum": 0.001
     },
-    "alignment_reference": "stateless Core ML int8-b32_fp32_compute (ios18-int8-block32)",
-    "alignment_sha256": "b2ad650183c3db1e4842100032e90ced4b348db6043d9817246d4bcd0fcb79be",
+    "alignment_sha256": "0af48213cfce65401765c421d46fc8d3f49c50bf1cda8624ec3a8b0ae7a866bf",
     "search_check": {
       "cases": 125,
       "vs_fp32_fixture": {
         "exact": 46,
-        "same_set": 86,
         "top1_equal": 125,
         "max_common_score_diff": 0.5647367340087897
       },
-      "vs_v2_package": {
+      "vs_reference": {
         "exact": 125,
-        "same_set": 125,
         "top1_equal": 125,
-        "max_common_score_diff": 1.6927719116210938e-05
+        "max_common_score_diff": 0.0
       },
-      "v3": {
-        "p50_ms": 85.0447080010781,
-        "p95_ms": 184.80462500156136
-      },
-      "v2": {
-        "p50_ms": 82.68954099912662,
-        "p95_ms": 185.90024999866728
-      }
+      "p50_ms": 64.50612499611452
     },
-    "fixture_max_abs": {
-      "step": 3.24249267578125e-05,
-      "score_sum": 1.703790979945552e-05
-    },
-    "policy": "Caller owns all buffers. The prompt's new_key/new_value become prefix_key/prefix_value; each row appends its own new_key/new_value to its own cache. Masked slots must hold finite values.",
-    "kind": "int8-b32_fp32_compute",
-    "compute_units": "CPU_ONLY"
+    "policy": "Caller owns all buffers. `prefix` returns only the new tokens' KV: append it to the prefix's valid slots. Masked slots must hold finite values. KV tensors are float32."
   }
 }

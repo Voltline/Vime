@@ -193,6 +193,7 @@ final class VimeKVBatchLanguageModelTests: XCTestCase {
         }
         XCTAssertEqual(reusing.prefixTokensRun, expectedRuns)
         XCTAssertEqual(reusing.prefixesReused, 2) // the repeat, and the shorter one
+        XCTAssertEqual(reusing.loadedFunctions, [.prefix, .score])
         XCTAssertEqual(fresh.prefixTokensRun, contexts.map(\.count).reduce(0, +))
     }
 
