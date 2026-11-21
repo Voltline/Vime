@@ -72,7 +72,12 @@ final class KeyboardClipboard {
         }
     }
 
+    private var lastEnabled = false
+    private var lastHasFullAccess = false
+
     func checkForChanges(enabled: Bool, hasFullAccess: Bool) {
+        lastEnabled = enabled
+        lastHasFullAccess = hasFullAccess
         guard enabled else { disable(); return }
         guard hasFullAccess else { clear(); return }
         expireIfNeeded()
@@ -135,7 +140,7 @@ final class KeyboardClipboard {
         loadingRequest = nil
         guard needsRefresh else { return }
         needsRefresh = false
-        checkForChanges(enabled: true, hasFullAccess: true)
+        checkForChanges(enabled: lastEnabled, hasFullAccess: lastHasFullAccess)
     }
 
     private func scheduleExpiration() {
@@ -162,6 +167,8 @@ final class KeyboardClipboard {
         cancelExpiration()
         needsRefresh = false
         request += 1
+        preparation?.cancel(); preparation = nil
+        loadingRequest = nil
         pending?.cancel(); pending = nil
         let hadText = text != nil
         text = nil
@@ -184,6 +191,8 @@ final class KeyboardClipboard {
     func consume() {
         cancelExpiration()
         request += 1
+        preparation?.cancel(); preparation = nil
+        loadingRequest = nil
         pending?.cancel(); pending = nil
         guard text != nil else { return }
         text = nil

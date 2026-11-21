@@ -85,6 +85,22 @@ final class ChineseModelFallbackTests: XCTestCase {
         XCTAssertFalse(fallback.isFallenBackToV1)
     }
 
+    func testInMemoryFallbackWithoutAppGroup() {
+        let fallback = ChineseModelFallback(defaultsProvider: { nil }, appVersionProvider: { "1.0(1)" })
+        XCTAssertFalse(fallback.isFallenBackToV1)
+        XCTAssertTrue(fallback.beginV2Load())
+
+        fallback.recordRuntimeFailure(reason: "load_error: no_group")
+        XCTAssertTrue(fallback.isFallenBackToV1)
+        XCTAssertEqual(fallback.fallbackReason, "load_error: no_group")
+        XCTAssertFalse(fallback.beginV2Load())
+
+        fallback.resetForManualV2Selection()
+        XCTAssertFalse(fallback.isFallenBackToV1)
+        XCTAssertNil(fallback.fallbackReason)
+        XCTAssertTrue(fallback.beginV2Load())
+    }
+
     func testDefaultV2RerankingCorrectionAndV1V2SwitchingWithoutResidualState() throws {
         XCTAssertEqual(ChineseLanguageModel.defaultVersion, .v2)
         XCTAssertFalse(ChineseSentenceGeneration.isEnabled, "sentence generation must remain off by default")

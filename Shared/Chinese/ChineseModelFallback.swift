@@ -29,6 +29,8 @@ nonisolated final class ChineseModelFallback: @unchecked Sendable {
     private let appVersionProvider: () -> String
     private let log = Logger(subsystem: "com.Voltline.Vime", category: "LanguageModel")
     private var latencySamplesMS: [Double] = []
+    private var inMemoryFallbackActive = false
+    private var inMemoryFallbackReason: String?
 
     init(
         defaultsProvider: @escaping () -> UserDefaults? = { UserDefaults(suiteName: KeyboardPreferences.appGroup) },
@@ -62,6 +64,8 @@ nonisolated final class ChineseModelFallback: @unchecked Sendable {
         defaults.removeObject(forKey: Self.crashCountKey)
         defaults.removeObject(forKey: Self.fallbackActiveKey)
         defaults.removeObject(forKey: Self.fallbackReasonKey)
+        inMemoryFallbackActive = false
+        inMemoryFallbackReason = nil
         latencySamplesMS.removeAll(keepingCapacity: true)
     }
 
@@ -69,24 +73,27 @@ nonisolated final class ChineseModelFallback: @unchecked Sendable {
     var isFallenBackToV1: Bool {
         lock.lock()
         defer { lock.unlock() }
-        guard let defaults = defaultsProvider() else { return false }
+        guard let defaults = defaultsProvider() else { return inMemoryFallbackActive }
         syncAppVersionLocked(defaults)
-        return defaults.bool(forKey: Self.fallbackActiveKey)
+        return inMemoryFallbackActive || defaults.bool(forKey: Self.fallbackActiveKey)
     }
 
     /// The recorded reason for the current auto-fallback, if any.
     var fallbackReason: String? {
         lock.lock()
         defer { lock.unlock() }
-        guard let defaults = defaultsProvider() else { return nil }
+        guard let defaults = defaultsProvider() else { return inMemoryFallbackActive ? inMemoryFallbackReason : nil }
         syncAppVersionLocked(defaults)
-        return defaults.bool(forKey: Self.fallbackActiveKey) ? defaults.string(forKey: Self.fallbackReasonKey) : nil
+        if defaults.bool(forKey: Self.fallbackActiveKey) { return defaults.string(forKey: Self.fallbackReasonKey) }
+        return inMemoryFallbackActive ? inMemoryFallbackReason : nil
     }
 
     /// Called when the user explicitly selects v2 in settings/preferences.
     func resetForManualV2Selection() {
         lock.lock()
         defer { lock.unlock() }
+        inMemoryFallbackActive = false
+        inMemoryFallbackReason = nil
         if let defaults = defaultsProvider() {
             clearFallbackLocked(defaults)
             defaults.set(appVersionProvider(), forKey: Self.appVersionKey)
@@ -102,7 +109,7 @@ nonisolated final class ChineseModelFallback: @unchecked Sendable {
     func beginV2Load() -> Bool {
         lock.lock()
         defer { lock.unlock() }
-        guard let defaults = defaultsProvider() else { return true }
+        guard let defaults = defaultsProvider() else { return !inMemoryFallbackActive }
         syncAppVersionLocked(defaults)
         if defaults.bool(forKey: Self.fallbackActiveKey) {
             return false
@@ -135,10 +142,13 @@ nonisolated final class ChineseModelFallback: @unchecked Sendable {
     func recordRuntimeFailure(reason: String) {
         lock.lock()
         defer { lock.unlock() }
+        inMemoryFallbackActive = true
+        inMemoryFallbackReason = reason
         if let defaults = defaultsProvider() {
             syncAppVersionLocked(defaults)
             activateFallbackLocked(defaults, reason: reason)
         } else {
+            latencySamplesMS.removeAll(keepingCapacity: true)
             log.error("Chinese v2 runtime failure (\(reason, privacy: .public)); falling back to v1")
         }
     }
@@ -160,10 +170,14 @@ nonisolated final class ChineseModelFallback: @unchecked Sendable {
         let p95 = sorted[p95Index]
         guard p95 > Self.latencyP95LimitMS else { return false }
         let formatted = String(format: "%.1f", p95)
+        let reason = "latency_p95_\(formatted)ms"
+        inMemoryFallbackActive = true
+        inMemoryFallbackReason = reason
         if let defaults = defaultsProvider() {
             syncAppVersionLocked(defaults)
-            activateFallbackLocked(defaults, reason: "latency_p95_\(formatted)ms")
+            activateFallbackLocked(defaults, reason: reason)
         } else {
+            latencySamplesMS.removeAll(keepingCapacity: true)
             log.error("Chinese v2 rolling p95 latency \(formatted, privacy: .public) ms > 60 ms; falling back to v1")
         }
         return true

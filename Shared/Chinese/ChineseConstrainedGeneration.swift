@@ -58,9 +58,26 @@ nonisolated final class ChineseKVGenerator: ChineseScoringModel {
 
     func start(_ ids: [Int32], allowed: [Int32]?) throws -> (logProbabilities: [Float], state: State) {
         guard let allowed else { throw VimeLanguageModel.Failure.tensor }
-        // The package needs at least one id; nothing to score still gives the state.
-        let step = try batch.prompt(ids, allowed: allowed.isEmpty ? [0] : allowed)
-        return (allowed.isEmpty ? [] : step.logProbabilities, step.cache)
+        if allowed.isEmpty {
+            let step = try batch.prompt(ids, allowed: [0])
+            return ([], step.cache)
+        }
+        if allowed.count <= VimeKVBatchLanguageModel.maximumAllowed {
+            let step = try batch.prompt(ids, allowed: allowed)
+            return (step.logProbabilities, step.cache)
+        }
+        var combined: [Float] = []
+        combined.reserveCapacity(allowed.count)
+        var state: State?
+        var offset = 0
+        while offset < allowed.count {
+            let end = min(allowed.count, offset + VimeKVBatchLanguageModel.maximumAllowed)
+            let step = try batch.prompt(ids, allowed: Array(allowed[offset..<end]))
+            combined.append(contentsOf: step.logProbabilities)
+            state = step.cache
+            offset = end
+        }
+        return (combined, state!)
     }
 
     func start(_ ids: [Int32], after base: VimeKVBatchLanguageModel.Prefix, allowed: [Int32]) throws
@@ -81,7 +98,7 @@ nonisolated final class ChineseKVGenerator: ChineseScoringModel {
             let end = min(allowed.count, offset + VimeKVBatchLanguageModel.maximumAllowed)
             let step = try batch.prompt(ids, after: base, allowed: Array(allowed[offset..<end]))
             combined.append(contentsOf: step.logProbabilities)
-            if state == nil { state = step.cache }
+            state = step.cache
             offset = end
         }
         return (combined, state!)
