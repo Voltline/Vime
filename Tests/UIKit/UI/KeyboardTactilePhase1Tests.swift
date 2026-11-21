@@ -30,11 +30,23 @@ final class KeyboardTactilePhase1Tests: XCTestCase {
             now: { clock }
         )
 
-        // 1. Letter vs Utility styles use distinct generators even at full intensity (1.0).
-        XCTAssertTrue(haptics.play(intensity: 1.0, style: .letter))
+        // 1. Profile comparison at full intensity (1.0):
+        // - .compound (Scheme 2): letter fires 1.0x heavy; utility fires 1.0x heavy + 0.80x rigid.
+        XCTAssertTrue(haptics.play(intensity: 1.0, style: .letter, profile: .compound))
         XCTAssertEqual(letterGens.last?.impacts, [1.0])
-        XCTAssertTrue(haptics.play(intensity: 1.0, style: .utility))
-        XCTAssertEqual(utilGens.last?.impacts, [1.0])
+        XCTAssertTrue(haptics.play(intensity: 1.0, style: .utility, profile: .compound))
+        XCTAssertEqual(letterGens.last?.impacts, [1.0, 1.0])
+        XCTAssertEqual(utilGens.last?.impacts, [0.80])
+
+        // - .stepped (Scheme 1): letter scales down to 0.72x heavy; utility fires full 1.0x heavy.
+        XCTAssertTrue(haptics.play(intensity: 1.0, style: .letter, profile: .stepped))
+        XCTAssertEqual(letterGens.last?.impacts.last ?? 0, 0.72, accuracy: 1e-4)
+        XCTAssertTrue(haptics.play(intensity: 1.0, style: .utility, profile: .stepped))
+        XCTAssertEqual(letterGens.last?.impacts.last ?? 0, 1.0, accuracy: 1e-4)
+
+        // - .rigidUtility: utility fires 1.0x rigid.
+        XCTAssertTrue(haptics.play(intensity: 1.0, style: .utility, profile: .rigidUtility))
+        XCTAssertEqual(utilGens.last?.impacts.last ?? 0, 1.0, accuracy: 1e-4)
 
         // 2. Repeat delete throttles at 85ms and scales intensity by 0.40.
         XCTAssertTrue(haptics.play(intensity: 1.0, style: .repeatDelete))

@@ -5,11 +5,12 @@ extension KeyboardView {
     func playFeedback(_ style: KeyboardHaptics.Style = .letter) {
         let sound = appliedPreferences?.sound ?? preferences.sound
         let intensity = appliedPreferences?.hapticIntensity ?? preferences.hapticIntensity
+        let profile = appliedPreferences?.hapticProfile ?? preferences.hapticProfile
         switch style {
         case .tick, .cursorTick:
-            haptics.play(intensity: intensity, style: style)
+            haptics.play(intensity: intensity, style: style, profile: profile)
         case .repeatDelete:
-            let allowed = haptics.play(intensity: intensity, style: .repeatDelete)
+            let allowed = haptics.play(intensity: intensity, style: .repeatDelete, profile: profile)
             if allowed && sound && hasFullAccess {
                 UIDevice.current.playInputClick()
             }
@@ -20,7 +21,7 @@ extension KeyboardView {
                 // could stall input. Visual feedback and haptic attempts are separate.
                 UIDevice.current.playInputClick()
             }
-            haptics.play(intensity: intensity, style: style)
+            haptics.play(intensity: intensity, style: style, profile: profile)
         }
     }
 
