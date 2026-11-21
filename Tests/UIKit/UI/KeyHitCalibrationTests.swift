@@ -9,27 +9,36 @@ final class KeyHitCalibrationTests: XCTestCase {
         return dir
     }
 
-    func testColdStartFadeInAndHardClamp() {
+    func testSmoothShrinkageAndHardClamp() {
         let cal = KeyHitCalibration(directory: nil)
         let body = CGRect(x: 100, y: 100, width: 40, height: 50)
-        // Tap shifted +0.40 * width to the right (will be clamped to +0.25).
-        let shiftedPoint = CGPoint(x: body.midX + 0.40 * body.width, y: body.midY + 0.35 * body.height)
+        // Tap shifted +0.45 * width to the right (stored offset clamps to +0.28, dy to +0.22).
+        let shiftedPoint = CGPoint(x: body.midX + 0.45 * body.width, y: body.midY + 0.35 * body.height)
 
-        for _ in 0..<14 {
+        // Below minSamples (3): effective offset stays zero.
+        for _ in 0..<2 {
             XCTAssertTrue(cal.learnCommittedTap(letter: "i", point: shiftedPoint, body: body, bucket: .portrait))
         }
-        // Still below minSamples (15): effective offset must remain zero.
-        let beforeThreshold = cal.effectiveNormalizedOffset(for: "i", in: .portrait)
-        XCTAssertEqual(beforeThreshold.dx, 0, accuracy: 1e-6)
-        XCTAssertEqual(beforeThreshold.dy, 0, accuracy: 1e-6)
+        let early = cal.effectiveNormalizedOffset(for: "i", in: .portrait)
+        XCTAssertEqual(early.dx, 0, accuracy: 1e-6)
+        XCTAssertEqual(early.dy, 0, accuracy: 1e-6)
 
-        // Reach fullWeightSamples (30).
-        for _ in 14..<30 {
+        // At 8 samples: smooth shrinkage reaches 50% weight (8 / (8 + 8)).
+        for _ in 2..<8 {
+            XCTAssertTrue(cal.learnCommittedTap(letter: "i", point: shiftedPoint, body: body, bucket: .portrait))
+        }
+        let mid = cal.effectiveModel(for: "i", in: .portrait)
+        XCTAssertEqual(mid.weight, 0.5, accuracy: 1e-6)
+        XCTAssertGreaterThan(mid.dx, 0.08)
+
+        // After many samples: converges smoothly toward hard clamp.
+        for _ in 8..<100 {
             XCTAssertTrue(cal.learnCommittedTap(letter: "i", point: shiftedPoint, body: body, bucket: .portrait))
         }
         let full = cal.effectiveNormalizedOffset(for: "i", in: .portrait)
-        XCTAssertEqual(full.dx, KeyHitCalibration.maxOffsetDx, accuracy: 1e-6)
-        XCTAssertEqual(full.dy, KeyHitCalibration.maxOffsetDy, accuracy: 1e-6)
+        XCTAssertLessThanOrEqual(full.dx, KeyHitCalibration.maxOffsetDx + 1e-6)
+        XCTAssertGreaterThan(full.dx, KeyHitCalibration.maxOffsetDx * 0.85)
+        XCTAssertLessThanOrEqual(full.dy, KeyHitCalibration.maxOffsetDy + 1e-6)
     }
 
     func testStrictPerKeyAndPerBucketIsolation() {
@@ -37,13 +46,12 @@ final class KeyHitCalibrationTests: XCTestCase {
         let body = CGRect(x: 0, y: 0, width: 40, height: 50)
         let shifted = CGPoint(x: body.midX + 8, y: body.midY + 5) // +0.20 dx, +0.10 dy
 
-        for _ in 0..<35 {
+        for _ in 0..<80 {
             cal.learnCommittedTap(letter: "a", point: shifted, body: body, bucket: .portrait)
         }
-        // Trained key in trained bucket has offset.
         let aPortrait = cal.effectiveNormalizedOffset(for: "a", in: .portrait)
-        XCTAssertEqual(aPortrait.dx, 0.20, accuracy: 0.01)
-        XCTAssertEqual(aPortrait.dy, 0.10, accuracy: 0.01)
+        XCTAssertEqual(aPortrait.dx, 0.20 * (80.0 / 88.0), accuracy: 0.02)
+        XCTAssertEqual(aPortrait.dy, 0.10 * (80.0 / 88.0), accuracy: 0.02)
 
         // Untrained key in same bucket stays zero (no hierarchical backoff).
         let sPortrait = cal.effectiveNormalizedOffset(for: "s", in: .portrait)
@@ -59,7 +67,6 @@ final class KeyHitCalibrationTests: XCTestCase {
     func testOutlierRejectionDoesNotPolluteStats() {
         let cal = KeyHitCalibration(directory: nil)
         let body = CGRect(x: 100, y: 100, width: 40, height: 50)
-        // Way outside 1.1 * width.
         let outlier = CGPoint(x: body.midX + 100, y: body.midY)
         XCTAssertFalse(cal.learnCommittedTap(letter: "e", point: outlier, body: body, bucket: .portrait))
         let snap = cal.currentSnapshot()
@@ -70,9 +77,8 @@ final class KeyHitCalibrationTests: XCTestCase {
     func testNeighborCorrectionLearnsTrueOffset() {
         let cal = KeyHitCalibration(directory: nil)
         let bodyI = CGRect(x: 200, y: 100, width: 40, height: 50)
-        // User tapped slightly right of 'i' (inside 'o'), deleted 'o', then tapped 'i'.
         let mistypedPoint = CGPoint(x: bodyI.midX + 9, y: bodyI.midY) // +0.225 * width
-        for _ in 0..<30 {
+        for _ in 0..<40 {
             XCTAssertTrue(cal.learnNeighborCorrection(
                 intendedLetter: "i",
                 mistypedLetter: "o",
@@ -82,12 +88,12 @@ final class KeyHitCalibrationTests: XCTestCase {
             ))
         }
         let eff = cal.effectiveNormalizedOffset(for: "i", in: .portrait)
-        XCTAssertEqual(eff.dx, 0.225, accuracy: 0.01)
-        XCTAssertEqual(cal.currentSnapshot().summary.neighborFixSamples, 30)
+        XCTAssertEqual(eff.dx, 0.225 * (40.0 / 48.0), accuracy: 0.02)
+        XCTAssertEqual(cal.currentSnapshot().summary.neighborFixSamples, 40)
     }
 
     @MainActor
-    func testTouchSurfaceResolvesUsingCalibratedCenterWithoutMovingVisualKey() {
+    func testTouchSurfaceResolvesUsingCalibratedGaussianWithoutMovingVisualKey() {
         let surface = KeyboardTouchSurface(frame: CGRect(x: 0, y: 0, width: 200, height: 60))
         let keyI = KeyboardKey(title: "i")
         keyI.correctionLetter = "i"
@@ -102,20 +108,57 @@ final class KeyHitCalibrationTests: XCTestCase {
 
         // Point at x=65 is inside O's painted body (64..104) by 1pt.
         let edgePoint = CGPoint(x: 65, y: 30)
-        // Without calibration: resolves to O.
         XCTAssertTrue(surface.resolvedKey(at: edgePoint) === keyO)
 
         // Train 'i' with +0.22 * width rightward offset (+8.8 pt).
         let cal = KeyHitCalibration(directory: nil)
         let shifted = CGPoint(x: bodyI.midX + 8.8, y: bodyI.midY)
-        for _ in 0..<35 {
+        for _ in 0..<60 {
             cal.learnCommittedTap(letter: "i", point: shifted, body: bodyI, bucket: .portrait)
         }
-        surface.letterOffset = { letter, body in
-            cal.effectivePointOffset(for: letter, body: body, in: .portrait)
+        surface.letterModel = { letter in
+            cal.effectiveModel(for: letter, in: .portrait)
         }
-        // Now x=65 is closer to I's calibrated center (48.8) than O's center (84.0) -> resolves to I!
         XCTAssertTrue(surface.resolvedKey(at: edgePoint) === keyI)
+    }
+
+    @MainActor
+    func testJointBayesianRescuesEdgeTapButRespectsCoreSafeZone() {
+        let surface = KeyboardTouchSurface(frame: CGRect(x: 0, y: 0, width: 200, height: 60))
+        let keyD = KeyboardKey(title: "d")
+        keyD.correctionLetter = "d"
+        let keyE = KeyboardKey(title: "e")
+        keyE.correctionLetter = "e"
+        let bodyD = CGRect(x: 20, y: 5, width: 40, height: 50)
+        let bodyE = CGRect(x: 64, y: 5, width: 40, height: 50)
+        surface.regions = [
+            .init(key: keyD, body: bodyD, cell: CGRect(x: 0, y: 0, width: 62, height: 60)),
+            .init(key: keyE, body: bodyE, cell: CGRect(x: 62, y: 0, width: 62, height: 60)),
+        ]
+
+        let cal = KeyHitCalibration(directory: nil)
+        surface.letterModel = { cal.effectiveModel(for: $0, in: .portrait) }
+        // Simulate pinyin context after "h": 'e' is full syllable (1.0), 'd' is abbreviation (0.05).
+        surface.letterPrior = { _ in
+            { ch in ch == "e" ? 1.0 : (ch == "d" ? 0.05 : 0.0) }
+        }
+
+        var outcomes: [KeyboardTouchSurface.LetterTapOutcome] = []
+        surface.onLetterTapComplete = { outcomes.append($0) }
+
+        // 1. Edge tap near D/E border (inside D by 3pt, outside D's core safe zone): rescued to E!
+        let edgeTap = CGPoint(x: 57, y: 30)
+        XCTAssertTrue(surface.beginPress(id: 1, at: edgeTap))
+        surface.endPress(id: 1, at: edgeTap)
+        XCTAssertEqual(outcomes.last?.letter, "e")
+        XCTAssertEqual(outcomes.last?.jointBayesianSwitched, true)
+
+        // 2. Center tap inside D's core safe zone (x=40): NEVER hijacked even though E has higher prior!
+        let centerTap = CGPoint(x: 40, y: 30)
+        XCTAssertTrue(surface.beginPress(id: 2, at: centerTap))
+        surface.endPress(id: 2, at: centerTap)
+        XCTAssertEqual(outcomes.last?.letter, "d")
+        XCTAssertEqual(outcomes.last?.jointBayesianSwitched, false)
     }
 
     func testPersistenceAndLogExportRoundTrip() throws {
@@ -123,26 +166,24 @@ final class KeyHitCalibrationTests: XCTestCase {
         let cal = KeyHitCalibration(directory: dir)
         let body = CGRect(x: 0, y: 0, width: 40, height: 50)
         let pt = CGPoint(x: body.midX + 6, y: body.midY - 4)
-        for _ in 0..<30 {
+        for _ in 0..<80 {
             cal.learnCommittedTap(letter: "n", point: pt, body: body, bucket: .portrait)
         }
         cal.recordTapObservation(
             letter: "n", rawLetter: "m", point: pt, body: body, bucket: .portrait,
-            calibrationSwitched: true, languageCorrected: false
+            calibrationSwitched: true, jointBayesianSwitched: true, languageCorrected: false
         )
         cal.flushSync()
 
-        // Reload from disk.
         let reloaded = KeyHitCalibration(directory: dir)
         let eff = reloaded.effectiveNormalizedOffset(for: "n", in: .portrait)
-        XCTAssertEqual(eff.dx, 0.15, accuracy: 0.01)
-        XCTAssertEqual(eff.dy, -0.08, accuracy: 0.01)
+        XCTAssertEqual(eff.dx, 0.15 * (80.0 / 88.0), accuracy: 0.02)
+        XCTAssertEqual(eff.dy, -0.08 * (80.0 / 88.0), accuracy: 0.02)
         XCTAssertEqual(reloaded.currentSnapshot().summary.calibrationSwitches, 1)
+        XCTAssertEqual(reloaded.currentSnapshot().summary.jointBayesianSwitches, 1)
 
-        // Verify observations.jsonl exists and contains valid JSONL without any user text fields.
         let logURL = dir.appendingPathComponent("observations.jsonl")
-        let lines = try String(contentsOf: logURL, encoding: .utf8)
-            .split(separator: "\n")
-        XCTAssertEqual(lines.count, 31)
+        let lines = try String(contentsOf: logURL, encoding: .utf8).split(separator: "\n")
+        XCTAssertEqual(lines.count, 81)
     }
 }

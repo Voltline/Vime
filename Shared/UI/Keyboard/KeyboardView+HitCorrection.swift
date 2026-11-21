@@ -36,7 +36,7 @@ extension KeyboardView {
         return result
     }
 
-    // MARK: - Per-Key Independent EMA Hit Calibration
+    // MARK: - Per-Key Independent Anisotropic 2D Gaussian Hit Calibration
 
     struct HitCalibrationTracker {
         struct PendingTap {
@@ -47,9 +47,10 @@ extension KeyboardView {
             let timestamp: TimeInterval
         }
         var pendingTaps: [PendingTap] = []
-        var lastDeleted: PendingTap?
-        var deletedAt: TimeInterval = 0
-        static let neighborFixWindow: TimeInterval = 1.2
+        /// Up to 3 recently backspaced taps (newest last), allowing capture of 1–2 key roll-back fixes.
+        var deletedStack: [(tap: PendingTap, deletedAt: TimeInterval)] = []
+        static let neighborFixWindow: TimeInterval = 1.8
+        static let maxDeletedStack = 3
     }
 
     var hitCalibrationBucket: KeyHitCalibration.LayoutBucket {
@@ -61,9 +62,11 @@ extension KeyboardView {
         }
     }
 
-    func hitCalibrationOffset(for letter: Character, body: CGRect) -> CGPoint {
-        guard panel == .keyboard, page == .letters, !kanaLayoutActive else { return .zero }
-        return hitCalibration.effectivePointOffset(for: letter, body: body, in: hitCalibrationBucket)
+    func hitCalibrationModel(for letter: Character) -> KeyHitCalibration.EffectiveModel {
+        guard panel == .keyboard, page == .letters, !kanaLayoutActive else {
+            return .init(dx: 0, dy: 0, varX: KeyHitCalibration.defaultVarX, varY: KeyHitCalibration.defaultVarY, weight: 0, count: 0)
+        }
+        return hitCalibration.effectiveModel(for: letter, in: hitCalibrationBucket)
     }
 
     func recordCalibratedLetterTap(_ outcome: KeyboardTouchSurface.LetterTapOutcome) {
@@ -71,26 +74,24 @@ extension KeyboardView {
         let now = Date().timeIntervalSince1970
         let bucket = hitCalibrationBucket
 
-        // Check if this tap immediately corrects a just-deleted neighboring letter.
-        if let deleted = hitCalibrationTracker.lastDeleted,
-           now - hitCalibrationTracker.deletedAt <= HitCalibrationTracker.neighborFixWindow,
-           deleted.bucket == bucket,
-           deleted.letter != outcome.letter,
+        // Check if this tap corrects the earliest backspaced key in a 1–3 key rollback.
+        if let entry = hitCalibrationTracker.deletedStack.last,
+           now - entry.deletedAt <= HitCalibrationTracker.neighborFixWindow,
+           entry.tap.bucket == bucket,
+           entry.tap.letter != outcome.letter,
            outcome.body.width > 0, outcome.body.height > 0,
-           abs(deleted.body.midX - outcome.body.midX) <= outcome.body.width * 1.6,
-           abs(deleted.body.midY - outcome.body.midY) <= outcome.body.height * 1.4 {
+           abs(entry.tap.body.midX - outcome.body.midX) <= outcome.body.width * 1.6,
+           abs(entry.tap.body.midY - outcome.body.midY) <= outcome.body.height * 1.4 {
             hitCalibration.learnNeighborCorrection(
                 intendedLetter: outcome.letter,
-                mistypedLetter: deleted.letter,
-                mistypedPoint: deleted.point,
+                mistypedLetter: entry.tap.letter,
+                mistypedPoint: entry.tap.point,
                 intendedBody: outcome.body,
                 bucket: bucket,
                 timestamp: now
             )
-            hitCalibrationTracker.lastDeleted = nil
-        } else {
-            hitCalibrationTracker.lastDeleted = nil
         }
+        hitCalibrationTracker.deletedStack.removeAll(keepingCapacity: true)
 
         hitCalibration.recordTapObservation(
             letter: outcome.letter,
@@ -99,6 +100,7 @@ extension KeyboardView {
             body: outcome.body,
             bucket: bucket,
             calibrationSwitched: outcome.calibrationSwitched,
+            jointBayesianSwitched: outcome.jointBayesianSwitched,
             languageCorrected: outcome.languageCorrected,
             timestamp: now
         )
@@ -118,14 +120,17 @@ extension KeyboardView {
     func recordCalibrationBackspace(bulk: Bool = false) {
         if bulk {
             hitCalibrationTracker.pendingTaps.removeAll()
-            hitCalibrationTracker.lastDeleted = nil
+            hitCalibrationTracker.deletedStack.removeAll()
             return
         }
         if let popped = hitCalibrationTracker.pendingTaps.popLast() {
-            hitCalibrationTracker.lastDeleted = popped
-            hitCalibrationTracker.deletedAt = Date().timeIntervalSince1970
+            let now = Date().timeIntervalSince1970
+            hitCalibrationTracker.deletedStack.append((popped, now))
+            if hitCalibrationTracker.deletedStack.count > HitCalibrationTracker.maxDeletedStack {
+                hitCalibrationTracker.deletedStack.removeAll()
+            }
         } else {
-            hitCalibrationTracker.lastDeleted = nil
+            hitCalibrationTracker.deletedStack.removeAll()
         }
     }
 
@@ -146,7 +151,7 @@ extension KeyboardView {
         guard committedWordOrPhrase else { return }
         let taps = hitCalibrationTracker.pendingTaps
         hitCalibrationTracker.pendingTaps.removeAll(keepingCapacity: true)
-        hitCalibrationTracker.lastDeleted = nil
+        hitCalibrationTracker.deletedStack.removeAll(keepingCapacity: true)
         for tap in taps {
             hitCalibration.learnCommittedTap(
                 letter: tap.letter,

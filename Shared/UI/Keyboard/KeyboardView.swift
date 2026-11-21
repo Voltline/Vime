@@ -530,7 +530,10 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
             self.bringSubviewToFront(self.gestureHint)
         }
         keysContainer.letterPrior = { [weak self] held in self?.hitCorrectionPrior(held: held) }
-        keysContainer.letterOffset = { [weak self] letter, body in self?.hitCalibrationOffset(for: letter, body: body) ?? .zero }
+        keysContainer.letterModel = { [weak self] letter in
+            self?.hitCalibrationModel(for: letter)
+                ?? .init(dx: 0, dy: 0, varX: KeyHitCalibration.defaultVarX, varY: KeyHitCalibration.defaultVarY, weight: 0, count: 0)
+        }
         keysContainer.onLetterTapComplete = { [weak self] outcome in self?.recordCalibratedLetterTap(outcome) }
         keysContainer.onCursorMove = { [weak self] x, y in
             guard let self else { return }
@@ -847,7 +850,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     func releaseInactiveResources() {
         setClipboardActive(false)
         hitCalibrationTracker.pendingTaps.removeAll()
-        hitCalibrationTracker.lastDeleted = nil
+        hitCalibrationTracker.deletedStack.removeAll()
         hitCalibration.flushAsync()
         session.releaseInactiveResources()
         spareCandidateButtons.removeAll(keepingCapacity: false)
