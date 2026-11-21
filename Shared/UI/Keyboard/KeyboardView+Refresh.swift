@@ -83,7 +83,7 @@ extension KeyboardView {
         let rangeDescription = session.conversionRangeDescription
         let state = ChromeState(panel: panel, page: page, composing: composing, sessionStrip: session.showsStrip,
             quickAvailable: !quick.isEmpty,
-            clipboardOffered: clipboard.text != nil && preferences.clipboardSuggestions && hasFullAccess && clipboardActive,
+            clipboardOffered: clipboard.text != nil && (appliedPreferences?.clipboardSuggestions ?? preferences.clipboardSuggestions) && hasFullAccess && clipboardActive,
             neuralPaused: neuralPaused, canUndo: canUndoLineDeletion,
             supportsPrimaryVariant: traits.supportsPrimaryVariant, hasConversionRange: rangeDescription != nil,
             emojiSearch: emojiSearchActive)
@@ -92,9 +92,11 @@ extension KeyboardView {
         clipboardSuggestion.present(state.showsClipboard ? clipboard.text : nil)
         clipboardSuggestion.isHidden = !state.showsClipboard
         neuralStatusLabel.isHidden = state.hidesNeuralStatus
-        settingsPanel?.showsOneHanded = !pad && !compact
-        settingsPanel?.showsLiveConversion = !(session is ChineseInputSession)
-        settingsPanel?.update(hasFullAccess: hasFullAccess, neuralPaused: neuralPaused)
+        if panel == .settings {
+            settingsPanel?.showsOneHanded = !pad && !compact
+            settingsPanel?.showsLiveConversion = !(session is ChineseInputSession)
+            settingsPanel?.update(hasFullAccess: hasFullAccess, neuralPaused: neuralPaused)
+        }
         header.isHidden = state.hidesHeader
         undoButton.isHidden = state.hidesUndo
         brandButton.isHidden = state.hidesBrand
@@ -190,19 +192,29 @@ extension KeyboardView {
     }
 
     func refreshActionKeys(_ traits: KeyboardInputTraits, composing: Bool) {
-        spaceKey?.setTitle(usesNumberPad ? "空格" : composing ? traits.compositionSpaceTitle
-            : kanaLayoutActive ? String(localized: "空格") : "", for: .normal)
-        returnKey?.setTitle(composing ? traits.compositionReturnTitle : returnTitle, for: .normal)
+        let spaceTitle = usesNumberPad ? "空格" : composing ? traits.compositionSpaceTitle
+            : kanaLayoutActive ? String(localized: "空格") : ""
+        if spaceKey?.title(for: .normal) != spaceTitle {
+            spaceKey?.setTitle(spaceTitle, for: .normal)
+        }
+        let nextReturnTitle = composing ? traits.compositionReturnTitle : returnTitle
+        if returnKey?.title(for: .normal) != nextReturnTitle {
+            returnKey?.setTitle(nextReturnTitle, for: .normal)
+        }
         let actionReturn = !composing && [.send, .search, .go, .done, .next, .join, .route, .continue].contains(returnKeyType)
-        returnKey?.fillColor = actionReturn ? UIColor(cgColor: VimeLogo.blue) : KeyboardPalette.utility
-        returnKey?.setTitleColor(actionReturn ? .white : KeyboardPalette.text, for: .normal)
-        if returnKey?.hasSkinArtwork == true {
-            returnKey?.fillColor = KeyboardPalette.key
-            returnKey?.setTitleColor(KeyboardPalette.text, for: .normal)
+        let returnFill: UIColor = returnKey?.hasSkinArtwork == true ? KeyboardPalette.key
+            : actionReturn ? UIColor(cgColor: VimeLogo.blue) : KeyboardPalette.utility
+        let returnTitleColor: UIColor = returnKey?.hasSkinArtwork == true ? KeyboardPalette.text
+            : actionReturn ? .white : KeyboardPalette.text
+        returnKey?.fillColor = returnFill
+        if returnKey?.titleColor(for: .normal)?.isEqual(returnTitleColor) != true {
+            returnKey?.setTitleColor(returnTitleColor, for: .normal)
         }
         if let numberBackKey, !numberBackKey.hasSkinArtwork {
             numberBackKey.fillColor = KeyboardPalette.accent
-            numberBackKey.setTitleColor(.white, for: .normal)
+            if numberBackKey.titleColor(for: .normal)?.isEqual(UIColor.white) != true {
+                numberBackKey.setTitleColor(.white, for: .normal)
+            }
         }
     }
 

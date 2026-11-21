@@ -5,10 +5,30 @@ struct KeyboardPreferences {
     static let heightRange = 0.85...1.60
     private let defaults: UserDefaults
     private let heightDefaults: UserDefaults
+    private static let sharedStoreLock = NSLock()
+    private nonisolated(unsafe) static var cachedSharedStore: UserDefaults?
+    private nonisolated(unsafe) static var cachedSharedStoreChecked = false
+    private nonisolated(unsafe) static var migratedDefaultSharedStore = false
+
     init(defaults: UserDefaults = .standard, heightDefaults: UserDefaults? = nil, sharedDefaults: UserDefaults? = nil) {
-        let shared = sharedDefaults ?? (defaults === UserDefaults.standard ? Self.sharedStore() : nil)
+        let usesDefaultShared = sharedDefaults == nil && defaults === UserDefaults.standard
+        let shared = sharedDefaults ?? (usesDefaultShared ? Self.sharedStore() : nil)
         self.defaults = shared ?? defaults
         self.heightDefaults = heightDefaults ?? shared ?? defaults
+        if usesDefaultShared {
+            Self.sharedStoreLock.lock()
+            let shouldMigrate = !Self.migratedDefaultSharedStore
+            if shouldMigrate { Self.migratedDefaultSharedStore = true }
+            Self.sharedStoreLock.unlock()
+            if shouldMigrate {
+                Self.migrate(from: defaults, to: self.defaults, shared: shared)
+            }
+        } else {
+            Self.migrate(from: defaults, to: self.defaults, shared: shared)
+        }
+    }
+
+    private static func migrate(from defaults: UserDefaults, to target: UserDefaults, shared: UserDefaults?) {
         // Preserve each existing shared choice; migrate legacy per-process values
         // only when the corresponding App Group key has never been set.
         if let shared, shared !== defaults {
@@ -16,14 +36,22 @@ struct KeyboardPreferences {
                 if let value = defaults.object(forKey: key) { shared.set(value, forKey: key) }
             }
         }
-        if self.defaults.object(forKey: "vime.hapticIntensity") == nil {
-            let legacy = min(5, max(0, self.defaults.object(forKey: "vime.hapticLevel") as? Int ?? 3))
-            self.defaults.set(Double(legacy) / 5, forKey: "vime.hapticIntensity")
+        if target.object(forKey: "vime.hapticIntensity") == nil {
+            let legacy = min(5, max(0, target.object(forKey: "vime.hapticLevel") as? Int ?? 3))
+            target.set(Double(legacy) / 5, forKey: "vime.hapticIntensity")
         }
     }
-    /// The App Group store when this process can reach it.
+
+    /// The App Group store when this process can reach it (cached per process).
     nonisolated static func sharedStore() -> UserDefaults? {
-        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroup) != nil ? UserDefaults(suiteName: appGroup) : nil
+        sharedStoreLock.lock()
+        defer { sharedStoreLock.unlock() }
+        if cachedSharedStoreChecked { return cachedSharedStore }
+        cachedSharedStoreChecked = true
+        if FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroup) != nil {
+            cachedSharedStore = UserDefaults(suiteName: appGroup)
+        }
+        return cachedSharedStore
     }
     private static let sharedKeys = ["vime.sound", "vime.hapticLevel", "vime.hapticIntensity", "vime.nineKeyNumbers", "vime.kanaLayout",
         "vime.prolongedKey", "vime.previews", "vime.previewHold", "vime.theme", "vime.candidateRanking", "vime.phraseSuggestions", "vime.clipboardSuggestions", "vime.autoPairBrackets", "vime.autoCapitalize", "vime.doubleSpacePeriod", "vime.undoConversionOnBackspace", "vime.fullWidthSpace", "vime.liveConversion", "vime.textReplacements", "vime.englishCompletion", "vime.oneHanded", "vime.customSkinID", "vime.skinRevision", "vime.numberSymbols", "vime.inputLanguage",

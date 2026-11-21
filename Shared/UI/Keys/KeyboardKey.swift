@@ -42,7 +42,12 @@ final class KeyboardKey: UIButton {
     var previewHold: TimeInterval = 0
     private var previewHideWork: DispatchWorkItem?
     weak var previewContainer: UIView?
-    var fillColor: UIColor = KeyboardPalette.key { didSet { updateAppearance() } }
+    var fillColor: UIColor = KeyboardPalette.key {
+        didSet {
+            guard !fillColor.isEqual(oldValue) else { return }
+            updateAppearance()
+        }
+    }
     private var repeatTimer: Timer?
     private var delayTimer: Timer?
     private var preview: UILabel?

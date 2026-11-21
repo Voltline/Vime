@@ -118,20 +118,26 @@ final class KeyboardCandidateButton: UIButton {
             invalidateIntrinsicContentSize()
         }
         let hasRuby = !ruby.isHidden
-        if presentedIndex != index || presentedRuby != hasRuby {
+        let indexChanged = presentedIndex != index || presentedRuby != hasRuby
+        let highlightChanged = presentedHighlight != highlighted
+        let colorChanged = titleColor(for: .normal)?.isEqual(KeyboardPalette.text) != true
+        if !needsMeasurement && !indexChanged && !highlightChanged && !colorChanged { return }
+        if indexChanged {
             titleLabel?.font = .systemFont(ofSize: hasRuby ? Self.rubyTitleFontSize : Self.titleFontSize,
                 weight: index == 0 && !suggestion ? .medium : .regular)
             presentedIndex = index
             presentedRuby = hasRuby
             invalidateIntrinsicContentSize()
         }
-        if presentedHighlight != highlighted {
+        if highlightChanged {
             presentedHighlight = highlighted
             highlight.isHidden = !highlighted
         }
-        setTitleColor(KeyboardPalette.text, for: .normal)
-        annotation.textColor = .secondaryLabel
-        ruby.textColor = annotation.textColor
+        if colorChanged {
+            setTitleColor(KeyboardPalette.text, for: .normal)
+            annotation.textColor = .secondaryLabel
+            ruby.textColor = annotation.textColor
+        }
         if needsMeasurement {
             let startedAt = KeyboardPerformance.start()
             let mainWidth = KeyboardCandidateTextMetrics.width(of: presentation.text, font: titleLabel!.font!)

@@ -251,4 +251,18 @@ final class VimeKVBatchLanguageModelTests: XCTestCase {
         XCTAssertThrowsError(try batch.prompt([], allowed: [3]))
         XCTAssertThrowsError(try batch.prompt([Int32](repeating: 7, count: 129), allowed: [3]))
     }
+
+    func testReleaseTransientBuffersReclaimsMemoryAndRecoversCleanly() throws {
+        let batch = try VimeKVBatchLanguageModel(bundle: bundle)
+        let root = try batch.prompt([2, 10, 20], allowed: [3, 7]).cache
+        let first = try batch.scores([(root, 7)], allowed: [3, 8])
+        XCTAssertGreaterThan(batch.bufferBytes, 0)
+
+        batch.releaseTransientBuffers()
+        XCTAssertEqual(batch.bufferBytes, 0)
+
+        let rootAgain = try batch.prompt([2, 10, 20], allowed: [3, 7]).cache
+        let second = try batch.scores([(rootAgain, 7)], allowed: [3, 8])
+        assertClose(first[0].logProbabilities, second[0].logProbabilities, tolerance: batch.tolerance, "after release")
+    }
 }
