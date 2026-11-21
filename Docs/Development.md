@@ -92,7 +92,7 @@ bash Scripts/verify_review.sh all
 
 ```mermaid
 flowchart LR
-    work["feat/* · fix/*"] -- PR --> dev
+    work["feat/* · fix/* · perf/*"] -- PR --> dev
     misc["docs/*<br/>chore/*<br/>build/*"] -- PR --> dev
     misc -. "PR，赶本周构建" .-> beta
     dev -- "周三至周五 03:00<br/>写入版本号并快进" --> beta
@@ -108,13 +108,13 @@ flowchart LR
 
 | 分支 | 用途 | 更新方式 |
 | --- | --- | --- |
-| `feat/<名称>` / `fix/<名称>` | 功能或修复 | 从 `dev` 切出，开 PR 合入 `dev` |
+| `feat/<名称>` / `fix/<名称>` / `perf/<名称>` | 功能、修复或性能优化 | 从 `dev` 切出，开 PR 合入 `dev` |
 | `docs/<名称>` / `chore/<名称>` / `build/<名称>` | 文档、维护、构建配置 | 通常合入 `dev`；需要赶上本周构建时可从 `beta` 切出并合入 `beta` |
 | `dev` | 集成分支，GitHub 默认分支 | 上述 PR；版本号提交与 `beta` 回合由周三至周五的流程写入 |
 | `beta` | 本周 TestFlight 构建 | 周三至周五由流程快进到 `dev`；平时只接受 `docs/` `chore/` `build/` PR |
 | `main` | 已提交审核的版本 | 提审任务成功后快进到 `beta`，并打 `v<版本>` 标签 |
 
-前缀之后只用小写字母、数字及 `.` `_` `-`，例如 `feat/emoji-search`、`fix/long-input-correction`。PR 由 [Branch policy](../.github/workflows/branch-policy.yml) 检查目标分支与命名，`main` 不接受 PR。合并使用 merge commit，合并后删除源分支。提交说明沿用 `feat: …` / `fix: …` 等前缀，版本号据此计算。
+前缀之后只用小写字母、数字及 `.` `_` `-`，例如 `feat/emoji-search`、`fix/long-input-correction`。PR 由 [Branch policy](../.github/workflows/branch-policy.yml) 检查目标分支与命名，`main` 不接受 PR。合并使用 merge commit，合并后删除源分支。提交说明沿用 `feat: …` / `fix: …` / `perf: …` 等前缀，版本号据此计算（只有 `feat` 升次版本号）。
 
 `main` 始终是 `beta` 的祖先，`main` 与 `beta` 只做快进。直接合入 `beta` 的提交由下一次出构建的流程合回 `dev`，之后 `beta` 才能再次快进；合回出现冲突时任务失败，开 `chore/sync-beta` PR 把 `beta` 合入 `dev` 解决后重新运行。
 
