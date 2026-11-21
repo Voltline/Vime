@@ -516,6 +516,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
                 if self.hostChangedDuringCursorMove { self.hostChangedDuringCursorMove = false; self.hostContextDidChange() }
             }
             if gesture == .horizontalCursor || gesture == .spaceCursor {
+                self.playFeedback(.tick)
                 self.confirmComposition()
                 self.session.finishLearningFeedback()
                 // A zero move starts a new caret gesture and resets its column.
@@ -532,6 +533,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
             guard let self else { return }
             self.session.finishLearningFeedback()
             self.onEdit?([.moveCursor(horizontal: x, vertical: y)])
+            self.playFeedback(.cursorTick)
         }
         keysContainer.onDeletePressChange = { [weak self] held in
             guard let self else { return }

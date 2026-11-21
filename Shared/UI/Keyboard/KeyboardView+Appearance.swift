@@ -2,19 +2,29 @@ import UIKit
 
 // Feedback, scroll styling, skins and theme.
 extension KeyboardView {
-    func playFeedback() {
+    func playFeedback(_ style: KeyboardHaptics.Style = .letter) {
         let sound = appliedPreferences?.sound ?? preferences.sound
         let intensity = appliedPreferences?.hapticIntensity ?? preferences.hapticIntensity
-        if sound && hasFullAccess {
-            // Apple documents audio (including input clicks) as an open-access
-            // capability for extensions. Never invoke a denied audio path that
-            // could stall input. Visual feedback and haptic attempts are separate.
-            UIDevice.current.playInputClick()
+        switch style {
+        case .tick, .cursorTick:
+            haptics.play(intensity: intensity, style: style)
+        case .repeatDelete:
+            let allowed = haptics.play(intensity: intensity, style: .repeatDelete)
+            if allowed && sound && hasFullAccess {
+                UIDevice.current.playInputClick()
+            }
+        case .letter, .utility:
+            if sound && hasFullAccess {
+                // Apple documents audio (including input clicks) as an open-access
+                // capability for extensions. Never invoke a denied audio path that
+                // could stall input. Visual feedback and haptic attempts are separate.
+                UIDevice.current.playInputClick()
+            }
+            haptics.play(intensity: intensity, style: style)
         }
-        haptics.play(intensity: intensity)
     }
 
-    @objc func toolbarFeedback() { playFeedback() }
+    @objc func toolbarFeedback() { playFeedback(.utility) }
 
     func configureScroll(_ scroll: UIScrollView) {
         scroll.backgroundColor = KeyboardTouchBacking.color

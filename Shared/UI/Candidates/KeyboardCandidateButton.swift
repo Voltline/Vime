@@ -40,6 +40,8 @@ final class KeyboardCandidateButton: UIButton {
     var selectionToken: CandidateSelectionToken? { presentedPresentation?.selectionToken }
     private var armedSelectionToken: CandidateSelectionToken?
     private var selectionArmed = false
+    /// Deferred visual update while this button is held down so the text under the finger does not jump.
+    private var pendingPresentation: (presentation: CandidatePresentation, index: Int, highlighted: Bool)?
 
     func takeSelectionToken() -> CandidateSelectionToken? {
         let token = selectionArmed ? armedSelectionToken : selectionToken
@@ -55,6 +57,10 @@ final class KeyboardCandidateButton: UIButton {
     @objc private func cancelSelection() {
         selectionArmed = false
         armedSelectionToken = nil
+        if let pending = pendingPresentation {
+            pendingPresentation = nil
+            present(pending.presentation, index: pending.index, highlighted: pending.highlighted)
+        }
     }
 
     override init(frame: CGRect) {
@@ -92,6 +98,11 @@ final class KeyboardCandidateButton: UIButton {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     func present(_ presentation: CandidatePresentation, index: Int, highlighted: Bool) {
+        if selectionArmed {
+            pendingPresentation = (presentation, index, highlighted)
+            return
+        }
+        pendingPresentation = nil
         tag = index
         let suggests = presentation.selectionToken?.kind == .suggestion
         let needsMeasurement = presentation.text != presentedPresentation?.text

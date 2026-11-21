@@ -6,6 +6,12 @@ final class KeyboardKey: UIButton {
     var touchBounds: CGRect?
     var action: (() -> Void)?
     var feedback: (() -> Void)?
+    /// Throttled feedback used during repeat-delete ticks; falls back to `feedback`.
+    var repeatFeedback: (() -> Void)?
+    /// Stage-2 accelerated repeat action (e.g. word-by-word delete after holding > 1.2s).
+    var wordRepeatAction: (() -> Void)?
+    /// Called once when swipe-up alternate activates (`false -> true`).
+    var onAlternateActivate: (() -> Void)?
     /// Recheck the host before each repeat, including accessibility activation.
     var canRepeat: (() -> Bool)?
     var alternateAction: (() -> Void)?
@@ -50,7 +56,15 @@ final class KeyboardKey: UIButton {
     }
     private var repeatTimer: Timer?
     private var delayTimer: Timer?
+    private var accelerateTimer: Timer?
     private var preview: UILabel?
+    private var previewShadowBounds: CGRect?
+    private var previewWasAlternate = false
+    /// Hold duration (seconds) after initial delay before repeat-delete switches to stage 2.
+    static let repeatAccelerateDelay: TimeInterval = 0.78
+    static let repeatStage1Interval: TimeInterval = 0.065
+    static let repeatStage2WordInterval: TimeInterval = 0.11
+    static let repeatStage2CharInterval: TimeInterval = 0.035
     private let artwork = UIImageView()
     private let skinCaption = KeyboardSkinCaption()
     private var skin: KeyboardSkinAppearance?
@@ -377,6 +391,8 @@ final class KeyboardKey: UIButton {
 
     private func showPreview(_ text: String, alternate: Bool) {
         previewHideWork?.cancel(); previewHideWork = nil
+        let becameAlternate = alternate && !previewWasAlternate
+        previewWasAlternate = alternate
         let bubble = preview ?? UILabel()
         let container = previewContainer ?? superview?.superview ?? self
         var rect = convert(CGRect(x: -8, y: -48, width: bounds.width + 16, height: 44), to: container)
@@ -390,15 +406,39 @@ final class KeyboardKey: UIButton {
         bubble.textAlignment = .center
         bubble.textColor = alternate ? KeyboardPalette.accent : KeyboardPalette.text
         bubble.alpha = 1
-        bubble.backgroundColor = KeyboardPalette.key.withAlphaComponent(1)
-        bubble.isOpaque = true
+        bubble.backgroundColor = .clear
+        bubble.layer.backgroundColor = KeyboardPalette.key.withAlphaComponent(1).resolvedColor(with: traitCollection).cgColor
+        bubble.isOpaque = false
         bubble.layer.cornerRadius = 8
-        bubble.layer.masksToBounds = true
+        bubble.layer.masksToBounds = false
+        bubble.layer.shadowColor = UIColor.black.cgColor
+        bubble.layer.shadowOpacity = Float(skin?.document.style.shadowOpacity ?? 0.30)
+        bubble.layer.shadowOffset = CGSize(width: 0, height: 2)
+        bubble.layer.shadowRadius = 4
+        if previewShadowBounds != bubble.bounds {
+            previewShadowBounds = bubble.bounds
+            let radius = min(8, bubble.bounds.width / 2, bubble.bounds.height / 2)
+            bubble.layer.shadowPath = CGPath(roundedRect: bubble.bounds, cornerWidth: radius, cornerHeight: radius, transform: nil)
+        }
         bubble.isUserInteractionEnabled = false
         bubble.accessibilityIdentifier = "vime.swipe.preview"
         if bubble.superview !== container { container.addSubview(bubble) }
         preview = bubble
         container.bringSubviewToFront(bubble)
+        if becameAlternate {
+            onAlternateActivate?()
+            if !UIAccessibility.isReduceMotionEnabled {
+                bubble.transform = .identity
+                UIView.animateKeyframes(withDuration: 0.08, delay: 0, options: [.allowUserInteraction, .beginFromCurrentState]) {
+                    UIView.addKeyframe(withRelativeStartTime: 0, relativeDuration: 0.45) {
+                        bubble.transform = CGAffineTransform(scaleX: 1.08, y: 1.08)
+                    }
+                    UIView.addKeyframe(withRelativeStartTime: 0.45, relativeDuration: 0.55) {
+                        bubble.transform = .identity
+                    }
+                }
+            }
+        }
     }
 
     override var isHighlighted: Bool { didSet { updateAppearance() } }
@@ -415,6 +455,7 @@ final class KeyboardKey: UIButton {
     private func pressDown(deferred: Bool) {
         KeyboardTouchDiagnostics.record("KeyboardKey.touchDown", view: self)
         usedAlternate = false
+        previewWasAlternate = false
         // Every press answers once, even a delete with nothing to delete;
         // only its repeats wait for something to remove.
         feedback?()
@@ -444,19 +485,40 @@ final class KeyboardKey: UIButton {
                 guard self.repeatIsAllowed else { self.resolvedRepeatOccurred = true; self.stopTracking(); return }
                 if deferred { self.resolvedRepeatOccurred = true; self.action?() }
                 guard self.isHighlighted || self.isTracking else { return }
-                let timer = Timer(timeInterval: 0.065, repeats: true) { [weak self] _ in
+                self.startRepeatTimer(interval: Self.repeatStage1Interval, useWordAction: false)
+                let accel = Timer(timeInterval: Self.repeatAccelerateDelay, repeats: false) { [weak self] _ in
                     guard let self else { return }
-                    guard self.repeatIsAllowed else { self.stopTracking(); return }
-                    self.resolvedRepeatOccurred = true; self.feedback?(); self.action?()
+                    self.accelerateTimer = nil
+                    guard self.isHighlighted || self.isTracking, self.repeatIsAllowed else { return }
+                    let useWord = self.wordRepeatAction != nil
+                    let interval = useWord ? Self.repeatStage2WordInterval : Self.repeatStage2CharInterval
+                    self.startRepeatTimer(interval: interval, useWordAction: useWord)
                 }
-                self.repeatTimer = timer
-                RunLoop.main.add(timer, forMode: .common)
+                self.accelerateTimer = accel
+                RunLoop.main.add(accel, forMode: .common)
             }
             delayTimer = delay
             RunLoop.main.add(delay, forMode: .common)
         } else if showsPreview, let title = title(for: .normal), title.count == 1 {
             showPreview(title, alternate: false)
         }
+    }
+
+    private func startRepeatTimer(interval: TimeInterval, useWordAction: Bool) {
+        repeatTimer?.invalidate()
+        let timer = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            guard self.repeatIsAllowed else { self.stopTracking(); return }
+            self.resolvedRepeatOccurred = true
+            (self.repeatFeedback ?? self.feedback)?()
+            if useWordAction, let wordAction = self.wordRepeatAction {
+                wordAction()
+            } else {
+                self.action?()
+            }
+        }
+        repeatTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
     }
 
     private var repeatIsAllowed: Bool { canRepeat?() ?? true }
@@ -484,17 +546,21 @@ final class KeyboardKey: UIButton {
         holdTimer = nil
         delayTimer?.invalidate()
         repeatTimer?.invalidate()
+        accelerateTimer?.invalidate()
         delayTimer = nil
         repeatTimer = nil
+        accelerateTimer = nil
+        previewWasAlternate = false
         previewHideWork?.cancel(); previewHideWork = nil
         guard holdingPreview, previewHold > 0, let bubble = preview else {
             preview?.removeFromSuperview()
             preview = nil
+            previewShadowBounds = nil
             return
         }
         let work = DispatchWorkItem { [weak self, weak bubble] in
             bubble?.removeFromSuperview()
-            if let self, self.preview === bubble { self.preview = nil; self.previewHideWork = nil }
+            if let self, self.preview === bubble { self.preview = nil; self.previewShadowBounds = nil; self.previewHideWork = nil }
         }
         previewHideWork = work
         DispatchQueue.main.asyncAfter(deadline: .now() + previewHold, execute: work)
@@ -504,7 +570,7 @@ final class KeyboardKey: UIButton {
     var isHoldingPreview: Bool { previewHideWork != nil }
 
     override func didMoveToWindow() { if window == nil { stopTracking() } }
-    deinit { delayTimer?.invalidate(); repeatTimer?.invalidate(); holdTimer?.invalidate() }
+    deinit { delayTimer?.invalidate(); repeatTimer?.invalidate(); accelerateTimer?.invalidate(); holdTimer?.invalidate() }
 }
 
 /// A flick key's selection. Raw values index KeyboardKey.flickOutputs.

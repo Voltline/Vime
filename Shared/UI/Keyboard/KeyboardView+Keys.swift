@@ -119,7 +119,9 @@ extension KeyboardView {
         let button = KeyboardKey(title: title)
         button.previewContainer = previewOverlay
         button.action = action
-        button.feedback = { [weak self] in self?.playFeedback() }
+        let style: KeyboardHaptics.Style = utility ? .utility : .letter
+        button.feedback = { [weak self] in self?.playFeedback(style) }
+        button.onAlternateActivate = { [weak self] in self?.playFeedback(.tick) }
         if utility {
             button.isUtility = true
             button.fillColor = KeyboardPalette.utility
@@ -136,7 +138,7 @@ extension KeyboardView {
         button.isUtility = true
         button.fillColor = KeyboardPalette.utility
         button.action = action
-        button.feedback = { [weak self] in self?.playFeedback() }
+        button.feedback = { [weak self] in self?.playFeedback(.utility) }
         keysContainer.addSubview(button)
         return (button, weight)
     }
@@ -321,6 +323,7 @@ extension KeyboardView {
         }
         bottom.append(comma)
         let space = key("", weight: 1) { [weak self] in self?.space() }
+        space.0.feedback = { [weak self] in self?.playFeedback(.utility) }
         space.0.accessibilityLabel = String(localized: "空格，转换候选")
         space.0.accessibilityIdentifier = "vime.key.space"
         spaceKey = space.0
@@ -334,6 +337,7 @@ extension KeyboardView {
             self.rebuildKeys()
             self.updateAutoCapitalization()
         }
+        language.0.feedback = { [weak self] in self?.playFeedback(.utility) }
         language.0.setImage(KeyboardGlyphs.language(active: session.inputTraits.language, other: session.inputTraits.alternateLanguage), for: .normal)
         languageKey = language.0
         language.0.accessibilityLabel = session.inputTraits.languageSwitchAccessibilityLabel
@@ -344,6 +348,7 @@ extension KeyboardView {
             guard let self else { return }
             self.apply(self.session.enter())
         }
+        enter.0.feedback = { [weak self] in self?.playFeedback(.utility) }
         enter.0.titleLabel?.font = .systemFont(ofSize: 16, weight: .medium)
         enter.0.fillColor = KeyboardPalette.utility
         enter.0.setTitleColor(.label, for: .normal)
@@ -387,7 +392,29 @@ extension KeyboardView {
         item.0.accessibilityIdentifier = "vime.key.delete"
         item.0.repeats = true
         item.0.canRepeat = { [weak self] in self?.hasDeletableContent ?? false }
+        item.0.repeatFeedback = { [weak self] in self?.playFeedback(.repeatDelete) }
+        item.0.wordRepeatAction = { [weak self] in self?.deleteWordBackward() }
         return item
+    }
+
+    func deleteWordBackward() {
+        guard hasDeletableContent else { return }
+        kanaToggle = nil
+        if session.isComposing {
+            var edits = session.backspace()
+            if session.isComposing { edits += session.backspace() }
+            apply(edits)
+            return
+        }
+        let before = session.leftContextProvider?() ?? ""
+        let count = KeyboardTextNavigation.trailingWordDeletionCount(in: before)
+        guard count > 1 else {
+            apply(session.backspace())
+            return
+        }
+        session.invalidateLearningFeedback()
+        session.dismissSuggestions()
+        apply(Array(repeating: .deleteBackward, count: count))
     }
 
     var hasDeletableContent: Bool {
