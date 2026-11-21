@@ -220,8 +220,10 @@ nonisolated extension JapaneseCandidateEngine {
     /// stay in the dictionary; only the boost from past choices goes away.
     func forget(_ snapshot: CandidateSnapshot) {
         converter.forgetMemory(snapshot.candidate)
+        learningDirty = true
         preferenceMemory?.forget([(snapshot.reading, snapshot.text)]
             + snapshot.candidate.data.map { ($0.ruby, $0.word) })
+        flushLearning()
         invalidateNativeResults()
         reset(preservingContext: true)
     }

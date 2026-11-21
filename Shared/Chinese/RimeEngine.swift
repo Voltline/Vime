@@ -151,10 +151,15 @@ nonisolated final class RimeEngine: @unchecked Sendable {
     }
 
     deinit {
-        let sessions = [session, lookupSession].filter { $0 != 0 }
-        let start = sessionStart
+        let primary = session, primaryStart = sessionStart
+        let lookup = lookupSession, secondaryStart = lookupStart
         // Sessions of an earlier start are gone, and a new one may reuse their ids.
-        if !sessions.isEmpty { queue.async { if start == Self.currentStart { sessions.forEach(vime_rime_destroy_session) } } }
+        if primary != 0 || lookup != 0 {
+            queue.async {
+                if primary != 0, primaryStart == Self.currentStart { vime_rime_destroy_session(primary) }
+                if lookup != 0, lookup != primary, secondaryStart == Self.currentStart { vime_rime_destroy_session(lookup) }
+            }
+        }
     }
 
     /// Ends every session in the process, so Rime writes what it learned and
@@ -355,6 +360,10 @@ nonisolated final class RimeEngine: @unchecked Sendable {
         if session != 0, sessionStart == started { return true }
         session = vime_rime_create_session()
         sessionStart = started
+        if lookupStart != started {
+            lookupSession = 0
+            lookupOptions = nil
+        }
         guard session != 0 else { return false }
         selectSchema()
         if let input = closedInput { _ = vime_rime_set_input(session, input) }

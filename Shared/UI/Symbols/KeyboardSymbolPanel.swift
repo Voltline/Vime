@@ -498,6 +498,7 @@ final class KeyboardSymbolPanel: UIView, UICollectionViewDataSource, UICollectio
     override var isHidden: Bool {
         didSet {
             if isHidden {
+                endDeleting()
                 cancelPrefetches()
                 cells.allObjects.forEach { $0.releaseImage() }
             } else {
@@ -506,6 +507,11 @@ final class KeyboardSymbolPanel: UIView, UICollectionViewDataSource, UICollectio
             }
         }
     }
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if window == nil { endDeleting() }
+    }
+    deinit { deleteRepeat?.invalidate() }
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         guard !collection.isDragging, !collection.isDecelerating else { return }
         let text = items(in: indexPath.section)[indexPath.item].text

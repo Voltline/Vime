@@ -142,6 +142,7 @@ nonisolated enum ChineseMixedInput {
         let next = letters[shortest...].firstIndex(where: \.isUppercase) ?? letters.endIndex
         // A run of capitals (GPT, PDF) is the word whole; one capital runs on.
         let longest = shortest - capital > 1 ? shortest : min(next, shortest + longestRaw)
+        let rests = next == letters.endIndex ? [[]] : capitalSplits(letters[next...], abbreviated: false)
         var found: [[Segment]] = []
         for end in shortest...max(shortest, longest) {
             // Lowercase letters right after the word belong to it, unless
@@ -150,8 +151,11 @@ nonisolated enum ChineseMixedInput {
             guard between.isEmpty || readable(between, abbreviated: false) else { continue }
             let pinyin: [Segment] = between.isEmpty ? [] : [.pinyin(String(between))]
             let word = Segment.raw(String(letters[capital..<end]))
-            for rest in next == letters.endIndex ? [[]] : capitalSplits(letters[next...], abbreviated: false) {
-                for head in heads { found.append(joined(head + [word] + pinyin + rest)) }
+            for rest in rests {
+                for head in heads {
+                    found.append(joined(head + [word] + pinyin + rest))
+                    if found.count >= 256 { return found }
+                }
             }
         }
         return found
@@ -182,7 +186,8 @@ nonisolated enum ChineseMixedInput {
         for (spelling, candidates) in converted where best[spelling] == nil {
             best[spelling] = candidates.first(where: \.coversInput)
         }
-        var seen: Set<String> = []
+        var seenText: Set<String> = []
+        var seenGenuine: Set<String> = []
         return splits.compactMap { segments in
             var text = "", genuine = ""
             for segment in segments {
@@ -193,7 +198,7 @@ nonisolated enum ChineseMixedInput {
                     text += candidate.text; genuine += candidate.genuine
                 }
             }
-            guard seen.insert(text).inserted else { return nil }
+            guard seenText.insert(text).inserted, seenGenuine.insert(genuine).inserted else { return nil }
             return Option(segments: segments, text: text, genuine: genuine)
         }
     }

@@ -674,15 +674,15 @@ nonisolated final class VimeKVBatchLanguageModel {
         let shape = [Self.layers, count, Self.heads, viewSlots, Self.headDimension].map { NSNumber(value: $0) }
         let strides = [rows * Self.heads * slots * Self.headDimension, Self.heads * slots * Self.headDimension,
                        slots * Self.headDimension, Self.headDimension, 1].map { NSNumber(value: $0) }
-        let keyView = try MLMultiArray(dataPointer: keys!, shape: shape, dataType: .float32, strides: strides)
-        let valueView = try MLMultiArray(dataPointer: values!, shape: shape, dataType: .float32, strides: strides)
-        let features = try MLDictionaryFeatureProvider(dictionary: [
-            "input_ids": set.ids, "position": set.positions, "key_cache": keyView, "value_cache": valueView,
-            "prefix_length": try Self.scalar(prefix.length), "prefix_key": prefix.keys, "prefix_value": prefix.values,
-            "allowed": try allowedView(allowed)])
-        lap(&inputSeconds)
 
         return try autoreleasepool {
+            let keyView = try MLMultiArray(dataPointer: keys!, shape: shape, dataType: .float32, strides: strides)
+            let valueView = try MLMultiArray(dataPointer: values!, shape: shape, dataType: .float32, strides: strides)
+            let features = try MLDictionaryFeatureProvider(dictionary: [
+                "input_ids": set.ids, "position": set.positions, "key_cache": keyView, "value_cache": valueView,
+                "prefix_length": try Self.scalar(prefix.length), "prefix_key": prefix.keys, "prefix_value": prefix.values,
+                "allowed": try allowedView(allowed)])
+            lap(&inputSeconds)
             let output = try predict(features, count: count, allowed: allowed.count)
             lap(&predictionSeconds)
             predictions += 1; rowsPredicted += count

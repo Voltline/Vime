@@ -81,4 +81,23 @@ final class ChineseMixedInputTests: XCTestCase {
         XCTAssertFalse(ChineseMixedInput.splits(for: "jintianyongVimedazi").contains { $0.contains(raw("V")) },
                        "the lowercase letters right after a capital belong to its word unless they read as pinyin")
     }
+
+    func testManyCapitalsStayBoundedAndOptionsDeduplicateGenuine() {
+        let manyCapitals = "MaNaBaCaDaFaGaHaJaKaLaMaNaPaQaRaSaTaWaYa"
+        let started = ProcessInfo.processInfo.systemUptime
+        let splits = ChineseMixedInput.splits(for: manyCapitals)
+        XCTAssertLessThan(ProcessInfo.processInfo.systemUptime - started, 0.5)
+        XCTAssertLessThanOrEqual(splits.count, ChineseMixedInput.splitLimit)
+
+        let py = ChineseMixedInput.Segment.pinyin, raw = ChineseMixedInput.Segment.raw
+        let options = ChineseMixedInput.options(
+            [[raw("A"), py("fa")], [raw("A"), py("f")]],
+            converted: [
+                ("fa", [RimeCandidate(text: "發", comment: nil, genuine: "发")]),
+                ("f", [RimeCandidate(text: "髮", comment: nil, genuine: "发")]),
+            ]
+        )
+        XCTAssertEqual(options.count, 1)
+        XCTAssertEqual(options.map(\.genuine), ["A发"])
+    }
 }

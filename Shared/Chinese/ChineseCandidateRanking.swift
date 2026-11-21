@@ -149,10 +149,17 @@ nonisolated enum ChineseCandidateRanking {
             var scores: [Double]?
             let cancelled = { request.isCancelled || storage.isSuspended }
             if !cancelled(), let model = storage.chineseModel, warm, !texts.isEmpty {
+                let started = ProcessInfo.processInfo.systemUptime
                 do {
                     let result = try model.scores(context: context, candidates: texts, cancelled: cancelled)
+                    let elapsedMS = (ProcessInfo.processInfo.systemUptime - started) * 1000
                     if result.count == texts.count, !result.isEmpty, result.allSatisfy(\.isFinite) {
                         scores = result
+                        if model.version == .v2,
+                           ChineseModelFallback.shared.recordKeyLatency(milliseconds: elapsedMS) {
+                            storage.release(.chinese)
+                            ChineseSentenceGeneration.Storage.shared.release()
+                        }
                     } else if model.version == .v2 {
                         scores = fallbackScoreToV1(texts, context: context, reason: "invalid_scores",
                                                    storage: storage, cancelled: cancelled)
