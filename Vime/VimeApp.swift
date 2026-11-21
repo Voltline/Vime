@@ -11,6 +11,7 @@ import SwiftUI
 struct VimeApp: App {
     init() {
         VimeExtensionAudit.configureFromLaunchArguments()
+        KeyHitCalibration.mirrorToAppDocuments()
         Task { await StorefrontRecorder.record() }
 #if DEBUG || VIME_EXTENSION_AUDIT
         // Reproducible settings for opt-in tests of the installed extension.
