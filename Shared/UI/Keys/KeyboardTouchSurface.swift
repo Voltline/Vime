@@ -47,13 +47,13 @@ final class KeyboardTouchSurface: UIView {
     private var gestureOwner: AnyHashable?
     private var cursorPoint = CGPoint.zero
     private var cursorTimestamp: TimeInterval = 0
-    private var cursorSmoothedSpeed: Double = 196.7
+    private var cursorSmoothedSpeed: Double = 80.0
     private var cursorProgressX: Double = 0
     var now: () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }
     static let cursorSpeedEMAAlpha = 0.30
     static let cursorSlowSpeed = 80.0
     static let cursorFastSpeed = 360.0
-    static let cursorSlowStep = 10.5
+    static let cursorSlowStep = 8.0
     static let cursorFastStep = 4.5
     private var spaceTimer: Timer?
     private var deleteArmed = false
@@ -257,7 +257,7 @@ final class KeyboardTouchSurface: UIView {
         press.key.isHighlighted = false
         gesture = value; gestureOwner = owner; cursorPoint = point
         cursorTimestamp = now()
-        cursorSmoothedSpeed = 196.7
+        cursorSmoothedSpeed = Self.cursorSlowSpeed
         cursorProgressX = 0
         if value == .deleteLine {
             deleteArmed = true; onDeleteArmedChange?(true); onDeletePressChange?(true)

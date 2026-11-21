@@ -144,11 +144,10 @@ final class KeyboardTactilePhase1Tests: XCTestCase {
         XCTAssertEqual(steps, [1])
         steps.removeAll()
 
-        // 1. Slow micro-drag (40 pt/s: +2pt every 50ms for 11 frames = +22pt total):
-        //    Smoothed speed converges toward slow (10.5 pt/step, vs 2.75 steps at legacy 8pt/step),
-        //    yielding 2 steps after crossing 21pt via fractional remainder accumulation.
+        // 1. Slow micro-drag (40 pt/s <= 80 pt/s: +2pt every 50ms for 8 frames = +16pt total):
+        //    Stays at baseline 8.0 pt/step without deceleration, yielding exactly 2 steps via remainder accumulation.
         var x: CGFloat = 185
-        for _ in 0..<11 {
+        for _ in 0..<8 {
             clock += 0.050
             x += 2
             surface.movePress(id: 1, to: CGPoint(x: x, y: 100))
