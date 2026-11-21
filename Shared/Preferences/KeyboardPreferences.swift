@@ -62,7 +62,6 @@ struct KeyboardPreferences {
         let heightFactor: Double
         let sound: Bool
         let hapticIntensity: Double
-        let hapticProfile: KeyboardHapticProfile
         let nineKeyNumbers: Bool
         let kanaLayout: Bool
         let prolongedKey: Bool
@@ -100,7 +99,6 @@ struct KeyboardPreferences {
     }
     var snapshot: Snapshot {
         Snapshot(heightFactor: heightFactor, sound: sound, hapticIntensity: hapticIntensity,
-            hapticProfile: hapticProfile,
             nineKeyNumbers: nineKeyNumbers, kanaLayout: kanaLayout, prolongedKey: prolongedKey, previews: previews,
             previewHold: previewHold,
             theme: theme, customSkinID: customSkinID, skinRevision: skinRevision, candidateRanking: candidateRanking, phraseSuggestions: phraseSuggestions,
@@ -135,10 +133,6 @@ struct KeyboardPreferences {
     var hapticIntensity: Double {
         get { HapticIntensity.normalized(defaults.double(forKey: "vime.hapticIntensity")) }
         nonmutating set { defaults.set(HapticIntensity.normalized(newValue), forKey: "vime.hapticIntensity") }
-    }
-    var hapticProfile: KeyboardHapticProfile {
-        get { KeyboardHapticProfile(rawValue: defaults.string(forKey: "vime.hapticProfile") ?? "") ?? .compound }
-        nonmutating set { defaults.set(newValue.rawValue, forKey: "vime.hapticProfile") }
     }
     /// Compatibility for callers using the original six-level setting.
     var hapticLevel: Int {

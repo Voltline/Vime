@@ -11,7 +11,6 @@ final class KeyboardSettingsPanel: UIScrollView {
     private var liveConversionGroup: UIView?
     private let haptics = HapticIntensitySlider()
     private let hapticValue = UILabel()
-    private let hapticProfile = UISegmentedControl(items: KeyboardHapticProfile.allCases.map(\.title))
     private let numbers = UISegmentedControl(items: ["九宫格", "全键盘"])
     private let accessibleNumbers = UIStackView()
     private let oneHanded = UISegmentedControl(items: [String(localized: "关闭"), String(localized: "靠左"), String(localized: "靠右")])
@@ -148,21 +147,6 @@ final class KeyboardSettingsPanel: UIScrollView {
         stack.addArrangedSubview(pair(soundGroup, liveConversionGroup))
         stack.addArrangedSubview(group(hapticRow))
 
-        hapticProfile.accessibilityLabel = String(localized: "触感层次风格")
-        hapticProfile.accessibilityIdentifier = "vime.setting.hapticProfile"
-        hapticProfile.selectedSegmentIndex = KeyboardHapticProfile.allCases.firstIndex(of: preferences.hapticProfile) ?? 1
-        hapticProfile.addAction(UIAction { [weak self] _ in
-            guard let self else { return }
-            let index = self.hapticProfile.selectedSegmentIndex
-            guard KeyboardHapticProfile.allCases.indices.contains(index) else { return }
-            self.preferences.hapticProfile = KeyboardHapticProfile.allCases[index]
-            self.onFeedback?()
-        }, for: .valueChanged)
-        let profileLabel = label(String(localized: "触感风格"))
-        profileLabel.setContentHuggingPriority(.required, for: .horizontal)
-        let profileRow = row(symbol: "waveform.path", content: [profileLabel, hapticProfile], height: 44, adaptive: true)
-        stack.addArrangedSubview(group(profileRow))
-
         numbers.accessibilityLabel = String(localized: "数字键盘布局"); numbers.accessibilityIdentifier = "vime.setting.numbers"
         numbers.setContentHuggingPriority(.required, for: .horizontal)
         numbers.widthAnchor.constraint(greaterThanOrEqualToConstant: 110).isActive = true
@@ -256,7 +240,6 @@ final class KeyboardSettingsPanel: UIScrollView {
         updateLiveConversion()
         updateNumberSelection()
         oneHanded.selectedSegmentIndex = KeyboardOneHandedSide.allCases.firstIndex(of: preferences.oneHanded) ?? 0
-        hapticProfile.selectedSegmentIndex = KeyboardHapticProfile.allCases.firstIndex(of: preferences.hapticProfile) ?? 1
         inputLanguage.selectedSegmentIndex = Self.languages.firstIndex(of: preferences.inputLanguage) ?? 0
         if !haptics.isAdjusting {
             haptics.setIntensity(preferences.hapticIntensity)
@@ -286,9 +269,6 @@ final class KeyboardSettingsPanel: UIScrollView {
         oneHanded.selectedSegmentTintColor = numbers.selectedSegmentTintColor
         oneHanded.setTitleTextAttributes(numbers.titleTextAttributes(for: .normal), for: .normal)
         oneHanded.setTitleTextAttributes(numbers.titleTextAttributes(for: .selected), for: .selected)
-        hapticProfile.selectedSegmentTintColor = numbers.selectedSegmentTintColor
-        hapticProfile.setTitleTextAttributes(numbers.titleTextAttributes(for: .normal), for: .normal)
-        hapticProfile.setTitleTextAttributes(numbers.titleTextAttributes(for: .selected), for: .selected)
         inputLanguage.selectedSegmentTintColor = numbers.selectedSegmentTintColor
         inputLanguage.setTitleTextAttributes(numbers.titleTextAttributes(for: .normal), for: .normal)
         inputLanguage.setTitleTextAttributes(numbers.titleTextAttributes(for: .selected), for: .selected)

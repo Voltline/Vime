@@ -10,23 +10,6 @@ import UIKit
 /// prepare: generators are warmed only when created or when the keyboard
 /// appears, and all generators share one bounded rotation counter that frees
 /// any channel the system kept.
-enum KeyboardHapticProfile: String, CaseIterable, Sendable {
-    /// Scheme 1: Letter keys use 0.72x .heavy, utility/large keys use full 1.0x .heavy.
-    case stepped
-    /// Scheme 2: Letter keys use full 1.0x .heavy, utility/large keys fire compound 1.0x .heavy + 0.80x .rigid.
-    case compound
-    /// Scheme 3: Letter keys use 1.0x .heavy, utility keys use 1.0x .rigid.
-    case rigidUtility
-
-    var title: String {
-        switch self {
-        case .stepped: String(localized: "方案1·阶梯")
-        case .compound: String(localized: "方案2·复合")
-        case .rigidUtility: String(localized: "清脆")
-        }
-    }
-}
-
 @MainActor
 final class KeyboardHaptics {
     enum Style: Equatable, Sendable {
@@ -84,7 +67,7 @@ final class KeyboardHaptics {
     /// One press at `intensity` (0...1); nothing when it is zero.
     /// Returns whether the event passed throttling (even when `intensity == 0`, so repeat audio can share the throttle).
     @discardableResult
-    func play(intensity: Double, style: Style = .letter, profile: KeyboardHapticProfile = .compound) -> Bool {
+    func play(intensity: Double, style: Style = .letter) -> Bool {
         let timestamp = now()
         let clamped = min(1, max(0, intensity))
         switch style {
@@ -113,24 +96,15 @@ final class KeyboardHaptics {
         case .utility:
             guard clamped > 0 else { return true }
             rotateIfNeeded()
-            switch profile {
-            case .stepped:
-                currentLetter().impactOccurred(intensity: CGFloat(clamped))
-                impacts += 1
-            case .compound:
-                currentLetter().impactOccurred(intensity: CGFloat(clamped))
-                currentUtility().impactOccurred(intensity: CGFloat(min(1, clamped * 0.80)))
-                impacts += 2
-            case .rigidUtility:
-                currentUtility().impactOccurred(intensity: CGFloat(clamped))
-                impacts += 1
-            }
+            // Compound bottom-out: full heavy thud + crisp rigid snap.
+            currentLetter().impactOccurred(intensity: CGFloat(clamped))
+            currentUtility().impactOccurred(intensity: CGFloat(min(1, clamped * 0.80)))
+            impacts += 2
             return true
         case .letter:
             guard clamped > 0 else { return true }
             rotateIfNeeded()
-            let letterStrength = profile == .stepped ? clamped * 0.72 : clamped
-            currentLetter().impactOccurred(intensity: CGFloat(min(1, letterStrength)))
+            currentLetter().impactOccurred(intensity: CGFloat(clamped))
             impacts += 1
             return true
         }

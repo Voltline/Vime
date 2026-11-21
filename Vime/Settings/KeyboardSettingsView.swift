@@ -568,7 +568,6 @@ struct KeyboardFeedbackSettingsView: View {
     @ScaledMetric(relativeTo: .caption) private var scaleHeight = 24.0
     @AppStorage private var sound: Bool
     @AppStorage private var intensity: Double
-    @AppStorage private var hapticProfile: KeyboardHapticProfile
     @AppStorage private var nineKeyNumbers: Bool
     @AppStorage private var kanaLayout: Bool
     @AppStorage private var japaneseInput: Bool
@@ -581,7 +580,6 @@ struct KeyboardFeedbackSettingsView: View {
         let prefs = KeyboardPreferences(), store = prefs.store
         _sound = AppStorage(wrappedValue: prefs.sound, "vime.sound", store: store)
         _intensity = AppStorage(wrappedValue: prefs.hapticIntensity, "vime.hapticIntensity", store: store)
-        _hapticProfile = AppStorage(wrappedValue: prefs.hapticProfile, "vime.hapticProfile", store: store)
         _nineKeyNumbers = AppStorage(wrappedValue: prefs.nineKeyNumbers, "vime.nineKeyNumbers", store: store)
         _kanaLayout = AppStorage(wrappedValue: prefs.kanaLayout, "vime.kanaLayout", store: store)
         _japaneseInput = AppStorage(wrappedValue: true, "vime.japaneseInputEnabled", store: store)
@@ -607,18 +605,8 @@ struct KeyboardFeedbackSettingsView: View {
                     AppHapticScale().frame(height: scaleHeight)
                         .accessibilityHidden(true)
                 }.padding(.vertical, 4)
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("触感层次风格")
-                    Picker("触感层次风格", selection: $hapticProfile) {
-                        ForEach(KeyboardHapticProfile.allCases, id: \.self) { item in
-                            Text(item.title).tag(item)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .accessibilityIdentifier("vime.settings.hapticProfile")
-                }.padding(.vertical, 4)
             } header: { Text("按键反馈") } footer: {
-                Text("方案1·阶梯：字母键 72% 轻快，空格/回车/退格 100% 浑厚\n方案2·复合：字母键 100% 原力道，空格/回车/退格叠加机械段落双脉冲\n清脆：功能键采用短促高频微动\n靠近关闭、中、强时松手会吸附，档位之间可连续调节")
+                Text("靠近关闭、中、强时松手会吸附，档位之间可连续调节\n声音与振动需要允许完全访问\n静音时不播放按键声，振动效果以实际设备为准")
             }
             Section {
                 Button { router.present(.height) } label: {

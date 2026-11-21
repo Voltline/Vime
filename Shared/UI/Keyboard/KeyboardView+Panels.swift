@@ -107,11 +107,7 @@ extension KeyboardView {
         configureScroll(view)
         view.onHistory = { [weak self] in self?.openClipboardHistory() }
         view.onOpenAppSettings = { [weak self] in self?.onOpenAppSettings?() }
-        view.onFeedback = { [weak self] in
-            guard let self else { return }
-            self.appliedPreferences = self.preferences.snapshot
-            self.playFeedback(.utility)
-        }
+        view.onFeedback = { [weak self] in self?.playFeedback() }
         view.onNumberLayoutChange = { [weak self] in self?.rebuildKeys() }
         view.onOneHandedChange = { [weak self] in self?.reloadPreferences() }
         view.onLiveConversionChange = { [weak self] in self?.reloadPreferences() }
