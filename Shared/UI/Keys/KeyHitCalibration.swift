@@ -113,6 +113,10 @@ nonisolated final class KeyHitCalibration: @unchecked Sendable {
 
     // MARK: - Tuning & Safety Guards
 
+    /// Temporary experiment flag for collecting anonymous geometric logs on test devices.
+    /// IMPORTANT: Set to `false` (or remove observation logging & mirroring) before production release.
+    static let observationLoggingEnabled = true
+
     /// Single-key shrinkage prior strength (`weight = count / (count + shrinkageKappa)`).
     /// Replaces hard 15-tap cutoff with smooth ramp: 50% at 8 taps, 75% at 24 taps.
     static let shrinkageKappa = 8.0
@@ -136,13 +140,9 @@ nonisolated final class KeyHitCalibration: @unchecked Sendable {
     /// Hard clamp on stored per-key offset (normalized to key width / height).
     static let maxOffsetDx = 0.28
     static let maxOffsetDy = 0.22
-    /// Weight of log language prior in joint Bayesian scoring.
-    static let languagePriorWeight = 1.65
-    /// Minimum joint log-score margin required to override the raw geometric key when language prior assists.
-    static let jointSwitchMargin = 0.35
-    /// Core safe zone around a key's calibrated center: taps inside are never overridden by language prior.
-    static let coreSafeDx = 0.24
-    static let coreSafeDy = 0.24
+    /// Inner anchor zone of the raw painted keycap: taps within ±0.35 of the raw body center stay anchored.
+    static let rawKeyAnchorDx = 0.35
+    static let rawKeyAnchorDy = 0.35
     /// Maximum byte size for `observations.jsonl` before trimming to newest half.
     static let maxLogBytes = 512 * 1024
 
@@ -212,14 +212,12 @@ nonisolated final class KeyHitCalibration: @unchecked Sendable {
         return -0.5 * ((nx * nx) / model.varX + (ny * ny) / model.varY + log(model.varX * model.varY))
     }
 
-    /// Whether `point` lies inside the core safe zone of a key's calibrated center.
-    static func isInCoreSafeZone(point: CGPoint, body: CGRect, model: EffectiveModel) -> Bool {
+    /// Whether `point` lies inside the inner anchor zone of the raw painted keycap.
+    static func isInRawKeyAnchorZone(point: CGPoint, body: CGRect) -> Bool {
         guard body.width > 0, body.height > 0 else { return false }
-        let cx = body.midX + CGFloat(model.dx) * body.width
-        let cy = body.midY + CGFloat(model.dy) * body.height
-        let nx = abs(Double((point.x - cx) / body.width))
-        let ny = abs(Double((point.y - cy) / body.height))
-        return nx <= coreSafeDx && ny <= coreSafeDy
+        let nx = abs(Double((point.x - body.midX) / body.width))
+        let ny = abs(Double((point.y - body.midY) / body.height))
+        return nx <= rawKeyAnchorDx && ny <= rawKeyAnchorDy
     }
 
     func currentSnapshot() -> Snapshot {
@@ -254,20 +252,22 @@ nonisolated final class KeyHitCalibration: @unchecked Sendable {
         if languageCorrected { snapshot.summary.languageCorrections += 1 }
         let stats = snapshot.buckets[bucket.rawValue]?[key] ?? KeyStats()
         let eff = Self.effectiveModel(from: stats)
-        pendingObservations.append(Observation(
-            ts: timestamp,
-            bucket: bucket.rawValue,
-            kind: "tap",
-            key: key,
-            rawKey: rawKey == key ? nil : rawKey,
-            dx: Self.round4(dx),
-            dy: Self.round4(dy),
-            effDx: Self.round4(eff.dx),
-            effDy: Self.round4(eff.dy),
-            count: stats.count,
-            calSwitched: calibrationSwitched || jointBayesianSwitched,
-            langCorrected: languageCorrected
-        ))
+        if Self.observationLoggingEnabled {
+            pendingObservations.append(Observation(
+                ts: timestamp,
+                bucket: bucket.rawValue,
+                kind: "tap",
+                key: key,
+                rawKey: rawKey == key ? nil : rawKey,
+                dx: Self.round4(dx),
+                dy: Self.round4(dy),
+                effDx: Self.round4(eff.dx),
+                effDy: Self.round4(eff.dy),
+                count: stats.count,
+                calSwitched: calibrationSwitched,
+                langCorrected: languageCorrected
+            ))
+        }
         dirty = true
         updatesSinceFlush += 1
         let shouldFlush = updatesSinceFlush >= 25
@@ -353,20 +353,22 @@ nonisolated final class KeyHitCalibration: @unchecked Sendable {
         snapshot.updatedAt = Date(timeIntervalSince1970: timestamp)
 
         let eff = Self.effectiveModel(from: stats)
-        pendingObservations.append(Observation(
-            ts: timestamp,
-            bucket: bucket.rawValue,
-            kind: isNeighborFix ? "neighbor_fix" : "commit",
-            key: key,
-            rawKey: rawKey,
-            dx: Self.round4(dx),
-            dy: Self.round4(dy),
-            effDx: Self.round4(eff.dx),
-            effDy: Self.round4(eff.dy),
-            count: stats.count,
-            calSwitched: false,
-            langCorrected: false
-        ))
+        if Self.observationLoggingEnabled {
+            pendingObservations.append(Observation(
+                ts: timestamp,
+                bucket: bucket.rawValue,
+                kind: isNeighborFix ? "neighbor_fix" : "commit",
+                key: key,
+                rawKey: rawKey,
+                dx: Self.round4(dx),
+                dy: Self.round4(dy),
+                effDx: Self.round4(eff.dx),
+                effDy: Self.round4(eff.dy),
+                count: stats.count,
+                calSwitched: false,
+                langCorrected: false
+            ))
+        }
         dirty = true
         updatesSinceFlush += 1
         let shouldFlush = updatesSinceFlush >= 20
@@ -426,7 +428,8 @@ nonisolated final class KeyHitCalibration: @unchecked Sendable {
     /// Mirrors App Group calibration files into the main app's `Documents/Calibration`
     /// so logs can be exported via `devicectl` `appDataContainer`.
     static func mirrorToAppDocuments() {
-        guard let sourceDir = defaultDirectory(),
+        guard observationLoggingEnabled,
+              let sourceDir = defaultDirectory(),
               let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
         else { return }
         let targetDir = docs.appendingPathComponent("Calibration", isDirectory: true)

@@ -123,42 +123,65 @@ final class KeyHitCalibrationTests: XCTestCase {
     }
 
     @MainActor
-    func testJointBayesianRescuesEdgeTapButRespectsCoreSafeZone() {
+    func testRawKeyInnerAnchorZonePreventsSpatialOverride() {
         let surface = KeyboardTouchSurface(frame: CGRect(x: 0, y: 0, width: 200, height: 60))
-        let keyD = KeyboardKey(title: "d")
-        keyD.correctionLetter = "d"
-        let keyE = KeyboardKey(title: "e")
-        keyE.correctionLetter = "e"
-        let bodyD = CGRect(x: 20, y: 5, width: 40, height: 50)
-        let bodyE = CGRect(x: 64, y: 5, width: 40, height: 50)
+        let keyI = KeyboardKey(title: "i")
+        keyI.correctionLetter = "i"
+        let keyO = KeyboardKey(title: "o")
+        keyO.correctionLetter = "o"
+        let bodyI = CGRect(x: 20, y: 5, width: 40, height: 50)
+        let bodyO = CGRect(x: 64, y: 5, width: 40, height: 50)
         surface.regions = [
-            .init(key: keyD, body: bodyD, cell: CGRect(x: 0, y: 0, width: 62, height: 60)),
-            .init(key: keyE, body: bodyE, cell: CGRect(x: 62, y: 0, width: 62, height: 60)),
+            .init(key: keyI, body: bodyI, cell: CGRect(x: 0, y: 0, width: 62, height: 60)),
+            .init(key: keyO, body: bodyO, cell: CGRect(x: 62, y: 0, width: 62, height: 60)),
         ]
 
         let cal = KeyHitCalibration(directory: nil)
-        surface.letterModel = { cal.effectiveModel(for: $0, in: .portrait) }
-        // Simulate pinyin context after "h": 'e' is full syllable (1.0), 'd' is abbreviation (0.05).
-        surface.letterPrior = { _ in
-            { ch in ch == "e" ? 1.0 : (ch == "d" ? 0.05 : 0.0) }
+        let shifted = CGPoint(x: bodyI.midX + 12, y: bodyI.midY)
+        for _ in 0..<80 {
+            cal.learnCommittedTap(letter: "i", point: shifted, body: bodyI, bucket: .portrait)
         }
+        surface.letterModel = { cal.effectiveModel(for: $0, in: .portrait) }
 
-        var outcomes: [KeyboardTouchSurface.LetterTapOutcome] = []
-        surface.onLetterTapComplete = { outcomes.append($0) }
+        // Inside O's inner anchor zone (|nx| <= 0.35, midX=84 -> 70..98): must stay O.
+        XCTAssertTrue(surface.resolvedKey(at: CGPoint(x: 72, y: 30)) === keyO)
+        // Outer edge of O (x=65 -> |nx| = 0.475 > 0.35): allowed to resolve to calibrated I.
+        XCTAssertTrue(surface.resolvedKey(at: CGPoint(x: 65, y: 30)) === keyI)
+    }
 
-        // 1. Edge tap near D/E border (inside D by 3pt, outside D's core safe zone): rescued to E!
-        let edgeTap = CGPoint(x: 57, y: 30)
-        XCTAssertTrue(surface.beginPress(id: 1, at: edgeTap))
-        surface.endPress(id: 1, at: edgeTap)
-        XCTAssertEqual(outcomes.last?.letter, "e")
-        XCTAssertEqual(outcomes.last?.jointBayesianSwitched, true)
+    @MainActor
+    func testReassignedTapDoesNotLearnOnNormalCommit() {
+        let view = KeyboardView(frame: CGRect(x: 0, y: 0, width: 390, height: 260))
+        let cal = KeyHitCalibration(directory: nil)
+        view.hitCalibration = cal
+        let body = CGRect(x: 100, y: 100, width: 40, height: 50)
 
-        // 2. Center tap inside D's core safe zone (x=40): NEVER hijacked even though E has higher prior!
-        let centerTap = CGPoint(x: 40, y: 30)
-        XCTAssertTrue(surface.beginPress(id: 2, at: centerTap))
-        surface.endPress(id: 2, at: centerTap)
-        XCTAssertEqual(outcomes.last?.letter, "d")
-        XCTAssertEqual(outcomes.last?.jointBayesianSwitched, false)
+        // Simulate a tap reassigned by language prior (raw 'p' -> corrected 'o').
+        view.recordCalibratedLetterTap(.init(
+            letter: "o",
+            rawLetter: "p",
+            point: CGPoint(x: body.midX + 10, y: body.midY),
+            body: body,
+            calibrationSwitched: false,
+            languageCorrected: true
+        ))
+        // Simulate a clean, unreassigned tap on 'n'.
+        view.recordCalibratedLetterTap(.init(
+            letter: "n",
+            rawLetter: "n",
+            point: CGPoint(x: body.midX + 4, y: body.midY),
+            body: body,
+            calibrationSwitched: false,
+            languageCorrected: false
+        ))
+
+        // Commit a phrase: only unreassigned 'n' should learn; reassigned 'o' must NOT update stats.
+        view.recordCalibrationEdits([.insert("你好")])
+
+        let snap = cal.currentSnapshot()
+        XCTAssertEqual(snap.summary.committedSamples, 1)
+        XCTAssertNil(snap.buckets[view.hitCalibrationBucket.rawValue]?["o"])
+        XCTAssertEqual(snap.buckets[view.hitCalibrationBucket.rawValue]?["n"]?.count, 1)
     }
 
     func testPersistenceAndLogExportRoundTrip() throws {
@@ -171,7 +194,7 @@ final class KeyHitCalibrationTests: XCTestCase {
         }
         cal.recordTapObservation(
             letter: "n", rawLetter: "m", point: pt, body: body, bucket: .portrait,
-            calibrationSwitched: true, jointBayesianSwitched: true, languageCorrected: false
+            calibrationSwitched: true, languageCorrected: false
         )
         cal.flushSync()
 
@@ -180,7 +203,6 @@ final class KeyHitCalibrationTests: XCTestCase {
         XCTAssertEqual(eff.dx, 0.15 * (80.0 / 88.0), accuracy: 0.02)
         XCTAssertEqual(eff.dy, -0.08 * (80.0 / 88.0), accuracy: 0.02)
         XCTAssertEqual(reloaded.currentSnapshot().summary.calibrationSwitches, 1)
-        XCTAssertEqual(reloaded.currentSnapshot().summary.jointBayesianSwitches, 1)
 
         let logURL = dir.appendingPathComponent("observations.jsonl")
         let lines = try String(contentsOf: logURL, encoding: .utf8).split(separator: "\n")

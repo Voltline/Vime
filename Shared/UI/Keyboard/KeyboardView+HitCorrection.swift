@@ -41,6 +41,8 @@ extension KeyboardView {
     struct HitCalibrationTracker {
         struct PendingTap {
             let letter: Character
+            let rawLetter: Character
+            let wasReassigned: Bool
             let point: CGPoint
             let body: CGRect
             let bucket: KeyHitCalibration.LayoutBucket
@@ -100,13 +102,15 @@ extension KeyboardView {
             body: outcome.body,
             bucket: bucket,
             calibrationSwitched: outcome.calibrationSwitched,
-            jointBayesianSwitched: outcome.jointBayesianSwitched,
             languageCorrected: outcome.languageCorrected,
             timestamp: now
         )
 
+        let reassigned = outcome.calibrationSwitched || outcome.languageCorrected || outcome.rawLetter != outcome.letter
         hitCalibrationTracker.pendingTaps.append(.init(
             letter: outcome.letter,
+            rawLetter: outcome.rawLetter,
+            wasReassigned: reassigned,
             point: outcome.point,
             body: outcome.body,
             bucket: bucket,
@@ -152,7 +156,7 @@ extension KeyboardView {
         let taps = hitCalibrationTracker.pendingTaps
         hitCalibrationTracker.pendingTaps.removeAll(keepingCapacity: true)
         hitCalibrationTracker.deletedStack.removeAll(keepingCapacity: true)
-        for tap in taps {
+        for tap in taps where !tap.wasReassigned && tap.rawLetter == tap.letter {
             hitCalibration.learnCommittedTap(
                 letter: tap.letter,
                 point: tap.point,

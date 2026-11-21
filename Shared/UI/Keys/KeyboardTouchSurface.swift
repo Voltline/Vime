@@ -28,7 +28,6 @@ final class KeyboardTouchSurface: UIView {
         let point: CGPoint
         let body: CGRect
         let calibrationSwitched: Bool
-        let jointBayesianSwitched: Bool
         let languageCorrected: Bool
     }
 
@@ -39,7 +38,6 @@ final class KeyboardTouchSurface: UIView {
         /// The uncalibrated geometric key before per-key calibration or language correction.
         var rawLetter: Character?
         var calibrationSwitched = false
-        var jointBayesianSwitched = false
         var languageCorrected = false
         var keyBody: CGRect = .zero
         let origin: CGPoint
@@ -81,25 +79,28 @@ final class KeyboardTouchSurface: UIView {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     func resolvedKey(at point: CGPoint) -> KeyboardKey? {
-        resolvedRegion(at: point, includeLanguagePrior: false)?.key
+        resolvedRegion(at: point)?.key
     }
 
     private func resolvedRegion(
-        at point: CGPoint,
-        includeLanguagePrior: Bool
-    ) -> (key: KeyboardKey, rawKey: KeyboardKey, body: CGRect, calibrated: Bool, jointBayesian: Bool)? {
+        at point: CGPoint
+    ) -> (key: KeyboardKey, rawKey: KeyboardKey, body: CGRect, calibrated: Bool)? {
         let eligible = regions.filter { $0.key.isEnabled && !$0.key.isHidden && $0.key.isUserInteractionEnabled }
         // Visible key bodies are always anchored to their own key. Disjoint
         // cells split only the blank gaps at the adjacent edge midpoints.
         guard let raw = eligible.first(where: { $0.body.contains(point) })
             ?? eligible.first(where: { $0.cell.contains(point) }) else { return nil }
         guard raw.key.correctionLetter != nil, let letterModel else {
-            return (raw.key, raw.key, raw.body, false, false)
+            return (raw.key, raw.key, raw.body, false)
+        }
+        // Keep taps inside the inner anchor zone (±0.35) of the painted keycap anchored to raw.
+        if KeyHitCalibration.isInRawKeyAnchorZone(point: point, body: raw.body) {
+            return (raw.key, raw.key, raw.body, false)
         }
 
         var anyCalibrated = false
-        var candidates: [(region: Region, letter: Character, model: KeyHitCalibration.EffectiveModel, spatial: Double)] = []
-        candidates.reserveCapacity(9)
+        var bestRegion: Region = raw
+        var bestSpatial = -Double.infinity
         for candidate in eligible {
             guard let letter = candidate.key.correctionLetter,
                   candidate.body.width > 0, candidate.body.height > 0,
@@ -108,50 +109,13 @@ final class KeyboardTouchSurface: UIView {
             let model = letterModel(letter)
             if model.weight > 0 { anyCalibrated = true }
             let spatial = KeyHitCalibration.spatialLogLikelihood(point: point, body: candidate.body, model: model)
-            candidates.append((candidate, letter, model, spatial))
-        }
-        guard !candidates.isEmpty else { return (raw.key, raw.key, raw.body, false, false) }
-
-        // 1. Pure personal anisotropic 2D Gaussian winner (only active if any nearby key is calibrated).
-        let spatialWinner: (region: Region, letter: Character, model: KeyHitCalibration.EffectiveModel, spatial: Double)
-        if anyCalibrated, let best = candidates.max(by: { $0.spatial < $1.spatial }) {
-            spatialWinner = best
-        } else if let rawCand = candidates.first(where: { $0.region.key === raw.key }) {
-            spatialWinner = rawCand
-        } else {
-            return (raw.key, raw.key, raw.body, false, false)
-        }
-        let spatialSwitched = spatialWinner.region.key !== raw.key
-
-        // 2. Joint Bayesian step: combine personal 2D Gaussian with language prior ONLY outside
-        //    the winner's core safe zone so center taps are never hijacked.
-        if includeLanguagePrior,
-           !KeyHitCalibration.isInCoreSafeZone(point: point, body: spatialWinner.region.body, model: spatialWinner.model),
-           let letterPrior {
-            let held = presses.values.sorted { $0.sequence < $1.sequence }.compactMap(\.key.correctionLetter)
-            if let prior = letterPrior(String(held)) {
-                let winnerPrior = prior(spatialWinner.letter)
-                let winnerJoint = spatialWinner.spatial
-                    + KeyHitCalibration.languagePriorWeight * log(max(winnerPrior, 0.01))
-                var bestJoint = spatialWinner
-                var bestJointScore = winnerJoint
-                for cand in candidates where cand.region.key !== spatialWinner.region.key {
-                    let candPrior = prior(cand.letter)
-                    guard candPrior > winnerPrior else { continue }
-                    let score = cand.spatial + KeyHitCalibration.languagePriorWeight * log(max(candPrior, 0.01))
-                    if score > bestJointScore {
-                        bestJointScore = score
-                        bestJoint = cand
-                    }
-                }
-                if bestJoint.region.key !== spatialWinner.region.key,
-                   bestJointScore >= winnerJoint + KeyHitCalibration.jointSwitchMargin {
-                    return (bestJoint.region.key, raw.key, bestJoint.region.body, spatialSwitched, true)
-                }
+            if spatial > bestSpatial {
+                bestSpatial = spatial
+                bestRegion = candidate
             }
         }
-
-        return (spatialWinner.region.key, raw.key, spatialWinner.region.body, spatialSwitched, false)
+        guard anyCalibrated else { return (raw.key, raw.key, raw.body, false) }
+        return (bestRegion.key, raw.key, bestRegion.body, bestRegion.key !== raw.key)
     }
 
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
@@ -169,12 +133,12 @@ final class KeyboardTouchSurface: UIView {
     @discardableResult
     func beginPress(id: AnyHashable, at point: CGPoint) -> Bool {
         guard gesture == nil, presses[id] == nil,
-              let resolved = resolvedRegion(at: point, includeLanguagePrior: true) else {
+              let resolved = resolvedRegion(at: point) else {
             KeyboardTouchDiagnostics.record("surface.touchDown", point: point, view: self, detail: "duplicate/unresolved")
             return false
         }
         let touched = resolved.key
-        let key = resolved.jointBayesian ? touched : correctedKey(touched, at: point)
+        let key = correctedKey(touched, at: point)
         let langCorrected = key !== touched
         let finalBody = regions.first(where: { $0.key === key })?.body ?? resolved.body
         KeyboardTouchDiagnostics.record("surface.touchDown", point: point, view: self, result: key,
@@ -184,7 +148,6 @@ final class KeyboardTouchSurface: UIView {
             touched: key === resolved.rawKey ? nil : resolved.rawKey,
             rawLetter: resolved.rawKey.correctionLetter,
             calibrationSwitched: resolved.calibrated,
-            jointBayesianSwitched: resolved.jointBayesian,
             languageCorrected: langCorrected,
             keyBody: finalBody,
             origin: point,
@@ -321,7 +284,6 @@ final class KeyboardTouchSurface: UIView {
                 point: press.origin,
                 body: press.keyBody,
                 calibrationSwitched: press.calibrationSwitched,
-                jointBayesianSwitched: press.jointBayesianSwitched,
                 languageCorrected: press.languageCorrected
             ))
         }
