@@ -26,7 +26,7 @@ extension KeyboardView {
 
     private func beginsEnglishWord(_ text: String) -> Bool {
         if let cached = englishPrefixCache[text] { return cached }
-        let checker = UITextChecker()
+        let checker = sharedTextChecker()
         let range = NSRange(location: 0, length: text.utf16.count)
         let result = text.count < 2
             || checker.rangeOfMisspelledWord(in: text, range: range, startingAt: 0, wrap: false, language: "en_US").location == NSNotFound

@@ -89,7 +89,7 @@ extension KeyboardView {
         if preferences.textReplacements {
             titles += systemTextReplacements.filter { $0.shortcut.caseInsensitiveCompare(word) == .orderedSame }.map(\.phrase)
         }
-        if preferences.englishCompletion { titles += completions(for: word) }
+        if appliedPreferences?.englishCompletion ?? preferences.englishCompletion { titles += completions(for: word) }
         var seen: Set<String> = [word]
         return titles.filter { seen.insert($0).inserted }.prefix(8).map {
             .init(title: $0, action: .replacement(KeyboardTextReplacement(anchor: anchor, markedText: nil,
@@ -101,7 +101,7 @@ extension KeyboardView {
     func completions(for word: String) -> [String] {
         guard word.count >= 2, word.allSatisfy({ $0.isLetter || $0 == "'" }), word.allSatisfy(\.isASCII) else { return [] }
         if let cached = completionCache, cached.word == word { return cached.values }
-        let found = UITextChecker().completions(forPartialWordRange: NSRange(location: 0, length: word.utf16.count),
+        let found = sharedTextChecker().completions(forPartialWordRange: NSRange(location: 0, length: word.utf16.count),
             in: word, language: "en_US") ?? []
         let values = found.prefix(3).map { value -> String in
             if word.allSatisfy({ !$0.isLetter || $0.isUppercase }) { return value.uppercased() }

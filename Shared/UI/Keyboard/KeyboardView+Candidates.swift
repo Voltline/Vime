@@ -17,6 +17,7 @@ extension KeyboardView {
         let size = CGSize(width: max(0, x - 2), height: height)
         candidateRow.frame = CGRect(origin: .zero, size: size)
         candidateScroll.contentSize = size
+        laidOutCandidateStripHeight = height
     }
 
     func candidateButton(_ presentation: CandidatePresentation, index: Int) -> KeyboardCandidateButton {

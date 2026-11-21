@@ -329,6 +329,19 @@ nonisolated final class VimeKVBatchLanguageModel {
     /// Forgets the prefix kept for the next call (memory pressure, or to measure).
     func forgetPrefix() { kept = nil }
 
+    /// Releases transient KV/prefix/per-batch buffers while keeping loaded
+    /// `MLModel` instances warm. Reclaims up to ~54 MiB after generation or on
+    /// keyboard hide / memory pressure.
+    func releaseTransientBuffers() {
+        kept = nil
+        current = nil
+        keys?.deallocate(); keys = nil
+        values?.deallocate(); values = nil
+        rows = 0; slots = 0
+        owners.removeAll(keepingCapacity: false)
+        arrays.removeAll(keepingCapacity: false)
+    }
+
     /// The log probability of every token after the first of each row
     /// (two tokens or more), after `prefix` and the tokens before it in the
     /// row. Rows go longest first, as many to a call as `rowTokens()` lets
@@ -730,7 +743,11 @@ nonisolated final class VimeKVBatchLanguageModel {
             options.outputBackings = ["logsumexp": sums, "allowed_logits": scores, "new_key": newKeys, "new_value": newValues]
             if let output = try? model.prediction(from: features, options: options) { return output }
             allowedBackings = false
-            arrays[count]?.sums = nil; arrays[count]?.newKeys = nil; arrays[count]?.newValues = nil
+            for key in arrays.keys {
+                arrays[key]?.sums = nil
+                arrays[key]?.newKeys = nil
+                arrays[key]?.newValues = nil
+            }
         }
         return try model.prediction(from: features)
     }

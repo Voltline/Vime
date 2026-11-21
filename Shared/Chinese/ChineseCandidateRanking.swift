@@ -196,10 +196,10 @@ nonisolated enum ChineseCandidateRanking {
         }
     }
 
-    /// Drops the cached prefix KV while keeping the model loaded.
+    /// Drops the cached prefix KV and transient row buffers while keeping the model loaded.
     static func forgetPrefix() {
         JapaneseCandidateWorker.modelQueue.async {
-            JapaneseCandidateWorker.LanguageModelStorage.shared.chineseModel?.batch.forgetPrefix()
+            JapaneseCandidateWorker.LanguageModelStorage.shared.chineseModel?.batch.releaseTransientBuffers()
         }
     }
 }

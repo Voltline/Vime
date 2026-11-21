@@ -346,6 +346,14 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     }
     var keyGridGeneration = 0
     var laidOutKeyGrid: KeyGridLayout?
+    var laidOutCandidateStripHeight: CGFloat = -1
+    var textChecker: UITextChecker?
+    func sharedTextChecker() -> UITextChecker {
+        if let textChecker { return textChecker }
+        let checker = UITextChecker()
+        textChecker = checker
+        return checker
+    }
     func invalidateKeyGrid() { keyGridGeneration &+= 1; setNeedsLayout() }
     var letterKeys: [KeyboardKey] = []
     var shiftKey: KeyboardKey?
@@ -657,15 +665,19 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         quickCandidates.frame = candidateScroll.frame
         // The bubble points at a candidate frame from before a resize.
         if let forgetPrompt, forgetPrompt.frame != bounds { dismissForgetPrompt() }
-        layoutCandidateStrip()
+        if laidOutCandidateStripHeight != candidateScroll.bounds.height {
+            layoutCandidateStrip()
+        }
         // Range controls use full targets too; their clear backgrounds keep
         // the existing compact appearance while avoiding overlapping actions.
         // Text labels vary by language; each target is at least 44 pt wide.
-        var rangeRight = expandButton.frame.midX - 22
-        for control in [wholeRange, lengthenRange, shortenRange] {
-            let width = max(44, ceil(control.intrinsicContentSize.width))
-            control.frame = CGRect(x: rangeRight - 8 - width, y: centerY - 22, width: width, height: 44)
-            rangeRight = control.frame.minX
+        if !shortenRange.isHidden {
+            var rangeRight = expandButton.frame.midX - 22
+            for control in [wholeRange, lengthenRange, shortenRange] {
+                let width = max(44, ceil(control.intrinsicContentSize.width))
+                control.frame = CGRect(x: rangeRight - 8 - width, y: centerY - 22, width: width, height: 44)
+                rangeRight = control.frame.minX
+            }
         }
         let titleLeft = globeInToolbar ? metrics.leadingToolbarFrame(index: 0).maxX + 12 : toolbarLeft
         let titleRight = shortenRange.isHidden ? expandButton.frame.midX - 22 : shortenRange.frame.minX
@@ -719,29 +731,31 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         // Candidate refreshes and layout changes must never raise a sibling
         // above held key previews. This overlay also stays transparent to input.
         bringSubviewToFront(previewOverlay)
-        var panelLeft: CGFloat = aligned ? metrics.contentLeft : 8
-        var panelWidth: CGFloat = aligned ? metrics.contentWidth : width - 20
-        if !syllableColumn.isHidden {
-            // The syllable column takes the panel's first slot; candidates
-            // keep their grid in the rest.
-            syllableColumn.frame = CGRect(x: panelLeft, y: body.minY, width: Self.syllableColumnWidth, height: body.height)
-            syllableDivider.frame = CGRect(x: syllableColumn.frame.maxX + 3.75, y: body.minY + 6, width: 0.5, height: body.height - 12)
-            layoutSyllableColumn()
-            panelLeft += Self.syllableColumnWidth + 8
-            panelWidth -= Self.syllableColumnWidth + 8
+        if panel == .candidates {
+            var panelLeft: CGFloat = aligned ? metrics.contentLeft : 8
+            var panelWidth: CGFloat = aligned ? metrics.contentWidth : width - 20
+            if !syllableColumn.isHidden {
+                // The syllable column takes the panel's first slot; candidates
+                // keep their grid in the rest.
+                syllableColumn.frame = CGRect(x: panelLeft, y: body.minY, width: Self.syllableColumnWidth, height: body.height)
+                syllableDivider.frame = CGRect(x: syllableColumn.frame.maxX + 3.75, y: body.minY + 6, width: 0.5, height: body.height - 12)
+                layoutSyllableColumn()
+                panelLeft += Self.syllableColumnWidth + 8
+                panelWidth -= Self.syllableColumnWidth + 8
+            }
+            let columns = metrics.regular ? max(5, Int(panelWidth / 150)) : width > 600 ? 5 : 3
+            let cellWidth = aligned ? (panelWidth + 8) / CGFloat(columns) : panelWidth / CGFloat(columns)
+            // Long sentences take wider slots, up to a whole row and two lines;
+            // short words keep the column grid (KeyboardCandidatePanelLayout).
+            let lineHeight = ceil(UIFont.systemFont(ofSize: KeyboardCandidateButton.titleFontSize).lineHeight)
+            let panelLayout = KeyboardCandidatePanelLayout(widths: panelCandidates.map(\.presentationWidth),
+                left: panelLeft, cellWidth: cellWidth, gap: aligned ? 8 : 5, columns: columns, extraLineHeight: lineHeight)
+            for (button, item) in zip(panelCandidates, panelLayout.items) {
+                button.titleLines = item.lines
+                button.frame = item.frame
+            }
+            panelScroll.contentSize = CGSize(width: width, height: panelLayout.contentHeight)
         }
-        let columns = metrics.regular ? max(5, Int(panelWidth / 150)) : width > 600 ? 5 : 3
-        let cellWidth = aligned ? (panelWidth + 8) / CGFloat(columns) : panelWidth / CGFloat(columns)
-        // Long sentences take wider slots, up to a whole row and two lines;
-        // short words keep the column grid (KeyboardCandidatePanelLayout).
-        let lineHeight = ceil(UIFont.systemFont(ofSize: KeyboardCandidateButton.titleFontSize).lineHeight)
-        let panelLayout = KeyboardCandidatePanelLayout(widths: panelCandidates.map(\.presentationWidth),
-            left: panelLeft, cellWidth: cellWidth, gap: aligned ? 8 : 5, columns: columns, extraLineHeight: lineHeight)
-        for (button, item) in zip(panelCandidates, panelLayout.items) {
-            button.titleLines = item.lines
-            button.frame = item.frame
-        }
-        panelScroll.contentSize = CGSize(width: width, height: panelLayout.contentHeight)
         if let timing = pendingCandidateTiming {
             pendingCandidateTiming = nil
             if window != nil, panel == .keyboard || panel == .candidates,
@@ -804,7 +818,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     func finishLearningFeedback() { session.finishLearningFeedback() }
     func prepareForInput() {
         session.prepareForInput()
-        if preferences.hapticIntensity > 0 { haptics.prepare() }
+        if (appliedPreferences?.hapticIntensity ?? preferences.hapticIntensity) > 0 { haptics.prepare() }
     }
 
     func resetComposition() {
@@ -827,6 +841,9 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         session.releaseInactiveResources()
         spareCandidateButtons.removeAll(keepingCapacity: false)
         sparePanelButtons.removeAll(keepingCapacity: false)
+        textChecker = nil
+        englishPrefixCache.removeAll(keepingCapacity: false)
+        completionCache = nil
         symbolPanel?.isHidden = true // Cancel this panel's preparation; retain the bounded shared bitmaps.
         symbolPanel?.removeFromSuperview(); symbolPanel = nil
         haptics.release()
@@ -840,6 +857,9 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         KeyboardEmojiImages.clear()
         spareCandidateButtons.removeAll(keepingCapacity: false)
         sparePanelButtons.removeAll(keepingCapacity: false)
+        textChecker = nil
+        englishPrefixCache.removeAll(keepingCapacity: false)
+        completionCache = nil
         if panel != .symbols { symbolPanel?.isHidden = true; symbolPanel?.removeFromSuperview(); symbolPanel = nil }
         haptics.release()
         session.handleMemoryPressure()

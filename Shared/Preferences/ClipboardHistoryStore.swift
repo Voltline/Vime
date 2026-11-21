@@ -48,7 +48,6 @@ actor ClipboardHistoryStore {
         if let text, !Self.accepts(text) { throw Failure.invalidText }
         try open()
         return try transaction {
-            try prune(at: date)
             let query = try statement("SELECT fingerprint FROM state WHERE id=1 AND attempt_version=? AND boot=?",
                                       [.integer(Int64(version)), .text(boot)])
             let status = sqlite3_step(query)
@@ -71,34 +70,31 @@ actor ClipboardHistoryStore {
 
     func entries(at date: Date = Date()) throws -> [Entry] {
         try open()
-        return try transaction {
-            try prune(at: date)
-            let query = try statement("SELECT id, text, captured FROM history ORDER BY captured DESC, id DESC")
-            defer { sqlite3_finalize(query) }
-            var values: [Entry] = []
-            var status = sqlite3_step(query)
-            while status == SQLITE_ROW {
-                if let text = string(query, 1) {
-                    values.append(.init(id: sqlite3_column_int64(query, 0), text: text,
-                                        capturedAt: Date(timeIntervalSince1970: sqlite3_column_double(query, 2))))
-                }
-                status = sqlite3_step(query)
+        let cutoff = date.timeIntervalSince1970 - Self.lifetime
+        let query = try statement("SELECT id, text, captured FROM history WHERE captured>? ORDER BY captured DESC, id DESC",
+                                  [.real(cutoff)])
+        defer { sqlite3_finalize(query) }
+        var values: [Entry] = []
+        var status = sqlite3_step(query)
+        while status == SQLITE_ROW {
+            if let text = string(query, 1) {
+                values.append(.init(id: sqlite3_column_int64(query, 0), text: text,
+                                    capturedAt: Date(timeIntervalSince1970: sqlite3_column_double(query, 2))))
             }
-            guard status == SQLITE_DONE else { throw Failure.database }
-            return values
+            status = sqlite3_step(query)
         }
+        guard status == SQLITE_DONE else { throw Failure.database }
+        return values
     }
 
     func text(for id: Int64, at date: Date = Date()) throws -> String? {
         try open()
-        return try transaction {
-            try prune(at: date)
-            let query = try statement("SELECT text FROM history WHERE id=?", [.integer(id)])
-            defer { sqlite3_finalize(query) }
-            let status = sqlite3_step(query)
-            guard status == SQLITE_ROW || status == SQLITE_DONE else { throw Failure.database }
-            return status == SQLITE_ROW ? string(query, 0) : nil
-        }
+        let cutoff = date.timeIntervalSince1970 - Self.lifetime
+        let query = try statement("SELECT text FROM history WHERE id=? AND captured>?", [.integer(id), .real(cutoff)])
+        defer { sqlite3_finalize(query) }
+        let status = sqlite3_step(query)
+        guard status == SQLITE_ROW || status == SQLITE_DONE else { throw Failure.database }
+        return status == SQLITE_ROW ? string(query, 0) : nil
     }
 
     func removeExpired(at date: Date = Date()) throws {

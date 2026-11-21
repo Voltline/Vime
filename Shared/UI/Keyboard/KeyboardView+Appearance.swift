@@ -3,13 +3,15 @@ import UIKit
 // Feedback, scroll styling, skins and theme.
 extension KeyboardView {
     func playFeedback() {
-        if preferences.sound && hasFullAccess {
+        let sound = appliedPreferences?.sound ?? preferences.sound
+        let intensity = appliedPreferences?.hapticIntensity ?? preferences.hapticIntensity
+        if sound && hasFullAccess {
             // Apple documents audio (including input clicks) as an open-access
             // capability for extensions. Never invoke a denied audio path that
             // could stall input. Visual feedback and haptic attempts are separate.
             UIDevice.current.playInputClick()
         }
-        haptics.play(intensity: preferences.hapticIntensity)
+        haptics.play(intensity: intensity)
     }
 
     @objc func toolbarFeedback() { playFeedback() }

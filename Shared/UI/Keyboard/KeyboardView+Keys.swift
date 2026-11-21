@@ -423,11 +423,6 @@ extension KeyboardView {
     }
 
     func updateKeyLabels() {
-        for button in letterKeys {
-            if let value = button.title(for: .normal) {
-                button.setTitle(value.uppercased(), for: .normal)
-            }
-        }
         let active = shifted
         shiftKey?.setImage(UIImage(systemName: capsLocked && shiftTypesCapitals ? "capslock.fill" : active ? "shift.fill" : "shift"), for: .normal)
         shiftKey?.tintColor = KeyboardPalette.text
