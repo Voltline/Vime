@@ -69,36 +69,38 @@ nonisolated enum PinyinSpellingCorrection {
     /// then a letter replaced by a neighbouring key, then a letter dropped,
     /// then one added; at most `limit`.
     static func spellings(for input: String, limit: Int = 24) -> [String] {
+        guard limit > 0 else { return [] }
         let letters = Array(input)
         var found: [String] = []
         var seen: Set<String> = [input]
-        func add(_ candidate: [Character]) {
+        func add(_ candidate: [Character]) -> Bool {
             let text = String(candidate)
-            guard found.count < limit, seen.insert(text).inserted, isFullSyllables(text) else { return }
+            guard seen.insert(text).inserted, isFullSyllables(text) else { return false }
             found.append(text)
+            return found.count >= limit
         }
         for index in letters.indices.dropLast() where letters[index] != letters[index + 1] {
             var swapped = letters
             swapped.swapAt(index, index + 1)
-            add(swapped)
+            if add(swapped) { return found }
         }
         for index in letters.indices {
             for neighbour in neighbours(of: letters[index]) {
                 var replaced = letters
                 replaced[index] = neighbour
-                add(replaced)
+                if add(replaced) { return found }
             }
         }
         for index in letters.indices {
             var dropped = letters
             dropped.remove(at: index)
-            add(dropped)
+            if add(dropped) { return found }
         }
         for index in 0...letters.count {
             for letter in insertions {
                 var added = letters
                 added.insert(letter, at: index)
-                add(added)
+                if add(added) { return found }
             }
         }
         return found

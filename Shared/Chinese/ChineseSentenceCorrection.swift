@@ -113,7 +113,7 @@ nonisolated enum ChineseSentenceCorrection {
         return options
     }
 
-    /// The score below which an option cannot show: scoring can stop there.
+    /// The score below which an option cannot show.
     static func floor(literal: Double, option: Option) -> Double { literal + option.penalty + showMargin }
 
     struct Decision: Sendable, Equatable {
