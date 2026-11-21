@@ -208,4 +208,68 @@ final class KeyHitCalibrationTests: XCTestCase {
         let lines = try String(contentsOf: logURL, encoding: .utf8).split(separator: "\n")
         XCTAssertEqual(lines.count, 81)
     }
+
+    @MainActor
+    func testInterKeyIntervalScalesCorrectionReachAndResetsOnNonLetterOrLongPause() {
+        let surface = KeyboardTouchSurface(frame: CGRect(x: 0, y: 0, width: 400, height: 60))
+        let keyO = KeyboardKey(title: "o")
+        keyO.correctionLetter = "o"
+        let keyP = KeyboardKey(title: "p")
+        keyP.correctionLetter = "p"
+        let keySpace = KeyboardKey(title: " ")
+        keySpace.accessibilityIdentifier = "vime.key.space"
+
+        let bodyO = CGRect(x: 200, y: 10, width: 32, height: 42)
+        let bodyP = CGRect(x: 238, y: 10, width: 32, height: 42)
+        let bodySpace = CGRect(x: 100, y: 10, width: 60, height: 42)
+        surface.regions = [
+            .init(key: keySpace, body: bodySpace, cell: bodySpace),
+            .init(key: keyO, body: bodyO, cell: CGRect(x: 195, y: 0, width: 40, height: 60)),
+            .init(key: keyP, body: bodyP, cell: CGRect(x: 235, y: 0, width: 40, height: 60)),
+        ]
+        surface.letterPrior = { _ in KeyHitCorrection.romajiPrior(after: "ky") }
+
+        var typed: [Character] = []
+        keyO.action = { typed.append("o") }
+        keyP.action = { typed.append("p") }
+
+        var clock: TimeInterval = 50.0
+        surface.pressNow = { clock }
+
+        // Borderline tap on P: x = 249.5 is 17.5pt outside O.maxX (232).
+        // Normalized distance dx = 17.5 / 32 / 0.45 = 1.215 (> 1.0 default, <= 1.12 fast reach: 1.215 / 1.12 = 1.08;
+        // let's pick x = 247.5 -> 15.5pt outside O.maxX: 15.5 / 32 / 0.45 = 1.076:
+        // - Under fast IKI (100ms, scale = 1.12): 1.076 / 1.12 = 0.96 <= 1.0 -> rescues to 'o'!
+        // - Under slow IKI (450ms, scale = 0.78): 1.076 / 0.78 = 1.38 > 1.0 -> keeps 'p'!
+        // - After Space or > 1s pause (nil IKI, scale = 1.0): 1.076 > 1.0 -> keeps 'p'!)
+        let borderlinePoint = CGPoint(x: 247.5, y: 30)
+
+        // Prime first letter tap at t = 50.0
+        XCTAssertTrue(surface.beginPress(id: 1, at: CGPoint(x: bodyO.midX, y: bodyO.midY)))
+        surface.endPress(id: 1, at: CGPoint(x: bodyO.midX, y: bodyO.midY))
+        typed.removeAll()
+
+        // 1. Fast follow-up letter (dt = 0.10s <= 0.14s): expanded reach rescues 'p' -> 'o'.
+        clock += 0.10
+        XCTAssertTrue(surface.beginPress(id: 2, at: borderlinePoint))
+        surface.endPress(id: 2, at: borderlinePoint)
+        XCTAssertEqual(typed, ["o"])
+        typed.removeAll()
+
+        // 2. Slow follow-up letter (dt = 0.45s >= 0.38s): contracted reach respects 'p'.
+        clock += 0.45
+        XCTAssertTrue(surface.beginPress(id: 3, at: borderlinePoint))
+        surface.endPress(id: 3, at: borderlinePoint)
+        XCTAssertEqual(typed, ["p"])
+        typed.removeAll()
+
+        // 3. Non-letter key (Space) resets IKI to nil even if next letter arrives 0.08s later.
+        clock += 0.05
+        XCTAssertTrue(surface.beginPress(id: 4, at: CGPoint(x: bodySpace.midX, y: bodySpace.midY)))
+        surface.endPress(id: 4, at: CGPoint(x: bodySpace.midX, y: bodySpace.midY))
+        clock += 0.08
+        XCTAssertTrue(surface.beginPress(id: 5, at: borderlinePoint))
+        surface.endPress(id: 5, at: borderlinePoint)
+        XCTAssertEqual(typed, ["p"])
+    }
 }

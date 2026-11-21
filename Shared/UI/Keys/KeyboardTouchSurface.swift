@@ -58,6 +58,8 @@ final class KeyboardTouchSurface: UIView {
     var letterModel: ((Character) -> KeyHitCalibration.EffectiveModel)?
     /// Reported when a non-cancelled, non-alternate letter tap completes.
     var onLetterTapComplete: ((LetterTapOutcome) -> Void)?
+    var pressNow: () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }
+    private var lastLetterDownAt: TimeInterval?
     private var interactionBounds = CGRect.null
     private var presses: [AnyHashable: Press] = [:]
     private var nextSequence = 0
@@ -147,7 +149,20 @@ final class KeyboardTouchSurface: UIView {
             return false
         }
         let touched = resolved.key
-        let key = correctedKey(touched, at: point)
+        let iki: TimeInterval?
+        if touched.correctionLetter != nil {
+            let downAt = pressNow()
+            if let last = lastLetterDownAt, downAt - last > 0, downAt - last <= KeyHitCorrection.maxValidIKI {
+                iki = downAt - last
+            } else {
+                iki = nil
+            }
+            lastLetterDownAt = downAt
+        } else {
+            iki = nil
+            lastLetterDownAt = nil
+        }
+        let key = correctedKey(touched, at: point, interKeyInterval: iki)
         let langCorrected = key !== touched
         let finalBody = regions.first(where: { $0.key === key })?.body ?? resolved.body
         KeyboardTouchDiagnostics.record("surface.touchDown", point: point, view: self, result: key,
@@ -178,7 +193,7 @@ final class KeyboardTouchSurface: UIView {
     }
 
     /// A letter tap near a neighbour that continues the input better.
-    private func correctedKey(_ key: KeyboardKey, at point: CGPoint) -> KeyboardKey {
+    private func correctedKey(_ key: KeyboardKey, at point: CGPoint, interKeyInterval: TimeInterval? = nil) -> KeyboardKey {
         guard let letter = key.correctionLetter, let letterPrior,
               let body = regions.first(where: { $0.key === key })?.body else { return key }
         let adjustedBody: (Character, CGRect) -> CGRect = { ch, rect in
@@ -188,8 +203,12 @@ final class KeyboardTouchSurface: UIView {
         let neighbours = regions.filter {
             $0.key !== key && $0.key.correctionLetter != nil && $0.key.isEnabled && !$0.key.isHidden
         }
-        let choice = KeyHitCorrection.replacement(at: point, touched: .init(letter: letter, body: adjustedBody(letter, body)),
-            neighbours: neighbours.map { .init(letter: $0.key.correctionLetter!, body: adjustedBody($0.key.correctionLetter!, $0.body)) }) {
+        let choice = KeyHitCorrection.replacement(
+            at: point,
+            touched: .init(letter: letter, body: adjustedBody(letter, body)),
+            neighbours: neighbours.map { .init(letter: $0.key.correctionLetter!, body: adjustedBody($0.key.correctionLetter!, $0.body)) },
+            interKeyInterval: interKeyInterval
+        ) {
             let held = self.presses.values.sorted { $0.sequence < $1.sequence }.compactMap(\.key.correctionLetter)
             return letterPrior(String(held))
         }
