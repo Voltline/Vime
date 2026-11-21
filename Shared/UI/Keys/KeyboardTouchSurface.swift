@@ -85,11 +85,20 @@ final class KeyboardTouchSurface: UIView {
     private func resolvedRegion(
         at point: CGPoint
     ) -> (key: KeyboardKey, rawKey: KeyboardKey, body: CGRect, calibrated: Bool)? {
-        let eligible = regions.filter { $0.key.isEnabled && !$0.key.isHidden && $0.key.isUserInteractionEnabled }
         // Visible key bodies are always anchored to their own key. Disjoint
         // cells split only the blank gaps at the adjacent edge midpoints.
-        guard let raw = eligible.first(where: { $0.body.contains(point) })
-            ?? eligible.first(where: { $0.cell.contains(point) }) else { return nil }
+        var bodyMatch: Region?
+        var cellMatch: Region?
+        for region in regions where region.key.isEnabled && !region.key.isHidden && region.key.isUserInteractionEnabled {
+            if region.body.contains(point) {
+                bodyMatch = region
+                break
+            }
+            if cellMatch == nil, region.cell.contains(point) {
+                cellMatch = region
+            }
+        }
+        guard let raw = bodyMatch ?? cellMatch else { return nil }
         guard raw.key.correctionLetter != nil, let letterModel else {
             return (raw.key, raw.key, raw.body, false)
         }
@@ -101,7 +110,7 @@ final class KeyboardTouchSurface: UIView {
         var anyCalibrated = false
         var bestRegion: Region = raw
         var bestSpatial = -Double.infinity
-        for candidate in eligible {
+        for candidate in regions where candidate.key.isEnabled && !candidate.key.isHidden && candidate.key.isUserInteractionEnabled {
             guard let letter = candidate.key.correctionLetter,
                   candidate.body.width > 0, candidate.body.height > 0,
                   abs(point.x - candidate.body.midX) <= candidate.body.width * 1.15,
