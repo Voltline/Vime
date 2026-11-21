@@ -653,7 +653,7 @@ final class ChineseInputSession: KeyboardInputSession {
             KeyboardPerformance.record(.candidateModelEligible, since: KeyboardPerformance.start())
             // A cold model loads for later compositions; this one shows at once.
             if usesModel, !warm {
-                ChineseCandidateRanking.score([], context: context, request: .init(deadline: .infinity)) { _ in }
+                ChineseCandidateRanking.warmUp()
             }
         }
         guard !splits.isEmpty || (warm && slots.canReorder) else {
@@ -1196,7 +1196,6 @@ final class ChineseInputSession: KeyboardInputSession {
             if !stop(), let model = storage.chineseModel {
                 scores = try? ChinesePrefixScoring.scores(
                     context: context, candidates: options.map(\.candidate.genuine),
-                    floors: options.map { ChineseSentenceCorrection.floor(literal: literal, option: $0) },
                     model: model.batch, tokenizer: model.tokenizer, cancelled: stop)
             }
             DispatchQueue.main.async {

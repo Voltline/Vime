@@ -3,11 +3,11 @@ import CoreML
 import Accelerate
 import os
 
-/// The zh-v1 batched KV package (kvbatch-v3, VimeML's merged INT8 package):
-/// the vimeml-tiny-zh-v1 checkpoint with INT8 weights, checked by VimeML
-/// against its FP32 reference. `ChineseLanguageModel` holds the one instance
-/// reranking, sentence correction and generation share. One package holds three functions,
-/// each loaded as its own `MLModel` the first time it is needed:
+/// The batched KV package (kvbatch-v4, VimeML's merged INT8 package, bundled
+/// for both zh-v1 and zh-v2): checked by VimeML against its FP32 reference.
+/// `ChineseLanguageModel` holds the one instance reranking, sentence correction
+/// and generation share. One package holds four functions, each loaded as its
+/// own `MLModel` the first time it is needed:
 ///
 /// - `scored`: rows of new tokens, each on its own cache, after a prefix
 ///   every row shares, returning the log probabilities of a list of allowed
@@ -379,12 +379,13 @@ nonisolated final class VimeKVBatchLanguageModel {
         let targets = try MLMultiArray(shape: shape, dataType: .int32)
         let idPointer = ids.dataPointer.assumingMemoryBound(to: Int32.self)
         let targetPointer = targets.dataPointer.assumingMemoryBound(to: Int32.self)
-        let idStride = ids.strides[0].intValue, targetStride = targets.strides[0].intValue
+        let idRowStride = ids.strides[0].intValue, idColStride = ids.strides[1].intValue
+        let targetRowStride = targets.strides[0].intValue, targetColStride = targets.strides[1].intValue
         for (row, tokens) in rows.enumerated() {
             for column in 0..<length {
                 // Right padding: any id, ignored.
-                idPointer[row * idStride + column] = column < tokens.count - 1 ? tokens[column] : 0
-                targetPointer[row * targetStride + column] = column < tokens.count - 1 ? tokens[column + 1] : 0
+                idPointer[row * idRowStride + column * idColStride] = column < tokens.count - 1 ? tokens[column] : 0
+                targetPointer[row * targetRowStride + column * targetColStride] = column < tokens.count - 1 ? tokens[column + 1] : 0
             }
         }
         let features = try MLDictionaryFeatureProvider(dictionary: [
@@ -416,7 +417,8 @@ nonisolated final class VimeKVBatchLanguageModel {
         return try autoreleasepool {
             let ids = try MLMultiArray(shape: [1, NSNumber(value: tokens.count)], dataType: .int32)
             let idPointer = ids.dataPointer.assumingMemoryBound(to: Int32.self)
-            for (index, token) in tokens.enumerated() { idPointer[index] = token }
+            let idStride = ids.strides[1].intValue
+            for (index, token) in tokens.enumerated() { idPointer[index * idStride] = token }
             let none = try empty()
             let features = try MLDictionaryFeatureProvider(dictionary: [
                 "input_ids": ids, "position": try Self.scalar(0), "key_cache": none.keys, "value_cache": none.values,
@@ -509,7 +511,8 @@ nonisolated final class VimeKVBatchLanguageModel {
         let count = tokens.count
         let ids = try MLMultiArray(shape: [1, NSNumber(value: count)], dataType: .int32)
         let idPointer = ids.dataPointer.assumingMemoryBound(to: Int32.self)
-        for (index, token) in tokens.enumerated() { idPointer[index] = token }
+        let idStride = ids.strides[1].intValue
+        for (index, token) in tokens.enumerated() { idPointer[index * idStride] = token }
         let prefix = try base ?? empty()
         let features = try MLDictionaryFeatureProvider(dictionary: [
             "input_ids": ids, "prefix_length": try Self.scalar(prefix.length),
@@ -539,7 +542,8 @@ nonisolated final class VimeKVBatchLanguageModel {
         let count = tokens.count
         let ids = try MLMultiArray(shape: [1, NSNumber(value: count)], dataType: .int32)
         let idPointer = ids.dataPointer.assumingMemoryBound(to: Int32.self)
-        for (index, token) in tokens.enumerated() { idPointer[index] = token }
+        let idStride = ids.strides[1].intValue
+        for (index, token) in tokens.enumerated() { idPointer[index * idStride] = token }
         // No own cache (and no prefix unless `base`): one slot of each, ignored, but zeroed.
         let none = try empty()
         let prefix = base ?? none
@@ -586,15 +590,17 @@ nonisolated final class VimeKVBatchLanguageModel {
         let keys = try VimeKVLanguageModel.zeroed(shape), values = try VimeKVLanguageModel.zeroed(shape)
         for (array, half) in [(keys, 0), (values, Self.rowFloats)] {
             let strides = array.strides.map(\.intValue)
+            let step = strides[4]
             let pointer = array.dataPointer.assumingMemoryBound(to: Float.self)
             root.rows.withUnsafeBufferPointer { source in
                 for slot in 0..<root.count {
                     for layer in 0..<Self.layers {
                         for head in 0..<Self.heads {
-                            pointer.advanced(by: layer * strides[0] + head * strides[2] + slot * strides[3])
-                                .update(from: source.baseAddress!.advanced(by: slot * 2 * Self.rowFloats + half
-                                                                           + (layer * Self.heads + head) * Self.headDimension),
-                                        count: Self.headDimension)
+                            let target = pointer.advanced(by: layer * strides[0] + head * strides[2] + slot * strides[3])
+                            let from = source.baseAddress!.advanced(by: slot * 2 * Self.rowFloats + half
+                                                                    + (layer * Self.heads + head) * Self.headDimension)
+                            if step == 1 { target.update(from: from, count: Self.headDimension) }
+                            else { for d in 0..<Self.headDimension { target[d * step] = from[d] } }
                         }
                     }
                 }
@@ -677,9 +683,11 @@ nonisolated final class VimeKVBatchLanguageModel {
         let set = arrays[count]!
         let idPointer = set.ids.dataPointer.assumingMemoryBound(to: Int32.self)
         let positionPointer = set.positions.dataPointer.assumingMemoryBound(to: Int32.self)
+        let idStride = set.ids.strides[0].intValue
+        let positionStride = set.positions.strides[0].intValue
         for (item, row) in placed.enumerated() {
-            idPointer[row] = items[item].token
-            positionPointer[row] = Int32(own[item])
+            idPointer[row * idStride] = items[item].token
+            positionPointer[row * positionStride] = Int32(own[item])
         }
         // The package reads S = the longest own cache, at least 1; the
         // buffers keep one slot more for the new token.

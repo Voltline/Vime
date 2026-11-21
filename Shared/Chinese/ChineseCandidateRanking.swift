@@ -188,6 +188,16 @@ nonisolated enum ChineseCandidateRanking {
         return try? v1.scores(context: context, candidates: texts, cancelled: cancelled)
     }
 
+    /// Warms up a cold Chinese model on the model queue for later requests.
+    static func warmUp() {
+        let storage = JapaneseCandidateWorker.LanguageModelStorage.shared
+        guard !storage.isReady(for: .chinese), !storage.isSuspended else { return }
+        JapaneseCandidateWorker.modelQueue.async {
+            guard !storage.isSuspended else { return }
+            _ = storage.chineseModel
+        }
+    }
+
     /// Releases the Chinese model, for example when ranking is turned off.
     static func release() {
         JapaneseCandidateWorker.modelQueue.async {

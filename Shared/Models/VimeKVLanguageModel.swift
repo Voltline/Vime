@@ -1,9 +1,9 @@
 import Foundation
 import CoreML
 
-/// What the zh-v1 KV packages share: the cache layout, the hypothesis
+/// What the Chinese KV packages share: the cache layout, the hypothesis
 /// caches the incremental search keeps, and the published tolerance. The
-/// kvbatch-v3 package (`VimeKVBatchLanguageModel`) is the only one bundled.
+/// kvbatch-v4 packages (`VimeKVBatchLanguageModel`) are the ones bundled.
 nonisolated enum VimeKVLanguageModel {
     struct Tolerance: Decodable, Equatable {
         let atol: Double

@@ -117,6 +117,8 @@ final class KeyboardKey: UIButton {
         // VoiceOver's typing modes (standard and touch typing) apply to keyboard keys.
         accessibilityTraits = .keyboardKey
         if let symbol { setImage(UIImage(systemName: symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 20, weight: .regular)), for: .normal) }
+        // Live keyboard touches go through `KeyboardTouchSurface`; UIControl target-action is kept
+        // for tests (e.g. `sendActions(for: .touchUpInside)`) and keys placed outside the touch surface.
         addTarget(self, action: #selector(down), for: .touchDown)
         addTarget(self, action: #selector(up), for: .touchUpInside)
         addTarget(self, action: #selector(cancel), for: .touchCancel)

@@ -82,8 +82,8 @@ final class KeyboardClipboard {
         guard hasFullAccess else { clear(); return }
         expireIfNeeded()
         disabled = false
-        if Date() >= nextCleanup {
-            nextCleanup = Date().addingTimeInterval(60)
+        if now() >= nextCleanup {
+            nextCleanup = now().addingTimeInterval(60)
             Task { [weak self] in
                 guard let self else { return }
                 try? await self.history.removeExpired()
@@ -107,7 +107,7 @@ final class KeyboardClipboard {
             guard let self else { return }
             await self.erasure?.value
             guard self.request == currentRequest else { self.completeRead(currentRequest); return }
-            let shouldRead = (try? await self.history.beginRead(version: version, boot: self.boot, at: Date())) ?? true
+            let shouldRead = (try? await self.history.beginRead(version: version, boot: self.boot, at: self.now())) ?? true
             guard self.request == currentRequest, self.changeCount() == version, shouldRead else {
                 self.completeRead(currentRequest)
                 return
@@ -126,7 +126,7 @@ final class KeyboardClipboard {
         preparation = Task { [weak self] in
             guard let self else { return }
             guard self.request == currentRequest else { self.completeRead(currentRequest); return }
-            let fresh = (try? await self.history.record(accepted, version: version, boot: self.boot, at: Date())) ?? true
+            let fresh = (try? await self.history.record(accepted, version: version, boot: self.boot, at: self.now())) ?? true
             defer { self.completeRead(currentRequest) }
             guard self.request == currentRequest, self.changeCount() == version else { return }
             self.text = fresh ? accepted : nil

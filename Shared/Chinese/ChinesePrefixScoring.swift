@@ -1,6 +1,6 @@
 import Foundation
 
-/// The reranking scores of many sentences at once on the kvbatch-v3
+/// The reranking scores of many sentences at once on the kvbatch-v4
 /// package: summed log probabilities of the tokens after the context
 /// (joint encoding with the context, BOS), but every token prefix the
 /// sentences share runs once, and the rest runs in batches. Sentences one
@@ -18,19 +18,16 @@ nonisolated enum ChinesePrefixScoring {
     ///
     /// Each sum starts where its candidate's tokens part from the context's,
     /// or, with `sharedStart`, where the first of them does, so that every
-    /// sum covers the same context tokens (what reranking compares). A
-    /// candidate whose sum ends at or below its `floor` scores -infinity.
-    static func scores(context: String, candidates: [String], floors: [Double]? = nil, sharedStart: Bool = false,
+    /// sum covers the same context tokens (what reranking compares).
+    static func scores(context: String, candidates: [String], sharedStart: Bool = false,
                        model: VimeKVBatchLanguageModel, tokenizer: VimeSentenceTokenizer,
                        cancelled: () -> Bool = { false }) throws -> [Double] {
-        let (sequences, starts, shared) = try prepared(context: context, candidates: candidates, floors: floors,
+        let (sequences, starts, shared) = try prepared(context: context, candidates: candidates,
                                                        sharedStart: sharedStart, tokenizer: tokenizer)
         let tokens = try rowScores(sequences, shared: shared, model: model, cancelled: cancelled)
-        return zip(tokens, starts).enumerated().map { index, item in
-            let (values, start) = item
+        return zip(tokens, starts).map { values, start in
             // Entry i scores the token at position shared + i.
-            let sum = values.enumerated().reduce(0.0) { $0 + ($1.offset + shared >= start ? Double($1.element) : 0) }
-            return floors.map { sum > $0[index] } ?? true ? sum : -.infinity
+            values.enumerated().reduce(0.0) { $0 + ($1.offset + shared >= start ? Double($1.element) : 0) }
         }
     }
 
@@ -38,7 +35,7 @@ nonisolated enum ChinesePrefixScoring {
     /// the terms of the sum `scores` gives for `text`.
     static func tokenScores(context: String, text: String, model: VimeKVBatchLanguageModel,
                             tokenizer: VimeSentenceTokenizer) throws -> [(id: Int32, logProbability: Double)] {
-        let (sequences, starts, shared) = try prepared(context: context, candidates: [text], floors: nil,
+        let (sequences, starts, shared) = try prepared(context: context, candidates: [text],
                                                        sharedStart: false, tokenizer: tokenizer)
         let values = try rowScores(sequences, shared: shared, model: model, cancelled: { false })[0]
         return values.enumerated().compactMap { offset, value in
@@ -58,11 +55,10 @@ nonisolated enum ChinesePrefixScoring {
     /// every sequence shares, up to the earliest scored token. A candidate
     /// that does not decode back to itself, or holds one of the three-task
     /// model's markers, makes the whole call ineligible.
-    private static func prepared(context: String, candidates: [String], floors: [Double]?, sharedStart: Bool,
+    private static func prepared(context: String, candidates: [String], sharedStart: Bool,
                                  tokenizer: VimeSentenceTokenizer) throws
         -> (sequences: [[Int32]], starts: [Int], shared: Int) {
-        guard !candidates.isEmpty, candidates.allSatisfy({ !$0.isEmpty }),
-              floors.map({ $0.count == candidates.count }) ?? true
+        guard !candidates.isEmpty, candidates.allSatisfy({ !$0.isEmpty })
         else { throw VimeLanguageModel.Failure.ineligible }
         func encode(_ text: String) throws -> [Int32] {
             guard !text.isEmpty else { return [] }

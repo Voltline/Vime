@@ -44,15 +44,6 @@ final class ChineseSentenceCorrectionTests: XCTestCase {
                                                          tokenizer: model.tokenizer)
             XCTAssertEqual(scores.count, texts.count)
             for (score, reference) in zip(scores, expected) { XCTAssertEqual(score, reference, accuracy: 1e-3, context) }
-
-            // A floor below a score keeps it exact; one above stops it.
-            let floors = expected.enumerated().map { $0.offset.isMultiple(of: 2) ? $0.element - 0.5 : $0.element + 0.5 }
-            let pruned = try ChinesePrefixScoring.scores(context: context, candidates: texts, floors: floors,
-                                                         model: model.batch, tokenizer: model.tokenizer)
-            for (index, score) in pruned.enumerated() {
-                if index.isMultiple(of: 2) { XCTAssertEqual(score, expected[index], accuracy: 1e-3) }
-                else { XCTAssertEqual(score, -.infinity, texts[index]) }
-            }
         }
     }
 
@@ -100,10 +91,6 @@ final class ChineseSentenceCorrectionTests: XCTestCase {
             let scores = try ChinesePrefixScoring.scores(context: context, candidates: texts, model: model.batch,
                                                          tokenizer: model.tokenizer)
             for (score, reference) in zip(scores, expected) { XCTAssertEqual(score, reference, accuracy: 1e-3, context) }
-            let floors = expected.enumerated().map { $0.offset.isMultiple(of: 2) ? $0.element - 0.5 : $0.element + 0.5 }
-            let pruned = try ChinesePrefixScoring.scores(context: context, candidates: texts, floors: floors,
-                                                         model: model.batch, tokenizer: model.tokenizer)
-            for (index, score) in pruned.enumerated() where !index.isMultiple(of: 2) { XCTAssertEqual(score, -.infinity) }
         }
     }
 
