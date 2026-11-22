@@ -9,9 +9,8 @@ import Foundation
 /// - No hand-posture inference and no hierarchical multi-level backoff: each
 ///   `(layoutBucket, letter)` adapts strictly from its own observations, with smooth
 ///   single-key shrinkage toward the painted center `(0, 0)` when samples are few.
-/// - Bounded, anonymous geometric logs (`Calibration/state.json` and
-///   `Calibration/observations.jsonl` in the App Group container) allow offline
-///   evaluation without ever storing typed text.
+/// - Only per-key statistics are stored (`Calibration/state.json` in the App
+///   Group container), never typed text or individual taps.
 nonisolated final class KeyHitCalibration: @unchecked Sendable {
     enum LayoutBucket: String, Codable, CaseIterable, Sendable {
         case portrait
@@ -96,26 +95,7 @@ nonisolated final class KeyHitCalibration: @unchecked Sendable {
         var summary: Summary = Summary()
     }
 
-    struct Observation: Codable, Sendable {
-        let ts: TimeInterval
-        let bucket: String
-        let kind: String // "tap", "commit", "neighbor_fix"
-        let key: String
-        let rawKey: String?
-        let dx: Double
-        let dy: Double
-        let effDx: Double
-        let effDy: Double
-        let count: Int
-        let calSwitched: Bool
-        let langCorrected: Bool
-    }
-
     // MARK: - Tuning & Safety Guards
-
-    /// Temporary experiment flag for collecting anonymous geometric logs on test devices.
-    /// IMPORTANT: Set to `false` (or remove observation logging & mirroring) before production release.
-    static let observationLoggingEnabled = true
 
     /// Single-key shrinkage prior strength (`weight = count / (count + shrinkageKappa)`).
     /// Replaces hard 15-tap cutoff with smooth ramp: 50% at 8 taps, 75% at 24 taps.
@@ -143,8 +123,6 @@ nonisolated final class KeyHitCalibration: @unchecked Sendable {
     /// Inner anchor zone of the raw painted keycap: taps within ±0.35 of the raw body center stay anchored.
     static let rawKeyAnchorDx = 0.35
     static let rawKeyAnchorDy = 0.35
-    /// Maximum byte size for `observations.jsonl` before trimming to newest half.
-    static let maxLogBytes = 512 * 1024
 
     static let shared = KeyHitCalibration(directory: KeyHitCalibration.defaultDirectory())
 
@@ -152,7 +130,6 @@ nonisolated final class KeyHitCalibration: @unchecked Sendable {
     private let ioQueue = DispatchQueue(label: "com.Voltline.Vime.KeyHitCalibration.io", qos: .utility)
     private let directory: URL?
     private var snapshot: Snapshot
-    private var pendingObservations: [Observation] = []
     private var updatesSinceFlush = 0
     private var dirty = false
 
@@ -228,46 +205,12 @@ nonisolated final class KeyHitCalibration: @unchecked Sendable {
 
     // MARK: - Recording & Learning
 
-    func recordTapObservation(
-        letter: Character,
-        rawLetter: Character?,
-        point: CGPoint,
-        body: CGRect,
-        bucket: LayoutBucket,
-        calibrationSwitched: Bool,
-        jointBayesianSwitched: Bool = false,
-        languageCorrected: Bool,
-        timestamp: TimeInterval = Date().timeIntervalSince1970
-    ) {
-        guard body.width > 0, body.height > 0 else { return }
-        let dx = Double((point.x - body.midX) / body.width)
-        let dy = Double((point.y - body.midY) / body.height)
-        let key = String(letter).lowercased()
-        let rawKey = rawLetter.map { String($0).lowercased() }
-
+    /// Counts how often calibration or the language prior changed a tap's key.
+    func recordTapOutcome(calibrationSwitched: Bool, languageCorrected: Bool) {
         lock.lock()
         snapshot.summary.totalTaps += 1
         if calibrationSwitched { snapshot.summary.calibrationSwitches += 1 }
-        if jointBayesianSwitched { snapshot.summary.jointBayesianSwitches += 1 }
         if languageCorrected { snapshot.summary.languageCorrections += 1 }
-        let stats = snapshot.buckets[bucket.rawValue]?[key] ?? KeyStats()
-        let eff = Self.effectiveModel(from: stats)
-        if Self.observationLoggingEnabled {
-            pendingObservations.append(Observation(
-                ts: timestamp,
-                bucket: bucket.rawValue,
-                kind: "tap",
-                key: key,
-                rawKey: rawKey == key ? nil : rawKey,
-                dx: Self.round4(dx),
-                dy: Self.round4(dy),
-                effDx: Self.round4(eff.dx),
-                effDy: Self.round4(eff.dy),
-                count: stats.count,
-                calSwitched: calibrationSwitched,
-                langCorrected: languageCorrected
-            ))
-        }
         dirty = true
         updatesSinceFlush += 1
         let shouldFlush = updatesSinceFlush >= 25
@@ -283,7 +226,7 @@ nonisolated final class KeyHitCalibration: @unchecked Sendable {
         bucket: LayoutBucket,
         timestamp: TimeInterval = Date().timeIntervalSince1970
     ) -> Bool {
-        learn(letter: letter, rawLetter: nil, point: point, body: body, bucket: bucket,
+        learn(letter: letter, point: point, body: body, bucket: bucket,
               isNeighborFix: false, timestamp: timestamp)
     }
 
@@ -296,13 +239,12 @@ nonisolated final class KeyHitCalibration: @unchecked Sendable {
         bucket: LayoutBucket,
         timestamp: TimeInterval = Date().timeIntervalSince1970
     ) -> Bool {
-        learn(letter: intendedLetter, rawLetter: mistypedLetter, point: mistypedPoint,
+        learn(letter: intendedLetter, point: mistypedPoint,
               body: intendedBody, bucket: bucket, isNeighborFix: true, timestamp: timestamp)
     }
 
     private func learn(
         letter: Character,
-        rawLetter: Character?,
         point: CGPoint,
         body: CGRect,
         bucket: LayoutBucket,
@@ -321,7 +263,6 @@ nonisolated final class KeyHitCalibration: @unchecked Sendable {
         }
 
         let key = String(letter).lowercased()
-        let rawKey = rawLetter.map { String($0).lowercased() }
 
         lock.lock()
         var bucketMap = snapshot.buckets[bucket.rawValue] ?? [:]
@@ -352,23 +293,6 @@ nonisolated final class KeyHitCalibration: @unchecked Sendable {
         snapshot.buckets[bucket.rawValue] = bucketMap
         snapshot.updatedAt = Date(timeIntervalSince1970: timestamp)
 
-        let eff = Self.effectiveModel(from: stats)
-        if Self.observationLoggingEnabled {
-            pendingObservations.append(Observation(
-                ts: timestamp,
-                bucket: bucket.rawValue,
-                kind: isNeighborFix ? "neighbor_fix" : "commit",
-                key: key,
-                rawKey: rawKey,
-                dx: Self.round4(dx),
-                dy: Self.round4(dy),
-                effDx: Self.round4(eff.dx),
-                effDy: Self.round4(eff.dy),
-                count: stats.count,
-                calSwitched: false,
-                langCorrected: false
-            ))
-        }
         dirty = true
         updatesSinceFlush += 1
         let shouldFlush = updatesSinceFlush >= 20
@@ -381,32 +305,30 @@ nonisolated final class KeyHitCalibration: @unchecked Sendable {
     func reset() {
         lock.lock()
         snapshot = Snapshot()
-        pendingObservations.removeAll()
         dirty = true
         updatesSinceFlush = 0
         lock.unlock()
         guard let directory else { return }
         ioQueue.async {
             try? FileManager.default.removeItem(at: directory.appendingPathComponent("state.json"))
+            // Test builds kept a tap log here; clear it too.
             try? FileManager.default.removeItem(at: directory.appendingPathComponent("observations.jsonl"))
         }
     }
 
-    // MARK: - Persistence & Mirroring
+    // MARK: - Persistence
 
     func flushAsync() {
         guard let directory else { return }
         lock.lock()
-        guard dirty || !pendingObservations.isEmpty else { lock.unlock(); return }
+        guard dirty else { lock.unlock(); return }
         let stateCopy = snapshot
-        let obsCopy = pendingObservations
-        pendingObservations.removeAll(keepingCapacity: true)
         dirty = false
         updatesSinceFlush = 0
         lock.unlock()
 
         ioQueue.async {
-            Self.writeToDisk(directory: directory, state: stateCopy, observations: obsCopy)
+            Self.writeToDisk(directory: directory, state: stateCopy)
         }
     }
 
@@ -415,39 +337,15 @@ nonisolated final class KeyHitCalibration: @unchecked Sendable {
         guard let directory else { return }
         lock.lock()
         let stateCopy = snapshot
-        let obsCopy = pendingObservations
-        pendingObservations.removeAll(keepingCapacity: true)
         dirty = false
         updatesSinceFlush = 0
         lock.unlock()
         ioQueue.sync {
-            Self.writeToDisk(directory: directory, state: stateCopy, observations: obsCopy)
+            Self.writeToDisk(directory: directory, state: stateCopy)
         }
     }
 
-    /// Mirrors App Group calibration files into the main app's `Documents/Calibration`
-    /// so logs can be exported via `devicectl` `appDataContainer`.
-    static func mirrorToAppDocuments() {
-        guard observationLoggingEnabled,
-              let sourceDir = defaultDirectory(),
-              let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
-        else { return }
-        let targetDir = docs.appendingPathComponent("Calibration", isDirectory: true)
-        DispatchQueue.global(qos: .utility).async {
-            let fm = FileManager.default
-            guard fm.fileExists(atPath: sourceDir.path) else { return }
-            try? fm.createDirectory(at: targetDir, withIntermediateDirectories: true)
-            for name in ["state.json", "observations.jsonl"] {
-                let src = sourceDir.appendingPathComponent(name)
-                let dst = targetDir.appendingPathComponent(name)
-                guard fm.fileExists(atPath: src.path) else { continue }
-                try? fm.removeItem(at: dst)
-                try? fm.copyItem(at: src, to: dst)
-            }
-        }
-    }
-
-    private static func writeToDisk(directory: URL, state: Snapshot, observations: [Observation]) {
+    private static func writeToDisk(directory: URL, state: Snapshot) {
         let fm = FileManager.default
         try? fm.createDirectory(at: directory, withIntermediateDirectories: true)
 
@@ -456,35 +354,6 @@ nonisolated final class KeyHitCalibration: @unchecked Sendable {
         encoder.dateEncodingStrategy = .iso8601
         if let data = try? encoder.encode(state) {
             try? data.write(to: directory.appendingPathComponent("state.json"), options: .atomic)
-        }
-
-        guard !observations.isEmpty else { return }
-        let lineEncoder = JSONEncoder()
-        var chunk = Data()
-        for item in observations {
-            if let encoded = try? lineEncoder.encode(item) {
-                chunk.append(encoded)
-                chunk.append(0x0A) // '\n'
-            }
-        }
-        guard !chunk.isEmpty else { return }
-        let logURL = directory.appendingPathComponent("observations.jsonl")
-        if fm.fileExists(atPath: logURL.path) {
-            if let handle = try? FileHandle(forWritingTo: logURL) {
-                defer { try? handle.close() }
-                _ = try? handle.seekToEnd()
-                try? handle.write(contentsOf: chunk)
-            }
-            if let attrs = try? fm.attributesOfItem(atPath: logURL.path),
-               let size = attrs[.size] as? Int, size > maxLogBytes,
-               let data = try? Data(contentsOf: logURL) {
-                let keepFrom = data.count / 2
-                if let newline = data[keepFrom...].firstIndex(of: 0x0A), newline + 1 < data.count {
-                    try? data[(newline + 1)...].write(to: logURL, options: .atomic)
-                }
-            }
-        } else {
-            try? chunk.write(to: logURL, options: .atomic)
         }
     }
 
@@ -513,9 +382,5 @@ nonisolated final class KeyHitCalibration: @unchecked Sendable {
 
     private static func clampRange(_ value: Double, min lo: Double, max hi: Double) -> Double {
         Swift.min(hi, Swift.max(lo, value))
-    }
-
-    private static func round4(_ value: Double) -> Double {
-        (value * 10000).rounded() / 10000
     }
 }

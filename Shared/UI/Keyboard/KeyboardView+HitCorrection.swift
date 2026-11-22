@@ -95,16 +95,8 @@ extension KeyboardView {
         }
         hitCalibrationTracker.deletedStack.removeAll(keepingCapacity: true)
 
-        hitCalibration.recordTapObservation(
-            letter: outcome.letter,
-            rawLetter: outcome.rawLetter,
-            point: outcome.point,
-            body: outcome.body,
-            bucket: bucket,
-            calibrationSwitched: outcome.calibrationSwitched,
-            languageCorrected: outcome.languageCorrected,
-            timestamp: now
-        )
+        hitCalibration.recordTapOutcome(calibrationSwitched: outcome.calibrationSwitched,
+                                        languageCorrected: outcome.languageCorrected)
 
         let reassigned = outcome.calibrationSwitched || outcome.languageCorrected || outcome.rawLetter != outcome.letter
         hitCalibrationTracker.pendingTaps.append(.init(

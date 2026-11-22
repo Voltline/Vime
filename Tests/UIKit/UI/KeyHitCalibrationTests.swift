@@ -184,7 +184,7 @@ final class KeyHitCalibrationTests: XCTestCase {
         XCTAssertEqual(snap.buckets[view.hitCalibrationBucket.rawValue]?["n"]?.count, 1)
     }
 
-    func testPersistenceAndLogExportRoundTrip() throws {
+    func testPersistenceRoundTrip() throws {
         let dir = tempDir()
         let cal = KeyHitCalibration(directory: dir)
         let body = CGRect(x: 0, y: 0, width: 40, height: 50)
@@ -192,10 +192,7 @@ final class KeyHitCalibrationTests: XCTestCase {
         for _ in 0..<80 {
             cal.learnCommittedTap(letter: "n", point: pt, body: body, bucket: .portrait)
         }
-        cal.recordTapObservation(
-            letter: "n", rawLetter: "m", point: pt, body: body, bucket: .portrait,
-            calibrationSwitched: true, languageCorrected: false
-        )
+        cal.recordTapOutcome(calibrationSwitched: true, languageCorrected: false)
         cal.flushSync()
 
         let reloaded = KeyHitCalibration(directory: dir)
@@ -203,10 +200,8 @@ final class KeyHitCalibrationTests: XCTestCase {
         XCTAssertEqual(eff.dx, 0.15 * (80.0 / 88.0), accuracy: 0.02)
         XCTAssertEqual(eff.dy, -0.08 * (80.0 / 88.0), accuracy: 0.02)
         XCTAssertEqual(reloaded.currentSnapshot().summary.calibrationSwitches, 1)
-
-        let logURL = dir.appendingPathComponent("observations.jsonl")
-        let lines = try String(contentsOf: logURL, encoding: .utf8).split(separator: "\n")
-        XCTAssertEqual(lines.count, 81)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: dir.appendingPathComponent("observations.jsonl").path),
+                       "No per-tap log is written")
     }
 
     @MainActor
