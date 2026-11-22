@@ -604,6 +604,14 @@ final class ChineseInputSession: KeyboardInputSession {
                 edits.append(.insert(commit))
                 commitIsForgettable = true
                 pendingContinuation = result.commitWord.flatMap { word in result.commitCode.map { (word, $0) } }
+                if !english {
+                    ChinesePersonalRankingCache.shared.record(
+                        prevText: leftContextProvider?() ?? "",
+                        committed: commit,
+                        exclusionsActive: exclusionsActive,
+                        exclusionList: exclusions
+                    )
+                }
             }
             latest = result
         }

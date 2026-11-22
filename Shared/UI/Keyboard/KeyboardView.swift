@@ -68,6 +68,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         session.setSpecialConversionFormats(date: next.chineseDateFormat, time: next.chineseTimeFormat)
         applyNeuralRetry()
         if next.learningResetID != previous?.learningResetID {
+            ChinesePersonalRankingCache.shared.applyResetIfNeeded(resetID: next.learningResetID)
             session.reset()
             session.prepareForInput()
             publishPreedit()
