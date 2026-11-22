@@ -2063,6 +2063,34 @@
         }
       }
     },
+    "九宫格用数字键输入拼音" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "9-key types pinyin on the number keys"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "9キーは数字キーでピンインを入力します"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "9키는 숫자 키로 병음을 입력합니다"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "九宮格用數字鍵輸入拼音"
+          }
+        }
+      }
+    },
     "了解剪贴板和输入数据的处理方式" : {
       "localizations" : {
         "en" : {
@@ -3583,6 +3611,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "旅行"
+          }
+        }
+      }
+    },
+    "分词" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Split"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "区切り"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "구분"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "分詞"
           }
         }
       }
@@ -10180,6 +10236,34 @@
         }
       }
     },
+    "拼音和标点" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pinyin and punctuation"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ピンインと句読点"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "병음과 문장 부호"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "拼音和標點"
+          }
+        }
+      }
+    },
     "显示下一个候选" : {
       "localizations" : {
         "en" : {
@@ -16603,6 +16687,34 @@
         }
       }
     },
+    "重输" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clear"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "クリア"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "지우기"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重輸"
+          }
+        }
+      }
+    },
     "键位速查" : {
       "localizations" : {
         "en" : {
@@ -16683,6 +16795,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "鍵帽圓角"
+          }
+        }
+      }
+    },
+    "键盘布局" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keyboard Layout"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "キーボード配列"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "키보드 배열"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "鍵盤佈局"
           }
         }
       }

@@ -20,7 +20,7 @@ extension KeyboardView {
             for (column, pair) in row.enumerated() {
                 if kanaLayoutActive {
                     pair.0.frame = metrics.kanaFrame(row: rowIndex, column: column, rows: pair.0 === returnKey ? 2 : 1)
-                } else if usesNumberPad {
+                } else if padGridActive {
                     pair.0.frame = metrics.numberPadFrame(row: rowIndex, column: column + (rowIndex < 3 ? 1 : 0))
                 } else {
                     pair.0.frame = metrics.frame(row: rowIndex, column: column, letters: page == .letters,
@@ -33,8 +33,9 @@ extension KeyboardView {
                 let textScale = compact ? scale : min(scale, metrics.keyHeight / 46.5)
                 var fontSize: CGFloat = compact ? (rowIndex == 3 ? 13 : 18)
                     : (rowIndex == 3 ? 15 : 21) * textScale
-                if usesNumberPad {
+                if padGridActive {
                     let isDigit = Int(pair.0.title(for: .normal) ?? "") != nil
+                        || (chineseNineKeyActive && letterKeys.contains { $0 === pair.0 })
                     fontSize = compact ? (isDigit ? 18 : rowIndex == 3 ? 13 : 15)
                         : (isDigit ? 20 : rowIndex == 3 ? 14 : 16) * textScale
                     pair.0.setPreferredSymbolConfiguration(UIImage.SymbolConfiguration(pointSize: compact ? 16 : 18 * textScale),
@@ -51,12 +52,12 @@ extension KeyboardView {
                 pair.0.applySkinMetrics(size: fontSize, scale: textScale)
             }
         }
-        if usesNumberPad {
+        if padGridActive, let rail = usesNumberPad ? numberSymbolRail : syllableRail {
             let top = metrics.numberPadFrame(row: 0, column: 0)
             let bottom = metrics.numberPadFrame(row: 2, column: 0)
-            numberSymbolRail?.frame = oneHandedFrame(top.union(bottom))
-            numberSymbolRail?.scale = scale
-            numberSymbolRail?.layoutIfNeeded()
+            rail.frame = oneHandedFrame(top.union(bottom))
+            rail.scale = scale
+            rail.layoutIfNeeded()
         }
         updateTouchBounds(metrics: metrics)
         if let key = rows.flatMap({ $0 }).first(where: { $0.0.repeats })?.0 {
@@ -84,7 +85,7 @@ extension KeyboardView {
                 let key = pair.0
                 // Boundaries lie in the gaps, never inside a painted key. This
                 // respects wide utility keys as well as staggered letter rows.
-                let leading = usesNumberPad && rowIndex < 3
+                let leading = padGridActive && rowIndex < 3
                     ? (oneHandedFrame(metrics.numberPadFrame(row: rowIndex, column: 0)).maxX + first.frame.minX) / 2 : area.lowerBound
                 let left = column == 0 ? leading : (row[column - 1].0.frame.maxX + key.frame.minX) / 2
                 var right = column == row.count - 1 ? area.upperBound : (key.frame.maxX + row[column + 1].0.frame.minX) / 2
@@ -157,10 +158,16 @@ extension KeyboardView {
         languageKey = nil
         returnKey = nil
         numberBackKey = nil
+        nineKeyBreakKey = nil
         kanaLayoutActive = usesKanaLayout
+        chineseNineKeyActive = usesChineseNineKey
         kanaToggle = nil
         if kanaLayoutActive {
             buildKanaKeys()
+            applyKeySkins(); updateKeyLabels(); refresh(); setNeedsLayout(); return
+        }
+        if chineseNineKeyActive {
+            buildChineseNineKeys()
             applyKeySkins(); updateKeyLabels(); refresh(); setNeedsLayout(); return
         }
         if page == .letters {

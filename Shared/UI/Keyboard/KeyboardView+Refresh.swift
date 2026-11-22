@@ -52,13 +52,15 @@ extension KeyboardView {
         defer { KeyboardPerformance.record(.candidateUIUpdate, since: uiStartedAt) }
         // Any switch between Japanese and English (language key, mode button,
         // host keyboard type) swaps the flick pad and QWERTY.
-        if !rebuildingKeys && page == .letters && kanaLayoutActive != usesKanaLayout { rebuildKeys(); return }
+        if !rebuildingKeys && page == .letters
+            && (kanaLayoutActive != usesKanaLayout || chineseNineKeyActive != usesChineseNineKey) { rebuildKeys(); return }
         let traits = session.inputTraits
         let composing = session.isComposing
         refreshLanguageKey(traits)
         refreshToolbar(traits, composing: composing)
         refreshCandidateStrip()
         refreshPanels(composing: composing)
+        refreshSyllableRail()
         // The question is about one list; typing or a new list closes it.
         if let token = forgetPrompt?.token, session.forgettableCandidate(token) == nil { dismissForgetPrompt() }
         refreshActionKeys(traits, composing: composing)
@@ -176,6 +178,7 @@ extension KeyboardView {
             ? (emojiSearchActive ? "vime.emojiSearch.close" : "vime.suggestions.close")
             : panelOpen ? "vime.panel.close" : "vime.candidates.expand"
         numberSymbolRail?.isHidden = panelOpen || !usesNumberPad
+        syllableRail?.isHidden = panelOpen || !chineseNineKeyActive
         if panelOpen { keysContainer.cancelAllPresses() }
         keysContainer.isHidden = panelOpen
         panelScroll.isHidden = panel != .candidates
@@ -193,7 +196,7 @@ extension KeyboardView {
 
     func refreshActionKeys(_ traits: KeyboardInputTraits, composing: Bool) {
         let spaceTitle = usesNumberPad ? "空格" : composing ? traits.compositionSpaceTitle
-            : kanaLayoutActive ? String(localized: "空格") : ""
+            : kanaLayoutActive || chineseNineKeyActive ? String(localized: "空格") : ""
         if spaceKey?.title(for: .normal) != spaceTitle {
             spaceKey?.setTitle(spaceTitle, for: .normal)
         }

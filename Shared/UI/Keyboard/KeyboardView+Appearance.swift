@@ -83,6 +83,7 @@ extension KeyboardView {
         quickCandidates.applyTheme()
         reconvertChip?.configuration?.baseForegroundColor = KeyboardPalette.accent
         numberSymbolRail?.applyTheme()
+        syllableRail?.applyTheme()
         clipboardHistoryPanel?.applyTheme()
         undoButton.tintColor = KeyboardPalette.accent
         deletePrompt.applyTheme()

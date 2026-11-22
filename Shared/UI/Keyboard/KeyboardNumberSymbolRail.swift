@@ -10,6 +10,12 @@ final class KeyboardNumberSymbolRail: UIScrollView {
     var onSelect: ((String) -> Void)?
     var onEdit: (() -> Void)?
     var scale: CGFloat = 1
+    /// Without the settings link (the nine-key syllable rail).
+    var editable = true { didSet { settingsLink.isHidden = !editable; setNeedsLayout() } }
+    /// Accessibility IDs of the items: this, then the item.
+    var identifierPrefix = "vime.number."
+    /// The item drawn in the accent colour, such as the syllable Rime reads.
+    var highlighted: String? { didSet { if highlighted != oldValue { applyTheme() } } }
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -44,7 +50,7 @@ final class KeyboardNumberSymbolRail: UIScrollView {
         buttons = symbols.map { symbol in
             let button = UIButton(type: .system)
             button.setTitle(KeyboardNumberSymbols.title(for: symbol), for: .normal)
-            button.accessibilityIdentifier = "vime.number." + symbol
+            button.accessibilityIdentifier = identifierPrefix + symbol
             button.accessibilityLabel = symbol
             button.addAction(UIAction { [weak self] _ in
                 guard let self, !self.isHidden, self.symbols.contains(symbol) else { return }
@@ -73,7 +79,7 @@ final class KeyboardNumberSymbolRail: UIScrollView {
         }
         settingsLink.frame = CGRect(x: 0, y: CGFloat(buttons.count) * itemHeight,
             width: bounds.width, height: max(36, itemHeight))
-        contentSize = CGSize(width: bounds.width, height: settingsLink.frame.maxY)
+        contentSize = CGSize(width: bounds.width, height: editable ? settingsLink.frame.maxY : CGFloat(buttons.count) * itemHeight)
     }
 
     override func touchesShouldCancel(in view: UIView) -> Bool { true }
@@ -82,13 +88,15 @@ final class KeyboardNumberSymbolRail: UIScrollView {
     }
 
     @objc private func revealSettings(_ recognizer: UILongPressGestureRecognizer) {
-        guard recognizer.state == .began else { return }
+        guard recognizer.state == .began, editable else { return }
         scrollRectToVisible(settingsLink.frame, animated: true)
     }
 
     func applyTheme() {
         backgroundColor = KeyboardPalette.utility
-        buttons.forEach { $0.setTitleColor(KeyboardPalette.text, for: .normal) }
+        for (symbol, button) in zip(symbols, buttons) {
+            button.setTitleColor(symbol == highlighted ? KeyboardPalette.accent : KeyboardPalette.text, for: .normal)
+        }
         separators.forEach { $0.backgroundColor = KeyboardPalette.text.withAlphaComponent(0.12) }
         settingsLink.setTitleColor(KeyboardPalette.accent, for: .normal)
         setNeedsLayout()

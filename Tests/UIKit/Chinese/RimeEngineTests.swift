@@ -252,37 +252,54 @@ final class RimeEngineTests: XCTestCase {
     }
 }
 
-/// Phase 0 numbers: cold start, per-key time and memory. Runs only when
-/// TEST_RUNNER_VIME_RIME_METRICS names an output file.
+/// Phase 0 numbers: cold start, per-key time and memory, for full pinyin and
+/// for the nine-key schema typing the same sentences as digits. Runs only
+/// when TEST_RUNNER_VIME_RIME_METRICS is set; each report is printed as a
+/// VIME_RIME_METRICS line and, where that path is writable, saved there.
+/// Run each test in its own process, so the memory numbers stay apart.
 final class RimeEngineMetricsTests: XCTestCase {
-    func testMeasure() throws {
+    private static let sentences = ["nihao", "womenyiqiqukandianying", "jintiantianqizhenhao", "zhonghuarenmingongheguo",
+                                    "woxiangmaiyibuxinshouji", "zhegewentiwozaixiangxiang", "xiawusandiankaihui", "zg", "bjdx",
+                                    "shurufa", "ruguoniyouwenti", "qingbawenjianfageiwo"]
+
+    func testMeasure() throws { try measure(nineKey: false) }
+    func testMeasureNineKey() throws { try measure(nineKey: true) }
+
+    private func measure(nineKey: Bool) throws {
         let path = ProcessInfo.processInfo.environment["VIME_RIME_METRICS"]
         try XCTSkipIf(path == nil, "set TEST_RUNNER_VIME_RIME_METRICS to measure")
-        let output = URL(fileURLWithPath: try XCTUnwrap(path))
         let user = FileManager.default.temporaryDirectory.appendingPathComponent("RimeMetrics-\(UUID().uuidString)")
         let before = footprint()
         let engine = RimeEngine(data: try XCTUnwrap(RimeEngine.bundledData), userDirectory: user)
-        let cold = engine.sendAndWait(.type("n")).duration
+        // Rime starts on the first command, which for nine-key selects its schema.
+        let setup = nineKey ? engine.sendAndWait(.setNineKey(true)).duration : .zero
+        let cold = setup + engine.sendAndWait(.type(nineKey ? "6" : "n")).duration
         let afterStart = footprint()
         _ = engine.sendAndWait(.clear)
-        let sentences = ["nihao", "womenyiqiqukandianying", "jintiantianqizhenhao", "zhonghuarenmingongheguo",
-                         "woxiangmaiyibuxinshouji", "zhegewentiwozaixiangxiang", "xiawusandiankaihui", "zg", "bjdx",
-                         "shurufa", "ruguoniyouwenti", "qingbawenjianfageiwo"]
-        var keys: [Double] = []
+        var timed: [(ms: Double, at: String)] = []
         for _ in 0..<5 {
-            for sentence in sentences {
-                for letter in sentence { keys.append(engine.sendAndWait(.type(String(letter))).duration.milliseconds) }
-                keys.append(engine.sendAndWait(.select(0)).duration.milliseconds)
+            for sentence in Self.sentences {
+                let typed = nineKey ? NineKeyPinyin.digits(for: sentence) : sentence
+                for (index, key) in typed.enumerated() {
+                    timed.append((engine.sendAndWait(.type(String(key))).duration.milliseconds, String(typed.prefix(index + 1))))
+                }
+                timed.append((engine.sendAndWait(.select(0)).duration.milliseconds, typed + " select"))
             }
         }
-        keys.sort()
+        let keys = timed.map(\.ms).sorted()
+        print("VIME_RIME_SLOWEST", timed.sorted { $0.ms > $1.ms }.prefix(8).map { String(format: "%@ %.1f", $0.at, $0.ms) })
         func percentile(_ p: Double) -> Double { keys[min(keys.count - 1, Int(Double(keys.count) * p))] }
         let report: [String: Double] = [
             "cold_start_ms": cold.milliseconds, "key_p50_ms": percentile(0.5), "key_p95_ms": percentile(0.95),
             "key_max_ms": keys.last ?? 0, "footprint_before_mb": before, "footprint_after_start_mb": afterStart,
             "footprint_after_typing_mb": footprint(), "keys": Double(keys.count),
         ]
-        try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys]).write(to: output)
+        let data = try JSONSerialization.data(withJSONObject: report, options: [.sortedKeys])
+        print("VIME_RIME_METRICS \(nineKey ? "nine_key" : "full_pinyin") " + String(decoding: data, as: UTF8.self))
+        if let path {
+            let output = URL(fileURLWithPath: path + (nineKey ? ".nine-key.json" : ""))
+            try? data.write(to: output)
+        }
     }
 
     private func footprint() -> Double {

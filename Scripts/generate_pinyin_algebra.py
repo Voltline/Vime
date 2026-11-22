@@ -39,6 +39,11 @@ What the rules add, in order:
 selects from its settings: vime_pinyin_fuzzy<N>.schema.yaml for N in 1...7, a
 sum of FUZZY groups. Fuzzy spellings (zi for zhi) are Rime fuzz spellings at
 log(0.5), so the exact reading still leads; each syllable takes one of them.
+It also writes vime_t9.schema.yaml, the nine-key schema: every spelling is
+also typed as the digits of its letters on a phone keypad (zhong -> 94664), and
+the letters stay, so a syllable picked from the keyboard's syllable bar can
+replace its digits. It has no typo rules (a nine-key slip is another digit,
+which the keypad's ambiguity already covers) and no English words.
 """
 import argparse
 import re
@@ -200,6 +205,58 @@ def fuzzy_rules(mask):
     return out + ["xform/^@//"]
 
 
+# The phone keypad.
+T9_KEYS = {"2": "abc", "3": "def", "4": "ghi", "5": "jkl", "6": "mno", "7": "pqrs", "8": "tuv", "9": "wxyz"}
+
+
+def t9_digits(spelling):
+    return "".join(next(k for k, v in T9_KEYS.items() if c in v) for c in spelling)
+
+
+def t9_rules():
+    out = ["# Not syllables on their own in Vime's dictionaries."]
+    out += [f"erase/^{s}$/" for s in ("hm", "m", "n", "ng")]
+    out.append("# Abbreviations: the initial, and zh, ch and sh.")
+    out.append("abbrev/^([a-z])[a-z]+$/$1/")
+    out.append("abbrev/^([zcs]h)[a-z]+$/$1/")
+    out.append("# ü spellings.")
+    out += [
+        "derive/^([nl])ve$/$1ue/",
+        "derive/^([jqxy])u([a-z]*)$/$1v$2/",
+    ]
+    out.append("# Every spelling is also typed as digits: marked with > while its letters turn.")
+    out.append("derive/^([a-z]+)$/$1>/")
+    out += [f"xform/[{letters}](?=[a-z2-9]*>$)/{digit}/" for digit, letters in T9_KEYS.items()]
+    out.append("xform/>$//")
+    return out
+
+
+def render_t9(text):
+    """The nine-key schema, from the pinyin schema's text."""
+    start, end = text.index(BEGIN), text.index(END) + len(END)
+    lines = [BEGIN] + [f"    {r}" if r.startswith("#") else f"    - {r}" for r in t9_rules()] + [END]
+    schema = text[:start] + "\n".join(lines) + text[end:]
+    replacements = [
+        ("# Simplified Chinese full pinyin for Vime, with English words mixed in.\n",
+         "# Simplified Chinese pinyin on a nine-key keypad, generated from vime_pinyin by\n"
+         "# Scripts/generate_pinyin_algebra.py --variants; do not edit.\n"),
+        ("  schema_id: vime_pinyin\n", "  schema_id: vime_t9\n"),
+        ("  name: Vime 拼音\n", "  name: Vime 九宫格\n"),
+        ("  dependencies:\n    - vime_english\n", ""),
+        ("    - table_translator@english\n", ""),
+        ("  alphabet: zyxwvutsrqponmlkjihgfedcba\n", "  alphabet: zyxwvutsrqponmlkjihgfedcba23456789\n"),
+        ("  initials: zyxwvutsrqponmlkjihgfedcba\n", "  initials: zyxwvutsrqponmlkjihgfedcba23456789\n"),
+        # Its own spelling index on the shared words. The keyboard shows the
+        # pinyin of the candidates, from the spelling hints, in place of digits.
+        ("  dictionary: vime_pinyin\n", "  dictionary: vime_pinyin\n  prism: vime_t9\n  spelling_hints: 8\n"),
+    ]
+    for old, new in replacements:
+        assert old in schema, old
+        schema = schema.replace(old, new, 1)
+    english = schema.index("# English words typed in the same composition.")
+    return schema[:english].rstrip() + "\n"
+
+
 def render(mask=0):
     lines = [BEGIN]
     for rule in rules() + (fuzzy_rules(mask) if mask else []):
@@ -228,6 +285,7 @@ def main():
             variant = variant.replace("  dictionary: vime_pinyin\n", f"  dictionary: vime_pinyin\n  prism: {name}\n", 1)
             assert f"schema_id: {name}" in variant and f"prism: {name}" in variant
             (args.variants / f"{name}.schema.yaml").write_text(variant)
+        (args.variants / "vime_t9.schema.yaml").write_text(render_t9(updated))
         return
     if args.check:
         if updated != text:

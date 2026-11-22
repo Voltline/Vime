@@ -83,12 +83,16 @@ nonisolated final class RimeEngine: @unchecked Sendable {
         /// Fuzzy pinyin, through the schema built for these groups; an open
         /// composition is looked up again.
         case setFuzzy(FuzzyPinyin)
+        /// The nine-key schema, where digits 2–9 spell pinyin; fuzzy pinyin
+        /// then does not apply. An open composition is dropped.
+        case setNineKey(Bool)
         /// Replaces the input with `input` and selects its candidate whose
         /// simplified text is `text`; nothing changes when there is none.
         case selectSpelling(input: String, text: String)
     }
 
     static let candidateLimit = 60
+    static let nineKeySchema = "vime_t9"
     static var bundledData: URL? { Bundle.main.url(forResource: "RimeData", withExtension: "bundle") }
 
     private static let startLock = NSLock()
@@ -122,6 +126,8 @@ nonisolated final class RimeEngine: @unchecked Sendable {
     private var traditional = false
     /// Selected again on every new session, which starts with vime_pinyin.
     private var fuzzy = FuzzyPinyin()
+    /// Selected again on every new session in place of the pinyin schema.
+    private var nineKey = false
     /// Rime's index for each candidate the last state shows.
     private var shown: [Int] = []
     /// A second session for looking up other spellings, so the one being
@@ -345,6 +351,10 @@ nonisolated final class RimeEngine: @unchecked Sendable {
             // A new schema starts with options off and nothing typed.
             selectSchema()
             lookUpAgain(input)
+        case .setNineKey(let value):
+            guard value != nineKey else { break }
+            nineKey = value
+            selectSchema()
         }
         var state = snapshot()
         state.duration = clock.now - start
@@ -373,6 +383,12 @@ nonisolated final class RimeEngine: @unchecked Sendable {
     }
 
     private func selectSchema() {
+        // A missing nine-key schema (older data) leaves pinyin.
+        if nineKey, !vime_rime_select_schema(session, Self.nineKeySchema) { nineKey = false }
+        if nineKey {
+            vime_rime_set_option(session, "traditionalization", traditional)
+            return
+        }
         // A missing fuzzy schema (older data) leaves the plain one.
         if !fuzzy.isEmpty, !vime_rime_select_schema(session, fuzzy.schema) { fuzzy = [] }
         if fuzzy.isEmpty { _ = vime_rime_select_schema(session, FuzzyPinyin().schema) }

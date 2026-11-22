@@ -3,7 +3,7 @@ import UIKit
 // Hit correction: which letters can continue the input, per language.
 extension KeyboardView {
     func hitCorrectionPrior(held: String) -> KeyHitCorrection.Prior? {
-        guard panel == .keyboard, page == .letters, !kanaLayoutActive, !capsLocked,
+        guard panel == .keyboard, page == .letters, !kanaLayoutActive, !chineseNineKeyActive, !capsLocked,
               !(shifted && shiftTypesCapitals) else { return nil }
         switch session.inputTraits.language {
         case .japanese: return KeyHitCorrection.romajiPrior(after: session.raw + held)
@@ -65,14 +65,14 @@ extension KeyboardView {
     }
 
     func hitCalibrationModel(for letter: Character) -> KeyHitCalibration.EffectiveModel {
-        guard panel == .keyboard, page == .letters, !kanaLayoutActive else {
+        guard panel == .keyboard, page == .letters, !kanaLayoutActive, !chineseNineKeyActive else {
             return .init(dx: 0, dy: 0, varX: KeyHitCalibration.defaultVarX, varY: KeyHitCalibration.defaultVarY, weight: 0, count: 0)
         }
         return hitCalibration.effectiveModel(for: letter, in: hitCalibrationBucket)
     }
 
     func recordCalibratedLetterTap(_ outcome: KeyboardTouchSurface.LetterTapOutcome) {
-        guard panel == .keyboard, page == .letters, !kanaLayoutActive else { return }
+        guard panel == .keyboard, page == .letters, !kanaLayoutActive, !chineseNineKeyActive else { return }
         let now = Date().timeIntervalSince1970
         let bucket = hitCalibrationBucket
 
