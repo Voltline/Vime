@@ -591,6 +591,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
                 ?? .init(dx: 0, dy: 0, varX: KeyHitCalibration.defaultVarX, varY: KeyHitCalibration.defaultVarY, weight: 0, count: 0)
         }
         keysContainer.onLetterTapComplete = { [weak self] outcome in self?.recordCalibratedLetterTap(outcome) }
+        keysContainer.allowsSwipeCursor = { [weak self] in !(self?.session.isComposing ?? false) }
         keysContainer.onCursorMove = { [weak self] x, y in
             guard let self else { return }
             self.session.finishLearningFeedback()

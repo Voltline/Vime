@@ -275,6 +275,30 @@ final class KeyboardTouchTests: XCTestCase {
         }
     }
 
+    func testSideSwipeTypesTheKeyWhileComposing() throws {
+        let (keyboard, surface) = makeKeyboard()
+        defer { keyboard.stopInteractions() }
+        var movements: [Int] = []
+        let move = surface.onCursorMove
+        surface.onCursorMove = { x, y in movements.append(x); move?(x, y) }
+        func swipe(_ id: String, by dx: CGFloat) throws {
+            let region = try XCTUnwrap(surface.regions.first { $0.key.accessibilityIdentifier == id })
+            let origin = CGPoint(x: region.body.midX, y: region.body.midY)
+            let end = CGPoint(x: origin.x + dx * surface.scale, y: origin.y)
+            surface.beginPress(id: id, at: origin)
+            surface.movePress(id: id, to: end)
+            surface.endPress(id: id, at: end)
+        }
+        try swipe("vime.key.k", by: 0)
+        XCTAssertTrue(keyboard.session.isComposing)
+        try swipe("vime.key.a", by: 80)
+        XCTAssertTrue(movements.isEmpty, "no caret move while composing")
+        XCTAssertTrue(keyboard.session.isComposing, "the composition stays open")
+        keyboard.resetComposition()
+        try swipe("vime.key.a", by: 80)
+        XCTAssertEqual(movements, [1], "the caret moves once nothing is composing")
+    }
+
     func testOverlappingDriftsKeepEachFingersOriginalKey() throws {
         let (keyboard, surface) = makeKeyboard()
         defer { keyboard.stopInteractions() }
