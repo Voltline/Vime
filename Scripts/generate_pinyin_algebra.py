@@ -256,6 +256,12 @@ def render_t9(text):
         # Its own spelling index on the shared words. The keyboard shows the
         # pinyin of the candidates, from the spelling hints, in place of digits.
         ("  dictionary: vime_pinyin\n", "  dictionary: vime_pinyin\n  prism: vime_t9\n  spelling_hints: 8\n"),
+        # Every digit is also an initial, so a long input has so many ways
+        # to abbreviate that looking up its sentences takes tens of
+        # milliseconds a key. From 10 keys on, sentences abbreviate only
+        # in the last few keys (falling back to all of them when nothing
+        # else spells the input).
+        ("  max_homophones: 4\n", "  max_homophones: 4\n  sentence_abbreviation_cutoff: 10\n"),
     ]
     for old, new in replacements:
         assert old in schema, old

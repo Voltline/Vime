@@ -144,6 +144,13 @@ class ScriptTranslation : public Translation {
   void EnrollEntries(map<int, DictEntryList>& entries_by_end_pos,
                      const an<QueryResult>& query_result);
   WordGraph PrepareForMakingSentence(Dictionary* dict,
+                                     UserDictionary* user_dict,
+                                     const SyllableGraph& syllable_graph);
+  // Vime: the graph sentences are made from; see
+  // ScriptTranslator::sentence_abbreviation_cutoff.
+  const SyllableGraph& SentenceGraph(bool full);
+  SyllableGraph unabbreviated_graph_;
+  WordGraph PrepareForMakingSentence(Dictionary* dict,
                                      UserDictionary* user_dict);
   an<Sentence> MakeSentence(Dictionary* dict, UserDictionary* user_dict);
   deque<an<Sentence>> MakeSentences(Dictionary* dict,
@@ -204,6 +211,8 @@ ScriptTranslator::ScriptTranslator(const Ticket& ticket)
       enable_word_completion_ = enable_completion_;
     }
     config->GetInt(name_space_ + "/max_homophones", &max_homophones_);
+    config->GetInt(name_space_ + "/sentence_abbreviation_cutoff",
+                   &sentence_abbreviation_cutoff_);
     poet_.reset(new Poet(language(), config));
     if (an<ConfigList> rules = config->GetList(name_space_ + "/canonicalize")) {
       the<Projection> canonicalizer(new Projection());
@@ -762,13 +771,40 @@ void ScriptTranslation::EnrollEntries(
   }
 }
 
+const SyllableGraph& ScriptTranslation::SentenceGraph(bool full) {
+  // Vime: exact input makes its sentence from the graph it looked up.
+  const auto& graph =
+      exact_spelling_ ? exact_graph_ : syllabifier_->syllable_graph();
+  int cutoff = translator_->sentence_abbreviation_cutoff();
+  if (full || cutoff <= 0 || graph.interpreted_length < (size_t)cutoff)
+    return graph;
+  // The last keys may still abbreviate: the user is often typing a
+  // phrase by its initials there (bj for beijing).
+  const size_t kAbbreviatedTail = 4;
+  auto& lean = unabbreviated_graph_;
+  lean.input_length = graph.input_length;
+  lean.interpreted_length = graph.interpreted_length;
+  lean.vertices = graph.vertices;
+  lean.edges.clear();
+  lean.indices.clear();
+  for (const auto& start : graph.edges)
+    for (const auto& end : start.second)
+      for (const auto& spelling : end.second)
+        if (spelling.second.type != kAbbreviation ||
+            start.first + kAbbreviatedTail >= graph.interpreted_length)
+          lean.edges[start.first][end.first].insert(spelling);
+  for (const auto& start : lean.edges)  // Syllabifier::Transpose
+    for (const auto& end : boost::adaptors::reverse(start.second))
+      for (const auto& spelling : end.second)
+        lean.indices[start.first][spelling.first].push_back(&spelling.second);
+  return lean;
+}
+
 WordGraph ScriptTranslation::PrepareForMakingSentence(
     Dictionary* dict,
-    UserDictionary* user_dict) {
+    UserDictionary* user_dict,
+    const SyllableGraph& syllable_graph) {
   const int kMaxSyllablesForUserPhraseQuery = 5;
-  // Vime: exact input makes its sentence from the graph it looked up.
-  const auto& syllable_graph =
-      exact_spelling_ ? exact_graph_ : syllabifier_->syllable_graph();
   WordGraph graph;
   for (const auto& x : syllable_graph.edges) {
     auto& same_start_pos = graph[x.first];
@@ -784,15 +820,29 @@ WordGraph ScriptTranslation::PrepareForMakingSentence(
   return graph;
 }
 
+WordGraph ScriptTranslation::PrepareForMakingSentence(
+    Dictionary* dict,
+    UserDictionary* user_dict) {
+  return PrepareForMakingSentence(dict, user_dict, SentenceGraph(true));
+}
+
 deque<an<Sentence>> ScriptTranslation::MakeSentences(
     Dictionary* dict,
     UserDictionary* user_dict) {
   const auto& syllable_graph = syllabifier_->syllable_graph();
-  WordGraph graph = PrepareForMakingSentence(dict, user_dict);
-  auto sentences =
-      poet_->MakeSentences(graph, syllable_graph.interpreted_length,
-                           translator_->GetPrecedingText(start_),
-                           max_sentences_, sentence_cutoff_threshold_);
+  deque<an<Sentence>> sentences;
+  // Vime: without abbreviations first; all of them when no sentence
+  // spells the input without.
+  for (bool full : {false, true}) {
+    const auto& lookup_graph = SentenceGraph(full);
+    WordGraph graph = PrepareForMakingSentence(dict, user_dict, lookup_graph);
+    sentences =
+        poet_->MakeSentences(graph, syllable_graph.interpreted_length,
+                             translator_->GetPrecedingText(start_),
+                             max_sentences_, sentence_cutoff_threshold_);
+    if (!sentences.empty() || &lookup_graph == &SentenceGraph(true))
+      break;
+  }
   for (auto& sentence : sentences) {
     sentence->Offset(start_);
     sentence->set_syllabifier(syllabifier_);
@@ -803,13 +853,18 @@ deque<an<Sentence>> ScriptTranslation::MakeSentences(
 an<Sentence> ScriptTranslation::MakeSentence(Dictionary* dict,
                                              UserDictionary* user_dict) {
   const auto& syllable_graph = syllabifier_->syllable_graph();
-  WordGraph graph = PrepareForMakingSentence(dict, user_dict);
-  if (auto sentence =
-          poet_->MakeSentence(graph, syllable_graph.interpreted_length,
-                              translator_->GetPrecedingText(start_))) {
-    sentence->Offset(start_);
-    sentence->set_syllabifier(syllabifier_);
-    return sentence;
+  for (bool full : {false, true}) {
+    const auto& lookup_graph = SentenceGraph(full);
+    WordGraph graph = PrepareForMakingSentence(dict, user_dict, lookup_graph);
+    if (auto sentence =
+            poet_->MakeSentence(graph, syllable_graph.interpreted_length,
+                                translator_->GetPrecedingText(start_))) {
+      sentence->Offset(start_);
+      sentence->set_syllabifier(syllabifier_);
+      return sentence;
+    }
+    if (&lookup_graph == &SentenceGraph(true))
+      break;
   }
   return nullptr;
 }

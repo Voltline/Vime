@@ -1,10 +1,10 @@
 __build_info:
   rime_version: vime
   timestamps:
-    default: 1795332831
+    default: 1795339516
     default.custom: 0
     vime_t9.custom: 0
-    vime_t9.schema: 1795332831
+    vime_t9.schema: 1795339515
 engine:
   filters:
     - simplifier
@@ -60,4 +60,5 @@ translator:
     - "xform/([jqxy])v/$1u/"
     - "xform/([nl])ue/$1ve/"
   prism: vime_t9
+  sentence_abbreviation_cutoff: 10
   spelling_hints: 8
