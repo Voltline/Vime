@@ -68,6 +68,14 @@ class KeyboardViewController: UIInputViewController {
             // text, while an explicitly empty prefix means the caret is at start.
             return proxy.hasText
         }
+        keyboard.documentHasTextProvider = { [weak self] in
+            guard let self else { return false }
+            let proxy = self.textDocumentProxy
+            return proxy.hasText
+                || proxy.selectedText?.isEmpty == false
+                || proxy.documentContextBeforeInput?.isEmpty == false
+                || proxy.documentContextAfterInput?.isEmpty == false
+        }
         keyboard.onEdit = { [weak self] edits in self?.apply(edits) }
         keyboard.onCursorGestureEnd = { [weak self] in self?.rememberContext() }
         keyboard.onEditsAndPreeditChange = { [weak self] in self?.apply($0, preedit: $1) }

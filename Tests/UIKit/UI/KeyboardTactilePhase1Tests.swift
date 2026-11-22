@@ -190,4 +190,27 @@ final class KeyboardTactilePhase1Tests: XCTestCase {
         guardEngine.noteOtherActivity(at: 32.5)
         XCTAssertEqual(guardEngine.unretriedSuppressCount, 1)
     }
+
+    func testSendReturnKeyDropsAccentWhenFieldEmptyButStaysPressable() {
+        let keyboard = KeyboardView(frame: CGRect(x: 0, y: 0, width: 390, height: 260),
+                                    session: KeyboardSession(),
+                                    preferences: KeyboardPreferences())
+        var hostHasText = false
+        keyboard.documentHasTextProvider = { hostHasText }
+        keyboard.returnKeyType = .send
+        keyboard.layoutIfNeeded()
+
+        guard let returnKey = keyboard.returnKey else {
+            return XCTFail("Expected returnKey to exist")
+        }
+        XCTAssertTrue(returnKey.isEnabled)
+        XCTAssertTrue(returnKey.fillColor.resolvedColor(with: keyboard.traitCollection)
+            .isEqual(KeyboardPalette.utility.resolvedColor(with: keyboard.traitCollection)))
+
+        hostHasText = true
+        keyboard.hostContextDidChange()
+        XCTAssertTrue(returnKey.isEnabled)
+        XCTAssertTrue(returnKey.fillColor.resolvedColor(with: keyboard.traitCollection)
+            .isEqual(UIColor(cgColor: VimeLogo.blue).resolvedColor(with: keyboard.traitCollection)))
+    }
 }

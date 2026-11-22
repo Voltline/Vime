@@ -32,6 +32,8 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     var onHeightChange: (() -> Void)?
     var onReplaceText: ((KeyboardTextReplacement) -> Bool)?
     var deletionAvailabilityProvider: (() -> Bool)?
+    /// Whether the host text field currently contains any text (before, after, or selected).
+    var documentHasTextProvider: (() -> Bool)?
     /// The host's selected text, offered for reconversion.
     var selectedTextProvider: (() -> String?)?
     var heightFactor: CGFloat = 1 {
