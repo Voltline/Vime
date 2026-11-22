@@ -406,6 +406,8 @@ struct KeyboardInputSettingsView: View {
     @AppStorage private var chinesePunctuation: Bool
     @AppStorage private var japaneseFullWidthSymbols: Bool
     @AppStorage private var correctionSpellingHints: Bool
+    @AppStorage private var chineseDateFormat: String
+    @AppStorage private var chineseTimeFormat: String
     init() {
         let prefs = KeyboardPreferences()
         // The stored choices, not the effective values, which follow the other input method.
@@ -427,6 +429,8 @@ struct KeyboardInputSettingsView: View {
         _autoCapitalize = AppStorage(wrappedValue: prefs.autoCapitalize, "vime.autoCapitalize", store: prefs.store)
         _doubleSpacePeriod = AppStorage(wrappedValue: prefs.doubleSpacePeriod, "vime.doubleSpacePeriod", store: prefs.store)
         _englishCompletion = AppStorage(wrappedValue: prefs.englishCompletion, "vime.englishCompletion", store: prefs.store)
+        _chineseDateFormat = AppStorage(wrappedValue: prefs.chineseDateFormat.rawValue, "vime.chineseDateFormat", store: prefs.store)
+        _chineseTimeFormat = AppStorage(wrappedValue: prefs.chineseTimeFormat.rawValue, "vime.chineseTimeFormat", store: prefs.store)
     }
 
     /// As KeyboardPreferences reads them: one input method always stays on.
@@ -507,6 +511,15 @@ struct KeyboardInputSettingsView: View {
                     Toggle(isOn: $chinesePunctuation) {
                         Text("上滑输入中文标点"); Text(verbatim: "！？（）：；")
                     }.accessibilityIdentifier("vime.settings.chinesePunctuation")
+                    Picker("日期格式", selection: $chineseDateFormat) {
+                        Text(verbatim: "2026年11月22日").tag(ChineseSpecialConversions.DateFormat.chinese.rawValue)
+                        Text(verbatim: "2026-11-22").tag(ChineseSpecialConversions.DateFormat.hyphen.rawValue)
+                        Text(verbatim: "2026/11/22").tag(ChineseSpecialConversions.DateFormat.slash.rawValue)
+                    }.accessibilityIdentifier("vime.settings.chineseDateFormat")
+                    Picker("时间格式", selection: $chineseTimeFormat) {
+                        Text(verbatim: "14:05").tag(ChineseSpecialConversions.TimeFormat.colon.rawValue)
+                        Text(verbatim: "14时05分").tag(ChineseSpecialConversions.TimeFormat.chinese.rawValue)
+                    }.accessibilityIdentifier("vime.settings.chineseTimeFormat")
                 } header: { LanguageHeader(glyph: "拼", title: "中文") }
             }
             Section {

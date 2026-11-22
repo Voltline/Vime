@@ -86,6 +86,9 @@ protocol KeyboardInputSession: AnyObject {
     var learningContextProvider: (() -> KeyboardLearningContext?)? { get set }
 
     func type(_ text: String) -> [KeyboardEdit]
+    /// Whether `text` (e.g. a digit or decimal point from the number page or swipe-up)
+    /// should feed into the active composition instead of inserting literally.
+    func acceptsCompositionSymbol(_ text: String) -> Bool
     func backspace() -> [KeyboardEdit]
     func space() -> [KeyboardEdit]
     /// Shift picks the other space width in Japanese mode.
@@ -161,6 +164,8 @@ extension KeyboardInputSession {
     func setChineseLanguageModel(_ enabled: Bool) {}
     func setFuzzyPinyin(_ groups: FuzzyPinyin) {}
     func setCorrectionSpellingHints(_ enabled: Bool) {}
+    func setSpecialConversionFormats(date: ChineseSpecialConversions.DateFormat, time: ChineseSpecialConversions.TimeFormat) {}
+    func acceptsCompositionSymbol(_ text: String) -> Bool { false }
     var reconvertibleCommit: (text: String, reading: String)? { nil }
     func reconvertCommit() -> [KeyboardEdit] { [] }
     func forgettableCandidate(_ token: CandidateSelectionToken) -> String? { nil }

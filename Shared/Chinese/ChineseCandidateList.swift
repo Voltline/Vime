@@ -10,7 +10,7 @@ import Foundation
 nonisolated enum ChineseCandidateList {
     /// What a shown candidate is, as an index into its source.
     enum Slot: Equatable, Sendable {
-        case rime(Int), correction(Int), phrase(Int), mixed(Int)
+        case rime(Int), correction(Int), phrase(Int), mixed(Int), special(Int)
     }
 
     /// Where the readings keeping typed words go.
@@ -31,7 +31,7 @@ nonisolated enum ChineseCandidateList {
     /// `rime`, the texts shown), with the corrections, readings and phrases
     /// placed among them.
     static func slots(rime: [String], order: [Int], corrections: [String], correctionLeads: Bool,
-                      mixed: Int, placement: MixedPlacement, phrases: [String]) -> [Slot] {
+                      mixed: Int, placement: MixedPlacement, phrases: [String], specials: [String] = []) -> [Slot] {
         var slots = order.map(Slot.rime)
         if !corrections.isEmpty, let lead = order.first {
             // A correction moves its phrase up instead of showing it twice.
@@ -65,6 +65,9 @@ nonisolated enum ChineseCandidateList {
             let texts = Set(phrases)
             slots.removeAll { if case .rime(let index) = $0 { texts.contains(rime[index]) } else { false } }
             slots.insert(contentsOf: phrases.indices.map(Slot.phrase), at: 0)
+        }
+        if !specials.isEmpty {
+            slots.insert(contentsOf: specials.indices.map(Slot.special), at: min(1, slots.count))
         }
         return slots
     }

@@ -56,7 +56,8 @@ struct KeyboardPreferences {
     private static let sharedKeys = ["vime.sound", "vime.hapticLevel", "vime.hapticIntensity", "vime.nineKeyNumbers", "vime.kanaLayout",
         "vime.prolongedKey", "vime.previews", "vime.previewHold", "vime.theme", "vime.candidateRanking", "vime.phraseSuggestions", "vime.clipboardSuggestions", "vime.autoPairBrackets", "vime.autoCapitalize", "vime.doubleSpacePeriod", "vime.undoConversionOnBackspace", "vime.fullWidthSpace", "vime.liveConversion", "vime.textReplacements", "vime.englishCompletion", "vime.oneHanded", "vime.customSkinID", "vime.skinRevision", "vime.numberSymbols", "vime.inputLanguage",
         "vime.chineseInputEnabled", "vime.japaneseInputEnabled", "vime.pinyinLookupInJapanese", "vime.traditionalChinese", "vime.chineseLanguageModel", "vime.chineseModelVersion",
-        "vime.fuzzyRetroflex", "vime.fuzzyNasal", "vime.fuzzyInitials", "vime.chinesePunctuation", "vime.japaneseFullWidthSymbols", "vime.correctionSpellingHints"]
+        "vime.fuzzyRetroflex", "vime.fuzzyNasal", "vime.fuzzyInitials", "vime.chinesePunctuation", "vime.japaneseFullWidthSymbols", "vime.correctionSpellingHints",
+        "vime.chineseDateFormat", "vime.chineseTimeFormat"]
     var store: UserDefaults { defaults }
     struct Snapshot: Equatable {
         let heightFactor: Double
@@ -96,6 +97,8 @@ struct KeyboardPreferences {
         let chinesePunctuation: Bool
         let japaneseFullWidthSymbols: Bool
         let correctionSpellingHints: Bool
+        let chineseDateFormat: ChineseSpecialConversions.DateFormat
+        let chineseTimeFormat: ChineseSpecialConversions.TimeFormat
     }
     var snapshot: Snapshot {
         Snapshot(heightFactor: heightFactor, sound: sound, hapticIntensity: hapticIntensity,
@@ -113,7 +116,8 @@ struct KeyboardPreferences {
             pinyinLookupInJapanese: pinyinLookupInJapanese, traditionalChinese: traditionalChinese,
             chineseLanguageModel: chineseLanguageModel, chineseModelVersion: chineseModelVersion, fuzzyPinyin: fuzzyPinyin,
             chinesePunctuation: chinesePunctuation, japaneseFullWidthSymbols: japaneseFullWidthSymbols,
-            correctionSpellingHints: correctionSpellingHints)
+            correctionSpellingHints: correctionSpellingHints,
+            chineseDateFormat: chineseDateFormat, chineseTimeFormat: chineseTimeFormat)
     }
     var heightFactor: Double {
         get {
@@ -334,6 +338,16 @@ struct KeyboardPreferences {
     var oneHanded: KeyboardOneHandedSide {
         get { defaults.string(forKey: "vime.oneHanded").flatMap(KeyboardOneHandedSide.init(rawValue:)) ?? .off }
         nonmutating set { defaults.set(newValue.rawValue, forKey: "vime.oneHanded") }
+    }
+    /// Date format for Chinese special conversions (`rq`, `jt`, etc.).
+    var chineseDateFormat: ChineseSpecialConversions.DateFormat {
+        get { defaults.string(forKey: "vime.chineseDateFormat").flatMap(ChineseSpecialConversions.DateFormat.init(rawValue:)) ?? .chinese }
+        nonmutating set { defaults.set(newValue.rawValue, forKey: "vime.chineseDateFormat") }
+    }
+    /// Time format for Chinese special conversions (`sj`, `xz`, etc.).
+    var chineseTimeFormat: ChineseSpecialConversions.TimeFormat {
+        get { defaults.string(forKey: "vime.chineseTimeFormat").flatMap(ChineseSpecialConversions.TimeFormat.init(rawValue:)) ?? .colon }
+        nonmutating set { defaults.set(newValue.rawValue, forKey: "vime.chineseTimeFormat") }
     }
 }
 
