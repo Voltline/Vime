@@ -71,10 +71,15 @@ class KeyboardViewController: UIInputViewController {
         keyboard.documentHasTextProvider = { [weak self] in
             guard let self else { return false }
             let proxy = self.textDocumentProxy
+            if proxy.selectedText?.isEmpty == false { return true }
+            let before = proxy.documentContextBeforeInput
+            let after = proxy.documentContextAfterInput
+            if before != nil || after != nil {
+                let hasVisibleBefore = before?.contains(where: { !$0.isNewline }) == true
+                let hasVisibleAfter = after?.contains(where: { !$0.isNewline }) == true
+                return hasVisibleBefore || hasVisibleAfter
+            }
             return proxy.hasText
-                || proxy.selectedText?.isEmpty == false
-                || proxy.documentContextBeforeInput?.isEmpty == false
-                || proxy.documentContextAfterInput?.isEmpty == false
         }
         keyboard.onEdit = { [weak self] edits in self?.apply(edits) }
         keyboard.onCursorGestureEnd = { [weak self] in self?.rememberContext() }

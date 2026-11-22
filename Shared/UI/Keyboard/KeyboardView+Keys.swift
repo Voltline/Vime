@@ -348,6 +348,7 @@ extension KeyboardView {
         let enter = key(String(localized: "换行"), weight: 1.55) { [weak self] in
             guard let self else { return }
             self.apply(self.session.enter())
+            DispatchQueue.main.async { [weak self] in self?.refresh() }
         }
         enter.0.feedback = { [weak self] in self?.playFeedback(.utility) }
         enter.0.titleLabel?.font = .systemFont(ofSize: 16, weight: .medium)
