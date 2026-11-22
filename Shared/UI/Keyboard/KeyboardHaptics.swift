@@ -7,54 +7,144 @@ import UIKit
 /// after about 250 presses without the keyboard hiding, every later impact
 /// fails ("Unable to add an additional player channel") and key haptics stop
 /// until the generator is released. So impacts are never followed by a
-/// prepare: the generator is warmed only when it is created or the keyboard
-/// appears, and it is replaced after a bounded number of impacts, which frees
+/// prepare: generators are warmed only when created or when the keyboard
+/// appears, and all generators share one bounded rotation counter that frees
 /// any channel the system kept.
 @MainActor
 final class KeyboardHaptics {
+    enum Style: Equatable, Sendable {
+        case letter
+        case utility
+        case repeatDelete
+        case tick
+        case cursorTick
+    }
+
     @MainActor protocol Generator: AnyObject {
         func prepare()
         func impactOccurred(intensity: CGFloat)
     }
 
-    /// Impacts one generator plays before it is replaced.
+    @MainActor protocol SelectionGenerator: AnyObject {
+        func prepare()
+        func selectionChanged()
+    }
+
+    /// Feedback events played across generators before they are rotated.
     static let impactsPerGenerator = 128
+    static let repeatDeleteInterval: TimeInterval = 0.085
+    static let cursorTickInterval: TimeInterval = 0.050
 
     private let makeGenerator: () -> Generator
-    private var generator: Generator?
-    private var impacts = 0
+    private let makeUtilityGenerator: () -> Generator
+    private let makeSelectionGenerator: () -> SelectionGenerator
+    private let now: () -> TimeInterval
 
-    init(makeGenerator: @escaping () -> Generator = { UIImpactFeedbackGenerator(style: .heavy) }) {
+    private var letterGenerator: Generator?
+    private var utilityGenerator: Generator?
+    private var selectionGenerator: SelectionGenerator?
+    private var impacts = 0
+    private var lastRepeatDeleteAt: TimeInterval = -.infinity
+    private var lastCursorTickAt: TimeInterval = -.infinity
+
+    init(
+        makeGenerator: @escaping () -> Generator = { UIImpactFeedbackGenerator(style: .heavy) },
+        makeUtilityGenerator: @escaping () -> Generator = { UIImpactFeedbackGenerator(style: .rigid) },
+        makeSelectionGenerator: @escaping () -> SelectionGenerator = { UISelectionFeedbackGenerator() },
+        now: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }
+    ) {
         self.makeGenerator = makeGenerator
+        self.makeUtilityGenerator = makeUtilityGenerator
+        self.makeSelectionGenerator = makeSelectionGenerator
+        self.now = now
     }
 
     /// Warms the Taptic Engine before typing starts. Never called after an impact.
     func prepare() {
-        current().prepare()
+        currentLetter().prepare()
     }
 
     /// One press at `intensity` (0...1); nothing when it is zero.
-    func play(intensity: Double) {
-        guard intensity > 0 else { return }
-        if impacts >= Self.impactsPerGenerator { generator = nil }
-        // Keep one feedback style across the range so intermediate values do
-        // not jump when crossing a style boundary.
-        current().impactOccurred(intensity: CGFloat(min(1, intensity)))
-        impacts += 1
+    /// Returns whether the event passed throttling (even when `intensity == 0`, so repeat audio can share the throttle).
+    @discardableResult
+    func play(intensity: Double, style: Style = .letter) -> Bool {
+        let timestamp = now()
+        let clamped = min(1, max(0, intensity))
+        switch style {
+        case .repeatDelete:
+            guard timestamp - lastRepeatDeleteAt >= Self.repeatDeleteInterval else { return false }
+            lastRepeatDeleteAt = timestamp
+            guard clamped > 0 else { return true }
+            rotateIfNeeded()
+            currentLetter().impactOccurred(intensity: CGFloat(min(1, clamped * 0.40)))
+            impacts += 1
+            return true
+        case .cursorTick:
+            guard timestamp - lastCursorTickAt >= Self.cursorTickInterval else { return false }
+            lastCursorTickAt = timestamp
+            guard clamped > 0 else { return true }
+            rotateIfNeeded()
+            currentSelection().selectionChanged()
+            impacts += 1
+            return true
+        case .tick:
+            guard clamped > 0 else { return true }
+            rotateIfNeeded()
+            currentSelection().selectionChanged()
+            impacts += 1
+            return true
+        case .utility:
+            guard clamped > 0 else { return true }
+            rotateIfNeeded()
+            // Compound bottom-out: full heavy thud + crisp rigid snap.
+            currentLetter().impactOccurred(intensity: CGFloat(clamped))
+            currentUtility().impactOccurred(intensity: CGFloat(min(1, clamped * 0.80)))
+            impacts += 2
+            return true
+        case .letter:
+            guard clamped > 0 else { return true }
+            rotateIfNeeded()
+            currentLetter().impactOccurred(intensity: CGFloat(clamped))
+            impacts += 1
+            return true
+        }
     }
 
-    /// Lets the generator and its channels go; the next press makes a new one.
+    /// Lets all generators and their channels go; the next event makes fresh ones.
     func release() {
-        generator = nil
+        letterGenerator = nil
+        utilityGenerator = nil
+        selectionGenerator = nil
+        impacts = 0
     }
 
-    private func current() -> Generator {
-        if let generator { return generator }
+    private func rotateIfNeeded() {
+        if impacts >= Self.impactsPerGenerator {
+            release()
+        }
+    }
+
+    private func currentLetter() -> Generator {
+        if let letterGenerator { return letterGenerator }
         let made = makeGenerator()
-        generator = made
-        impacts = 0
+        letterGenerator = made
+        return made
+    }
+
+    private func currentUtility() -> Generator {
+        if let utilityGenerator { return utilityGenerator }
+        let made = makeUtilityGenerator()
+        utilityGenerator = made
+        return made
+    }
+
+    private func currentSelection() -> SelectionGenerator {
+        if let selectionGenerator { return selectionGenerator }
+        let made = makeSelectionGenerator()
+        selectionGenerator = made
         return made
     }
 }
 
 extension UIImpactFeedbackGenerator: KeyboardHaptics.Generator {}
+extension UISelectionFeedbackGenerator: KeyboardHaptics.SelectionGenerator {}

@@ -48,6 +48,7 @@ struct VimeApp: App {
             if language == .chinese { preferences.chineseInputEnabled = true } else { preferences.japaneseInputEnabled = true }
         }
 #endif
+        LanguageSwitchGuard.mirrorToAppDocuments()
     }
     var body: some Scene {
         WindowGroup {

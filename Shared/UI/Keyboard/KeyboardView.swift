@@ -32,6 +32,8 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     var onHeightChange: (() -> Void)?
     var onReplaceText: ((KeyboardTextReplacement) -> Bool)?
     var deletionAvailabilityProvider: (() -> Bool)?
+    /// Whether the host text field currently contains any text (before, after, or selected).
+    var documentHasTextProvider: (() -> Bool)?
     /// The host's selected text, offered for reconversion.
     var selectedTextProvider: (() -> String?)?
     var heightFactor: CGFloat = 1 {
@@ -106,6 +108,22 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     }
 
     /// Swipe up on the language key: the target shows as a corner hint.
+    func consumeLanguageSwitchGuardDecision() -> LanguageSwitchGuard.Evaluation {
+        let pending = pendingLanguageTouchContext
+        pendingLanguageTouchContext = nil
+        let context = pending.map {
+            LanguageSwitchGuard.TapContext(
+                dx: $0.dx,
+                dy: $0.dy,
+                ikiSinceLastLetter: $0.ikiSinceLastLetter,
+                hasOtherHeldKey: $0.hasOtherHeldKey,
+                isComposing: session.isComposing,
+                timestamp: $0.timestamp
+            )
+        }
+        return languageSwitchGuard.evaluate(context: context)
+    }
+
     func configureQuickSwitch(_ key: KeyboardKey) {
         guard let target = quickSwitchLanguage else {
             key.hint = nil; key.alternateTitle = nil; key.alternateAccessibilityName = nil; key.alternateAction = nil
@@ -361,6 +379,8 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     var shiftKey: KeyboardKey?
     var spaceKey: KeyboardKey?
     var languageKey: KeyboardKey?
+    var languageSwitchGuard: LanguageSwitchGuard = .shared
+    private var pendingLanguageTouchContext: KeyboardTouchSurface.LanguageKeyTouchContext?
     var returnKey: KeyboardKey?
     var numberSymbolRail: KeyboardNumberSymbolRail?
     var numberBackKey: KeyboardKey?
@@ -509,6 +529,12 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         previewOverlay.accessibilityIdentifier = "vime.key.preview.overlay"
         previewOverlay.layer.zPosition = 1
         addSubview(previewOverlay)
+        keysContainer.onLanguageKeyPressContext = { [weak self] context in
+            self?.pendingLanguageTouchContext = context
+        }
+        keysContainer.onAnyNonLanguageKeyDown = { [weak self] ts in
+            self?.languageSwitchGuard.noteOtherActivity(at: ts)
+        }
         keysContainer.onGestureChange = { [weak self] gesture in
             guard let self else { return }
             let moving = gesture == .horizontalCursor || gesture == .spaceCursor
@@ -518,6 +544,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
                 if self.hostChangedDuringCursorMove { self.hostChangedDuringCursorMove = false; self.hostContextDidChange() }
             }
             if gesture == .horizontalCursor || gesture == .spaceCursor {
+                self.playFeedback(.tick)
                 self.confirmComposition()
                 self.session.finishLearningFeedback()
                 // A zero move starts a new caret gesture and resets its column.
@@ -539,6 +566,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
             guard let self else { return }
             self.session.finishLearningFeedback()
             self.onEdit?([.moveCursor(horizontal: x, vertical: y)])
+            self.playFeedback(.cursorTick)
         }
         keysContainer.onDeletePressChange = { [weak self] held in
             guard let self else { return }

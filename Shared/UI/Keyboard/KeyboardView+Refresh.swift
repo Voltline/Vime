@@ -201,7 +201,8 @@ extension KeyboardView {
         if returnKey?.title(for: .normal) != nextReturnTitle {
             returnKey?.setTitle(nextReturnTitle, for: .normal)
         }
-        let actionReturn = !composing && [.send, .search, .go, .done, .next, .join, .route, .continue].contains(returnKeyType)
+        let hasHostText = documentHasTextProvider?() ?? true
+        let actionReturn = !composing && hasHostText && [.send, .search, .go, .done, .next, .join, .route, .continue].contains(returnKeyType)
         let returnFill: UIColor = returnKey?.hasSkinArtwork == true ? KeyboardPalette.key
             : actionReturn ? UIColor(cgColor: VimeLogo.blue) : KeyboardPalette.utility
         let returnTitleColor: UIColor = returnKey?.hasSkinArtwork == true ? KeyboardPalette.text

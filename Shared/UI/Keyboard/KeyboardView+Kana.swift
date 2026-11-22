@@ -36,6 +36,7 @@ extension KeyboardView {
         reverse.0.accessibilityIdentifier = "vime.kana.reverse"
         let letters = key("ABC", utility: true, weight: 1) { [weak self] in
             guard let self else { return }
+            guard self.consumeLanguageSwitchGuardDecision().shouldToggleLanguage else { return }
             self.apply(self.session.toggleEnglish())
             self.shifted = false
             self.capsLocked = false
