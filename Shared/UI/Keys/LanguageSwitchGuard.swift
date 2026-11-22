@@ -53,8 +53,9 @@ nonisolated final class LanguageSwitchGuard: @unchecked Sendable {
 
     static let shared = LanguageSwitchGuard()
 
-    /// Disabled by default until thresholds are tuned and enabled explicitly.
-    var enforcementEnabled = false
+    /// Enabled by default (默认启用): suppresses high-confidence accidental edge grazes
+    /// and rolling overlaps while allowing an immediate retry within 1.0 s.
+    var enforcementEnabled = true
 
     // Tunable thresholds
     static let doubleTapOverrideWindow: TimeInterval = 1.0

@@ -128,7 +128,8 @@ final class KeyboardTactilePhase1Tests: XCTestCase {
 
     func testLanguageSwitchGuardShadowModeAndQuickRevert() {
         let guardEngine = LanguageSwitchGuard()
-        // Default shadow mode: recommends suppress on fast left-edge graze, but still allows toggle.
+        guardEngine.enforcementEnabled = false
+        // Explicit shadow mode: recommends suppress on fast left-edge graze, but still allows toggle.
         XCTAssertFalse(guardEngine.enforcementEnabled)
 
         // Programmatic / direct action (nil context) always passes cleanly.
@@ -187,6 +188,25 @@ final class KeyboardTactilePhase1Tests: XCTestCase {
         XCTAssertEqual(topGraze.reason, .fastEdge)
         guardEngine.noteOtherActivity(at: 32.5)
         XCTAssertEqual(guardEngine.unretriedSuppressCount, 1)
+    }
+
+    func testLanguageSwitchGuardEnabledByDefaultSuppressesFastLeftEdgeAndAllowsRetry() {
+        let guardEngine = LanguageSwitchGuard()
+        XCTAssertTrue(guardEngine.enforcementEnabled)
+
+        let suppressed = guardEngine.evaluate(context: .init(
+            dx: -0.35, dy: 0.0, ikiSinceLastLetter: 0.15, hasOtherHeldKey: false, isComposing: false, timestamp: 40.0
+        ))
+        XCTAssertEqual(suppressed.effectiveDecision, .suppress)
+        XCTAssertEqual(suppressed.reason, .leftEdgeFast)
+        XCTAssertFalse(suppressed.shouldToggleLanguage)
+
+        let retried = guardEngine.evaluate(context: .init(
+            dx: -0.35, dy: 0.0, ikiSinceLastLetter: 0.15, hasOtherHeldKey: false, isComposing: false, timestamp: 40.5
+        ))
+        XCTAssertEqual(retried.effectiveDecision, .overrideAllow)
+        XCTAssertEqual(retried.reason, .doubleTapOverride)
+        XCTAssertTrue(retried.shouldToggleLanguage)
     }
 
     func testSendReturnKeyDropsAccentWhenFieldEmptyButStaysPressable() {
