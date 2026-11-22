@@ -46,15 +46,6 @@ final class KeyboardTouchSurface: UIView {
     private var gesture: Gesture?
     private var gestureOwner: AnyHashable?
     private var cursorPoint = CGPoint.zero
-    private var cursorTimestamp: TimeInterval = 0
-    private var cursorSmoothedSpeed: Double = 80.0
-    private var cursorProgressX: Double = 0
-    var now: () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }
-    static let cursorSpeedEMAAlpha = 0.30
-    static let cursorSlowSpeed = 80.0
-    static let cursorFastSpeed = 360.0
-    static let cursorSlowStep = 8.0
-    static let cursorFastStep = 4.5
     private var spaceTimer: Timer?
     private var deleteArmed = false
     private(set) var releaseStartedAt: TimeInterval?
@@ -141,22 +132,11 @@ final class KeyboardTouchSurface: UIView {
                 if armed != deleteArmed { deleteArmed = armed; onDeleteArmedChange?(armed) }
                 return
             }
-            let dx = point.x - cursorPoint.x
-            cursorPoint.x = point.x
-            let currentTime = now()
-            let dt = currentTime - cursorTimestamp
-            cursorTimestamp = currentTime
-            if dt > 0, dx != 0 {
-                let instSpeed = min(800, abs(Double(dx) / Double(max(0.01, scale))) / dt)
-                cursorSmoothedSpeed += Self.cursorSpeedEMAAlpha * (instSpeed - cursorSmoothedSpeed)
-            }
-            let stepX = Self.cursorStep(forSpeed: cursorSmoothedSpeed) * Double(max(0.01, scale))
-            cursorProgressX += Double(dx) / stepX
-            let x = Int(cursorProgressX)
-            if x != 0 { cursorProgressX -= Double(x) }
+            let x = Int((point.x - cursorPoint.x) / (8 * scale))
             let y = gesture == .spaceCursor ? Int((point.y - cursorPoint.y) / (24 * scale)) : 0
-            if y != 0 { cursorPoint.y += CGFloat(y) * 24 * scale }
             if x != 0 || y != 0 {
+                cursorPoint.x += CGFloat(x) * 8 * scale
+                cursorPoint.y += CGFloat(y) * 24 * scale
                 onCursorMove?(x, y)
             }
             return
@@ -256,20 +236,10 @@ final class KeyboardTouchSurface: UIView {
         press.key.stopTracking()
         press.key.isHighlighted = false
         gesture = value; gestureOwner = owner; cursorPoint = point
-        cursorTimestamp = now()
-        cursorSmoothedSpeed = Self.cursorSlowSpeed
-        cursorProgressX = 0
         if value == .deleteLine {
             deleteArmed = true; onDeleteArmedChange?(true); onDeletePressChange?(true)
         }
         onGestureChange?(value)
-    }
-
-    static func cursorStep(forSpeed speed: Double) -> Double {
-        if speed <= cursorSlowSpeed { return cursorSlowStep }
-        if speed >= cursorFastSpeed { return cursorFastStep }
-        let t = (speed - cursorSlowSpeed) / (cursorFastSpeed - cursorSlowSpeed)
-        return cursorSlowStep + t * (cursorFastStep - cursorSlowStep)
     }
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
