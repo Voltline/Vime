@@ -1,8 +1,9 @@
 import Foundation
 
 /// In-memory Chinese candidates derived from the host's iOS supplementary lexicon:
-/// - System text replacements whose shortcut is ASCII letters (e.g. `dz` -> address)
-/// - Chinese contact names matched by full pinyin and initials (e.g. `张三` -> `zhangsan`, `zs`)
+/// - System text replacements whose shortcut is ASCII letters (placed first with user phrases)
+/// - Chinese contact names (length >= 2) matched by full pinyin, plus initials for >= 3-char
+///   names (placed after the 2nd candidate so contacts never displace normal lead words)
 ///
 /// Held only for the current process; never persisted or exported.
 nonisolated enum ChineseSystemLexicon {
@@ -16,6 +17,38 @@ nonisolated enum ChineseSystemLexicon {
 
     static let maximumReplacements = 1024
     static let maximumContacts = 2048
+
+    /// Common polyphonic Chinese surnames whose default `CFStringTransform` Mandarin
+    /// reading differs from the surname reading.
+    static let surnameOverrides: [Character: String] = [
+        "单": "shan", "單": "shan",
+        "曾": "zeng",
+        "解": "xie",
+        "仇": "qiu",
+        "区": "ou", "區": "ou",
+        "朴": "piao",
+        "查": "zha",
+        "任": "ren",
+        "华": "hua", "華": "hua",
+        "盖": "ge", "蓋": "ge",
+        "乐": "yue", "樂": "yue",
+        "缪": "miao", "繆": "miao",
+        "员": "yun", "員": "yun",
+        "冼": "xian",
+        "翟": "zhai",
+        "折": "she",
+        "尉": "yu",
+        "覃": "qin",
+        "褚": "chu",
+        "阚": "kan", "闞": "kan",
+        "种": "chong", "種": "chong",
+        "繁": "po",
+        "宁": "ning", "寧": "ning",
+        "乜": "nie",
+        "万": "wan", "萬": "wan",
+        "句": "gou",
+        "召": "shao",
+    ]
 
     static func update(replacements: [(shortcut: String, phrase: String)], contacts: [String]) {
         var repMap: [String: [String]] = [:]
@@ -42,7 +75,8 @@ nonisolated enum ChineseSystemLexicon {
         for rawName in contacts {
             guard contactCount < maximumContacts else { break }
             let name = rawName.trimmingCharacters(in: .whitespacesAndNewlines).precomposedStringWithCanonicalMapping
-            guard (1...12).contains(name.count),
+            // Skip single-character names so common single-syllable words are never polluted.
+            guard (2...12).contains(name.count),
                   containsHanIdeograph(name),
                   !name.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }),
                   seenNames.insert(name).inserted else { continue }
@@ -68,14 +102,24 @@ nonisolated enum ChineseSystemLexicon {
         lock.withLock { storage = Storage() }
     }
 
-    /// Returns matching Chinese text replacements (first) and contact names for an
-    /// open lowercase ASCII pinyin input (without apostrophes).
-    static func matches(for letters: String) -> [String] {
+    /// System text replacements matching `letters` (placed with user phrases at the lead).
+    static func replacements(for letters: String) -> [String] {
         guard !letters.isEmpty else { return [] }
         let code = letters.lowercased()
-        let (reps, contacts): ([String], [String]) = lock.withLock {
-            (storage.replacementsByCode[code] ?? [], storage.contactsByCode[code] ?? [])
-        }
+        return lock.withLock { storage.replacementsByCode[code] ?? [] }
+    }
+
+    /// Chinese contact names matching `letters` (placed after the 2nd candidate).
+    static func contacts(for letters: String) -> [String] {
+        guard !letters.isEmpty else { return [] }
+        let code = letters.lowercased()
+        return lock.withLock { storage.contactsByCode[code] ?? [] }
+    }
+
+    /// Combined lookup helper (replacements first, then contacts).
+    static func matches(for letters: String) -> [String] {
+        let reps = replacements(for: letters)
+        let contacts = contacts(for: letters)
         guard !reps.isEmpty || !contacts.isEmpty else { return [] }
         var seen = Set<String>()
         var result: [String] = []
@@ -84,7 +128,7 @@ nonisolated enum ChineseSystemLexicon {
         return result
     }
 
-    // MARK: Pinyin Indexing (System CFStringTransform, zero bundled data)
+    // MARK: Pinyin Indexing (Surname overrides + System CFStringTransform, zero bundled data)
 
     static func containsHanIdeograph(_ text: String) -> Bool {
         text.unicodeScalars.contains { scalar in
@@ -97,27 +141,42 @@ nonisolated enum ChineseSystemLexicon {
         }
     }
 
-    /// Converts a Chinese name like "张三" into ["zhangsan", "zs"].
+    /// Converts a Chinese name (length >= 2) into full pinyin, plus initials only when
+    /// the name has >= 3 syllables (so 2-char names like 王军 never collide with `wj`).
     static func pinyinKeys(for name: String) -> [String] {
-        let mutable = NSMutableString(string: name)
-        guard CFStringTransform(mutable, nil, kCFStringTransformToLatin, false) else { return [] }
-        _ = CFStringTransform(mutable, nil, kCFStringTransformStripDiacritics, false)
-        let latin = (mutable as String).lowercased()
-
-        let syllables = latin
-            .split(whereSeparator: { !($0 >= "a" && $0 <= "z") })
-            .map(String.init)
-            .filter { !$0.isEmpty }
-        guard !syllables.isEmpty else { return [] }
+        guard name.count >= 2 else { return [] }
+        var syllables: [String] = []
+        let chars = Array(name)
+        var startIndex = 0
+        if let first = chars.first, let override = surnameOverrides[first] {
+            syllables.append(override)
+            startIndex = 1
+        }
+        if startIndex < chars.count {
+            let remainder = String(chars[startIndex...])
+            syllables.append(contentsOf: transformToSyllables(remainder))
+        }
+        guard syllables.count >= 2 else { return [] }
 
         let full = syllables.joined()
         var keys = [full]
-        if syllables.count >= 2 {
+        if syllables.count >= 3 {
             let initials = String(syllables.compactMap(\.first))
-            if initials.count >= 2 && initials != full {
+            if initials.count >= 3 && initials != full {
                 keys.append(initials)
             }
         }
         return keys
+    }
+
+    private static func transformToSyllables(_ text: String) -> [String] {
+        let mutable = NSMutableString(string: text)
+        guard CFStringTransform(mutable, nil, kCFStringTransformToLatin, false) else { return [] }
+        _ = CFStringTransform(mutable, nil, kCFStringTransformStripDiacritics, false)
+        let latin = (mutable as String).lowercased()
+        return latin
+            .split(whereSeparator: { !($0 >= "a" && $0 <= "z") })
+            .map(String.init)
+            .filter { !$0.isEmpty }
     }
 }

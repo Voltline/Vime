@@ -10,7 +10,7 @@ import Foundation
 nonisolated enum ChineseCandidateList {
     /// What a shown candidate is, as an index into its source.
     enum Slot: Equatable, Sendable {
-        case rime(Int), correction(Int), phrase(Int), mixed(Int), special(Int)
+        case rime(Int), correction(Int), phrase(Int), mixed(Int), special(Int), contact(Int)
     }
 
     /// Where the readings keeping typed words go.
@@ -31,7 +31,8 @@ nonisolated enum ChineseCandidateList {
     /// `rime`, the texts shown), with the corrections, readings and phrases
     /// placed among them.
     static func slots(rime: [String], order: [Int], corrections: [String], correctionLeads: Bool,
-                      mixed: Int, placement: MixedPlacement, phrases: [String], specials: [String] = []) -> [Slot] {
+                      mixed: Int, placement: MixedPlacement, phrases: [String], specials: [String] = [],
+                      contacts: [String] = []) -> [Slot] {
         var slots = order.map(Slot.rime)
         if !corrections.isEmpty, let lead = order.first {
             // A correction moves its phrase up instead of showing it twice.
@@ -68,6 +69,21 @@ nonisolated enum ChineseCandidateList {
         }
         if !specials.isEmpty {
             slots.insert(contentsOf: specials.indices.map(Slot.special), at: min(1, slots.count))
+        }
+        if !contacts.isEmpty {
+            let existing: Set<String> = Set(slots.compactMap { slot in
+                switch slot {
+                case .rime(let i): rime[i]
+                case .phrase(let i): phrases[i]
+                case .correction(let i): corrections[i]
+                case .special(let i): specials[i]
+                case .mixed, .contact: nil
+                }
+            })
+            let fresh = contacts.indices.filter { !existing.contains(contacts[$0]) }
+            if !fresh.isEmpty {
+                slots.insert(contentsOf: fresh.map(Slot.contact), at: min(2, slots.count))
+            }
         }
         return slots
     }
