@@ -796,6 +796,9 @@ struct KeyboardDataPrivacyView: View {
                     AppInformationSection("管理与删除") {
                         Text("自定义皮肤可在“定制”页编辑、导出和删除。学习记录可单独清空；删除词典条目不会同时删除已有学习记录。")
                     }
+                    AppInformationSection("系统短语与通讯录") {
+                        Text("读取系统文本替换和通讯录姓名，只在本机使用。")
+                    }
                 }.padding(.top, 16)
             }
             .font(.subheadline)

@@ -55,17 +55,26 @@ extension KeyboardView {
         }
     }
 
-    /// Stores the host's text replacements; kana shortcuts join conversion
-    /// while the setting is on, Latin ones are offered as English words.
-    func setTextReplacements(_ pairs: [(shortcut: String, phrase: String)]) {
+    /// Stores the host's text replacements and contact names; kana shortcuts join
+    /// Japanese conversion, ASCII shortcuts & Chinese contact names join Chinese
+    /// conversion, and Latin shortcuts are offered as English words.
+    func setTextReplacements(_ pairs: [(shortcut: String, phrase: String)], contacts: [String] = []) {
         // The lexicon is requested on every appearance and rarely changes.
-        guard !pairs.elementsEqual(systemTextReplacements, by: { $0 == $1 }) else { return }
+        let pairsSame = pairs.elementsEqual(systemTextReplacements, by: { $0 == $1 })
+        let contactsSame = contacts == systemContactNames
+        guard !pairsSame || !contactsSame else { return }
         systemTextReplacements = pairs
+        systemContactNames = contacts
         applyTextReplacements()
     }
 
     func applyTextReplacements() {
-        JapaneseSystemShortcuts.update(appliedPreferences?.textReplacements == true ? systemTextReplacements : [])
+        let enabled = appliedPreferences?.textReplacements == true
+        JapaneseSystemShortcuts.update(enabled ? systemTextReplacements : [])
+        ChineseSystemLexicon.update(
+            replacements: enabled ? systemTextReplacements : [],
+            contacts: enabled ? systemContactNames : []
+        )
         refresh()
     }
 

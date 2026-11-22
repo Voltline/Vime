@@ -83,13 +83,15 @@ final class ChineseInputSession: KeyboardInputSession {
     private var fuzzyPinyin = FuzzyPinyin()
     /// Whether a correction shows the pinyin it was found by. Off by default.
     private var spellingHints = false
-    /// Special conversion candidates (date/time/weekday/lunar) appended after normal candidates.
+    /// Special conversion candidates (date/time/weekday/lunar) placed right after the lead candidate.
     private var specials: [ChineseSpecialConversions.Candidate] = []
     /// Local `v`-prefixed numeric buffer (bypasses Rime so digits/`.` compose RMB uppercase directly).
     private var vBuffer = ""
     private var specialDateFormat: ChineseSpecialConversions.DateFormat = .chinese
     private var specialTimeFormat: ChineseSpecialConversions.TimeFormat = .colon
     var specialConversionsNow: () -> Date = { Date() }
+    /// Contact name candidates from iOS supplementary lexicon (placed after the 2nd candidate).
+    private var contactCandidates: [String] = []
     /// Next-word suggestions: dictionary phrases that begin with the word
     /// just committed, shown in the strip while nothing is composing.
     private var suggestionsEnabled = true
@@ -308,6 +310,7 @@ final class ChineseInputSession: KeyboardInputSession {
               candidatesAreCurrent, isComposing, slots.indices.contains(token.index) else { return [] }
         switch slots[token.index] {
         case .phrase(let index): return choosePhrase(index)
+        case .contact(let index): return chooseContact(index)
         case .mixed(let index): return chooseMixed(index)
         case .correction(let index): return chooseCorrection(index)
         case .special(let index): return chooseSpecial(index)
@@ -322,6 +325,7 @@ final class ChineseInputSession: KeyboardInputSession {
         spaceWaits = false
         switch slots.first {
         case .phrase(let index)?: return choosePhrase(index)
+        case .contact(let index)?: return chooseContact(index)
         case .mixed(let index)?: return chooseMixed(index)
         case .correction(let index)?: return chooseCorrection(index)
         case .special(let index)?: return chooseSpecial(index)
@@ -891,10 +895,11 @@ final class ChineseInputSession: KeyboardInputSession {
         shownSentence = order.first.flatMap { candidates[$0].sentence ? (state.input, candidates[$0].genuine) : nil }
         phrases = userPhrases()
         specials = specialConversionCandidates()
+        contactCandidates = systemContactCandidates()
         let slots = ChineseCandidateList.slots(
             rime: candidates.map(\.text), order: order, corrections: corrections.map(\.candidate.text),
             correctionLeads: correctionLeads, mixed: mixed.count, placement: mixedPlacement,
-            phrases: phrases.map(\.text), specials: specials.map(\.text))
+            phrases: phrases.map(\.text), specials: specials.map(\.text), contacts: contactCandidates)
         self.slots = slots
         presentations = slots.enumerated().map { index, slot in
             let token = CandidateSelectionToken(sessionID: sessionID, generation: generation, index: index, kind: .composition)
@@ -905,6 +910,9 @@ final class ChineseInputSession: KeyboardInputSession {
                     selectionToken: token, detailAnnotation: candidate.comment.flatMap { $0.isEmpty ? nil : $0 })
             case .phrase(let source):
                 return CandidatePresentation(text: phrases[source].text, source: .conversion, consumedInputCount: 0,
+                    correction: nil, selectionToken: token)
+            case .contact(let source):
+                return CandidatePresentation(text: contactCandidates[source], source: .conversion, consumedInputCount: 0,
                     correction: nil, selectionToken: token)
             case .correction(let source):
                 let (spelling, candidate) = corrections[source]
@@ -955,13 +963,31 @@ final class ChineseInputSession: KeyboardInputSession {
 
     // MARK: User phrases
 
-    /// Phrases for the whole open input.
+    /// Phrases for the whole open input (user dictionary + iOS text replacements).
     private func userPhrases() -> [ChineseUserPhrase] {
         guard !hasCapitals else { return [] }
         let input = open.input
         let letters = input.lowercased().filter { ("a"..."z").contains($0) }
         guard !letters.isEmpty, letters.count == input.filter({ $0 != "'" }).count else { return [] }
-        return userDictionary.phrases(spelledBy: letters)
+        var combined = userDictionary.phrases(spelledBy: letters)
+        var seen = Set(combined.map(\.text))
+        for text in ChineseSystemLexicon.replacements(for: letters) where seen.insert(text).inserted {
+            combined.append(ChineseUserPhrase(pinyin: letters, text: text))
+        }
+        return combined
+    }
+
+    private func systemContactCandidates() -> [String] {
+        guard !hasCapitals else { return [] }
+        let input = open.input
+        let letters = input.lowercased().filter { ("a"..."z").contains($0) }
+        guard !letters.isEmpty, letters.count == input.filter({ $0 != "'" }).count else { return [] }
+        return ChineseSystemLexicon.contacts(for: letters)
+    }
+
+    private func chooseContact(_ index: Int) -> [KeyboardEdit] {
+        guard contactCandidates.indices.contains(index) else { return [] }
+        return commitInstead(contactCandidates[index])
     }
 
     private func choosePhrase(_ index: Int) -> [KeyboardEdit] {
