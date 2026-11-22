@@ -127,8 +127,7 @@ final class KeyboardTactilePhase1Tests: XCTestCase {
     }
 
     func testLanguageSwitchGuardShadowModeAndQuickRevert() {
-        let guardEngine = LanguageSwitchGuard(directory: nil)
-        guardEngine.observationLoggingEnabled = false
+        let guardEngine = LanguageSwitchGuard()
         // Default shadow mode: recommends suppress on fast left-edge graze, but still allows toggle.
         XCTAssertFalse(guardEngine.enforcementEnabled)
 
@@ -162,8 +161,7 @@ final class KeyboardTactilePhase1Tests: XCTestCase {
     }
 
     func testLanguageSwitchGuardEnforcementOverrideAndUnretriedCount() {
-        let guardEngine = LanguageSwitchGuard(directory: nil)
-        guardEngine.observationLoggingEnabled = false
+        let guardEngine = LanguageSwitchGuard()
         guardEngine.enforcementEnabled = true
 
         // 1. Rolling overlap suppresses first tap; immediate retry within 1.0 s overrides & allows.
