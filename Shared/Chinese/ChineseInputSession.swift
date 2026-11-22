@@ -81,6 +81,11 @@ final class ChineseInputSession: KeyboardInputSession {
     private var expanded = false
     private var traditional = false
     private var fuzzyPinyin = FuzzyPinyin()
+    /// Digits 2–9 spell pinyin (vime_t9); the reading shown comes from the
+    /// lead candidate's spelling, and syllables are picked from the rail.
+    private var nineKey = false
+    /// The 双拼 scheme in use; Rime's preedit then shows the keys.
+    private var shuangpin: ShuangpinScheme?
     /// Whether a correction shows the pinyin it was found by. Off by default.
     private var spellingHints = false
     /// Special conversion candidates (date/time/weekday/lunar) placed right after the lead candidate.
@@ -178,6 +183,16 @@ final class ChineseInputSession: KeyboardInputSession {
     var markedText: KeyboardPreedit? {
         if !vBuffer.isEmpty { return KeyboardPreedit(text: vBuffer) }
         guard isComposing else { return nil }
+        if nineKey {
+            let (chosen, input) = open
+            let reading = NineKeyPinyin.reading(of: input, hint: state.candidates.first?.comment)
+            return KeyboardPreedit(text: chosen + reading.joined(separator: Self.syllableGap) + echo)
+        }
+        if let shuangpin {
+            let (chosen, rest) = Self.unchosen(state).map { ($0.chosen, String(state.preedit.dropFirst($0.chosen.count))) }
+                ?? ("", state.preedit.isEmpty ? state.input : state.preedit)
+            return KeyboardPreedit(text: chosen + shuangpin.readings(ofPreedit: rest).joined(separator: Self.syllableGap) + echo)
+        }
         let text = Self.recased(state.preedit.isEmpty ? state.input : state.preedit, as: casedInput)
         return KeyboardPreedit(text: text.replacingOccurrences(of: " ", with: Self.syllableGap) + echo)
     }
@@ -198,7 +213,8 @@ final class ChineseInputSession: KeyboardInputSession {
 
     func acceptsCompositionSymbol(_ text: String) -> Bool {
         guard !english else { return false }
-        let candidateBuffer = !vBuffer.isEmpty ? vBuffer : (raw == "v" ? "v" : "")
+        // In 双拼 v types zh.
+        let candidateBuffer = !vBuffer.isEmpty ? vBuffer : (raw == "v" && shuangpin == nil ? "v" : "")
         return ChineseSpecialConversions.canAppendToVBuffer(candidateBuffer, text: text)
     }
 
@@ -224,15 +240,17 @@ final class ChineseInputSession: KeyboardInputSession {
             let committed = commitVBuffer(lead: false)
             return committed + type(text)
         }
-        if raw == "v", ChineseSpecialConversions.canAppendToVBuffer("v", text: text) {
+        if raw == "v", shuangpin == nil, ChineseSpecialConversions.canAppendToVBuffer("v", text: text) {
             let edits = run(.clear)
             vBuffer = "v" + ChineseSpecialConversions.normalizedVCharacter(text)
             refreshVBufferCandidates()
             return edits
         }
         // A capital composes too, never as pinyin: it stays as typed (ChineseMixedInput).
+        // 双拼 keys are lower case only.
         let pinyin = text.unicodeScalars.allSatisfy {
-            ("a"..."z").contains($0) || ("A"..."Z").contains($0) || ($0 == "'" && isComposing)
+            ("a"..."z").contains($0) || (("A"..."Z").contains($0) && shuangpin == nil) || ($0 == "'" && isComposing)
+                || (nineKey && ("2"..."9").contains($0))
         }
         guard pinyin, !text.isEmpty else { return insertLiteral(text) }
         let edits = spaceWaits ? commitWaitingSpace() : []
@@ -251,6 +269,12 @@ final class ChineseInputSession: KeyboardInputSession {
         if !vBuffer.isEmpty {
             vBuffer.removeLast()
             refreshVBufferCandidates()
+            return []
+        }
+        // A picked syllable with nothing after it goes back to its digits.
+        if nineKey, isComposing, echo.isEmpty, candidatesAreCurrent, open.chosen.isEmpty,
+           let input = NineKeyPinyin.unpickingLast(state.input) {
+            enqueue(.setInput(input))
             return []
         }
         if isComposing { enqueue(.backspace); return [] }
@@ -279,7 +303,7 @@ final class ChineseInputSession: KeyboardInputSession {
         clearSuggestions()
         spaceWaits = false
         if !vBuffer.isEmpty { return commitVBuffer(lead: false) }
-        if isComposing, hasCapitals { return commitTyped() }
+        if isComposing, hasCapitals || nineKey || shuangpin != nil { return commitTyped() }
         if isComposing { enqueue(.commitInput); return [] }
         commitIsForgettable = false
         suppressesEnglishCompletions = false
@@ -450,6 +474,16 @@ final class ChineseInputSession: KeyboardInputSession {
     }
 
     func setCorrectionSpellingHints(_ enabled: Bool) { spellingHints = enabled }
+
+    func setChineseLayout(_ layout: ChineseKeyboardLayout, shuangpin scheme: ShuangpinScheme = .flypy) {
+        let nextNineKey = layout == .nineKey
+        let nextShuangpin = layout == .shuangpin ? scheme : nil
+        guard nextNineKey != nineKey || nextShuangpin != shuangpin else { return }
+        nineKey = nextNineKey
+        shuangpin = nextShuangpin
+        leadingPick = nil
+        enqueue(.setLayoutSchema(nineKey ? RimeEngine.nineKeySchema : shuangpin?.schema))
+    }
 
     func setSpecialConversionFormats(date: ChineseSpecialConversions.DateFormat, time: ChineseSpecialConversions.TimeFormat) {
         specialDateFormat = date
@@ -704,7 +738,7 @@ final class ChineseInputSession: KeyboardInputSession {
         let slots = usesModel ? ChineseCandidateRanking.slots(next.candidates, sentenceLimit: sentenceLimit) {
             LearningExclusionPolicy.allowsLearning($0, active: active, list: list)
         } : ChineseCandidateRanking.Slots()
-        let splits = next.isComposing ? casedUnchosen.map { ChineseMixedInput.splits(for: $0.rest) } ?? [] : []
+        let splits = next.isComposing && !nineKey && shuangpin == nil ? casedUnchosen.map { ChineseMixedInput.splits(for: $0.rest) } ?? [] : []
         let context = modelContext
         let storage = JapaneseCandidateWorker.LanguageModelStorage.shared
         let warm = usesModel && storage.isReady(for: .chinese) && !storage.isSuspended
@@ -907,7 +941,7 @@ final class ChineseInputSession: KeyboardInputSession {
             case .rime(let source):
                 let candidate = candidates[source]
                 return CandidatePresentation(text: candidate.text, source: .conversion, consumedInputCount: 0, correction: nil,
-                    selectionToken: token, detailAnnotation: candidate.comment.flatMap { $0.isEmpty ? nil : $0 })
+                    selectionToken: token, detailAnnotation: nineKey ? nil : candidate.comment.flatMap { $0.isEmpty ? nil : $0 })
             case .phrase(let source):
                 return CandidatePresentation(text: phrases[source].text, source: .conversion, consumedInputCount: 0,
                     correction: nil, selectionToken: token)
@@ -937,8 +971,9 @@ final class ChineseInputSession: KeyboardInputSession {
     /// after it, which every source reads; the chosen text goes out in front
     /// of whatever is chosen for the rest.
     private var open: (chosen: String, input: String) {
-        guard let (chosen, rest) = Self.unchosen(state), !chosen.isEmpty else { return ("", state.input) }
-        return (chosen, rest)
+        guard let (chosen, rest) = Self.unchosen(state, digits: nineKey), !chosen.isEmpty else { return ("", state.input) }
+        // Nine-key input keeps its breaks, which end picked syllables.
+        return (chosen, nineKey ? Self.suffix(of: state.input, spelling: rest.count) : rest)
     }
 
     private var openKey: String {
@@ -965,10 +1000,7 @@ final class ChineseInputSession: KeyboardInputSession {
 
     /// Phrases for the whole open input (user dictionary + iOS text replacements).
     private func userPhrases() -> [ChineseUserPhrase] {
-        guard !hasCapitals else { return [] }
-        let input = open.input
-        let letters = input.lowercased().filter { ("a"..."z").contains($0) }
-        guard !letters.isEmpty, letters.count == input.filter({ $0 != "'" }).count else { return [] }
+        guard let letters = openPinyin else { return [] }
         var combined = userDictionary.phrases(spelledBy: letters)
         var seen = Set(combined.map(\.text))
         for text in ChineseSystemLexicon.replacements(for: letters) where seen.insert(text).inserted {
@@ -978,11 +1010,19 @@ final class ChineseInputSession: KeyboardInputSession {
     }
 
     private func systemContactCandidates() -> [String] {
-        guard !hasCapitals else { return [] }
+        guard let letters = openPinyin else { return [] }
+        return ChineseSystemLexicon.contacts(for: letters)
+    }
+
+    /// The open input's pinyin letters, which phrases and contacts are
+    /// spelled by: 双拼 keys read as pinyin. Nil unless it is all letters.
+    private var openPinyin: String? {
+        guard !hasCapitals else { return nil }
         let input = open.input
         let letters = input.lowercased().filter { ("a"..."z").contains($0) }
-        guard !letters.isEmpty, letters.count == input.filter({ $0 != "'" }).count else { return [] }
-        return ChineseSystemLexicon.contacts(for: letters)
+        guard !letters.isEmpty, letters.count == input.filter({ $0 != "'" }).count else { return nil }
+        guard let shuangpin else { return letters }
+        return shuangpin.pinyin(ofKeys: input).flatMap { $0.isEmpty ? nil : $0 }
     }
 
     private func chooseContact(_ index: Int) -> [KeyboardEdit] {
@@ -998,7 +1038,8 @@ final class ChineseInputSession: KeyboardInputSession {
     // MARK: Special conversions (date/time/weekday/lunar/RMB)
 
     private func specialConversionCandidates() -> [ChineseSpecialConversions.Candidate] {
-        guard !hasCapitals else { return [] }
+        // 双拼 keys spell no conversion keywords.
+        guard !hasCapitals, shuangpin == nil else { return [] }
         let options = ChineseSpecialConversions.Options(
             dateFormat: specialDateFormat,
             timeFormat: specialTimeFormat,
@@ -1107,7 +1148,13 @@ final class ChineseInputSession: KeyboardInputSession {
     private func commitTyped() -> [KeyboardEdit] {
         let edits = settle()
         guard isComposing else { return edits }
-        let text = (Self.unchosen(state)?.chosen ?? "") + (casedUnchosen?.rest ?? Self.recased(state.input, as: casedInput))
+        let text = nineKey
+            ? open.chosen + NineKeyPinyin.letters(of: open.input, hint: state.candidates.first?.comment)
+            : shuangpin.map { scheme in
+                let chosen = Self.unchosen(state)?.chosen ?? ""
+                let rest = String((state.preedit.isEmpty ? state.input : state.preedit).dropFirst(chosen.count))
+                return chosen + scheme.readings(ofPreedit: rest).joined()
+            } ?? (Self.unchosen(state)?.chosen ?? "") + (casedUnchosen?.rest ?? Self.recased(state.input, as: casedInput))
         let cleared = run(.clear)
         clearSuggestions()
         commitIsForgettable = false
@@ -1117,11 +1164,28 @@ final class ChineseInputSession: KeyboardInputSession {
     /// Text chosen from the start of the input (为什么这 of wsm|zhegeshurufavime)
     /// and the letters after it, which Rime's preedit spells with spaces.
     /// Nil unless those letters are what the input ends with.
-    static func unchosen(_ state: RimeState) -> (chosen: String, rest: String)? {
-        let chosen = String(state.preedit.prefix { !$0.isASCII || !($0.isLetter || $0 == " " || $0 == "'") })
-        let rest = String(state.preedit.dropFirst(chosen.count).filter { ("a"..."z").contains($0) })
+    /// With `digits`, nine-key digits stand for letters.
+    static func unchosen(_ state: RimeState, digits: Bool = false) -> (chosen: String, rest: String)? {
+        let chosen = String(state.preedit.prefix {
+            !$0.isASCII || !($0.isLetter || $0 == " " || $0 == "'" || (digits && NineKeyPinyin.isDigit($0)))
+        })
+        let rest = String(state.preedit.dropFirst(chosen.count).filter {
+            ("a"..."z").contains($0) || (digits && NineKeyPinyin.isDigit($0))
+        })
         guard !rest.isEmpty, state.input.filter({ $0 != "'" }).hasSuffix(rest) else { return nil }
         return (chosen, rest)
+    }
+
+    /// The end of `input` holding its last `count` letters and digits, with
+    /// the breaks among them.
+    static func suffix(of input: String, spelling count: Int) -> String {
+        var remaining = count
+        var start = input.endIndex
+        while remaining > 0, start > input.startIndex {
+            start = input.index(before: start)
+            if input[start] != "'" && input[start] != " " { remaining -= 1 }
+        }
+        return String(input[start...])
     }
 
     // MARK: Leading syllable
@@ -1141,7 +1205,12 @@ final class ChineseInputSession: KeyboardInputSession {
     /// The input's own readings of its start, then other spellings of the
     /// one in use (fuzzy sounds, neighbouring keys) as corrections.
     private var leadingColumn: (exact: [String], corrections: [String], anchor: String?) {
-        guard isComposing, echo.isEmpty, !hasCapitals else { return ([], [], nil) }
+        if nineKey {
+            guard isComposing, echo.isEmpty, let digits = NineKeyPinyin.openDigits(open.input) else { return ([], [], nil) }
+            let options = NineKeyPinyin.options(for: digits, preferring: nineKeyNatural)
+            return (options, [], options.first)
+        }
+        guard isComposing, echo.isEmpty, !hasCapitals, shuangpin == nil else { return ([], [], nil) }
         let base = leadingBase
         // A single option still shows, so the column stays put while the
         // input is chosen piece by piece.
@@ -1157,8 +1226,18 @@ final class ChineseInputSession: KeyboardInputSession {
 
     var correctedLeadingSyllables: Set<String> { Set(leadingColumn.corrections) }
 
+    /// The syllable Rime reads the first digits of the open input as.
+    private var nineKeyNatural: String? {
+        let input = open.input
+        let picked = NineKeyPinyin.segments(input).prefix { if case .letters = $0 { true } else { false } }.count
+        let reading = NineKeyPinyin.reading(of: input, hint: state.candidates.first?.comment)
+        return reading.indices.contains(picked) ? reading[picked] : nil
+    }
+
     var currentLeadingSyllable: String? {
         guard isComposing else { return nil }
+        if nineKey { return nineKeyNatural }
+        if shuangpin != nil { return nil }
         let chosen = Self.unchosen(state)?.chosen ?? ""
         return PinyinLeadingSyllable.first(ofPreedit: String(state.preedit.dropFirst(chosen.count)))
     }
@@ -1168,6 +1247,7 @@ final class ChineseInputSession: KeyboardInputSession {
     /// Text chosen before it is committed first, since Rime takes a new input
     /// whole; Rime's own reading restores the input.
     func chooseLeadingSyllable(_ syllable: String) -> [KeyboardEdit] {
+        if nineKey { return chooseNineKeySyllable(syllable) }
         let column = leadingColumn
         guard candidatesAreCurrent, let anchor = column.anchor,
               column.exact.contains(syllable) || column.corrections.contains(syllable) else { return [] }
@@ -1183,6 +1263,22 @@ final class ChineseInputSession: KeyboardInputSession {
         }
         // The new input goes in before returning, so the keyboard sees the
         // composition go on and keeps the panel open.
+        let edits = run(.clear) + [.insert(chosen)]
+        clearSuggestions()
+        commitIsForgettable = false
+        return edits + run(.setInput(input))
+    }
+
+    /// Spells the open input's first digits as `syllable`, so the list
+    /// shows what starts with it; Backspace takes the pick back.
+    private func chooseNineKeySyllable(_ syllable: String) -> [KeyboardEdit] {
+        guard candidatesAreCurrent, leadingColumn.exact.contains(syllable),
+              let input = NineKeyPinyin.input(open.input, picking: syllable) else { return [] }
+        let chosen = open.chosen
+        guard !chosen.isEmpty else {
+            enqueue(.setInput(input))
+            return []
+        }
         let edits = run(.clear) + [.insert(chosen)]
         clearSuggestions()
         commitIsForgettable = false
@@ -1219,7 +1315,7 @@ final class ChineseInputSession: KeyboardInputSession {
     /// Rime reads it poorly; a key typed meanwhile cancels it.
     private func scheduleCorrections() {
         let input = open.input, key = openKey
-        guard correctionInput != key, isComposing, echo.isEmpty, !hasCapitals,
+        guard !nineKey, shuangpin == nil, correctionInput != key, isComposing, echo.isEmpty, !hasCapitals,
               PinyinSpellingCorrection.wantsCorrection(input, top: state.candidates.first) else { return }
         let request = ChineseCandidateRanking.Request(deadline: .infinity)
         correctionRequest = request
@@ -1282,7 +1378,7 @@ final class ChineseInputSession: KeyboardInputSession {
     private func scheduleSentenceCorrection() {
         let input = open.input, key = openKey
         let storage = JapaneseCandidateWorker.LanguageModelStorage.shared
-        guard sentenceInput != key, isComposing, echo.isEmpty, round == nil, usesModel, !hasCapitals,
+        guard !nineKey, shuangpin == nil, sentenceInput != key, isComposing, echo.isEmpty, round == nil, usesModel, !hasCapitals,
               ChineseSentenceCorrection.isEnabled, ChineseSentenceCorrection.wants(input),
               storage.isReady(for: .chinese), !storage.isSuspended,
               let first = order.first, shownCandidates.indices.contains(first) else { return }

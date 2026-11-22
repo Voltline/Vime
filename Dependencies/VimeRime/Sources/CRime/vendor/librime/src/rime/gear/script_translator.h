@@ -52,6 +52,11 @@ class ScriptTranslator : public Translator,
   bool enable_word_completion() const { return enable_word_completion_; }
   int max_word_length() const { return max_word_length_; }
   int core_word_length() const;
+  // Vime: from this input length on, sentences skip abbreviations
+  // (but the last syllable's), which multiply the lookups (0: never).
+  int sentence_abbreviation_cutoff() const {
+    return sentence_abbreviation_cutoff_;
+  }
   Projection* canonicalizer() const { return canonicalizer_.get(); }
 
  protected:
@@ -59,6 +64,7 @@ class ScriptTranslator : public Translator,
   int spelling_hints_ = 0;
   int max_word_length_ = 0;
   int core_word_length_ = 0;
+  int sentence_abbreviation_cutoff_ = 0;
   bool always_show_comments_ = false;
   bool enable_correction_ = false;
   bool enable_word_completion_ = false;

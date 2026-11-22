@@ -39,6 +39,18 @@ What the rules add, in order:
 selects from its settings: vime_pinyin_fuzzy<N>.schema.yaml for N in 1...7, a
 sum of FUZZY groups. Fuzzy spellings (zi for zhi) are Rime fuzz spellings at
 log(0.5), so the exact reading still leads; each syllable takes one of them.
+It also writes vime_t9.schema.yaml, the nine-key schema: every spelling is
+also typed as the digits of its letters on a phone keypad (zhong -> 94664), and
+the letters stay, so a syllable picked from the keyboard's syllable bar can
+replace its digits. It has no typo rules (a nine-key slip is another digit,
+which the keypad's ambiguity already covers) and no English words.
+It writes the 双拼 schemas too, vime_shuangpin_<scheme>.schema.yaml: each
+syllable is typed as two keys, its initial (zh, ch, sh on v, i, u) and the
+key of its final in that scheme (SHUANGPIN); a syllable without an initial
+types its first letter, then its second letter (ai, ou) or its final's key
+(ang -> ah); a single vowel is doubled (a -> aa). Only those codes are spellings, and
+one key reads as the initial alone. Like the nine-key schema they share the
+pinyin words and have no typo rules or English words.
 """
 import argparse
 import re
@@ -200,6 +212,146 @@ def fuzzy_rules(mask):
     return out + ["xform/^@//"]
 
 
+# The phone keypad.
+T9_KEYS = {"2": "abc", "3": "def", "4": "ghi", "5": "jkl", "6": "mno", "7": "pqrs", "8": "tuv", "9": "wxyz"}
+
+
+def t9_digits(spelling):
+    return "".join(next(k for k, v in T9_KEYS.items() if c in v) for c in spelling)
+
+
+def t9_rules():
+    out = ["# Not syllables on their own in Vime's dictionaries."]
+    out += [f"erase/^{s}$/" for s in ("hm", "m", "n", "ng")]
+    out.append("# Abbreviations: the initial, and zh, ch and sh.")
+    out.append("abbrev/^([a-z])[a-z]+$/$1/")
+    out.append("abbrev/^([zcs]h)[a-z]+$/$1/")
+    out.append("# ü spellings.")
+    out += [
+        "derive/^([nl])ve$/$1ue/",
+        "derive/^([jqxy])u([a-z]*)$/$1v$2/",
+    ]
+    out.append("# Every spelling is also typed as digits: marked with > while its letters turn.")
+    out.append("derive/^([a-z]+)$/$1>/")
+    out += [f"xform/[{letters}](?=[a-z2-9]*>$)/{digit}/" for digit, letters in T9_KEYS.items()]
+    out.append("xform/>$//")
+    return out
+
+
+def render_t9(text):
+    """The nine-key schema, from the pinyin schema's text."""
+    start, end = text.index(BEGIN), text.index(END) + len(END)
+    lines = [BEGIN] + [f"    {r}" if r.startswith("#") else f"    - {r}" for r in t9_rules()] + [END]
+    schema = text[:start] + "\n".join(lines) + text[end:]
+    replacements = [
+        ("# Simplified Chinese full pinyin for Vime, with English words mixed in.\n",
+         "# Simplified Chinese pinyin on a nine-key keypad, generated from vime_pinyin by\n"
+         "# Scripts/generate_pinyin_algebra.py --variants; do not edit.\n"),
+        ("  schema_id: vime_pinyin\n", "  schema_id: vime_t9\n"),
+        ("  name: Vime 拼音\n", "  name: Vime 九宫格\n"),
+        ("  dependencies:\n    - vime_english\n", ""),
+        ("    - table_translator@english\n", ""),
+        ("  alphabet: zyxwvutsrqponmlkjihgfedcba\n", "  alphabet: zyxwvutsrqponmlkjihgfedcba23456789\n"),
+        ("  initials: zyxwvutsrqponmlkjihgfedcba\n", "  initials: zyxwvutsrqponmlkjihgfedcba23456789\n"),
+        # Its own spelling index on the shared words. The keyboard shows the
+        # pinyin of the candidates, from the spelling hints, in place of digits.
+        ("  dictionary: vime_pinyin\n", "  dictionary: vime_pinyin\n  prism: vime_t9\n  spelling_hints: 8\n"),
+        # Every digit is also an initial, so a long input has so many ways
+        # to abbreviate that looking up its sentences takes tens of
+        # milliseconds a key. From 10 keys on, sentences abbreviate only
+        # in the last few keys (falling back to all of them when nothing
+        # else spells the input).
+        ("  max_homophones: 4\n", "  max_homophones: 4\n  sentence_abbreviation_cutoff: 10\n"),
+    ]
+    for old, new in replacements:
+        assert old in schema, old
+        schema = schema.replace(old, new, 1)
+    english = schema.index("# English words typed in the same composition.")
+    return schema[:english].rstrip() + "\n"
+
+
+# 双拼: the key of each final, by scheme. Shared/Chinese/ShuangpinScheme.swift
+# has the same tables.
+SHUANGPIN = {
+    "flypy": {  # 小鹤双拼
+        "iu": "q", "ei": "w", "uan": "r", "van": "r", "ue": "t", "ve": "t", "un": "y", "vn": "y",
+        "uo": "o", "ie": "p", "ong": "s", "iong": "s", "ai": "d", "en": "f", "eng": "g", "ang": "h",
+        "an": "j", "ing": "k", "uai": "k", "iang": "l", "uang": "l", "ou": "z", "ia": "x", "ua": "x",
+        "ao": "c", "ui": "v", "v": "v", "in": "b", "iao": "n", "ian": "m",
+    },
+    "ziranma": {  # 自然码
+        "iu": "q", "ia": "w", "ua": "w", "uan": "r", "van": "r", "ue": "t", "ve": "t", "ing": "y",
+        "uai": "y", "uo": "o", "un": "p", "vn": "p", "ong": "s", "iong": "s", "iang": "d", "uang": "d",
+        "en": "f", "eng": "g", "ang": "h", "an": "j", "ao": "k", "ai": "l", "ei": "z", "ie": "x",
+        "iao": "c", "ui": "v", "v": "v", "ou": "b", "in": "n", "ian": "m",
+    },
+}
+SHUANGPIN_NAMES = {"flypy": "小鹤双拼", "ziranma": "自然码双拼"}
+SHUANGPIN_INITIALS = {"zh": "v", "ch": "i", "sh": "u"}
+
+
+def shuangpin_code(syllable, scheme):
+    finals = SHUANGPIN[scheme]
+    initial = next((i for i in ("zh", "ch", "sh") if syllable.startswith(i)), None)
+    if initial is None and syllable[0] not in "aoe":
+        initial = syllable[0]
+    if initial is None:
+        # No initial: a doubled vowel, the two letters, or the first letter and the final's key.
+        if len(syllable) == 1:
+            return syllable * 2
+        if len(syllable) == 2:
+            return syllable
+        return syllable[0] + finals[syllable[1:]] if syllable[1:] in finals else syllable[0] + finals[syllable]
+    final = syllable[len(initial):]
+    key = SHUANGPIN_INITIALS.get(initial, initial)
+    return key + (final if len(final) == 1 else finals[final])
+
+
+def shuangpin_rules(scheme):
+    out = ["# Not syllables on their own in Vime's dictionaries."]
+    out += [f"erase/^{s}$/" for s in ("hm", "m", "n", "ng")]
+    out.append("# Each syllable becomes its two keys, marked with > so no later rule reads it again.")
+    codes = {}
+    for syllable in SYLLABLES:
+        if syllable in ("hm", "m", "n", "ng"):
+            continue
+        code = shuangpin_code(syllable, scheme)
+        assert len(code) == 2, (syllable, code)
+        # Only lo and luo (o and uo) share a code.
+        assert code not in codes or {codes[code], syllable} <= {"lo", "luo"}, (syllable, code, codes[code])
+        codes[code] = syllable
+        out.append(f"xform/^{syllable}$/{code}>/")
+    out.append("# Spellings the scheme does not type.")
+    out.append("erase/^[a-z]+$/")
+    out.append("xform/>$//")
+    out.append("# One key reads as the initial alone.")
+    out.append("abbrev/^([a-z])[a-z]$/$1/")
+    return out
+
+
+def render_shuangpin(text, scheme):
+    """A 双拼 schema, from the pinyin schema's text."""
+    name = f"vime_shuangpin_{scheme}"
+    start, end = text.index(BEGIN), text.index(END) + len(END)
+    lines = [BEGIN] + [f"    {r}" if r.startswith("#") else f"    - {r}" for r in shuangpin_rules(scheme)] + [END]
+    schema = text[:start] + "\n".join(lines) + text[end:]
+    replacements = [
+        ("# Simplified Chinese full pinyin for Vime, with English words mixed in.\n",
+         f"# Simplified Chinese {scheme} 双拼, generated from vime_pinyin by\n"
+         "# Scripts/generate_pinyin_algebra.py --variants; do not edit.\n"),
+        ("  schema_id: vime_pinyin\n", f"  schema_id: {name}\n"),
+        ("  name: Vime 拼音\n", f"  name: Vime {SHUANGPIN_NAMES[scheme]}\n"),
+        ("  dependencies:\n    - vime_english\n", ""),
+        ("    - table_translator@english\n", ""),
+        ("  dictionary: vime_pinyin\n", f"  dictionary: vime_pinyin\n  prism: {name}\n"),
+    ]
+    for old, new in replacements:
+        assert old in schema, old
+        schema = schema.replace(old, new, 1)
+    english = schema.index("# English words typed in the same composition.")
+    return schema[:english].rstrip() + "\n"
+
+
 def render(mask=0):
     lines = [BEGIN]
     for rule in rules() + (fuzzy_rules(mask) if mask else []):
@@ -228,6 +380,9 @@ def main():
             variant = variant.replace("  dictionary: vime_pinyin\n", f"  dictionary: vime_pinyin\n  prism: {name}\n", 1)
             assert f"schema_id: {name}" in variant and f"prism: {name}" in variant
             (args.variants / f"{name}.schema.yaml").write_text(variant)
+        (args.variants / "vime_t9.schema.yaml").write_text(render_t9(updated))
+        for scheme in SHUANGPIN:
+            (args.variants / f"vime_shuangpin_{scheme}.schema.yaml").write_text(render_shuangpin(updated, scheme))
         return
     if args.check:
         if updated != text:

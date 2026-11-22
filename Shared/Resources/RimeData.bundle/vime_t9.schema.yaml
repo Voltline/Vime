@@ -1,0 +1,64 @@
+__build_info:
+  rime_version: vime
+  timestamps:
+    default: 1795339516
+    default.custom: 0
+    vime_t9.custom: 0
+    vime_t9.schema: 1795339515
+engine:
+  filters:
+    - simplifier
+    - uniquifier
+  processors:
+    - speller
+    - selector
+    - navigator
+    - express_editor
+  segmentors:
+    - abc_segmentor
+    - fallback_segmentor
+  translators:
+    - script_translator
+menu:
+  page_size: 9
+schema:
+  name: "Vime 九宫格"
+  schema_id: vime_t9
+  version: 1
+simplifier:
+  opencc_config: s2t.json
+  option_name: traditionalization
+speller:
+  algebra:
+    - "erase/^hm$/"
+    - "erase/^m$/"
+    - "erase/^n$/"
+    - "erase/^ng$/"
+    - "abbrev/^([a-z])[a-z]+$/$1/"
+    - "abbrev/^([zcs]h)[a-z]+$/$1/"
+    - "derive/^([nl])ve$/$1ue/"
+    - "derive/^([jqxy])u([a-z]*)$/$1v$2/"
+    - "derive/^([a-z]+)$/$1>/"
+    - "xform/[abc](?=[a-z2-9]*>$)/2/"
+    - "xform/[def](?=[a-z2-9]*>$)/3/"
+    - "xform/[ghi](?=[a-z2-9]*>$)/4/"
+    - "xform/[jkl](?=[a-z2-9]*>$)/5/"
+    - "xform/[mno](?=[a-z2-9]*>$)/6/"
+    - "xform/[pqrs](?=[a-z2-9]*>$)/7/"
+    - "xform/[tuv](?=[a-z2-9]*>$)/8/"
+    - "xform/[wxyz](?=[a-z2-9]*>$)/9/"
+    - "xform/>$//"
+  alphabet: zyxwvutsrqponmlkjihgfedcba23456789
+  delimiter: " '"
+  initials: zyxwvutsrqponmlkjihgfedcba23456789
+translator:
+  dictionary: vime_pinyin
+  enable_word_completion: true
+  max_homophones: 4
+  max_sentences: 16
+  preedit_format:
+    - "xform/([jqxy])v/$1u/"
+    - "xform/([nl])ue/$1ve/"
+  prism: vime_t9
+  sentence_abbreviation_cutoff: 10
+  spelling_hints: 8

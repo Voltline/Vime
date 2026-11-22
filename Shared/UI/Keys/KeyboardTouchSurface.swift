@@ -13,6 +13,9 @@ final class KeyboardTouchSurface: UIView {
     nonisolated enum Gesture: Equatable, Sendable { case horizontalCursor, spaceCursor, deleteLine }
     var onGestureChange: ((Gesture?) -> Void)?
     var onCursorMove: ((Int, Int) -> Void)?
+    /// Whether a sideways swipe on a key may move the caret; while input is
+    /// composing it would end the composition, so a stray swipe types the key.
+    var allowsSwipeCursor: () -> Bool = { true }
     var onDeleteLine: (() -> Void)?
     var onDeletePressChange: ((Bool) -> Void)?
     var onDeleteArmedChange: ((Bool) -> Void)?
@@ -264,7 +267,7 @@ final class KeyboardTouchSurface: UIView {
                 startGesture(.deleteLine, owner: id, at: point); return
             }
             if !press.key.repeats, !press.alternateLocked, abs(delta.x) >= 60 * scale,
-               abs(delta.x) > abs(delta.y) * 1.6 {
+               abs(delta.x) > abs(delta.y) * 1.6, allowsSwipeCursor() {
                 startGesture(.horizontalCursor, owner: id, at: point)
                 onCursorMove?(delta.x > 0 ? 1 : -1, 0)
                 return

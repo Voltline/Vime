@@ -17,9 +17,18 @@ final class PinyinToleranceTests: XCTestCase {
         // Rime starts a session with the schema selected last.
         precondition(vime_rime_select_schema(session, schema ?? "vime_pinyin"))
         for scalar in input.unicodeScalars { _ = vime_rime_process_key(session, Int32(scalar.value), 0) }
-        var raw = vime_rime_snapshot(session, limit)
+        // Rime leads with several sentences (max_sentences) for the model to
+        // choose from; without it the keyboard shows only the first
+        // (ChineseCandidateRanking.order), so the rest are skipped here.
+        var raw = vime_rime_snapshot(session, limit + 16)
         defer { vime_rime_snapshot_free(&raw) }
-        return (0..<Int(raw.candidateCount)).map { String(cString: raw.candidates[$0].text) }
+        var sentences = 0
+        let shown = (0..<Int(raw.candidateCount)).filter { index in
+            guard raw.candidates[index].sentence else { return true }
+            sentences += 1
+            return sentences == 1
+        }
+        return shown.prefix(Int(limit)).map { String(cString: raw.candidates[$0].text) }
     }
 
     /// Exact input keeps its reading on top; corrections never displace it.

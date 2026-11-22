@@ -57,7 +57,7 @@ struct KeyboardPreferences {
         "vime.prolongedKey", "vime.previews", "vime.previewHold", "vime.theme", "vime.candidateRanking", "vime.phraseSuggestions", "vime.clipboardSuggestions", "vime.autoPairBrackets", "vime.autoCapitalize", "vime.doubleSpacePeriod", "vime.undoConversionOnBackspace", "vime.fullWidthSpace", "vime.liveConversion", "vime.textReplacements", "vime.englishCompletion", "vime.oneHanded", "vime.customSkinID", "vime.skinRevision", "vime.numberSymbols", "vime.inputLanguage",
         "vime.chineseInputEnabled", "vime.japaneseInputEnabled", "vime.pinyinLookupInJapanese", "vime.traditionalChinese", "vime.chineseLanguageModel", "vime.chineseModelVersion",
         "vime.fuzzyRetroflex", "vime.fuzzyNasal", "vime.fuzzyInitials", "vime.chinesePunctuation", "vime.japaneseFullWidthSymbols", "vime.correctionSpellingHints",
-        "vime.chineseDateFormat", "vime.chineseTimeFormat"]
+        "vime.chineseDateFormat", "vime.chineseTimeFormat", "vime.chineseLayout", "vime.shuangpinScheme"]
     var store: UserDefaults { defaults }
     struct Snapshot: Equatable {
         let heightFactor: Double
@@ -99,6 +99,8 @@ struct KeyboardPreferences {
         let correctionSpellingHints: Bool
         let chineseDateFormat: ChineseSpecialConversions.DateFormat
         let chineseTimeFormat: ChineseSpecialConversions.TimeFormat
+        let chineseLayout: ChineseKeyboardLayout
+        let shuangpinScheme: ShuangpinScheme
     }
     var snapshot: Snapshot {
         Snapshot(heightFactor: heightFactor, sound: sound, hapticIntensity: hapticIntensity,
@@ -117,7 +119,8 @@ struct KeyboardPreferences {
             chineseLanguageModel: chineseLanguageModel, chineseModelVersion: chineseModelVersion, fuzzyPinyin: fuzzyPinyin,
             chinesePunctuation: chinesePunctuation, japaneseFullWidthSymbols: japaneseFullWidthSymbols,
             correctionSpellingHints: correctionSpellingHints,
-            chineseDateFormat: chineseDateFormat, chineseTimeFormat: chineseTimeFormat)
+            chineseDateFormat: chineseDateFormat, chineseTimeFormat: chineseTimeFormat, chineseLayout: chineseLayout,
+            shuangpinScheme: shuangpinScheme)
     }
     var heightFactor: Double {
         get {
@@ -349,7 +352,20 @@ struct KeyboardPreferences {
         get { defaults.string(forKey: "vime.chineseTimeFormat").flatMap(ChineseSpecialConversions.TimeFormat.init(rawValue:)) ?? .colon }
         nonmutating set { defaults.set(newValue.rawValue, forKey: "vime.chineseTimeFormat") }
     }
+    /// How Chinese is typed: full pinyin on QWERTY, or pinyin on nine keys.
+    var chineseLayout: ChineseKeyboardLayout {
+        get { defaults.string(forKey: "vime.chineseLayout").flatMap(ChineseKeyboardLayout.init(rawValue:)) ?? .fullPinyin }
+        nonmutating set { defaults.set(newValue.rawValue, forKey: "vime.chineseLayout") }
+    }
+    var shuangpinScheme: ShuangpinScheme {
+        get { defaults.string(forKey: "vime.shuangpinScheme").flatMap(ShuangpinScheme.init(rawValue:)) ?? .flypy }
+        nonmutating set { defaults.set(newValue.rawValue, forKey: "vime.shuangpinScheme") }
+    }
 }
+
+/// The Chinese key plane: full pinyin on QWERTY, pinyin on a phone keypad,
+/// or 双拼 on QWERTY.
+nonisolated enum ChineseKeyboardLayout: String, CaseIterable, Sendable { case fullPinyin, nineKey, shuangpin }
 
 nonisolated enum KeyboardOneHandedSide: String, CaseIterable, Sendable { case off, left, right }
 

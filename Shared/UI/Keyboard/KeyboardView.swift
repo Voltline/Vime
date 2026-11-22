@@ -64,6 +64,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         session.setTraditionalChinese(next.traditionalChinese)
         session.setChineseLanguageModel(next.chineseLanguageModel)
         session.setFuzzyPinyin(next.fuzzyPinyin)
+        session.setChineseLayout(next.chineseLayout, shuangpin: next.shuangpinScheme)
         session.setCorrectionSpellingHints(next.correctionSpellingHints)
         session.setSpecialConversionFormats(date: next.chineseDateFormat, time: next.chineseTimeFormat)
         applyNeuralRetry()
@@ -155,6 +156,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         session.setTraditionalChinese(preferences.traditionalChinese)
         session.setChineseLanguageModel(preferences.chineseLanguageModel)
         session.setFuzzyPinyin(preferences.fuzzyPinyin)
+        session.setChineseLayout(preferences.chineseLayout, shuangpin: preferences.shuangpinScheme)
         session.setCorrectionSpellingHints(preferences.correctionSpellingHints)
         session.setSpecialConversionFormats(date: preferences.chineseDateFormat, time: preferences.chineseTimeFormat)
         session.setLiveConversion(preferences.liveConversion)
@@ -382,6 +384,8 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     var letterKeys: [KeyboardKey] = []
     var shiftKey: KeyboardKey?
     var spaceKey: KeyboardKey?
+    /// The comma key beside the space on the letter keys, outside address fields.
+    var punctuationKey: KeyboardKey?
     var languageKey: KeyboardKey?
     var languageSwitchGuard: LanguageSwitchGuard = .shared
     private var pendingLanguageTouchContext: KeyboardTouchSurface.LanguageKeyTouchContext?
@@ -389,6 +393,27 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     var numberSymbolRail: KeyboardNumberSymbolRail?
     var numberBackKey: KeyboardKey?
     var usesNumberPad: Bool { page == .numbers && preferences.nineKeyNumbers }
+    /// Chinese input on the nine-key pad; English keeps QWERTY.
+    var prefersChineseNineKey: Bool {
+        preferences.chineseLayout == .nineKey && session.inputTraits.language == .chinese
+    }
+    var usesChineseNineKey: Bool { page == .letters && prefersChineseNineKey }
+    /// The layout the current rows were built for.
+    var chineseNineKeyActive = false
+    /// The syllables of the nine-key input, or punctuation with none.
+    var syllableRail: KeyboardNumberSymbolRail?
+    /// The nine-key pad's 1 key: punctuation, or a syllable break while typing.
+    var nineKeyBreakKey: KeyboardKey?
+    /// The 双拼 scheme whose finals the letter keys should show.
+    var wantedShuangpin: ShuangpinScheme? {
+        page == .letters && preferences.chineseLayout == .shuangpin && session.inputTraits.language == .chinese
+            ? preferences.shuangpinScheme : nil
+    }
+    /// The 双拼 scheme the current letter keys show, and their hints.
+    var shuangpinActive: ShuangpinScheme?
+    var shuangpinHints: [Character: String]?
+    /// Rows laid out as the number pad: a rail beside three rows of keys.
+    var padGridActive: Bool { usesNumberPad || chineseNineKeyActive }
     /// Japanese input on the flick pad; English keeps QWERTY.
     var prefersKanaLayout: Bool { preferences.kanaLayout && session.inputTraits.language == .japanese }
     var usesKanaLayout: Bool { page == .letters && prefersKanaLayout }
@@ -566,6 +591,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
                 ?? .init(dx: 0, dy: 0, varX: KeyHitCalibration.defaultVarX, varY: KeyHitCalibration.defaultVarY, weight: 0, count: 0)
         }
         keysContainer.onLetterTapComplete = { [weak self] outcome in self?.recordCalibratedLetterTap(outcome) }
+        keysContainer.allowsSwipeCursor = { [weak self] in !(self?.session.isComposing ?? false) }
         keysContainer.onCursorMove = { [weak self] x, y in
             guard let self else { return }
             self.session.finishLearningFeedback()
@@ -746,7 +772,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         settingsPanel?.setContentMargins(left: listInset ?? (compact ? metrics.contentLeft : 12),
             right: listInset ?? (compact ? width - metrics.contentRight : 12))
         let keyGrid = KeyGridLayout(size: bounds.size, compact: compact, pad: pad, showsFooter: showsFooter,
-            heightFactor: heightFactor, page: page, numberPad: usesNumberPad, kana: kanaLayoutActive,
+            heightFactor: heightFactor, page: page, numberPad: padGridActive, kana: kanaLayoutActive,
             oneHanded: activeOneHandedSide, generation: keyGridGeneration)
         if keyGrid != laidOutKeyGrid {
             laidOutKeyGrid = keyGrid
