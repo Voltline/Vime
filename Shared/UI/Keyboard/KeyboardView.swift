@@ -65,6 +65,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         session.setChineseLanguageModel(next.chineseLanguageModel)
         session.setFuzzyPinyin(next.fuzzyPinyin)
         session.setCorrectionSpellingHints(next.correctionSpellingHints)
+        session.setSpecialConversionFormats(date: next.chineseDateFormat, time: next.chineseTimeFormat)
         applyNeuralRetry()
         if next.learningResetID != previous?.learningResetID {
             session.reset()
@@ -154,6 +155,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         session.setChineseLanguageModel(preferences.chineseLanguageModel)
         session.setFuzzyPinyin(preferences.fuzzyPinyin)
         session.setCorrectionSpellingHints(preferences.correctionSpellingHints)
+        session.setSpecialConversionFormats(date: preferences.chineseDateFormat, time: preferences.chineseTimeFormat)
         session.setLiveConversion(preferences.liveConversion)
         applyNeuralRetry()
         session.onCommittedEdits = { [weak self] batch in

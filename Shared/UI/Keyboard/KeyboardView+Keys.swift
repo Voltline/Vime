@@ -7,6 +7,7 @@ extension KeyboardView {
             && !text.isEmpty && text.allSatisfy { $0.isASCII && $0.isNumber }
     }
     func composesNumberPageInput(_ text: String) -> Bool {
+        if session.acceptsCompositionSymbol(text) { return true }
         if shouldConvertNumber(text) { return true }
         let mark = session.markedText?.text ?? ""
         let numeric = !mark.isEmpty && mark.allSatisfy { "0123456789０１２３４５６７８９.．".contains($0) }
@@ -431,6 +432,9 @@ extension KeyboardView {
     ]
 
     func insertSymbol(_ text: String) {
+        if session.acceptsCompositionSymbol(text) {
+            apply(session.type(text)); return
+        }
         guard preferences.autoPairBrackets, let closing = Self.bracketPairs[text] else {
             apply(session.insertLiteral(text)); return
         }

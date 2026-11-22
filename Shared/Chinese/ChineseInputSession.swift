@@ -83,6 +83,13 @@ final class ChineseInputSession: KeyboardInputSession {
     private var fuzzyPinyin = FuzzyPinyin()
     /// Whether a correction shows the pinyin it was found by. Off by default.
     private var spellingHints = false
+    /// Special conversion candidates (date/time/weekday/lunar) appended after normal candidates.
+    private var specials: [ChineseSpecialConversions.Candidate] = []
+    /// Local `v`-prefixed numeric buffer (bypasses Rime so digits/`.` compose RMB uppercase directly).
+    private var vBuffer = ""
+    private var specialDateFormat: ChineseSpecialConversions.DateFormat = .chinese
+    private var specialTimeFormat: ChineseSpecialConversions.TimeFormat = .colon
+    var specialConversionsNow: () -> Date = { Date() }
     /// Next-word suggestions: dictionary phrases that begin with the word
     /// just committed, shown in the strip while nothing is composing.
     private var suggestionsEnabled = true
@@ -158,15 +165,16 @@ final class ChineseInputSession: KeyboardInputSession {
             primaryVariantAccessibilityLabel: String(localized: "切换简体和繁体"), compositionInputSymbols: ["'"],
             comma: english ? "," : "，", period: english ? "." : "。")
     }
-    var isComposing: Bool { state.isComposing || !echo.isEmpty }
+    var isComposing: Bool { !vBuffer.isEmpty || state.isComposing || !echo.isEmpty }
     private(set) var suppressesEnglishCompletions = false
     var composition: String { markedText?.text ?? "" }
-    var raw: String { isComposing ? state.input + echo : "" }
+    var raw: String { !vBuffer.isEmpty ? vBuffer : (isComposing ? state.input + echo : "") }
     /// Rime separates syllables with a space; a full space reads as a gap
     /// between words, so the preedit shows a narrow one instead.
     static let syllableGap = "\u{2006}"
 
     var markedText: KeyboardPreedit? {
+        if !vBuffer.isEmpty { return KeyboardPreedit(text: vBuffer) }
         guard isComposing else { return nil }
         let text = Self.recased(state.preedit.isEmpty ? state.input : state.preedit, as: casedInput)
         return KeyboardPreedit(text: text.replacingOccurrences(of: " ", with: Self.syllableGap) + echo)
@@ -176,7 +184,7 @@ final class ChineseInputSession: KeyboardInputSession {
     var showsStrip: Bool { !stripPresentations.isEmpty }
     var suggestionTexts: [String] { isComposing ? [] : suggestionPresentations.map(\.text) }
     /// Old candidates stay visible while commands run but cannot be chosen.
-    var candidatesAreCurrent: Bool { received == sent && round == nil }
+    var candidatesAreCurrent: Bool { !vBuffer.isEmpty || (received == sent && round == nil) }
     var selectedIndex: Int? { nil }
     var candidateResultReadyAt: TimeInterval? { nil }
 
@@ -184,6 +192,12 @@ final class ChineseInputSession: KeyboardInputSession {
 
     private static func isEnglishWordText(_ text: String) -> Bool {
         !text.isEmpty && text.allSatisfy { $0.isLetter || $0.isNumber || $0 == "'" }
+    }
+
+    func acceptsCompositionSymbol(_ text: String) -> Bool {
+        guard !english else { return false }
+        let candidateBuffer = !vBuffer.isEmpty ? vBuffer : (raw == "v" ? "v" : "")
+        return ChineseSpecialConversions.canAppendToVBuffer(candidateBuffer, text: text)
     }
 
     func type(_ text: String) -> [KeyboardEdit] {
@@ -197,6 +211,22 @@ final class ChineseInputSession: KeyboardInputSession {
             }
             if !Self.isEnglishWordText(text) { suppressesEnglishCompletions = false }
             return settle() + [.insert(text)]
+        }
+        // `v` numeric mode (bypasses Rime so digits/`.` build RMB uppercase candidates directly).
+        if !vBuffer.isEmpty {
+            if ChineseSpecialConversions.canAppendToVBuffer(vBuffer, text: text) {
+                vBuffer += ChineseSpecialConversions.normalizedVCharacter(text)
+                refreshVBufferCandidates()
+                return []
+            }
+            let committed = commitVBuffer(lead: false)
+            return committed + type(text)
+        }
+        if raw == "v", ChineseSpecialConversions.canAppendToVBuffer("v", text: text) {
+            let edits = run(.clear)
+            vBuffer = "v" + ChineseSpecialConversions.normalizedVCharacter(text)
+            refreshVBufferCandidates()
+            return edits
         }
         // A capital composes too, never as pinyin: it stays as typed (ChineseMixedInput).
         let pinyin = text.unicodeScalars.allSatisfy {
@@ -216,6 +246,11 @@ final class ChineseInputSession: KeyboardInputSession {
     func backspace() -> [KeyboardEdit] {
         clearSuggestions()
         spaceWaits = false
+        if !vBuffer.isEmpty {
+            vBuffer.removeLast()
+            refreshVBufferCandidates()
+            return []
+        }
         if isComposing { enqueue(.backspace); return [] }
         let edits = settle()
         if isComposing { enqueue(.backspace); return edits }
@@ -226,6 +261,7 @@ final class ChineseInputSession: KeyboardInputSession {
 
     func space() -> [KeyboardEdit] {
         clearSuggestions()
+        if !vBuffer.isEmpty { return commitVBuffer(lead: true) }
         if isComposing {
             // Space takes the first candidate of the final list.
             if candidatesAreCurrent { return takeLead() }
@@ -240,6 +276,7 @@ final class ChineseInputSession: KeyboardInputSession {
     func enter() -> [KeyboardEdit] {
         clearSuggestions()
         spaceWaits = false
+        if !vBuffer.isEmpty { return commitVBuffer(lead: false) }
         if isComposing, hasCapitals { return commitTyped() }
         if isComposing { enqueue(.commitInput); return [] }
         commitIsForgettable = false
@@ -251,6 +288,7 @@ final class ChineseInputSession: KeyboardInputSession {
 
     func confirmAll() -> [KeyboardEdit] {
         spaceWaits = false
+        if !vBuffer.isEmpty { return commitVBuffer(lead: false) }
         return isComposing ? run(.commitComposition) : settle()
     }
 
@@ -272,6 +310,7 @@ final class ChineseInputSession: KeyboardInputSession {
         case .phrase(let index): return choosePhrase(index)
         case .mixed(let index): return chooseMixed(index)
         case .correction(let index): return chooseCorrection(index)
+        case .special(let index): return chooseSpecial(index)
         case .rime(let index): enqueue(.select(index))
         }
         return []
@@ -285,6 +324,7 @@ final class ChineseInputSession: KeyboardInputSession {
         case .phrase(let index)?: return choosePhrase(index)
         case .mixed(let index)?: return chooseMixed(index)
         case .correction(let index)?: return chooseCorrection(index)
+        case .special(let index)?: return chooseSpecial(index)
         case _ where hasCapitals: return commitTyped()
         case .rime(let index)? where index != 0: enqueue(.select(index))
         default: enqueue(.space)
@@ -407,6 +447,11 @@ final class ChineseInputSession: KeyboardInputSession {
 
     func setCorrectionSpellingHints(_ enabled: Bool) { spellingHints = enabled }
 
+    func setSpecialConversionFormats(date: ChineseSpecialConversions.DateFormat, time: ChineseSpecialConversions.TimeFormat) {
+        specialDateFormat = date
+        specialTimeFormat = time
+    }
+
     func setExpandedCandidates(_ enabled: Bool) {
         guard enabled != expanded else { return }
         expanded = enabled
@@ -417,6 +462,8 @@ final class ChineseInputSession: KeyboardInputSession {
         if !preservingContext { hostEpoch += 1; suppressesEnglishCompletions = false }
         era += 1
         echo = ""
+        vBuffer = ""
+        specials = []
         spaceWaits = false
         leadingPick = nil
         clearSuggestions()
@@ -835,9 +882,11 @@ final class ChineseInputSession: KeyboardInputSession {
         shownCandidates = candidates
         shownSentence = order.first.flatMap { candidates[$0].sentence ? (state.input, candidates[$0].genuine) : nil }
         phrases = userPhrases()
+        specials = specialConversionCandidates()
         let slots = ChineseCandidateList.slots(
             rime: candidates.map(\.text), order: order, corrections: corrections.map(\.candidate.text),
-            correctionLeads: correctionLeads, mixed: mixed.count, placement: mixedPlacement, phrases: phrases.map(\.text))
+            correctionLeads: correctionLeads, mixed: mixed.count, placement: mixedPlacement,
+            phrases: phrases.map(\.text), specials: specials.map(\.text))
         self.slots = slots
         presentations = slots.enumerated().map { index, slot in
             let token = CandidateSelectionToken(sessionID: sessionID, generation: generation, index: index, kind: .composition)
@@ -856,6 +905,10 @@ final class ChineseInputSession: KeyboardInputSession {
             case .mixed(let source):
                 return CandidatePresentation(text: mixed[source].text, source: .conversion, consumedInputCount: 0,
                     correction: nil, selectionToken: token)
+            case .special(let source):
+                let item = specials[source]
+                return CandidatePresentation(text: item.text, source: .specialConversion, consumedInputCount: 0,
+                    correction: nil, selectionToken: token, detailAnnotation: item.annotation)
             }
         }
         scheduleCorrections()
@@ -906,6 +959,67 @@ final class ChineseInputSession: KeyboardInputSession {
     private func choosePhrase(_ index: Int) -> [KeyboardEdit] {
         guard phrases.indices.contains(index) else { return [] }
         return commitInstead(phrases[index].text)
+    }
+
+    // MARK: Special conversions (date/time/weekday/lunar/RMB)
+
+    private func specialConversionCandidates() -> [ChineseSpecialConversions.Candidate] {
+        guard !hasCapitals else { return [] }
+        let options = ChineseSpecialConversions.Options(
+            dateFormat: specialDateFormat,
+            timeFormat: specialTimeFormat,
+            traditional: traditional
+        )
+        return ChineseSpecialConversions.candidates(for: open.input, now: specialConversionsNow(), options: options)
+    }
+
+    private func chooseSpecial(_ index: Int) -> [KeyboardEdit] {
+        guard specials.indices.contains(index) else { return [] }
+        let text = specials[index].text
+        if !vBuffer.isEmpty {
+            vBuffer = ""
+            specials = []
+            slots = []
+            presentations = []
+            generation += 1
+            commitIsForgettable = false
+            return [.insert(text)]
+        }
+        return commitInstead(text)
+    }
+
+    private func refreshVBufferCandidates() {
+        generation += 1
+        if vBuffer.isEmpty {
+            specials = []
+            slots = []
+            presentations = []
+            return
+        }
+        specials = ChineseSpecialConversions.vModeCandidates(for: vBuffer, traditional: traditional)
+        slots = specials.indices.map(ChineseCandidateList.Slot.special)
+        presentations = specials.enumerated().map { index, item in
+            let token = CandidateSelectionToken(sessionID: sessionID, generation: generation, index: index, kind: .composition)
+            return CandidatePresentation(text: item.text, source: .specialConversion, consumedInputCount: 0,
+                correction: nil, selectionToken: token, detailAnnotation: item.annotation)
+        }
+    }
+
+    private func commitVBuffer(lead: Bool) -> [KeyboardEdit] {
+        let text: String
+        if lead, let first = specials.first {
+            text = first.text
+        } else {
+            let digits = String(vBuffer.dropFirst())
+            text = digits.isEmpty ? vBuffer : digits
+        }
+        vBuffer = ""
+        specials = []
+        slots = []
+        presentations = []
+        generation += 1
+        commitIsForgettable = false
+        return [.insert(text)]
     }
 
     // MARK: Letters no pinyin takes
