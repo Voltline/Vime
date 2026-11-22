@@ -277,6 +277,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     var lastSpaceTap: TimeInterval = 0
     /// Every iOS text replacement the host lexicon supplied, kana or Latin.
     var systemTextReplacements: [(shortcut: String, phrase: String)] = []
+    var systemContactNames: [String] = []
     /// Refreshes ask several times per key, so the last word's completions are kept.
     var completionCache: (word: String, values: [String])?
     /// Whether an English spelling begins some word, for hit correction.

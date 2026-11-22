@@ -13189,6 +13189,74 @@
         }
       }
     },
+    "系统短语与通讯录" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "System Shortcuts & Contacts"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ユーザ辞書と連絡先"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "텍스트 대치 및 연락처"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "系统短语与通讯录"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "系統替代文字與聯絡人"
+          }
+        }
+      }
+    },
+    "读取系统文本替换和通讯录姓名，只在本机使用" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reads system text replacements and contact names on this device only."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "システムのユーザ辞書と連絡先の名前を読み取り、このデバイス上でのみ使用します。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "시스템 텍스트 대치와 연락처 이름을 읽으며 이 기기에서만 사용합니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "读取系统文本替换和通讯录姓名，只在本机使用"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "讀取系統替代文字與聯絡人姓名，僅在本機使用"
+          }
+        }
+      }
+    },
     "管理与删除" : {
       "localizations" : {
         "en" : {

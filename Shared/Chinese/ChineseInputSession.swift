@@ -961,7 +961,12 @@ final class ChineseInputSession: KeyboardInputSession {
         let input = open.input
         let letters = input.lowercased().filter { ("a"..."z").contains($0) }
         guard !letters.isEmpty, letters.count == input.filter({ $0 != "'" }).count else { return [] }
-        return userDictionary.phrases(spelledBy: letters)
+        var combined = userDictionary.phrases(spelledBy: letters)
+        var seen = Set(combined.map(\.text))
+        for text in ChineseSystemLexicon.matches(for: letters) where seen.insert(text).inserted {
+            combined.append(ChineseUserPhrase(pinyin: letters, text: text))
+        }
+        return combined
     }
 
     private func choosePhrase(_ index: Int) -> [KeyboardEdit] {

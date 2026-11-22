@@ -119,7 +119,10 @@ private struct JapaneseUserDictionaryList: View {
             Section {
                 Toggle("使用 iOS 文本替换", isOn: $textReplacements).accessibilityIdentifier("vime.settings.textReplacements")
             } footer: {
-                Text("在“设置 > 通用 > 键盘 > 文本替换”中添加的短语会出现在候选中：假名输入码在日语转换时出现，英文输入码在英文输入时出现。系统短语只在键盘中读取，不会保存到 Vime 词典。")
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("在“设置 > 通用 > 键盘 > 文本替换”中添加的短语会出现在候选中：假名输入码在日语转换时出现，英文输入码在英文输入时出现。系统短语只在键盘中读取，不会保存到 Vime 词典。")
+                    Text("读取系统文本替换和通讯录姓名，只在本机使用")
+                }
             }
             Section {
                 DisclosureGroup("词典使用说明") {
