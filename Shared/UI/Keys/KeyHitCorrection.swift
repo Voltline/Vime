@@ -23,25 +23,42 @@ nonisolated enum KeyHitCorrection {
     /// heights. Keys are about five times as wide as the gap between them, so
     /// this reaches roughly the outer fifth of the touched key.
     static let reach = CGSize(width: 0.45, height: 0.35)
+    static let fastIKI: TimeInterval = 0.14
+    static let slowIKI: TimeInterval = 0.38
+    static let maxValidIKI: TimeInterval = 1.0
+    static let fastReachScale: CGFloat = 1.12
+    static let slowReachScale: CGFloat = 0.78
     /// Each initial typed as an abbreviation (wm for 微卖) makes a pinyin
     /// reading this much less likely than spelling the syllable out.
     static let abbreviationWeight = 0.05
 
+    /// Multiplier applied to `reach` from the touch-down to touch-down interval
+    /// between consecutive letters in the same word (`nil` -> 1.0).
+    static func reachScale(interKeyInterval: TimeInterval?) -> CGFloat {
+        guard let iki = interKeyInterval, iki > 0, iki <= maxValidIKI else { return 1.0 }
+        if iki <= fastIKI { return fastReachScale }
+        if iki >= slowIKI { return slowReachScale }
+        let t = CGFloat((iki - fastIKI) / (slowIKI - fastIKI))
+        return fastReachScale + t * (slowReachScale - fastReachScale)
+    }
+
     /// The neighbouring letter this touch should type instead, or nil.
-    static func replacement(at point: CGPoint, touched: Key, neighbours: [Key], prior: () -> Prior?) -> Character? {
+    static func replacement(at point: CGPoint, touched: Key, neighbours: [Key],
+                            interKeyInterval: TimeInterval? = nil, prior: () -> Prior?) -> Character? {
         let near = neighbours
             .filter { $0.letter != touched.letter }
-            .compactMap { key in distance(from: point, to: key.body).map { (key.letter, $0) } }
+            .compactMap { key in distance(from: point, to: key.body, interKeyInterval: interKeyInterval).map { (key.letter, $0) } }
             .sorted { $0.1 < $1.1 }
         guard !near.isEmpty, let prior = prior(), prior(touched.letter) < implausible else { return nil }
         return near.first { prior($0.0) >= plausible }?.0
     }
 
     /// Normalized distance from a key's body, or nil when out of reach.
-    static func distance(from point: CGPoint, to body: CGRect) -> Double? {
+    static func distance(from point: CGPoint, to body: CGRect, interKeyInterval: TimeInterval? = nil) -> Double? {
         guard body.width > 0, body.height > 0 else { return nil }
-        let dx = max(0, abs(point.x - body.midX) - body.width / 2) / body.width / reach.width
-        let dy = max(0, abs(point.y - body.midY) - body.height / 2) / body.height / reach.height
+        let scale = reachScale(interKeyInterval: interKeyInterval)
+        let dx = max(0, abs(point.x - body.midX) - body.width / 2) / body.width / (reach.width * scale)
+        let dy = max(0, abs(point.y - body.midY) - body.height / 2) / body.height / (reach.height * scale)
         let value = Double(dx * dx + dy * dy)
         return value <= 1 ? value : nil
     }

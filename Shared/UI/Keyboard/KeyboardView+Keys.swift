@@ -388,6 +388,7 @@ extension KeyboardView {
         let item = symbol("delete.left", label: String(localized: "删除"), weight: weight) { [weak self] in
             guard let self else { return }
             guard self.hasDeletableContent else { return }
+            self.recordCalibrationBackspace()
             self.kanaToggle = nil
             self.apply(self.session.backspace())
         }

@@ -278,6 +278,8 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     var completionCache: (word: String, values: [String])?
     /// Whether an English spelling begins some word, for hit correction.
     var englishPrefixCache: [String: Bool] = [:]
+    var hitCalibration: KeyHitCalibration = .shared
+    var hitCalibrationTracker = HitCalibrationTracker()
     var autocapitalizationType: UITextAutocapitalizationType = .sentences {
         didSet { if oldValue != autocapitalizationType { updateAutoCapitalization() } }
     }
@@ -555,6 +557,11 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
             self.bringSubviewToFront(self.gestureHint)
         }
         keysContainer.letterPrior = { [weak self] held in self?.hitCorrectionPrior(held: held) }
+        keysContainer.letterModel = { [weak self] letter in
+            self?.hitCalibrationModel(for: letter)
+                ?? .init(dx: 0, dy: 0, varX: KeyHitCalibration.defaultVarX, varY: KeyHitCalibration.defaultVarY, weight: 0, count: 0)
+        }
+        keysContainer.onLetterTapComplete = { [weak self] outcome in self?.recordCalibratedLetterTap(outcome) }
         keysContainer.onCursorMove = { [weak self] x, y in
             guard let self else { return }
             self.session.finishLearningFeedback()
@@ -569,6 +576,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         keysContainer.onDeleteArmedChange = { [weak self] in self?.deletePrompt.armed = $0 }
         keysContainer.onDeleteLine = { [weak self] in
             guard let self else { return }
+            self.recordCalibrationBackspace(bulk: true)
             self.session.invalidateLearningFeedback()
             let edits = self.session.confirmAll()
             // The line's suggestions go with it.
@@ -819,7 +827,10 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
             panelLimit = 40
             panelScroll.setContentOffset(.zero, animated: false)
         }
-        if !edits.isEmpty { session.didApplyEdits(edits) }
+        if !edits.isEmpty {
+            session.didApplyEdits(edits)
+            recordCalibrationEdits(edits)
+        }
         KeyboardPerformance.record(.typeToMarked, since: session.takeInputTiming())
         refresh()
         if !edits.isEmpty { updateAutoCapitalization() }
@@ -866,6 +877,9 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
 
     func releaseInactiveResources() {
         setClipboardActive(false)
+        hitCalibrationTracker.pendingTaps.removeAll()
+        hitCalibrationTracker.deletedStack.removeAll()
+        hitCalibration.flushAsync()
         session.releaseInactiveResources()
         spareCandidateButtons.removeAll(keepingCapacity: false)
         sparePanelButtons.removeAll(keepingCapacity: false)

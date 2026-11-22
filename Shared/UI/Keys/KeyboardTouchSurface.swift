@@ -36,10 +36,24 @@ final class KeyboardTouchSurface: UIView {
         let cell: CGRect
     }
 
+    struct LetterTapOutcome {
+        let letter: Character
+        let rawLetter: Character
+        let point: CGPoint
+        let body: CGRect
+        let calibrationSwitched: Bool
+        let languageCorrected: Bool
+    }
+
     private struct Press {
         var key: KeyboardKey
         /// The key under the finger when hit correction chose another.
         var touched: KeyboardKey?
+        /// The uncalibrated geometric key before per-key calibration or language correction.
+        var rawLetter: Character?
+        var calibrationSwitched = false
+        var languageCorrected = false
+        var keyBody: CGRect = .zero
         let origin: CGPoint
         var swipe = KeySwipeSelection()
         var alternateLocked = false
@@ -54,6 +68,12 @@ final class KeyboardTouchSurface: UIView {
     /// How plausible each letter is after the input so far plus the letters
     /// of keys still held down (passed in press order); nil: no correction.
     var letterPrior: ((String) -> KeyHitCorrection.Prior?)?
+    /// Per-key calibrated anisotropic 2D Gaussian model; nil keeps exact geometric centers.
+    var letterModel: ((Character) -> KeyHitCalibration.EffectiveModel)?
+    /// Reported when a non-cancelled, non-alternate letter tap completes.
+    var onLetterTapComplete: ((LetterTapOutcome) -> Void)?
+    var pressNow: () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }
+    private var lastLetterDownAt: TimeInterval?
     private var interactionBounds = CGRect.null
     private var presses: [AnyHashable: Press] = [:]
     private var nextSequence = 0
@@ -75,11 +95,52 @@ final class KeyboardTouchSurface: UIView {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     func resolvedKey(at point: CGPoint) -> KeyboardKey? {
-        let eligible = regions.filter { $0.key.isEnabled && !$0.key.isHidden && $0.key.isUserInteractionEnabled }
+        resolvedRegion(at: point)?.key
+    }
+
+    private func resolvedRegion(
+        at point: CGPoint
+    ) -> (key: KeyboardKey, rawKey: KeyboardKey, body: CGRect, calibrated: Bool)? {
         // Visible key bodies are always anchored to their own key. Disjoint
         // cells split only the blank gaps at the adjacent edge midpoints.
-        return eligible.first { $0.body.contains(point) }?.key
-            ?? eligible.first { $0.cell.contains(point) }?.key
+        var bodyMatch: Region?
+        var cellMatch: Region?
+        for region in regions where region.key.isEnabled && !region.key.isHidden && region.key.isUserInteractionEnabled {
+            if region.body.contains(point) {
+                bodyMatch = region
+                break
+            }
+            if cellMatch == nil, region.cell.contains(point) {
+                cellMatch = region
+            }
+        }
+        guard let raw = bodyMatch ?? cellMatch else { return nil }
+        guard raw.key.correctionLetter != nil, let letterModel else {
+            return (raw.key, raw.key, raw.body, false)
+        }
+        // Keep taps inside the inner anchor zone (±0.35) of the painted keycap anchored to raw.
+        if KeyHitCalibration.isInRawKeyAnchorZone(point: point, body: raw.body) {
+            return (raw.key, raw.key, raw.body, false)
+        }
+
+        var anyCalibrated = false
+        var bestRegion: Region = raw
+        var bestSpatial = -Double.infinity
+        for candidate in regions where candidate.key.isEnabled && !candidate.key.isHidden && candidate.key.isUserInteractionEnabled {
+            guard let letter = candidate.key.correctionLetter,
+                  candidate.body.width > 0, candidate.body.height > 0,
+                  abs(point.x - candidate.body.midX) <= candidate.body.width * 1.15,
+                  abs(point.y - candidate.body.midY) <= candidate.body.height * 1.15 else { continue }
+            let model = letterModel(letter)
+            if model.weight > 0 { anyCalibrated = true }
+            let spatial = KeyHitCalibration.spatialLogLikelihood(point: point, body: candidate.body, model: model)
+            if spatial > bestSpatial {
+                bestSpatial = spatial
+                bestRegion = candidate
+            }
+        }
+        guard anyCalibrated else { return (raw.key, raw.key, raw.body, false) }
+        return (bestRegion.key, raw.key, bestRegion.body, bestRegion.key !== raw.key)
     }
 
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
@@ -96,14 +157,40 @@ final class KeyboardTouchSurface: UIView {
     // internally so geometry/lifecycle tests do not synthesize private UITouch.
     @discardableResult
     func beginPress(id: AnyHashable, at point: CGPoint) -> Bool {
-        guard gesture == nil, presses[id] == nil, let touched = resolvedKey(at: point) else {
+        guard gesture == nil, presses[id] == nil,
+              let resolved = resolvedRegion(at: point) else {
             KeyboardTouchDiagnostics.record("surface.touchDown", point: point, view: self, detail: "duplicate/unresolved")
             return false
         }
-        let key = correctedKey(touched, at: point)
+        let touched = resolved.key
+        let iki: TimeInterval?
+        if touched.correctionLetter != nil {
+            let downAt = pressNow()
+            if let last = lastLetterDownAt, downAt - last > 0, downAt - last <= KeyHitCorrection.maxValidIKI {
+                iki = downAt - last
+            } else {
+                iki = nil
+            }
+            lastLetterDownAt = downAt
+        } else {
+            iki = nil
+            lastLetterDownAt = nil
+        }
+        let key = correctedKey(touched, at: point, interKeyInterval: iki)
+        let langCorrected = key !== touched
+        let finalBody = regions.first(where: { $0.key === key })?.body ?? resolved.body
         KeyboardTouchDiagnostics.record("surface.touchDown", point: point, view: self, result: key,
-            detail: key === touched ? "" : "corrected from \(touched.correctionLetter.map(String.init) ?? "?")")
-        presses[id] = Press(key: key, touched: key === touched ? nil : touched, origin: point, sequence: nextSequence)
+            detail: key === resolved.rawKey ? "" : "corrected from \(resolved.rawKey.correctionLetter.map(String.init) ?? "?")")
+        presses[id] = Press(
+            key: key,
+            touched: key === resolved.rawKey ? nil : resolved.rawKey,
+            rawLetter: resolved.rawKey.correctionLetter,
+            calibrationSwitched: resolved.calibrated,
+            languageCorrected: langCorrected,
+            keyBody: finalBody,
+            origin: point,
+            sequence: nextSequence
+        )
         nextSequence += 1
         key.beginResolvedPress(deferRepeatingAction: key.repeats)
         if key.repeats { onDeleteArmedChange?(false) }
@@ -121,14 +208,22 @@ final class KeyboardTouchSurface: UIView {
     }
 
     /// A letter tap near a neighbour that continues the input better.
-    private func correctedKey(_ key: KeyboardKey, at point: CGPoint) -> KeyboardKey {
+    private func correctedKey(_ key: KeyboardKey, at point: CGPoint, interKeyInterval: TimeInterval? = nil) -> KeyboardKey {
         guard let letter = key.correctionLetter, let letterPrior,
               let body = regions.first(where: { $0.key === key })?.body else { return key }
+        let adjustedBody: (Character, CGRect) -> CGRect = { ch, rect in
+            guard let model = self.letterModel?(ch), model.weight > 0 else { return rect }
+            return rect.offsetBy(dx: CGFloat(model.dx) * rect.width, dy: CGFloat(model.dy) * rect.height)
+        }
         let neighbours = regions.filter {
             $0.key !== key && $0.key.correctionLetter != nil && $0.key.isEnabled && !$0.key.isHidden
         }
-        let choice = KeyHitCorrection.replacement(at: point, touched: .init(letter: letter, body: body),
-            neighbours: neighbours.map { .init(letter: $0.key.correctionLetter!, body: $0.body) }) {
+        let choice = KeyHitCorrection.replacement(
+            at: point,
+            touched: .init(letter: letter, body: adjustedBody(letter, body)),
+            neighbours: neighbours.map { .init(letter: $0.key.correctionLetter!, body: adjustedBody($0.key.correctionLetter!, $0.body)) },
+            interKeyInterval: interKeyInterval
+        ) {
             let held = self.presses.values.sorted { $0.sequence < $1.sequence }.compactMap(\.key.correctionLetter)
             return letterPrior(String(held))
         }
@@ -228,6 +323,17 @@ final class KeyboardTouchSurface: UIView {
     }
 
     private func finish(_ press: Press, cancelled: Bool) {
+        if !cancelled, !press.swipe.alternate, press.flick == .center,
+           let letter = press.key.correctionLetter, let rawLetter = press.rawLetter {
+            onLetterTapComplete?(LetterTapOutcome(
+                letter: letter,
+                rawLetter: rawLetter,
+                point: press.origin,
+                body: press.keyBody,
+                calibrationSwitched: press.calibrationSwitched,
+                languageCorrected: press.languageCorrected
+            ))
+        }
         let stillPressed = presses.values.contains { $0.key === press.key }
         press.key.finishResolvedPress(cancelled: cancelled, alternate: press.swipe.alternate,
             stillPressed: stillPressed, deferredRepeat: press.key.repeats, flick: press.flick)
