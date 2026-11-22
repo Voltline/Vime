@@ -67,7 +67,7 @@ nonisolated enum ChineseCandidateList {
             slots.insert(contentsOf: phrases.indices.map(Slot.phrase), at: 0)
         }
         if !specials.isEmpty {
-            slots.append(contentsOf: specials.indices.map(Slot.special))
+            slots.insert(contentsOf: specials.indices.map(Slot.special), at: min(1, slots.count))
         }
         return slots
     }

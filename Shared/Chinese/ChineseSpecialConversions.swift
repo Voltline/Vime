@@ -27,7 +27,7 @@ nonisolated enum ChineseSpecialConversions {
         func pattern(traditional: Bool) -> String {
             switch self {
             case .colon: "HH:mm"
-            case .chinese: traditional ? "H時m分" : "H时m分"
+            case .chinese: traditional ? "H時mm分" : "H时mm分"
             }
         }
     }
@@ -298,6 +298,6 @@ nonisolated enum ChineseSpecialConversions {
         let leap = (comps.isLeapMonth == true) ? (traditional ? "閏" : "闰") : ""
         let monthName = (traditional ? lunarMonthsTraditional : lunarMonths)[month - 1]
         let dayName = lunarDays[day - 1]
-        return "\(stem)\(branch)年\(leap)\(monthName)月\(dayName)日"
+        return "\(stem)\(branch)年\(leap)\(monthName)月\(dayName)"
     }
 }

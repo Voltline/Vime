@@ -49,11 +49,11 @@ final class ChineseSpecialConversionsTests: XCTestCase {
         )
         XCTAssertEqual(
             ChineseSpecialConversions.candidates(for: "shijian", now: now, options: .init(timeFormat: .chinese), timeZone: tz).map(\.text),
-            ["14时5分"]
+            ["14时05分"]
         )
         XCTAssertEqual(
             ChineseSpecialConversions.candidates(for: "sj", now: now, options: .init(timeFormat: .chinese, traditional: true), timeZone: tz).map(\.text),
-            ["14時5分"]
+            ["14時05分"]
         )
 
         // Weekday: xq/xingqi -> 星期日, zj/zhouji -> 周日 / 週日
@@ -74,11 +74,11 @@ final class ChineseSpecialConversionsTests: XCTestCase {
             ["週日"]
         )
 
-        // Lunar: full 干支年+月+日 format using Calendar(identifier: .chinese)
+        // Lunar: full 干支年+月+日 format (without trailing 日) using Calendar(identifier: .chinese)
         let lunar = ChineseSpecialConversions.candidates(for: "nl", now: now, timeZone: tz).map(\.text)
-        XCTAssertEqual(lunar, ["丙午年十月十四日"])
+        XCTAssertEqual(lunar, ["丙午年十月十四"])
         let lunarFull = ChineseSpecialConversions.candidates(for: "nongli", now: now, timeZone: tz).map(\.text)
-        XCTAssertEqual(lunarFull, ["丙午年十月十四日"])
+        XCTAssertEqual(lunarFull, ["丙午年十月十四"])
     }
 
     func testRMBUppercaseFormatting() {
@@ -96,7 +96,7 @@ final class ChineseSpecialConversionsTests: XCTestCase {
         XCTAssertEqual(ChineseSpecialConversions.formatRMBUppercase("1234.56", traditional: true), "壹仟貳佰參拾肆圓伍角陸分")
     }
 
-    func testSpecialCandidatesAlwaysFollowNormalCandidates() {
+    func testSpecialCandidatesAppearInSecondPositionAfterLead() {
         let slots = ChineseCandidateList.slots(
             rime: ["日期", "人群", "人气"],
             order: [0, 1, 2],
@@ -107,7 +107,32 @@ final class ChineseSpecialConversionsTests: XCTestCase {
             phrases: [],
             specials: ["2026年11月22日"]
         )
-        XCTAssertEqual(slots, [.rime(0), .rime(1), .rime(2), .special(0)])
+        XCTAssertEqual(slots, [.rime(0), .special(0), .rime(1), .rime(2)])
+    }
+
+    func testTypingRqPlacesDateInSecondCandidateSlot() throws {
+        guard let session = ChineseInputSession.bundled() else {
+            throw XCTSkip("Bundled Rime data unavailable")
+        }
+        session.specialConversionsNow = { self.fixedDate }
+        _ = session.type("r")
+        _ = session.type("q")
+
+        let exp = expectation(description: "rq candidates ready")
+        func poll() {
+            if session.candidatesAreCurrent && session.candidatePresentations.count >= 2 {
+                exp.fulfill()
+            } else {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: poll)
+            }
+        }
+        poll()
+        wait(for: [exp], timeout: 5.0)
+
+        let texts = session.candidatePresentations.map(\.text)
+        XCTAssertGreaterThanOrEqual(texts.count, 2)
+        XCTAssertNotEqual(texts[0], "2026年11月22日", "Date must not displace the top normal candidate")
+        XCTAssertEqual(texts[1], "2026年11月22日", "Date should appear in the 2nd slot right after the lead candidate")
     }
 
     func testVPrefixNumericModeInSessionAndNumberPageAcceptance() throws {
