@@ -698,6 +698,8 @@ final class ChineseInputSession: KeyboardInputSession {
         /// How much of what the last key's first sentence settled each
         /// sentence keeps.
         let kept: [Int: Double]
+        /// What the user picked after the same text before, by slot.
+        let personal: [Int: Double]
         /// The model's part may run past the window, to refine the list
         /// late (`late`); the lookup has no deadline.
         let model = ChineseCandidateRanking.Request(
@@ -708,9 +710,11 @@ final class ChineseInputSession: KeyboardInputSession {
         var missedWindow = false
         let startedAt = ProcessInfo.processInfo.systemUptime
         init(candidates: [RimeCandidate], run: Range<Int>, rimeOrder: [Int], slots: ChineseCandidateRanking.Slots,
-             splits: [[ChineseMixedInput.Segment]], context: String, scores: Bool, kept: [Int: Double]) {
+             splits: [[ChineseMixedInput.Segment]], context: String, scores: Bool, kept: [Int: Double],
+             personal: [Int: Double]) {
             (self.candidates, self.run, self.rimeOrder, self.slots) = (candidates, run, rimeOrder, slots)
             (self.splits, self.context, self.scores, self.kept) = (splits, context, scores, kept)
+            self.personal = personal
         }
         func cancel() { model.cancel(); lookup.cancel() }
     }
@@ -755,7 +759,9 @@ final class ChineseInputSession: KeyboardInputSession {
             return show(next.candidates, order: rimeOrder)
         }
         let round = Round(candidates: next.candidates, run: run, rimeOrder: rimeOrder, slots: slots,
-                          splits: splits, context: context, scores: warm, kept: kept(next, run: run))
+                          splits: splits, context: context, scores: warm, kept: kept(next, run: run),
+                          personal: warm ? ChineseCandidateRanking.personal(next.candidates, slots: slots,
+                                                                           before: personalContext) : [:])
         self.round = round
         rankingStartedAt = KeyboardPerformance.start()
         if warm {
@@ -874,7 +880,7 @@ final class ChineseInputSession: KeyboardInputSession {
         let mixedScores = scores.map { Array($0.dropFirst(count)) }
         let order = rimeScores.map {
             ChineseCandidateRanking.order(count: round.candidates.count, sentences: round.run, slots: round.slots, scores: $0,
-                                          kept: round.kept)
+                                          kept: round.kept, personal: round.personal)
         } ?? round.rimeOrder
         if scores != nil {
             KeyboardPerformance.record(.candidateModelUsed, since: KeyboardPerformance.start())
@@ -980,6 +986,10 @@ final class ChineseInputSession: KeyboardInputSession {
         let (chosen, input) = open
         return chosen + "\u{0}" + input
     }
+
+    /// The text before the caret with the text chosen so far, as the
+    /// personal ranking recorded what followed it (`receive`).
+    private var personalContext: String { (leftContextProvider?() ?? "") + open.chosen }
 
     /// The sentence before the caret, with the text chosen so far.
     private var modelContext: String {

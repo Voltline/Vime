@@ -42,6 +42,32 @@ final class ChineseCandidateRankingTests: XCTestCase {
                                                      scores: [-30, .nan, -40, -40]), [0, 4, 5, 6])
     }
 
+    func testWordsPickedAfterTheSameTextBeforeGainTheirBonus() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("ChineseRankingPersonal-" + UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let cache = ChinesePersonalRankingCache(directory: directory)
+        // After 我们一起, 指挥 was picked twice (once is not enough).
+        let words = [word("智慧", covers: true), word("指挥", covers: true), word("只会", covers: true)]
+        let slots = ChineseCandidateRanking.slots(words) { _ in true }
+        XCTAssertEqual(slots.others, [0, 1, 2])
+        cache.record(prevText: "我们一起", committed: "指挥", exclusionsActive: false)
+        XCTAssertEqual(ChineseCandidateRanking.personal(words, slots: slots, before: "我们一起", cache: cache), [:])
+        cache.record(prevText: "我们一起", committed: "指挥", exclusionsActive: false)
+        let personal = ChineseCandidateRanking.personal(words, slots: slots, before: "我们一起", cache: cache)
+        XCTAssertEqual(Array(personal.keys), [1])
+        XCTAssertEqual(ChineseCandidateRanking.personal(words, slots: slots, before: "明天", cache: cache), [:],
+                       "only after the same text")
+        func order(_ scores: [Double], personal: [Int: Double]) -> [Int] {
+            ChineseCandidateRanking.order(count: words.count, sentences: 0..<0, slots: slots, scores: scores, personal: personal)
+        }
+        // An edge for 指挥 too small to beat Rime's order: the habit adds to it.
+        XCTAssertEqual(order([-10, -9.2, -12], personal: [:]), [0, 1, 2])
+        XCTAssertEqual(order([-10, -9.2, -12], personal: personal), [1, 0, 2], "bonus \(personal)")
+        // A clear lead for the model stays.
+        XCTAssertEqual(order([-10, -16, -12], personal: personal), [0, 2, 1])
+    }
+
     func testSentencesKeepingTheLastLeadResistASmallEdge() {
         let run = ChineseCandidateRanking.sentenceRun(candidates)
         let slots = ChineseCandidateRanking.slots(candidates) { _ in true }

@@ -87,6 +87,18 @@ nonisolated enum ChineseCandidateRanking {
         return slots
     }
 
+    /// What the user picked after this context before: each slot's bonus
+    /// (ChinesePersonalRankingCache), the ones without left out.
+    static func personal(_ candidates: [RimeCandidate], slots: Slots, before prevText: String,
+                         cache: ChinesePersonalRankingCache = .shared) -> [Int: Double] {
+        var bonuses: [Int: Double] = [:]
+        for index in slots.all {
+            let bonus = cache.bonus(prevText: prevText, candidate: candidates[index].text)
+            if bonus > 0 { bonuses[index] = bonus }
+        }
+        return bonuses
+    }
+
     /// Rime's order, with only its first sentence.
     static func order(count: Int, sentences: Range<Int>) -> [Int] {
         Array(sentences.prefix(1)) + Array(sentences.upperBound..<max(count, sentences.upperBound))
@@ -96,13 +108,15 @@ nonisolated enum ChineseCandidateRanking {
     /// `slots.all`, in order. The best `shownSentences` of Rime's sentences
     /// lead; the best of them then competes with the other slots under
     /// `placePenalty`, and the other candidates keep their places. Sentences
-    /// in `kept` gain their share (0...1) of `keepBonus`.
+    /// in `kept` gain their share (0...1) of `keepBonus`; candidates in
+    /// `personal` add theirs (ChinesePersonalRankingCache.bonus, in log
+    /// probability) to the model's score.
     static func order(count: Int, sentences run: Range<Int>, slots: Slots, scores: [Double],
-                      kept: [Int: Double] = [:]) -> [Int] {
+                      kept: [Int: Double] = [:], personal: [Int: Double] = [:]) -> [Int] {
         let fallback = order(count: count, sentences: run)
         let all = slots.all
         guard all.count == scores.count, all.count > 1, scores.allSatisfy(\.isFinite) else { return fallback }
-        let score = Dictionary(uniqueKeysWithValues: zip(all, scores))
+        let score = Dictionary(uniqueKeysWithValues: zip(all, scores).map { ($0, $1 + (personal[$0] ?? 0)) })
         func ranked(_ indices: [Int], penalty: Double, bonus: [Int: Double] = [:]) -> [Int] {
             func value(_ place: Int) -> Double {
                 score[indices[place]]! - penalty * Double(place) + keepBonus * (bonus[indices[place]] ?? 0)
