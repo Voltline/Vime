@@ -409,6 +409,7 @@ struct KeyboardInputSettingsView: View {
     @AppStorage private var chineseDateFormat: String
     @AppStorage private var chineseTimeFormat: String
     @AppStorage private var chineseLayout: String
+    @AppStorage private var shuangpinScheme: String
     init() {
         let prefs = KeyboardPreferences()
         // The stored choices, not the effective values, which follow the other input method.
@@ -433,6 +434,7 @@ struct KeyboardInputSettingsView: View {
         _chineseDateFormat = AppStorage(wrappedValue: prefs.chineseDateFormat.rawValue, "vime.chineseDateFormat", store: prefs.store)
         _chineseTimeFormat = AppStorage(wrappedValue: prefs.chineseTimeFormat.rawValue, "vime.chineseTimeFormat", store: prefs.store)
         _chineseLayout = AppStorage(wrappedValue: prefs.chineseLayout.rawValue, "vime.chineseLayout", store: prefs.store)
+        _shuangpinScheme = AppStorage(wrappedValue: prefs.shuangpinScheme.rawValue, "vime.shuangpinScheme", store: prefs.store)
     }
 
     /// As KeyboardPreferences reads them: one input method always stays on.
@@ -500,14 +502,19 @@ struct KeyboardInputSettingsView: View {
                         if value { KeyboardPreferences().requestNeuralRetry() }
                     })) { Text("智能排序"); Text("用本地模型调整候选顺序") }
                         .accessibilityIdentifier("vime.settings.chineseLanguageModel")
-                    LabeledContent {
-                        Picker("键盘布局", selection: $chineseLayout) {
-                            Text("全键盘").tag(ChineseKeyboardLayout.fullPinyin.rawValue)
-                            Text("九宫格").tag(ChineseKeyboardLayout.nineKey.rawValue)
-                        }
-                        .pickerStyle(.segmented).fixedSize()
-                        .accessibilityIdentifier("vime.settings.chineseLayout")
-                    } label: { Text("键盘布局"); Text("九宫格用数字键输入拼音") }
+                    Picker(selection: $chineseLayout) {
+                        Text("全键盘").tag(ChineseKeyboardLayout.fullPinyin.rawValue)
+                        Text("九宫格").tag(ChineseKeyboardLayout.nineKey.rawValue)
+                        Text("双拼").tag(ChineseKeyboardLayout.shuangpin.rawValue)
+                    } label: { Text("键盘布局"); Text("九宫格用数字键输入拼音，双拼每字两键") }
+                    .accessibilityIdentifier("vime.settings.chineseLayout")
+                    if chineseLayout == ChineseKeyboardLayout.shuangpin.rawValue {
+                        Picker(selection: $shuangpinScheme) {
+                            Text("小鹤双拼").tag(ShuangpinScheme.flypy.rawValue)
+                            Text("自然码").tag(ShuangpinScheme.ziranma.rawValue)
+                        } label: { Text("双拼方案"); Text("键面标出各键的韵母") }
+                        .accessibilityIdentifier("vime.settings.shuangpinScheme")
+                    }
                     NavigationLink {
                         FuzzyPinyinSettingsView(retroflex: $fuzzyRetroflex, nasal: $fuzzyNasal, initials: $fuzzyInitials)
                     } label: {

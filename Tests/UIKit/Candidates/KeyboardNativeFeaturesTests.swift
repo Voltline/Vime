@@ -249,6 +249,30 @@ final class KeyboardNativeFeaturesTests: XCTestCase {
         XCTAssertEqual(edits, [.insert("1")], "Normal text keeps the digit editable until confirmation")
     }
 
+    func testEnglishTapsThePeriodBesideTheSpace() throws {
+        let session = KeyboardSession()
+        let keyboard = KeyboardView(frame: CGRect(x: 0, y: 0, width: 440, height: 350), session: session)
+        defer { keyboard.stopInteractions() }
+        var edits: [KeyboardEdit] = []; keyboard.onEdit = { edits += $0 }
+        func keys(_ view: UIView) -> [KeyboardKey] { (view as? KeyboardKey).map { [$0] } ?? view.subviews.flatMap(keys) }
+        func comma() throws -> KeyboardKey {
+            try XCTUnwrap(keys(keyboard).first { $0.accessibilityIdentifier == "vime.key.comma" })
+        }
+        XCTAssertEqual(try comma().title(for: .normal), ",")
+        try comma().action?()
+        XCTAssertEqual(edits.last, .insert(session.inputTraits.comma))
+        try XCTUnwrap(keys(keyboard).first { $0.accessibilityIdentifier == "vime.key.language" }).action?()
+        XCTAssertTrue(session.inputTraits.isEnglish)
+        XCTAssertEqual(try comma().title(for: .normal), ".")
+        XCTAssertEqual(try comma().hint, ",")
+        try comma().action?()
+        XCTAssertEqual(edits.last, .insert("."))
+        try comma().alternateAction?()
+        XCTAssertEqual(edits.last, .insert(","), "the comma is on the swipe")
+        try XCTUnwrap(keys(keyboard).first { $0.accessibilityIdentifier == "vime.key.language" }).action?()
+        XCTAssertEqual(try comma().title(for: .normal), ",", "back to the comma")
+    }
+
     func testLatinFieldsTypeEnglishAndGiveTheLanguageBack() throws {
         let session = KeyboardSession()
         let keyboard = KeyboardView(frame: CGRect(x: 0, y: 0, width: 440, height: 350), session: session)

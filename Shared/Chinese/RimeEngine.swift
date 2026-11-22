@@ -83,9 +83,10 @@ nonisolated final class RimeEngine: @unchecked Sendable {
         /// Fuzzy pinyin, through the schema built for these groups; an open
         /// composition is looked up again.
         case setFuzzy(FuzzyPinyin)
-        /// The nine-key schema, where digits 2–9 spell pinyin; fuzzy pinyin
-        /// then does not apply. An open composition is dropped.
-        case setNineKey(Bool)
+        /// A schema for another layout in place of pinyin (nine-key, 双拼),
+        /// or nil for pinyin; fuzzy pinyin then does not apply. An open
+        /// composition is dropped.
+        case setLayoutSchema(String?)
         /// Replaces the input with `input` and selects its candidate whose
         /// simplified text is `text`; nothing changes when there is none.
         case selectSpelling(input: String, text: String)
@@ -127,7 +128,7 @@ nonisolated final class RimeEngine: @unchecked Sendable {
     /// Selected again on every new session, which starts with vime_pinyin.
     private var fuzzy = FuzzyPinyin()
     /// Selected again on every new session in place of the pinyin schema.
-    private var nineKey = false
+    private var layoutSchema: String?
     /// Rime's index for each candidate the last state shows.
     private var shown: [Int] = []
     /// A second session for looking up other spellings, so the one being
@@ -351,9 +352,9 @@ nonisolated final class RimeEngine: @unchecked Sendable {
             // A new schema starts with options off and nothing typed.
             selectSchema()
             lookUpAgain(input)
-        case .setNineKey(let value):
-            guard value != nineKey else { break }
-            nineKey = value
+        case .setLayoutSchema(let value):
+            guard value != layoutSchema else { break }
+            layoutSchema = value
             selectSchema()
         }
         var state = snapshot()
@@ -383,9 +384,9 @@ nonisolated final class RimeEngine: @unchecked Sendable {
     }
 
     private func selectSchema() {
-        // A missing nine-key schema (older data) leaves pinyin.
-        if nineKey, !vime_rime_select_schema(session, Self.nineKeySchema) { nineKey = false }
-        if nineKey {
+        // A missing layout schema (older data) leaves pinyin.
+        if let layoutSchema, !vime_rime_select_schema(session, layoutSchema) { self.layoutSchema = nil }
+        if layoutSchema != nil {
             vime_rime_set_option(session, "traditionalization", traditional)
             return
         }

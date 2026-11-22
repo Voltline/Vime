@@ -2063,30 +2063,30 @@
         }
       }
     },
-    "九宫格用数字键输入拼音" : {
+    "九宫格用数字键输入拼音，双拼每字两键" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "9-key types pinyin on the number keys"
+            "value" : "9-key types pinyin on the number keys; Shuangpin types each character with two keys"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "9キーは数字キーでピンインを入力します"
+            "value" : "9キーは数字キーでピンインを、双拼は1字を2キーで入力します"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "9키는 숫자 키로 병음을 입력합니다"
+            "value" : "9키는 숫자 키로 병음을, 쌍병은 한 글자를 두 키로 입력합니다"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "九宮格用數字鍵輸入拼音"
+            "value" : "九宮格用數字鍵輸入拼音，雙拼每字兩鍵"
           }
         }
       }
@@ -4845,6 +4845,62 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "去啟用"
+          }
+        }
+      }
+    },
+    "双拼" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shuangpin"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "双拼"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "쌍병"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "雙拼"
+          }
+        }
+      }
+    },
+    "双拼方案" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shuangpin Scheme"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "双拼方式"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "쌍병 방식"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "雙拼方案"
           }
         }
       }
@@ -10236,6 +10292,34 @@
         }
       }
     },
+    "小鹤双拼" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Xiaohe"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "小鶴双拼"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "소학 쌍병"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "小鶴雙拼"
+          }
+        }
+      }
+    },
     "拼音和标点" : {
       "localizations" : {
         "en" : {
@@ -14297,6 +14381,34 @@
         }
       }
     },
+    "自然码" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ziranma"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自然碼"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "자연마"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自然碼"
+          }
+        }
+      }
+    },
     "若不希望每次确认，可在“设置 → App → Vime → 从其他 App 粘贴”中选择“允许”。如果弹窗显示的是当前使用的 App，请检查该 App 的对应设置。选项通常在首次请求后出现，名称和位置以系统显示为准。" : {
       "localizations" : {
         "en" : {
@@ -16963,6 +17075,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "鍵盤高度"
+          }
+        }
+      }
+    },
+    "键面标出各键的韵母" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keys show the finals they type"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "キーに韻母を表示します"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "키에 운모를 표시합니다"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "鍵面標出各鍵的韻母"
           }
         }
       }

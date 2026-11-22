@@ -159,8 +159,11 @@ extension KeyboardView {
         returnKey = nil
         numberBackKey = nil
         nineKeyBreakKey = nil
+        punctuationKey = nil
         kanaLayoutActive = usesKanaLayout
         chineseNineKeyActive = usesChineseNineKey
+        shuangpinActive = wantedShuangpin
+        shuangpinHints = shuangpinActive?.keyHints
         kanaToggle = nil
         if kanaLayoutActive {
             buildKanaKeys()
@@ -196,6 +199,7 @@ extension KeyboardView {
                     item.0.correctionLetter = character
                     let swipeSymbol = swipeSymbol(for: value)
                     item.0.hint = swipeSymbol
+                    item.0.footnote = shuangpinHints?[character]
                     item.0.alternateTitle = swipeSymbol
                     item.0.alternateAction = { [weak self] in
                         guard let self, let swipeSymbol else { return }
@@ -312,13 +316,15 @@ extension KeyboardView {
         emoji.0.accessibilityIdentifier = "vime.key.emoji"
         bottom.append(emoji)
         // An email or web address field gets @ or / where the comma is; the
-        // period stays on the swipe.
+        // period stays on the swipe. English taps the period and swipes the
+        // comma (refreshPunctuationKey).
         let fieldSymbol: String? = switch latinField { case .email: "@"; case .url: "/"; default: nil }
         let letterSymbol = fieldSymbol ?? ","
         let comma = key(page == .letters ? letterSymbol : String(localized: "符号"), utility: page != .letters, weight: 1) { [weak self] in
             guard let self else { return }
             if self.page != .letters { self.openSymbolPanel(mode: .symbols); return }
-            self.apply(self.session.insertLiteral(fieldSymbol ?? self.session.inputTraits.comma))
+            let traits = self.session.inputTraits
+            self.apply(self.session.insertLiteral(fieldSymbol ?? (traits.isEnglish ? "." : traits.comma)))
         }
         comma.0.accessibilityIdentifier = page == .letters ? (fieldSymbol == nil ? "vime.key.comma" : "vime.key.field-symbol") : "vime.key.symbols"
         comma.0.hint = page == .letters ? "°" : nil
@@ -327,8 +333,11 @@ extension KeyboardView {
         comma.0.alternateTitle = page == .letters ? period : nil
         comma.0.alternateAction = { [weak self] in
             guard let self else { return }
-            self.apply(self.session.insertLiteral(fieldSymbol == nil ? self.session.inputTraits.period : "."))
+            let traits = self.session.inputTraits
+            self.apply(self.session.insertLiteral(fieldSymbol == nil ? (traits.isEnglish ? "," : traits.period) : "."))
         }
+        punctuationKey = page == .letters && fieldSymbol == nil ? comma.0 : nil
+        refreshPunctuationKey()
         bottom.append(comma)
         let space = key("", weight: 1) { [weak self] in self?.space() }
         space.0.feedback = { [weak self] in self?.playFeedback(.utility) }
@@ -461,6 +470,19 @@ extension KeyboardView {
         case .join: String(localized: "加入")
         default: String(localized: "换行")
         }
+    }
+
+    /// The key beside the space: English taps the ASCII period, which it
+    /// uses more, and swipes the comma; the other languages the reverse.
+    func refreshPunctuationKey() {
+        guard let key = punctuationKey else { return }
+        let traits = session.inputTraits
+        let title = traits.isEnglish ? "." : ","
+        guard key.title(for: .normal) != title else { return }
+        key.setTitle(title, for: .normal)
+        key.accessibilityLabel = title
+        key.hint = traits.isEnglish ? "," : "°"
+        key.alternateTitle = traits.isEnglish ? "," : traits.period
     }
 
     func updateKeyLabels() {

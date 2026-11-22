@@ -113,6 +113,8 @@ extension KeyboardView {
         view.onLiveConversionChange = { [weak self] in self?.reloadPreferences() }
         view.showsInputLanguage = quickSwitchLanguage != nil
         view.onInputLanguageChange = { [weak self] in self?.switchInputLanguage(to: $0) }
+        view.showsChineseLayout = session is ChineseInputSession
+        view.onChineseLayoutChange = { [weak self] in self?.reloadPreferences() }
         view.onRetryNeural = { [weak self] in
             guard let self else { return }
             self.preferences.requestNeuralRetry()

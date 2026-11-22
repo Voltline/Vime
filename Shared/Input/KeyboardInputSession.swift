@@ -129,8 +129,9 @@ protocol KeyboardInputSession: AnyObject {
     func setChineseLanguageModel(_ enabled: Bool)
     /// Chinese mode also reads these similar sounds (zi for zhi).
     func setFuzzyPinyin(_ groups: FuzzyPinyin)
-    /// Chinese mode reads digits 2–9 as pinyin on the nine-key pad.
-    func setChineseLayout(_ layout: ChineseKeyboardLayout)
+    /// Chinese mode reads digits 2–9 as pinyin on the nine-key pad, or
+    /// two keys a syllable in the 双拼 scheme.
+    func setChineseLayout(_ layout: ChineseKeyboardLayout, shuangpin: ShuangpinScheme)
     /// Chinese: show the corrected pinyin on a typo correction.
     func setCorrectionSpellingHints(_ enabled: Bool)
     /// The conversion just committed, which the toolbar offers to reconvert.
@@ -165,7 +166,7 @@ extension KeyboardInputSession {
     func setTraditionalChinese(_ enabled: Bool) {}
     func setChineseLanguageModel(_ enabled: Bool) {}
     func setFuzzyPinyin(_ groups: FuzzyPinyin) {}
-    func setChineseLayout(_ layout: ChineseKeyboardLayout) {}
+    func setChineseLayout(_ layout: ChineseKeyboardLayout, shuangpin: ShuangpinScheme) {}
     func setCorrectionSpellingHints(_ enabled: Bool) {}
     func setSpecialConversionFormats(date: ChineseSpecialConversions.DateFormat, time: ChineseSpecialConversions.TimeFormat) {}
     func acceptsCompositionSymbol(_ text: String) -> Bool { false }

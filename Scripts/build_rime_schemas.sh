@@ -17,7 +17,7 @@ python3 - "$work" <<'PY'
 import pathlib, sys
 work = pathlib.Path(sys.argv[1])
 names = sorted(p.name.removesuffix(".schema.yaml") for p in work.glob("vime_pinyin_fuzzy*.schema.yaml"))
-names.append("vime_t9")
+names += ["vime_t9", "vime_shuangpin_flypy", "vime_shuangpin_ziranma"]
 default = work / "default.yaml"
 anchor = "  - schema: vime_pinyin\n"
 default.write_text(default.read_text().replace(anchor, anchor + "".join(f"  - schema: {n}\n" for n in names), 1))

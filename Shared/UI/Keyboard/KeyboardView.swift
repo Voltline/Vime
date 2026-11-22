@@ -64,7 +64,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         session.setTraditionalChinese(next.traditionalChinese)
         session.setChineseLanguageModel(next.chineseLanguageModel)
         session.setFuzzyPinyin(next.fuzzyPinyin)
-        session.setChineseLayout(next.chineseLayout)
+        session.setChineseLayout(next.chineseLayout, shuangpin: next.shuangpinScheme)
         session.setCorrectionSpellingHints(next.correctionSpellingHints)
         session.setSpecialConversionFormats(date: next.chineseDateFormat, time: next.chineseTimeFormat)
         applyNeuralRetry()
@@ -156,7 +156,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         session.setTraditionalChinese(preferences.traditionalChinese)
         session.setChineseLanguageModel(preferences.chineseLanguageModel)
         session.setFuzzyPinyin(preferences.fuzzyPinyin)
-        session.setChineseLayout(preferences.chineseLayout)
+        session.setChineseLayout(preferences.chineseLayout, shuangpin: preferences.shuangpinScheme)
         session.setCorrectionSpellingHints(preferences.correctionSpellingHints)
         session.setSpecialConversionFormats(date: preferences.chineseDateFormat, time: preferences.chineseTimeFormat)
         session.setLiveConversion(preferences.liveConversion)
@@ -384,6 +384,8 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     var letterKeys: [KeyboardKey] = []
     var shiftKey: KeyboardKey?
     var spaceKey: KeyboardKey?
+    /// The comma key beside the space on the letter keys, outside address fields.
+    var punctuationKey: KeyboardKey?
     var languageKey: KeyboardKey?
     var languageSwitchGuard: LanguageSwitchGuard = .shared
     private var pendingLanguageTouchContext: KeyboardTouchSurface.LanguageKeyTouchContext?
@@ -402,6 +404,14 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     var syllableRail: KeyboardNumberSymbolRail?
     /// The nine-key pad's 1 key: punctuation, or a syllable break while typing.
     var nineKeyBreakKey: KeyboardKey?
+    /// The 双拼 scheme whose finals the letter keys should show.
+    var wantedShuangpin: ShuangpinScheme? {
+        page == .letters && preferences.chineseLayout == .shuangpin && session.inputTraits.language == .chinese
+            ? preferences.shuangpinScheme : nil
+    }
+    /// The 双拼 scheme the current letter keys show, and their hints.
+    var shuangpinActive: ShuangpinScheme?
+    var shuangpinHints: [Character: String]?
     /// Rows laid out as the number pad: a rail beside three rows of keys.
     var padGridActive: Bool { usesNumberPad || chineseNineKeyActive }
     /// Japanese input on the flick pad; English keeps QWERTY.

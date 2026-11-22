@@ -100,3 +100,96 @@ final class KeyboardChineseNineKeyTests: XCTestCase {
         }
     }
 }
+
+@MainActor
+final class KeyboardShuangpinTests: XCTestCase {
+    private static let user = FileManager.default.temporaryDirectory
+        .appendingPathComponent("KeyboardShuangpinTests-\(UUID().uuidString)")
+    private var suites: [String] = []
+
+    override func tearDown() {
+        for suite in suites { UserDefaults.standard.removePersistentDomain(forName: suite) }
+        suites = []
+        super.tearDown()
+    }
+
+    private func descendants(_ view: UIView) -> [UIView] { [view] + view.subviews.flatMap(descendants) }
+
+    private func key(_ id: String, in keyboard: KeyboardView) throws -> KeyboardKey {
+        try XCTUnwrap(descendants(keyboard).first { $0.accessibilityIdentifier == id } as? KeyboardKey, id)
+    }
+
+    func testLetterKeysShowTheSchemeFinals() throws {
+        let suite = "VimeShuangpinTests." + UUID().uuidString
+        suites.append(suite)
+        let preferences = KeyboardPreferences(defaults: UserDefaults(suiteName: suite)!)
+        preferences.chineseLanguageModel = false
+        preferences.chineseLayout = .shuangpin
+        let data = try XCTUnwrap(RimeEngine.bundledData, "RimeData.bundle is not bundled")
+        let session = ChineseInputSession(engine: RimeEngine(data: data, userDirectory: Self.user))
+        let keyboard = KeyboardView(frame: CGRect(x: 0, y: 0, width: 440, height: 350), session: session, preferences: preferences)
+        keyboard.frame.size.height = keyboard.preferredHeight(for: 440)
+        keyboard.layoutIfNeeded()
+        XCTAssertFalse(keyboard.chineseNineKeyActive, "QWERTY")
+        XCTAssertEqual(try key("vime.key.c", in: keyboard).footnote, "ao")
+        XCTAssertEqual(try key("vime.key.v", in: keyboard).footnote, "zh ui")
+        XCTAssertNil(try key("vime.key.a", in: keyboard).footnote)
+        let image = UIGraphicsImageRenderer(bounds: keyboard.bounds).image { keyboard.layer.render(in: $0.cgContext) }
+        if let directory = ProcessInfo.processInfo.environment["VIME_SNAPSHOT_DIR"] {
+            try? image.pngData()?.write(to: URL(fileURLWithPath: directory).appendingPathComponent("shuangpin.png"))
+        }
+        preferences.shuangpinScheme = .ziranma
+        keyboard.refresh()
+        XCTAssertEqual(try key("vime.key.c", in: keyboard).footnote, "iao")
+        _ = session.toggleEnglish()
+        keyboard.refresh()
+        XCTAssertNil(try key("vime.key.c", in: keyboard).footnote, "English shows no finals")
+        _ = session.toggleEnglish()
+        preferences.chineseLayout = .fullPinyin
+        keyboard.refresh()
+        XCTAssertNil(try key("vime.key.c", in: keyboard).footnote)
+    }
+
+    func testTheKeyboardSettingsSwitchTheLayout() throws {
+        let suite = "VimeShuangpinTests." + UUID().uuidString
+        suites.append(suite)
+        let preferences = KeyboardPreferences(defaults: UserDefaults(suiteName: suite)!)
+        preferences.chineseLanguageModel = false
+        let data = try XCTUnwrap(RimeEngine.bundledData, "RimeData.bundle is not bundled")
+        let session = ChineseInputSession(engine: RimeEngine(data: data, userDirectory: Self.user))
+        let keyboard = KeyboardView(frame: CGRect(x: 0, y: 0, width: 440, height: 350), session: session, preferences: preferences)
+        keyboard.frame.size.height = keyboard.preferredHeight(for: 440)
+        keyboard.layoutIfNeeded()
+        keyboard.toggleSettings()
+        keyboard.layoutIfNeeded()
+        let control = try XCTUnwrap(descendants(keyboard).first { $0.accessibilityIdentifier == "vime.setting.chineseLayout" } as? UISegmentedControl)
+        XCTAssertEqual(control.selectedSegmentIndex, 0)
+        control.selectedSegmentIndex = 2
+        control.sendActions(for: .valueChanged)
+        XCTAssertEqual(preferences.chineseLayout, .shuangpin)
+        keyboard.layoutIfNeeded()
+        if let panel = control.superview(of: UIScrollView.self) {
+            panel.scrollRectToVisible(control.convert(control.bounds, to: panel), animated: false)
+        }
+        if let directory = ProcessInfo.processInfo.environment["VIME_SNAPSHOT_DIR"] {
+            let image = UIGraphicsImageRenderer(bounds: keyboard.bounds).image { keyboard.layer.render(in: $0.cgContext) }
+            try? image.pngData()?.write(to: URL(fileURLWithPath: directory).appendingPathComponent("settings-panel.png"))
+        }
+        keyboard.toggleSettings()
+        keyboard.layoutIfNeeded()
+        XCTAssertEqual(try key("vime.key.c", in: keyboard).footnote, "ao")
+        keyboard.toggleSettings()
+        control.selectedSegmentIndex = 1
+        control.sendActions(for: .valueChanged)
+        keyboard.toggleSettings()
+        keyboard.layoutIfNeeded()
+        XCTAssertTrue(keyboard.chineseNineKeyActive)
+        let rail = try XCTUnwrap(keyboard.syllableRail)
+        let right = try key("vime.nineKey.retype", in: keyboard)
+        XCTAssertEqual(rail.frame.width, right.frame.width, accuracy: 0.5, "the rail is as wide as the right column")
+    }
+}
+
+private extension UIView {
+    func superview<T: UIView>(of type: T.Type) -> T? { superview.flatMap { $0 as? T ?? $0.superview(of: type) } }
+}

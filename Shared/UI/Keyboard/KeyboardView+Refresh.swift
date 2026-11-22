@@ -53,10 +53,12 @@ extension KeyboardView {
         // Any switch between Japanese and English (language key, mode button,
         // host keyboard type) swaps the flick pad and QWERTY.
         if !rebuildingKeys && page == .letters
-            && (kanaLayoutActive != usesKanaLayout || chineseNineKeyActive != usesChineseNineKey) { rebuildKeys(); return }
+            && (kanaLayoutActive != usesKanaLayout || chineseNineKeyActive != usesChineseNineKey
+                || shuangpinActive != wantedShuangpin) { rebuildKeys(); return }
         let traits = session.inputTraits
         let composing = session.isComposing
         refreshLanguageKey(traits)
+        refreshPunctuationKey()
         refreshToolbar(traits, composing: composing)
         refreshCandidateStrip()
         refreshPanels(composing: composing)
@@ -97,6 +99,7 @@ extension KeyboardView {
         if panel == .settings {
             settingsPanel?.showsOneHanded = !pad && !compact
             settingsPanel?.showsLiveConversion = !(session is ChineseInputSession)
+            settingsPanel?.showsChineseLayout = session is ChineseInputSession
             settingsPanel?.update(hasFullAccess: hasFullAccess, neuralPaused: neuralPaused)
         }
         header.isHidden = state.hidesHeader

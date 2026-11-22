@@ -95,9 +95,10 @@ struct KeyboardMetrics {
     }
 
     func numberPadFrame(row: Int, column: Int) -> CGRect {
-        // Digits occupy the central 3 × 3 grid; utilities flank it.
-        let positions: [CGFloat] = [5, 90, 184, 278, 372]
-        let widths: [CGFloat] = [79, 88, 88, 88, 63]
+        // Digits occupy the central 3 × 3 grid; utilities flank it in
+        // columns of one width, as on the kana pad.
+        let positions: [CGFloat] = [5, 74, 173.3, 272.7, 372]
+        let widths: [CGFloat] = [63, 93.3, 93.3, 93.3, 63]
         return stretched(CGRect(x: positions[column] * width / 440, y: headerHeight + CGFloat(row) * rowStep,
                                 width: widths[column] * width / 440, height: keyHeight))
     }

@@ -39,6 +39,9 @@ final class KeyboardKey: UIButton {
     private var touchOrigin = CGPoint.zero
     let hintLabel = UILabel()
     var hint: String? { didSet { hintLabel.text = hint; setNeedsLayout() } }
+    /// A second hint under the title, such as a 双拼 key's finals.
+    let footnoteLabel = UILabel()
+    var footnote: String? { didSet { footnoteLabel.text = footnote; setNeedsLayout() } }
     private var usedAlternate = false
     var repeats = false
     var isUtility = false
@@ -125,6 +128,12 @@ final class KeyboardKey: UIButton {
         hintLabel.textAlignment = .center
         hintLabel.isUserInteractionEnabled = false
         addSubview(hintLabel)
+        footnoteLabel.font = .systemFont(ofSize: 9)
+        footnoteLabel.textAlignment = .center
+        footnoteLabel.adjustsFontSizeToFitWidth = true
+        footnoteLabel.minimumScaleFactor = 0.6
+        footnoteLabel.isUserInteractionEnabled = false
+        addSubview(footnoteLabel)
         setTitleColor(KeyboardPalette.text, for: .normal)
         tintColor = KeyboardPalette.text
         if let title { setTitle(title, for: .normal); accessibilityLabel = title }
@@ -162,7 +171,13 @@ final class KeyboardKey: UIButton {
         applyAccessibilityAppearance()
         updateShadowPath()
         hintLabel.frame = CGRect(x: 0, y: 2, width: bounds.width, height: 11)
-        if hint != nil { titleLabel?.center.y = bounds.height * 0.59 }
+        footnoteLabel.frame = CGRect(x: 1, y: bounds.height - 13, width: max(0, bounds.width - 2), height: 11)
+        switch (hint != nil, footnote != nil) {
+        case (true, true): titleLabel?.center.y = bounds.height * 0.5
+        case (true, false): titleLabel?.center.y = bounds.height * 0.59
+        case (false, true): titleLabel?.center.y = bounds.height * 0.42
+        case (false, false): break
+        }
         imageView?.isHidden = hasSkinArtwork
         titleLabel?.isHidden = hasSkinArtwork
         titleLabel?.alpha = hasSkinArtwork ? 0 : 1
@@ -198,7 +213,11 @@ final class KeyboardKey: UIButton {
                 bringSubviewToFront(label)
             }
             hintLabel.isHidden = true
-        } else { hintLabel.isHidden = false }
+            footnoteLabel.isHidden = true
+        } else {
+            hintLabel.isHidden = false
+            footnoteLabel.isHidden = footnote == nil
+        }
         layoutFlickLabels()
     }
 
@@ -373,6 +392,7 @@ final class KeyboardKey: UIButton {
         layer.borderWidth = contrast ? 1 : 0
         layer.borderColor = contrast ? KeyboardPalette.text.withAlphaComponent(0.5).resolvedColor(with: traitCollection).cgColor : nil
         hintLabel.textColor = contrast ? KeyboardPalette.text.withAlphaComponent(0.75) : UIColor(white: 0.63, alpha: 1)
+        footnoteLabel.textColor = contrast ? KeyboardPalette.text.withAlphaComponent(0.8) : KeyboardPalette.accent
     }
 
     override func accessibilityActivate() -> Bool {

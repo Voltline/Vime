@@ -18,6 +18,9 @@ final class KeyboardSettingsPanel: UIScrollView {
     private static let languages: [KeyboardInputLanguage] = [.japanese, .chinese]
     private let inputLanguage = UISegmentedControl(items: [String(localized: "日语"), String(localized: "简体中文")])
     private var inputLanguageGroup: UIView?
+    private static let chineseLayouts = ChineseKeyboardLayout.allCases
+    private let chineseLayout = UISegmentedControl(items: [String(localized: "全键盘"), String(localized: "九宫格"), String(localized: "双拼")])
+    private var chineseLayoutGroup: UIView?
     private var numberChoices: [UIButton] = []
     private let notice = UILabel()
     private let neuralStatus = UILabel()
@@ -44,6 +47,9 @@ final class KeyboardSettingsPanel: UIScrollView {
     var onOneHandedChange: (() -> Void)?
     var onLiveConversionChange: (() -> Void)?
     var onInputLanguageChange: ((KeyboardInputLanguage) -> Void)?
+    var onChineseLayoutChange: (() -> Void)?
+    /// The Chinese key plane, for the Chinese keyboard only.
+    var showsChineseLayout = false { didSet { chineseLayoutGroup?.isHidden = !showsChineseLayout } }
     /// Only a keyboard that follows the stored language with Rime data bundled.
     var showsInputLanguage = false { didSet { inputLanguageGroup?.isHidden = !showsInputLanguage } }
     /// One-handed mode applies to an upright iPhone only.
@@ -184,6 +190,19 @@ final class KeyboardSettingsPanel: UIScrollView {
         }, for: .valueChanged)
         let oneHandedGroup = group(tile(symbol: "keyboard.onehanded.left", title: String(localized: "单手模式"), control: oneHanded))
         self.oneHandedGroup = oneHandedGroup
+        chineseLayout.accessibilityLabel = String(localized: "键盘布局")
+        chineseLayout.accessibilityIdentifier = "vime.setting.chineseLayout"
+        chineseLayout.setContentHuggingPriority(.required, for: .horizontal)
+        chineseLayout.addAction(UIAction { [weak self] _ in
+            guard let self, Self.chineseLayouts.indices.contains(self.chineseLayout.selectedSegmentIndex) else { return }
+            self.preferences.chineseLayout = Self.chineseLayouts[self.chineseLayout.selectedSegmentIndex]
+            self.onChineseLayoutChange?()
+        }, for: .valueChanged)
+        let chineseLayoutGroup = group(row(symbol: "keyboard", content: [label(String(localized: "键盘布局")), chineseLayout],
+            height: 48, adaptive: true))
+        chineseLayoutGroup.isHidden = !showsChineseLayout
+        self.chineseLayoutGroup = chineseLayoutGroup
+        stack.addArrangedSubview(chineseLayoutGroup)
         stack.addArrangedSubview(pair(numbersGroup, oneHandedGroup))
 
         inputLanguage.accessibilityLabel = String(localized: "输入语言"); inputLanguage.accessibilityIdentifier = "vime.setting.inputLanguage"
@@ -241,6 +260,7 @@ final class KeyboardSettingsPanel: UIScrollView {
         updateNumberSelection()
         oneHanded.selectedSegmentIndex = KeyboardOneHandedSide.allCases.firstIndex(of: preferences.oneHanded) ?? 0
         inputLanguage.selectedSegmentIndex = Self.languages.firstIndex(of: preferences.inputLanguage) ?? 0
+        chineseLayout.selectedSegmentIndex = Self.chineseLayouts.firstIndex(of: preferences.chineseLayout) ?? 0
         if !haptics.isAdjusting {
             haptics.setIntensity(preferences.hapticIntensity)
             hapticValue.text = HapticIntensity.description(preferences.hapticIntensity)
@@ -272,6 +292,9 @@ final class KeyboardSettingsPanel: UIScrollView {
         inputLanguage.selectedSegmentTintColor = numbers.selectedSegmentTintColor
         inputLanguage.setTitleTextAttributes(numbers.titleTextAttributes(for: .normal), for: .normal)
         inputLanguage.setTitleTextAttributes(numbers.titleTextAttributes(for: .selected), for: .selected)
+        chineseLayout.selectedSegmentTintColor = numbers.selectedSegmentTintColor
+        chineseLayout.setTitleTextAttributes(numbers.titleTextAttributes(for: .normal), for: .normal)
+        chineseLayout.setTitleTextAttributes(numbers.titleTextAttributes(for: .selected), for: .selected)
         updateNumberSelection()
     }
     private func updateNumberSelection() {

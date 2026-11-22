@@ -272,7 +272,7 @@ final class RimeEngineMetricsTests: XCTestCase {
         let before = footprint()
         let engine = RimeEngine(data: try XCTUnwrap(RimeEngine.bundledData), userDirectory: user)
         // Rime starts on the first command, which for nine-key selects its schema.
-        let setup = nineKey ? engine.sendAndWait(.setNineKey(true)).duration : .zero
+        let setup = nineKey ? engine.sendAndWait(.setLayoutSchema(RimeEngine.nineKeySchema)).duration : .zero
         let cold = setup + engine.sendAndWait(.type(nineKey ? "6" : "n")).duration
         let afterStart = footprint()
         _ = engine.sendAndWait(.clear)
