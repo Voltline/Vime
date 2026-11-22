@@ -330,6 +330,7 @@ extension KeyboardView {
         bottom.append(space)
         let language = key("", weight: 1) { [weak self] in
             guard let self else { return }
+            guard self.consumeLanguageSwitchGuardDecision().shouldToggleLanguage else { return }
             self.apply(self.session.toggleEnglish())
             self.restoresLanguageAfterLatinField = false
             self.shifted = false

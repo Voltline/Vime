@@ -125,4 +125,69 @@ final class KeyboardTactilePhase1Tests: XCTestCase {
         XCTAssertEqual(KeyboardTextNavigation.trailingWordDeletionCount(in: "你好\n"), 1)
         XCTAssertEqual(KeyboardTextNavigation.trailingWordDeletionCount(in: "ok!"), 1)
     }
+
+    func testLanguageSwitchGuardShadowModeAndQuickRevert() {
+        let guardEngine = LanguageSwitchGuard(directory: nil)
+        guardEngine.observationLoggingEnabled = false
+        // Default shadow mode: recommends suppress on fast left-edge graze, but still allows toggle.
+        XCTAssertFalse(guardEngine.enforcementEnabled)
+
+        // Programmatic / direct action (nil context) always passes cleanly.
+        let direct = guardEngine.evaluate(context: nil)
+        XCTAssertTrue(direct.shouldToggleLanguage)
+        XCTAssertEqual(direct.reason, .directAction)
+
+        // Fast left-edge tap right after a letter -> shadow recommendation is suppress, effective is allow.
+        let graze = guardEngine.evaluate(context: .init(
+            dx: -0.35, dy: 0.0, ikiSinceLastLetter: 0.14, hasOtherHeldKey: false, isComposing: true, timestamp: 10.0
+        ))
+        XCTAssertEqual(graze.recommendation, .suppress)
+        XCTAssertEqual(graze.effectiveDecision, .allow)
+        XCTAssertEqual(graze.reason, .leftEdgeFast)
+        XCTAssertTrue(graze.shouldToggleLanguage)
+
+        // User reverts within 1.8 s -> counted as quick_revert ground truth.
+        let revert = guardEngine.evaluate(context: .init(
+            dx: 0.0, dy: 0.0, ikiSinceLastLetter: nil, hasOtherHeldKey: false, isComposing: false, timestamp: 10.9
+        ))
+        XCTAssertEqual(revert.recommendation, .allow)
+        XCTAssertEqual(guardEngine.quickRevertCount, 1)
+
+        // Composing alone after a 2-second pause (nil IKI) on left edge must NOT be flagged.
+        let deliberate = guardEngine.evaluate(context: .init(
+            dx: -0.35, dy: 0.0, ikiSinceLastLetter: nil, hasOtherHeldKey: false, isComposing: true, timestamp: 15.0
+        ))
+        XCTAssertEqual(deliberate.recommendation, .allow)
+        XCTAssertEqual(deliberate.reason, .normal)
+    }
+
+    func testLanguageSwitchGuardEnforcementOverrideAndUnretriedCount() {
+        let guardEngine = LanguageSwitchGuard(directory: nil)
+        guardEngine.observationLoggingEnabled = false
+        guardEngine.enforcementEnabled = true
+
+        // 1. Rolling overlap suppresses first tap; immediate retry within 1.0 s overrides & allows.
+        let first = guardEngine.evaluate(context: .init(
+            dx: 0.0, dy: 0.0, ikiSinceLastLetter: 0.30, hasOtherHeldKey: true, isComposing: false, timestamp: 20.0
+        ))
+        XCTAssertFalse(first.shouldToggleLanguage)
+        XCTAssertEqual(first.reason, .rollingOverlap)
+
+        let retry = guardEngine.evaluate(context: .init(
+            dx: 0.0, dy: 0.0, ikiSinceLastLetter: 0.10, hasOtherHeldKey: true, isComposing: false, timestamp: 20.6
+        ))
+        XCTAssertTrue(retry.shouldToggleLanguage)
+        XCTAssertEqual(retry.effectiveDecision, .overrideAllow)
+        XCTAssertEqual(retry.reason, .doubleTapOverride)
+        XCTAssertEqual(guardEngine.overrideAllowCount, 1)
+
+        // 2. Suppressed fast top-edge tap followed by other typing (> 1.8 s later) counts as unretried_suppress.
+        let topGraze = guardEngine.evaluate(context: .init(
+            dx: 0.0, dy: -0.30, ikiSinceLastLetter: 0.15, hasOtherHeldKey: false, isComposing: false, timestamp: 30.0
+        ))
+        XCTAssertFalse(topGraze.shouldToggleLanguage)
+        XCTAssertEqual(topGraze.reason, .fastEdge)
+        guardEngine.noteOtherActivity(at: 32.5)
+        XCTAssertEqual(guardEngine.unretriedSuppressCount, 1)
+    }
 }

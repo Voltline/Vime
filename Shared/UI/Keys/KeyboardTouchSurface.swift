@@ -16,6 +16,20 @@ final class KeyboardTouchSurface: UIView {
     var onDeleteLine: (() -> Void)?
     var onDeletePressChange: ((Bool) -> Void)?
     var onDeleteArmedChange: ((Bool) -> Void)?
+    /// Captures touch geometry & timing for language-switch taps before action fires,
+    /// without altering the key resolution or calibration path.
+    struct LanguageKeyTouchContext: Equatable, Sendable {
+        let dx: Double
+        let dy: Double
+        let ikiSinceLastLetter: TimeInterval?
+        let hasOtherHeldKey: Bool
+        let timestamp: TimeInterval
+    }
+    var onLanguageKeyPressContext: ((LanguageKeyTouchContext) -> Void)?
+    var onAnyNonLanguageKeyDown: ((TimeInterval) -> Void)?
+    private var lastLetterTouchDownAt: TimeInterval?
+    private var pendingLanguageContexts: [AnyHashable: LanguageKeyTouchContext] = [:]
+    var languageGuardNow: () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }
     struct Region {
         let key: KeyboardKey
         let body: CGRect
@@ -94,6 +108,7 @@ final class KeyboardTouchSurface: UIView {
         key.beginResolvedPress(deferRepeatingAction: key.repeats)
         if key.repeats { onDeleteArmedChange?(false) }
         spaceTimer?.invalidate(); spaceTimer = nil
+        recordLanguageGuardTouchDown(id: id, key: key, at: point)
         if key.accessibilityIdentifier == "vime.key.space", presses.count == 1 {
             let timer = Timer(timeInterval: 0.35, repeats: false) { [weak self] _ in
                 guard let self, self.presses.count == 1, self.gesture == nil,
@@ -204,6 +219,10 @@ final class KeyboardTouchSurface: UIView {
         KeyboardTouchDiagnostics.record("surface.touchUp", point: point, view: self, result: press.key,
             detail: "cancelled=\(cancelled) draggedAway=\(draggedAway) alternate=\(press.swipe.alternate)")
         releaseStartedAt = releaseTime
+        let langContext = pendingLanguageContexts.removeValue(forKey: id)
+        if !cancelled && !draggedAway, let langContext {
+            onLanguageKeyPressContext?(langContext)
+        }
         finish(press, cancelled: cancelled || draggedAway)
         releaseStartedAt = nil
     }
@@ -224,10 +243,37 @@ final class KeyboardTouchSurface: UIView {
         KeyboardTouchDiagnostics.record("surface.cancelAll", view: self, detail: "active=\(presses.count)")
         let active = Array(presses.values)
         presses.removeAll()
+        pendingLanguageContexts.removeAll()
         spaceTimer?.invalidate(); spaceTimer = nil
         deleteArmed = false; onDeletePressChange?(false)
         if gesture != nil { gesture = nil; gestureOwner = nil; onGestureChange?(nil) }
         for press in active { finish(press, cancelled: true) }
+    }
+
+    private func recordLanguageGuardTouchDown(id: AnyHashable, key: KeyboardKey, at point: CGPoint) {
+        let ts = languageGuardNow()
+        if key.accessibilityIdentifier == "vime.key.language" {
+            let body = regions.first(where: { $0.key === key })?.body ?? key.frame
+            let w = max(1, Double(body.width))
+            let h = max(1, Double(body.height))
+            let dx = (Double(point.x) - Double(body.midX)) / w
+            let dy = (Double(point.y) - Double(body.midY)) / h
+            let iki = lastLetterTouchDownAt.flatMap { prev -> TimeInterval? in
+                let dt = ts - prev
+                return (dt >= 0 && dt <= 2.0) ? dt : nil
+            }
+            let hasOtherHeldKey = presses.count > 1
+            pendingLanguageContexts[id] = LanguageKeyTouchContext(
+                dx: dx, dy: dy, ikiSinceLastLetter: iki, hasOtherHeldKey: hasOtherHeldKey, timestamp: ts
+            )
+        } else {
+            if key.correctionLetter != nil || key.flickOutputs != nil {
+                lastLetterTouchDownAt = ts
+            } else {
+                lastLetterTouchDownAt = nil
+            }
+            onAnyNonLanguageKeyDown?(ts)
+        }
     }
 
     private func startGesture(_ value: Gesture, owner: AnyHashable, at point: CGPoint) {
