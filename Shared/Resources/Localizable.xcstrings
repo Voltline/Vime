@@ -10516,6 +10516,34 @@
         }
       }
     },
+    "暂时使用 V1，稍后会自动重试" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Using V1 for now; V2 will be retried automatically"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一時的に V1 を使用中。後で自動的に再試行します"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "일시적으로 V1을 사용 중이며, 잠시 후 자동으로 다시 시도합니다"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "暫時使用 V1，稍後會自動重試"
+          }
+        }
+      }
+    },
     "暂时无法读取学到的词，请稍后再试。" : {
       "localizations" : {
         "en" : {

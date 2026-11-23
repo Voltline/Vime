@@ -28,7 +28,10 @@ struct AboutVimeView: View {
             }
             AppInformationSection("本地模型") {
                 Text("Vime 日语模型 V\(VimeLanguageModel.Variant.runtimeDefault.displayVersion)")
-                Text("Vime 中文模型 V\(ChineseLanguageModel.displayVersion)")
+                Text("Vime 中文模型 V\(ChineseLanguageModel.configuredVersion.displayVersion)")
+                if ChineseLanguageModel.effectiveVersion != ChineseLanguageModel.configuredVersion {
+                    Text("暂时使用 V1，稍后会自动重试").foregroundStyle(.secondary)
+                }
                 Text("用于候选排序和下一词联想，在设备上运行。")
             }
         }
