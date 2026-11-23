@@ -253,7 +253,7 @@ extension KeyboardView {
                 rows.append(values.map { value in
                     if value == "删除" { return deleteKey(weight: 1) }
                     if value == "表情" {
-                        let item = symbol("face.smiling", label: String(localized: "表情"), weight: 1) { [weak self] in self?.toggleEmoji() }
+                        let item = symbol("face.smiling", label: String(localized: "表情"), weight: 1) { [weak self] in self?.tapEmojiKey() }
                         item.0.accessibilityIdentifier = "vime.number.emoji"
                         return item
                     }
@@ -326,7 +326,7 @@ extension KeyboardView {
         }]
         // Back to the letters stands out like the number pad's return (refreshActionKeys).
         if page != .letters { numberBackKey = bottom[0].0 }
-        let emoji = symbol("face.smiling", label: String(localized: "表情"), weight: 1) { [weak self] in self?.toggleEmoji() }
+        let emoji = symbol("face.smiling", label: String(localized: "表情"), weight: 1) { [weak self] in self?.tapEmojiKey() }
         emoji.0.accessibilityIdentifier = "vime.key.emoji"
         bottom.append(emoji)
         // An email or web address field gets @ or / where the comma is; the

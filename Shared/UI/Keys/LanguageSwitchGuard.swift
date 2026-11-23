@@ -49,6 +49,8 @@ nonisolated final class LanguageSwitchGuard: @unchecked Sendable {
         let reason: Reason
         /// True when the UI should proceed with toggling the language.
         var shouldToggleLanguage: Bool { effectiveDecision != .suppress }
+        /// True when a guarded key other than the language key should act.
+        var shouldAct: Bool { shouldToggleLanguage }
     }
 
     static let shared = LanguageSwitchGuard()

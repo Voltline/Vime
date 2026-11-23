@@ -209,6 +209,41 @@ final class KeyboardTactilePhase1Tests: XCTestCase {
         XCTAssertTrue(retried.shouldToggleLanguage)
     }
 
+    func testEmojiKeyIgnoresAGrazeWhileTypingButOpensOnRetryOrACalmTap() throws {
+        let keyboard = KeyboardView(frame: CGRect(x: 0, y: 0, width: 390, height: 260),
+                                    session: KeyboardSession(),
+                                    preferences: KeyboardPreferences())
+        keyboard.layoutIfNeeded()
+        func all(_ view: UIView) -> [UIView] { [view] + view.subviews.flatMap(all) }
+        let surface = try XCTUnwrap(all(keyboard).compactMap { $0 as? KeyboardTouchSurface }.first)
+        var clock: TimeInterval = 50
+        surface.languageGuardNow = { clock }
+        let x = try XCTUnwrap(surface.regions.first { $0.key.accessibilityIdentifier == "vime.key.x" })
+        let emoji = try XCTUnwrap(surface.regions.first { $0.key.accessibilityIdentifier == "vime.key.emoji" })
+        let letter = CGPoint(x: x.body.midX, y: x.body.midY)
+        let graze = CGPoint(x: emoji.body.midX, y: emoji.body.minY + 2)
+        func tap(_ id: Int, _ point: CGPoint) { XCTAssertTrue(surface.beginPress(id: id, at: point)); surface.endPress(id: id, at: point) }
+
+        // Its top edge right after a letter: a graze from the row above.
+        tap(1, letter); clock += 0.12
+        tap(2, graze)
+        XCTAssertNotEqual(keyboard.panel, .symbols)
+        // Tapping again at once means it: the panel opens.
+        clock += 0.4
+        tap(3, graze)
+        XCTAssertEqual(keyboard.panel, .symbols)
+
+        // A calm tap after typing opens it the first time.
+        keyboard.panel = .keyboard
+        keyboard.layoutIfNeeded()
+        let calm = try XCTUnwrap(surface.regions.first { $0.key.accessibilityIdentifier == "vime.key.emoji" })
+        let letterAgain = try XCTUnwrap(surface.regions.first { $0.key.accessibilityIdentifier == "vime.key.x" })
+        clock += 5
+        tap(4, CGPoint(x: letterAgain.body.midX, y: letterAgain.body.midY)); clock += 0.6
+        tap(5, CGPoint(x: calm.body.midX, y: calm.body.midY))
+        XCTAssertEqual(keyboard.panel, .symbols)
+    }
+
     func testSendReturnKeyDropsAccentWhenFieldEmptyButStaysPressable() {
         let keyboard = KeyboardView(frame: CGRect(x: 0, y: 0, width: 390, height: 260),
                                     session: KeyboardSession(),

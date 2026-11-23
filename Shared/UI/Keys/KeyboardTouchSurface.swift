@@ -19,9 +19,11 @@ final class KeyboardTouchSurface: UIView {
     var onDeleteLine: (() -> Void)?
     var onDeletePressChange: ((Bool) -> Void)?
     var onDeleteArmedChange: ((Bool) -> Void)?
-    /// Captures touch geometry & timing for language-switch taps before action fires,
-    /// without altering the key resolution or calibration path.
+    /// Captures touch geometry & timing for taps on the guarded bottom-row keys
+    /// (language and emoji) before the action fires, without altering the key
+    /// resolution or calibration path.
     struct LanguageKeyTouchContext: Equatable, Sendable {
+        let keyIdentifier: String
         let dx: Double
         let dy: Double
         let ikiSinceLastLetter: TimeInterval?
@@ -29,6 +31,9 @@ final class KeyboardTouchSurface: UIView {
         let timestamp: TimeInterval
     }
     var onLanguageKeyPressContext: ((LanguageKeyTouchContext) -> Void)?
+    /// Keys whose taps the accidental-tap guard judges. Their X is measured
+    /// toward the space bar: the language key's left edge, the emoji key's right.
+    static let guardedKeyMirrorsX: [String: Bool] = ["vime.key.language": false, "vime.key.emoji": true, "vime.number.emoji": true]
     var onAnyNonLanguageKeyDown: ((TimeInterval) -> Void)?
     private var lastLetterTouchDownAt: TimeInterval?
     private var pendingLanguageContexts: [AnyHashable: LanguageKeyTouchContext] = [:]
@@ -361,11 +366,11 @@ final class KeyboardTouchSurface: UIView {
 
     private func recordLanguageGuardTouchDown(id: AnyHashable, key: KeyboardKey, at point: CGPoint) {
         let ts = languageGuardNow()
-        if key.accessibilityIdentifier == "vime.key.language" {
+        if let identifier = key.accessibilityIdentifier, let mirrors = Self.guardedKeyMirrorsX[identifier] {
             let body = regions.first(where: { $0.key === key })?.body ?? key.frame
             let w = max(1, Double(body.width))
             let h = max(1, Double(body.height))
-            let dx = (Double(point.x) - Double(body.midX)) / w
+            let dx = (Double(point.x) - Double(body.midX)) / w * (mirrors ? -1 : 1)
             let dy = (Double(point.y) - Double(body.midY)) / h
             let iki = lastLetterTouchDownAt.flatMap { prev -> TimeInterval? in
                 let dt = ts - prev
@@ -373,7 +378,7 @@ final class KeyboardTouchSurface: UIView {
             }
             let hasOtherHeldKey = presses.count > 1
             pendingLanguageContexts[id] = LanguageKeyTouchContext(
-                dx: dx, dy: dy, ikiSinceLastLetter: iki, hasOtherHeldKey: hasOtherHeldKey, timestamp: ts
+                keyIdentifier: identifier, dx: dx, dy: dy, ikiSinceLastLetter: iki, hasOtherHeldKey: hasOtherHeldKey, timestamp: ts
             )
         } else {
             if key.correctionLetter != nil || key.flickOutputs != nil {
