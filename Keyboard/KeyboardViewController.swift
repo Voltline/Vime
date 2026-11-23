@@ -13,6 +13,12 @@ class KeyboardViewController: UIInputViewController {
     private var knownSelected: String?
     private var isApplyingEdits = false
     private var clipboardVisible = false
+    /// Between viewWillAppear and viewDidDisappear. Outside it UIKit may have
+    /// torn down the proxy's connection, and reading it crashed in
+    /// _UITextDocumentInterface; late candidate deliveries read it then.
+    private var hostAttached = false
+    /// The proxy while the host is attached.
+    private var attachedProxy: UITextDocumentProxy? { hostAttached ? textDocumentProxy : nil }
     private var partialCommitReceipt: KeyboardPartialCommitReceipt?
     private var consumedLineContext: KeyboardUndoAnchor?
     private static let documentIdentifierSelector = NSSelectorFromString("documentIdentifier")
@@ -44,24 +50,22 @@ class KeyboardViewController: UIInputViewController {
         keyboard.inputModeListAction = #selector(switchInputMode(_:event:))
         keyboard.inputModeListTarget = self
         keyboard.leftContextProvider = { [weak self] in
-            guard let self else { return nil }
-            var left = self.textDocumentProxy.documentContextBeforeInput
+            guard let self, let proxy = self.attachedProxy else { return nil }
+            var left = proxy.documentContextBeforeInput
             if let mark = self.host.markedText, left?.hasSuffix(mark) == true {
                 left = left.map { String($0.dropLast(mark.count)) }
             }
             return left
         }
         keyboard.learningContextProvider = { [weak self] in
-            guard let self else { return nil }
-            let proxy = self.textDocumentProxy
+            guard let self, let proxy = self.attachedProxy else { return nil }
             return KeyboardLearningContext(document: self.documentIdentity(proxy),
                 before: self.keyboard.leftContextProvider?(), after: proxy.documentContextAfterInput,
                 hasSelection: proxy.selectedText?.isEmpty == false)
         }
-        keyboard.selectedTextProvider = { [weak self] in self?.textDocumentProxy.selectedText }
+        keyboard.selectedTextProvider = { [weak self] in self?.attachedProxy?.selectedText }
         keyboard.deletionAvailabilityProvider = { [weak self] in
-            guard let self else { return false }
-            let proxy = self.textDocumentProxy
+            guard let proxy = self?.attachedProxy else { return false }
             if proxy.selectedText?.isEmpty == false { return true }
             if let before = proxy.documentContextBeforeInput { return !before.isEmpty }
             // Some hosts redact context. Preserve deletion when UIKit reports
@@ -69,8 +73,7 @@ class KeyboardViewController: UIInputViewController {
             return proxy.hasText
         }
         keyboard.documentHasTextProvider = { [weak self] in
-            guard let self else { return false }
-            let proxy = self.textDocumentProxy
+            guard let proxy = self?.attachedProxy else { return false }
             if proxy.selectedText?.isEmpty == false { return true }
             let before = proxy.documentContextBeforeInput
             let after = proxy.documentContextAfterInput
@@ -93,9 +96,9 @@ class KeyboardViewController: UIInputViewController {
             self?.openApp(KeyboardAppLinks.settings, title: String(localized: "打开 App 设置"),
                 message: String(localized: "请打开 Vime App，点击底部的“设置”。"))
         }
-        NotificationCenter.default.addObserver(self, selector: #selector(pauseClipboard),
+        NotificationCenter.default.addObserver(self, selector: #selector(hostWillResignActive),
             name: .NSExtensionHostWillResignActive, object: nil)
-        NotificationCenter.default.addObserver(self, selector: #selector(resumeClipboard),
+        NotificationCenter.default.addObserver(self, selector: #selector(hostDidBecomeActive),
             name: .NSExtensionHostDidBecomeActive, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(hostDidEnterBackground),
             name: .NSExtensionHostDidEnterBackground, object: nil)
@@ -121,6 +124,9 @@ class KeyboardViewController: UIInputViewController {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        hostAttached = true
+        // Before the clear below, which is the first command of this showing.
+        RimeEngine.reopenUserDictionaries()
         keyboard.reloadPreferences()
         (view as? KeyboardInputView)?.attachKeyboard(keyboard)
         requestSupplementaryLexicon { [weak self] lexicon in
@@ -196,6 +202,7 @@ class KeyboardViewController: UIInputViewController {
 
     override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
+        hostAttached = false
         keyboard.releaseInactiveResources()
         Self.closeSharedFiles()
         if let input = view as? KeyboardInputView {
@@ -218,16 +225,24 @@ class KeyboardViewController: UIInputViewController {
         lifecycleLog.notice("Keyboard \(event, privacy: .public); pid=\(ProcessInfo.processInfo.processIdentifier) instance=\(instance, privacy: .public) liveControllers=\(Self.liveControllers.allObjects.count) age=\(seconds)s footprint=\(VimeLanguageModel.footprintMB())MB")
     }
 
-    @objc private func pauseClipboard() { keyboard.setClipboardActive(false) }
-    @objc private func resumeClipboard() {
-        guard clipboardVisible, isViewLoaded, view.window != nil else { return }
+    /// The app switcher, Control Center and the like: the host may be
+    /// suspended next, and the extension with it, so the dictionary closes
+    /// now rather than on DidEnterBackground, which can come too late.
+    @objc private func hostWillResignActive() {
+        keyboard.setClipboardActive(false)
+        Self.closeSharedFiles()
+    }
+    @objc private func hostDidBecomeActive() {
+        guard hostAttached, isViewLoaded, view.window != nil else { return }
+        RimeEngine.reopenUserDictionaries()
+        guard clipboardVisible else { return }
         keyboard.reloadPreferences()
         keyboard.setClipboardActive(true)
     }
 
     @objc private func hostDidEnterBackground() { Self.closeSharedFiles() }
     @objc private func hostWillEnterForeground() {
-        guard isViewLoaded, view.window != nil else { return }
+        guard hostAttached, isViewLoaded, view.window != nil else { return }
         RimeEngine.reopenUserDictionaries()
     }
 

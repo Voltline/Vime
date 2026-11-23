@@ -59,6 +59,13 @@ nonisolated struct RimeState: Sendable, Equatable {
 /// One engine owns one Rime session; Rime itself starts once per process.
 nonisolated final class RimeEngine: @unchecked Sendable {
     enum Command: Sendable, Equatable {
+        /// A key the user pressed, which only a showing keyboard sends.
+        var isKeystroke: Bool {
+            switch self {
+            case .type, .backspace, .select, .space, .commitInput, .commitComposition: true
+            default: false
+            }
+        }
         /// Letters, an apostrophe as a syllable break.
         case type(String)
         case backspace
@@ -131,6 +138,9 @@ nonisolated final class RimeEngine: @unchecked Sendable {
     private var layoutSchema: String?
     /// Rime's index for each candidate the last state shows.
     private var shown: [Int] = []
+    /// The split spelling of a lone vowel-led syllable (PinyinVowelSplit)
+    /// and the candidates it added after Rime's own, by their text.
+    private var split: (spelling: String, texts: [String])?
     /// A second session for looking up other spellings, so the one being
     /// typed keeps its composition and selections.
     private var lookupSession: VimeRimeSession = 0
@@ -140,6 +150,12 @@ nonisolated final class RimeEngine: @unchecked Sendable {
     /// Set when `closeUserDictionaries` ended this engine's session, with the
     /// composition then, which the next session takes up.
     private var reopens = false
+    /// Set when the user dictionaries close for the background and cleared
+    /// when the keyboard shows again. Meanwhile only a key the user pressed
+    /// opens them: a late command (a clear, a setting) must not, or the
+    /// suspended extension holds the LevelDB lock and iOS kills it.
+    /// Touched only on `queue`.
+    nonisolated(unsafe) private static var heldClosed = false
     private var closedInput: String?
 
     /// `userDirectory` holds the user dictionary. The first engine in a
@@ -181,6 +197,7 @@ nonisolated final class RimeEngine: @unchecked Sendable {
             for engine in engines.allObjects { engine.sessionsWillClose(start: startCount) }
             vime_rime_destroy_all_sessions()
             startCount += 1
+            heldClosed = true
         }
     }
 
@@ -188,6 +205,7 @@ nonisolated final class RimeEngine: @unchecked Sendable {
     /// the next key.
     static func reopenUserDictionaries() {
         queue.async {
+            heldClosed = false
             for engine in engines.allObjects where engine.reopens { _ = engine.prepare(checkingReset: false) }
         }
     }
@@ -258,7 +276,7 @@ nonisolated final class RimeEngine: @unchecked Sendable {
 
     private func continuations(_ word: String, code: String, limit: Int) -> [RimeContinuation] {
         // Arriving after the dictionaries closed for the background, it must not open them.
-        guard !reopens, prepare(checkingReset: false) else { return [] }
+        guard !reopens, !(Self.heldClosed && session == 0), prepare(checkingReset: false) else { return [] }
         var raw = vime_rime_continuations(session, word, code, Int32(limit), traditional)
         defer { vime_rime_continuations_free(&raw) }
         return (0..<Int(raw.count)).map { index in
@@ -289,7 +307,7 @@ nonisolated final class RimeEngine: @unchecked Sendable {
     }
 
     private func lookUp(_ spelling: String, limit: Int) -> [RimeCandidate] {
-        guard !reopens, prepare(checkingReset: false) else { return [] }
+        guard !reopens, !(Self.heldClosed && session == 0), prepare(checkingReset: false) else { return [] }
         if lookupSession == 0 || lookupStart != sessionStart {
             lookupSession = vime_rime_create_session()
             lookupStart = sessionStart
@@ -310,6 +328,10 @@ nonisolated final class RimeEngine: @unchecked Sendable {
     private func run(_ command: Command) -> RimeState {
         let clock = ContinuousClock()
         let start = clock.now
+        if Self.heldClosed, session == 0 || sessionStart != Self.currentStart, !command.isKeystroke {
+            holdWhileClosed(command)
+            return RimeState(duration: clock.now - start)
+        }
         // The keyboard clears on every show, a cheap moment to look for a reset.
         guard prepare(checkingReset: command == .clear) else { return RimeState(duration: clock.now - start) }
         switch command {
@@ -320,6 +342,7 @@ nonisolated final class RimeEngine: @unchecked Sendable {
         case .backspace: _ = vime_rime_process_key(session, 0xFF08, 0)
         case .select(let index):
             if shown.indices.contains(index) { _ = vime_rime_select_candidate(session, shown[index]) }
+            else if index >= shown.count { selectSplit(index - shown.count) }
         case .space:
             // A hidden first candidate is not what Space should take.
             if let first = shown.first, first != 0, vime_rime_is_composing(session) {
@@ -381,6 +404,21 @@ nonisolated final class RimeEngine: @unchecked Sendable {
         reopens = false
         closedInput = nil
         return true
+    }
+
+    /// What a command that may not open the dictionaries leaves for the
+    /// session that opens them next.
+    private func holdWhileClosed(_ command: Command) {
+        switch command {
+        case .clear: closedInput = nil
+        case .setInput(let input): closedInput = input.isEmpty ? nil : input
+        case .setCandidateLimit(let value): limit = max(1, value)
+        case .setTraditional(let value): traditional = value
+        case .setFuzzy(let value): fuzzy = value
+        case .setLayoutSchema(let value):
+            if value != layoutSchema { layoutSchema = value; closedInput = nil }
+        case .type, .backspace, .select, .space, .commitInput, .commitComposition, .finishLearning, .selectSpelling: break
+        }
     }
 
     private func selectSchema() {
@@ -461,9 +499,35 @@ nonisolated final class RimeEngine: @unchecked Sendable {
     }
 
     private func snapshot() -> RimeState {
-        let (state, shown) = Self.snapshot(session, limit: limit)
+        var (state, shown) = Self.snapshot(session, limit: limit)
         self.shown = shown
+        split = nil
+        // Rime drops a split that leaves letters no syllable starts (e + i)
+        // or reads more weakly (e + n), so ei or en alone list only their
+        // few own characters; what the shorter syllable starts follows them.
+        if layoutSchema == nil, state.candidates.count < limit, state.preedit == state.input,
+           let spelling = PinyinVowelSplit.spelling(for: state.input) {
+            var seen = Set(state.candidates.map(\.text))
+            let extra = lookUp(spelling, limit: limit - state.candidates.count).filter { seen.insert($0.text).inserted }
+            if !extra.isEmpty {
+                split = (spelling, extra.map(\.genuine))
+                state.candidates += extra.map { var candidate = $0; candidate.coversInput = false; return candidate }
+            }
+        }
         return state
+    }
+
+    /// Spells the input as `split` and chooses its candidate `text` there.
+    private func selectSplit(_ index: Int) {
+        guard let split, split.texts.indices.contains(index) else { return }
+        let original = currentInput()
+        _ = vime_rime_set_input(session, split.spelling)
+        let (state, shown) = Self.snapshot(session, limit: limit)
+        if let found = state.candidates.firstIndex(where: { $0.genuine == split.texts[index] }) {
+            _ = vime_rime_select_candidate(session, shown[found])
+        } else if let original {
+            _ = vime_rime_set_input(session, original)
+        }
     }
 
     /// The session's state and Rime's index for each candidate it shows.

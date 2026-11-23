@@ -22,6 +22,29 @@ final class RimeEngineTests: XCTestCase {
         XCTAssertNil(engine.sendAndWait(.clear).commit)
     }
 
+    func testLoneVowelSyllablesAlsoListWhatTheirShorterStartSpells() throws {
+        XCTAssertEqual(PinyinVowelSplit.spelling(for: "ei"), "e'i")
+        XCTAssertEqual(PinyinVowelSplit.spelling(for: "en"), "e'n")
+        XCTAssertEqual(PinyinVowelSplit.spelling(for: "ang"), "an'g")
+        for input in ["e", "shang", "nihao", "xyz", "e'i"] { XCTAssertNil(PinyinVowelSplit.spelling(for: input), input) }
+
+        let engine = try engine()
+        let typed = engine.sendAndWait(.type("ei"))
+        let texts = typed.candidates.map(\.text)
+        XCTAssertEqual(texts.first, "诶", "the syllable's own characters come first")
+        let hungry = try XCTUnwrap(texts.firstIndex(of: "饿"), "e's characters follow: \(texts)")
+        XCTAssertGreaterThan(hungry, try XCTUnwrap(texts.firstIndex(of: "欸")))
+        XCTAssertFalse(typed.candidates[hungry].coversInput)
+        let chosen = engine.sendAndWait(.select(hungry))
+        XCTAssertEqual(chosen.preedit, "饿i", "the rest stays to type on")
+        _ = engine.sendAndWait(.clear)
+
+        let en = engine.sendAndWait(.type("en")).candidates.map(\.text)
+        XCTAssertEqual(Array(en.prefix(2)), ["嗯", "恩"])
+        XCTAssertTrue(en.contains("恶念") && en.contains("饿"), "e then n follows: \(en)")
+        _ = engine.sendAndWait(.clear)
+    }
+
     func testCompletionAddsAtMostTwoCharacters() throws {
         XCTAssertEqual(RimeEngine.syllableCount("zhong g d t"), 4)
         XCTAssertEqual(RimeEngine.syllableCount("你好 ma"), 1)
@@ -220,6 +243,10 @@ final class RimeEngineTests: XCTestCase {
         // Looking up continuations alone does not open it again.
         XCTAssertEqual(engine.continuationsAndWait(of: "你好", code: "ni hao", limit: 3), [])
         XCTAssertFalse(RimeEngine.userDictionaryIsOpen())
+        // Nor does a late command that is not a key: a setting, or the input set again.
+        _ = engine.sendAndWait(.setTraditional(false))
+        _ = engine.sendAndWait(.setInput("nihao"))
+        XCTAssertFalse(RimeEngine.userDictionaryIsOpen(), "only a key opens it before the keyboard shows again")
 
         // The next key opens it again and carries on with the composition.
         let resumed = engine.sendAndWait(.type("ma"))

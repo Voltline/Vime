@@ -1,10 +1,10 @@
 __build_info:
   rime_version: vime
   timestamps:
-    default: 1794465310
+    default: 1795400108
     default.custom: 0
     vime_pinyin_fuzzy3.custom: 0
-    vime_pinyin_fuzzy3.schema: 1794465310
+    vime_pinyin_fuzzy3.schema: 1795400108
 engine:
   filters:
     - simplifier
@@ -244,12 +244,10 @@ speller:
   delimiter: " '"
   initials: zyxwvutsrqponmlkjihgfedcba
 translator:
-  # Several sentences for the Chinese model to choose from; it shows the best
-  # few, and without it only the first shows.
-  max_sentences: 16
-  max_homophones: 4
   dictionary: vime_pinyin
   enable_word_completion: true
+  max_homophones: 4
+  max_sentences: 16
   preedit_format:
     - "xform/([jqxy])v/$1u/"
     - "xform/([nl])ue/$1ve/"
