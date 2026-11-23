@@ -54,7 +54,7 @@ def character_readings(cache):
             code, values = line.split(":", 1)
             char = chr(int(code.strip()[2:], 16))
             readings[char].update(s for s in map(dicts.syllable, values.split(",")) if s)
-    for char, (spelled, _) in dicts.EXTRA_READINGS.items():
+    for char, spelled in dicts.EXTRA_READINGS:
         readings[char].add(spelled)
     return readings
 

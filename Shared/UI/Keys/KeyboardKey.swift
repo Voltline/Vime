@@ -116,9 +116,12 @@ final class KeyboardKey: UIButton {
         layer.shadowPath = CGPath(roundedRect: bounds, cornerWidth: radius, cornerHeight: radius, transform: nil)
     }
 
+    /// The unscaled corner radius of keys without a custom skin, from the preferences.
+    static var baseCornerRadius = CGFloat(KeyboardPreferences.defaultKeyCornerRadius)
+
     init(title: String? = nil, symbol: String? = nil) {
         super.init(frame: .zero)
-        layer.cornerRadius = 6.2
+        layer.cornerRadius = Self.baseCornerRadius
         layer.shadowColor = UIColor.black.cgColor
         layer.shadowOpacity = 0.30
         layer.shadowOffset = CGSize(width: 0, height: 0.8)
@@ -177,6 +180,19 @@ final class KeyboardKey: UIButton {
         case (true, false): titleLabel?.center.y = bounds.height * 0.59
         case (false, true): titleLabel?.center.y = bounds.height * 0.42
         case (false, false): break
+        }
+        // An image (the language key's 中/A) sits below the hint like a title
+        // does; a short or narrow key (iPhone SE) shrinks it rather than overlap.
+        if hint != nil, !hasSkinArtwork, let imageView, let image = imageView.image,
+           image.size.width > 0, image.size.height > 0 {
+            let top = hintLabel.frame.maxY + 1
+            let scale = min(1, max(0, bounds.width - 6) / image.size.width,
+                            max(0, bounds.height - top - 3) / image.size.height)
+            let size = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+            let centerY = max(bounds.height * 0.59, top + size.height / 2)
+            imageView.contentMode = .scaleAspectFit
+            imageView.frame = CGRect(x: bounds.midX - size.width / 2, y: min(centerY - size.height / 2, bounds.height - 3 - size.height),
+                                     width: size.width, height: size.height)
         }
         imageView?.isHidden = hasSkinArtwork
         titleLabel?.isHidden = hasSkinArtwork

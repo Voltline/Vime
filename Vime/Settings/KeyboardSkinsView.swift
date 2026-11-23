@@ -32,6 +32,7 @@ struct KeyboardSkinsView: View {
     @State private var deleting: KeyboardSkinStore.Summary?
     @AppStorage("vime.theme", store: KeyboardPreferences().store) private var theme: KeyboardTheme = .system
     @State private var heightFactor = KeyboardPreferences().heightFactor
+    @State private var keyCornerRadius = KeyboardPreferences().keyCornerRadius
     @State private var palettes: [String: KeyboardSkinDocument.Palette] = [:]
     @Environment(\.dynamicTypeSize) private var typeSize
     @ScaledMetric(relativeTo: .body) private var buttonSize: CGFloat = 36
@@ -103,9 +104,37 @@ struct KeyboardSkinsView: View {
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("vime.skin.height")
+            if theme != .custom { cornerRadiusRow }
         }
         .padding(16)
         .appCard(cornerRadius: 24)
+    }
+    /// Custom skins carry their own key radius, edited with the skin.
+    private var cornerRadiusRow: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 10) {
+                Image(systemName: "square.dashed").font(.body.weight(.semibold)).foregroundStyle(.indigo)
+                    .appListIcon(width: 20)
+                Text("按键圆角").foregroundStyle(.primary)
+                Spacer(minLength: 8)
+                Text(cornerRadiusLabel).foregroundStyle(.secondary).monospacedDigit()
+            }
+            Slider(value: $keyCornerRadius, in: KeyboardPreferences.keyCornerRadiusRange, step: 0.5) {
+                Text("按键圆角")
+            }
+            .accessibilityValue(cornerRadiusLabel)
+            .accessibilityIdentifier("vime.skin.cornerRadius")
+        }
+        .padding(.horizontal, 14).padding(.vertical, 10)
+        .background(Color(uiColor: .tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14))
+        .onChange(of: keyCornerRadius) {
+            KeyboardPreferences().keyCornerRadius = keyCornerRadius
+            previewDocument?.style.cornerRadius = keyCornerRadius
+        }
+    }
+    private var cornerRadiusLabel: String {
+        keyCornerRadius == KeyboardPreferences.defaultKeyCornerRadius
+            ? String(localized: "标准") : String(format: "%.1f", keyCornerRadius)
     }
     private var heightLabel: String {
         let percent = Int((heightFactor * 100).rounded())
@@ -242,6 +271,7 @@ struct KeyboardSkinsView: View {
     private func reload() {
         skins = store.summaries(); selectedID = KeyboardPreferences().customSkinID
         heightFactor = KeyboardPreferences().heightFactor
+        keyCornerRadius = KeyboardPreferences().keyCornerRadius
         if theme == .custom, let document = try? store.load(selectedID) { previewDocument = document; return }
         previewDocument = builtInDocument(theme)
     }
@@ -256,6 +286,7 @@ struct KeyboardSkinsView: View {
         document.palette.background = hex(item == .system ? .systemGray5 : item.background)
         document.palette.key = hex(item.key); document.palette.text = hex(item.text)
         document.palette.utility = hex(item.utility); document.palette.accent = hex(item.accent)
+        document.style.cornerRadius = KeyboardPreferences().keyCornerRadius
         return document
     }
     private func perform(_ action: () throws -> Void) { do { try action() } catch { self.error = error.localizedDescription } }

@@ -187,10 +187,17 @@ final class KeyboardPadLayoutTests: XCTestCase {
                 grid.layoutIfNeeded()
                 let gridFrame = frame(grid, in: keyboard)
                 XCTAssertTrue(keyboard.bounds.insetBy(dx: -pixel, dy: -pixel).contains(gridFrame))
+                // Emoji availability loads in the background.
+                let deadline = Date().addingTimeInterval(5)
+                while grid.numberOfItems(inSection: 0) == 0 && Date() < deadline {
+                    RunLoop.main.run(until: Date().addingTimeInterval(0.01)); grid.layoutIfNeeded()
+                }
                 let cells = grid.visibleCells.filter { !$0.isHidden }
                 XCTAssertFalse(cells.isEmpty)
-                XCTAssertGreaterThanOrEqual(Set(cells.map { $0.frame.minY.rounded() }).count, 5,
-                    "The taller iPad panel shows at least as many rows as the iPhone")
+                // A page of a short category can be partly filled; count its rows of keys.
+                let rows = try XCTUnwrap((grid.collectionViewLayout as? KeyboardSymbolPanel.SymbolLayout)?.sections.first?.rows)
+                XCTAssertGreaterThanOrEqual(rows, 5, "The taller iPad panel shows at least as many rows as the iPhone")
+                if mode == .emoji { XCTAssertEqual(Set(cells.map { $0.frame.minY.rounded() }).count, rows) }
                 for cell in cells {
                     XCTAssertGreaterThanOrEqual(cell.frame.height, 40)
                     XCTAssertLessThanOrEqual(cell.frame.maxY, grid.bounds.height + pixel)

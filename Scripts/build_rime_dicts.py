@@ -145,8 +145,16 @@ COLLOCATION_SHARE = 0.3
 # fairly common two-character word, so it ranks for its full pinyin without
 # outweighing everyday words that share the reading.
 NEW_WORD_FREQUENCY = 180
-# Colloquial readings the character table leaves out.
-EXTRA_READINGS = {"这": ("zhei", 0.05), "那": ("nei", 0.03), "哪": ("nei", 0.03)}
+# Readings the character table leaves out: colloquial ones, interjections
+# (嗯 is read ng there, which the speller drops for abbreviations), and the
+# only characters of syllables no listed character has. Each is a share of
+# the character's standalone use; a character the table lacks is added.
+EXTRA_READINGS = {
+    ("这", "zhei"): 0.05, ("那", "nei"): 0.03, ("哪", "nei"): 0.03,
+    ("嗯", "en"): 1.0, ("诶", "ei"): 1.0, ("欸", "ei"): 0.3,
+    ("忒", "tei"): 0.1, ("忒", "te"): 0.3, ("欻", "chua"): 0.3, ("挼", "rua"): 1.0,
+    ("覅", "fiao"): 1.0, ("鞥", "eng"): 1.0, ("黁", "nun"): 1.0, ("𰻞", "biang"): 1.0,
+}
 
 ENGLISH_SIZE = 70
 ENGLISH_LIMIT = 60000
@@ -373,8 +381,8 @@ def weight(frequency):
 def build_chinese(cache, refresh_tatoeba=False):
     readings, primary, pinlu = load_characters(cache)
     charset = set(readings)
-    for char, (spelled, _) in EXTRA_READINGS.items():
-        readings[char].append(spelled)
+    for char, spelled in EXTRA_READINGS:
+        readings.setdefault(char, []).append(spelled)
     valid = {s for values in readings.values() for s in values} - {"m", "n", "ng", "hm", "hng"}
     for char in list(readings):
         readings[char] = [s for s in readings[char] if s in valid]
@@ -479,8 +487,8 @@ def build_chinese(cache, refresh_tatoeba=False):
         shares = share(char)
         for s in values:
             f = standalone * shares[s] + IN_WORD_SHARE * in_word[char].get(s, 0.0)
-            if char in EXTRA_READINGS and EXTRA_READINGS[char][0] == s:
-                f = standalone * EXTRA_READINGS[char][1]
+            if (char, s) in EXTRA_READINGS:
+                f = standalone * EXTRA_READINGS[char, s]
             entries[char, s] = max(f, FLOOR_CHAR)
 
     # Collocations from Tatoeba; one that is a listed word keeps its reading.

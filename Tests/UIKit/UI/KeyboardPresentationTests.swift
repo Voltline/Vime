@@ -263,9 +263,12 @@ final class KeyboardPresentationTests: XCTestCase {
                 let symbolClose = try button("vime.symbols.close", in: panel)
                 let tabs = try XCTUnwrap(descendants(panel).first { $0.accessibilityIdentifier == "vime.symbols.mode" })
                 let grid = try XCTUnwrap(descendants(panel).first { $0.accessibilityIdentifier == "vime.symbols.grid" })
-                XCTAssertEqual(tabs.frame.minX, left, accuracy: 0.001)
+                XCTAssertEqual(tabs.isHidden, mode == .symbols, "Only the emoji panel has the 表情 / 颜文字 slider")
+                if mode != .symbols {
+                    XCTAssertEqual(tabs.frame.minX, left, accuracy: 0.001)
+                    XCTAssertLessThanOrEqual(tabs.frame.maxX + 8, symbolClose.frame.minX)
+                }
                 XCTAssertEqual(symbolClose.frame, close.frame)
-                XCTAssertLessThanOrEqual(tabs.frame.maxX + 8, symbolClose.frame.minX)
                 let viewport = try XCTUnwrap(descendants(panel).first { $0.accessibilityIdentifier == "vime.symbols.pages" })
                 let viewportFrame = viewport.convert(viewport.bounds, to: keyboard)
                 XCTAssertEqual(viewportFrame.minX, left, accuracy: 0.001)

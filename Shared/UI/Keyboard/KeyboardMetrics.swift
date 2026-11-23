@@ -94,11 +94,12 @@ struct KeyboardMetrics {
         return frame.insetBy(dx: -grow / 2, dy: 0)
     }
 
-    func numberPadFrame(row: Int, column: Int) -> CGRect {
+    func numberPadFrame(row: Int, column: Int, equalColumns: Bool = false) -> CGRect {
         // Digits occupy the central 3 × 3 grid; utilities flank it in
-        // columns of one width, as on the kana pad.
-        let positions: [CGFloat] = [5, 74, 173.3, 272.7, 372]
-        let widths: [CGFloat] = [63, 93.3, 93.3, 93.3, 63]
+        // columns of one width, as on the kana pad. The number pad's side
+        // columns are 10% narrower than an even fifth, the digits share the rest.
+        let positions: [CGFloat] = equalColumns ? [5, 84.08, 176.69, 269.3, 361.92] : [5, 74, 173.3, 272.7, 372]
+        let widths: [CGFloat] = equalColumns ? [73.08, 86.61, 86.61, 86.61, 73.08] : [63, 93.3, 93.3, 93.3, 63]
         return stretched(CGRect(x: positions[column] * width / 440, y: headerHeight + CGFloat(row) * rowStep,
                                 width: widths[column] * width / 440, height: keyHeight))
     }
@@ -112,7 +113,9 @@ struct KeyboardMetrics {
                                 width: widths[column] * width / 440, height: keyHeight + CGFloat(span - 1) * rowStep))
     }
 
-    func frame(row: Int, column: Int, letters: Bool = true, prolonged: Bool = false) -> CGRect {
+    /// `bottomKeys` is 5 on the number and symbol pages, which have no
+    /// language key: 符号 takes its place and the space bar the comma's.
+    func frame(row: Int, column: Int, letters: Bool = true, prolonged: Bool = false, bottomKeys: Int = 6) -> CGRect {
         let xScale = width / 440
         let y = headerHeight + CGFloat(row) * rowStep
         let x: CGFloat
@@ -120,8 +123,14 @@ struct KeyboardMetrics {
         if row == 3 {
             let positions: [CGFloat] = [5, 70.7, 114.5, 158.3, 301.1, 348.6]
             let widths: [CGFloat] = [59.8, 36.8, 36.8, 136.5, 41.2, 86.4]
-            x = positions[column]
-            keyWidth = widths[column]
+            if bottomKeys == 5 && column >= 2 {
+                // ABC, emoji, space, 符号 (where the language key is), return.
+                x = column == 2 ? positions[2] : positions[column + 1]
+                keyWidth = column == 2 ? positions[4] - 6.3 - positions[2] : widths[column + 1]
+            } else {
+                x = positions[column]
+                keyWidth = widths[column]
+            }
         } else if letters && row == 1 && !prolonged {
             x = 27.5 + CGFloat(column) * 43.75
             keyWidth = 36.8

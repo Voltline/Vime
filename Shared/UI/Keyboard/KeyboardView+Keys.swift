@@ -14,6 +14,11 @@ extension KeyboardView {
         return session.isComposing && !numeric && session.inputTraits.compositionInputSymbols.contains(text)
     }
 
+    /// The ABC key's title on the number pages and in the symbol panel.
+    static func backKeyFont(compact: Bool, scale: CGFloat) -> UIFont {
+        .systemFont(ofSize: compact ? 14 : 16 * scale, weight: .medium)
+    }
+
     func layoutKeyGrid(metrics: KeyboardMetrics) {
         let scale = metrics.scale
         for (rowIndex, row) in rows.enumerated() {
@@ -21,13 +26,13 @@ extension KeyboardView {
                 if kanaLayoutActive {
                     pair.0.frame = metrics.kanaFrame(row: rowIndex, column: column, rows: pair.0 === returnKey ? 2 : 1)
                 } else if padGridActive {
-                    pair.0.frame = metrics.numberPadFrame(row: rowIndex, column: column + (rowIndex < 3 ? 1 : 0))
+                    pair.0.frame = metrics.numberPadFrame(row: rowIndex, column: column + (rowIndex < 3 ? 1 : 0), equalColumns: usesNumberPad)
                 } else {
                     pair.0.frame = metrics.frame(row: rowIndex, column: column, letters: page == .letters,
-                                                prolonged: rowIndex == 1 && row.count == 10)
+                                                prolonged: rowIndex == 1 && row.count == 10, bottomKeys: row.count)
                 }
                 pair.0.frame = oneHandedFrame(pair.0.frame)
-                pair.0.layer.cornerRadius = 6.2 * scale
+                pair.0.layer.cornerRadius = KeyboardKey.baseCornerRadius * scale
                 // Compact phone keys are shorter despite the wider viewport.
                 // Typography follows their height rather than landscape width.
                 let textScale = compact ? scale : min(scale, metrics.keyHeight / 46.5)
@@ -48,13 +53,15 @@ extension KeyboardView {
                         forImageIn: .normal)
                 }
                 pair.0.hintLabel.font = .systemFont(ofSize: compact ? 8 : 9 * textScale)
-                pair.0.titleLabel?.font = .systemFont(ofSize: fontSize)
+                // Every ABC key back to the letters reads alike (KeyboardSymbolPanel too).
+                pair.0.titleLabel?.font = pair.0 === numberBackKey
+                    ? Self.backKeyFont(compact: compact, scale: textScale) : .systemFont(ofSize: fontSize)
                 pair.0.applySkinMetrics(size: fontSize, scale: textScale)
             }
         }
         if padGridActive, let rail = usesNumberPad ? numberSymbolRail : syllableRail {
-            let top = metrics.numberPadFrame(row: 0, column: 0)
-            let bottom = metrics.numberPadFrame(row: 2, column: 0)
+            let top = metrics.numberPadFrame(row: 0, column: 0, equalColumns: usesNumberPad)
+            let bottom = metrics.numberPadFrame(row: 2, column: 0, equalColumns: usesNumberPad)
             rail.frame = oneHandedFrame(top.union(bottom))
             rail.scale = scale
             rail.layoutIfNeeded()
@@ -86,7 +93,7 @@ extension KeyboardView {
                 // Boundaries lie in the gaps, never inside a painted key. This
                 // respects wide utility keys as well as staggered letter rows.
                 let leading = padGridActive && rowIndex < 3
-                    ? (oneHandedFrame(metrics.numberPadFrame(row: rowIndex, column: 0)).maxX + first.frame.minX) / 2 : area.lowerBound
+                    ? (oneHandedFrame(metrics.numberPadFrame(row: rowIndex, column: 0, equalColumns: usesNumberPad)).maxX + first.frame.minX) / 2 : area.lowerBound
                 let left = column == 0 ? leading : (row[column - 1].0.frame.maxX + key.frame.minX) / 2
                 var right = column == row.count - 1 ? area.upperBound : (key.frame.maxX + row[column + 1].0.frame.minX) / 2
                 var bottom = bottom
@@ -280,9 +287,14 @@ extension KeyboardView {
             }
             applyKeySkins(); refresh(); setNeedsLayout(); return
         } else {
+            // Digits and common symbols like the system's Chinese keyboard;
+            // Chinese ends on its own punctuation, and ' separates syllables.
+            // The third row always holds seven keys.
+            let punctuation = session.inputTraits.language == .chinese
+                ? ["。", "，", "、", "？", "！", ".", "'"] : ["。", "、", "？", "！", "'", "ー", "・"]
             let values = page == .numbers
-                ? [Array("1234567890").map(String.init), ["-", "/", ":", ";", "(", ")", "¥", "&", "@", "\""], ["。", "、", "？", "！", "'", "ー", "・"]]
-                : [["[", "]", "{", "}", "#", "%", "^", "*", "+", "="], ["_", "\\", "|", "~", "<", ">", "$", "€", "£", "・"], ["「", "」", "『", "』", "…", "〜", "々"]]
+                ? [Array("1234567890").map(String.init), ["-", "/", ":", "~", "(", ")", "…", "@", "“", "”"], punctuation]
+                : [["[", "]", "{", "}", "#", "%", "^", "*", "+", "="], ["_", "\\", "|", ";", "<", ">", "¥", "$", "€", "£"], ["「", "」", "『", "』", "&", "'", "\""]]
             for (index, values) in values.enumerated() {
                 var row = values.map { value in
                     let item = key(value) { [weak self] in
@@ -312,6 +324,8 @@ extension KeyboardView {
             self.page = self.page == .letters ? .numbers : .letters
             self.rebuildKeys()
         }]
+        // Back to the letters stands out like the number pad's return (refreshActionKeys).
+        if page != .letters { numberBackKey = bottom[0].0 }
         let emoji = symbol("face.smiling", label: String(localized: "表情"), weight: 1) { [weak self] in self?.toggleEmoji() }
         emoji.0.accessibilityIdentifier = "vime.key.emoji"
         bottom.append(emoji)
@@ -338,30 +352,37 @@ extension KeyboardView {
         }
         punctuationKey = page == .letters && fieldSymbol == nil ? comma.0 : nil
         refreshPunctuationKey()
-        bottom.append(comma)
+        // The number pages put 符号 right of the space bar, in the language key's place.
+        if page == .letters { bottom.append(comma) }
         let space = key("", weight: 1) { [weak self] in self?.space() }
         space.0.feedback = { [weak self] in self?.playFeedback(.utility) }
         space.0.accessibilityLabel = String(localized: "空格，转换候选")
         space.0.accessibilityIdentifier = "vime.key.space"
         spaceKey = space.0
         bottom.append(space)
-        let language = key("", weight: 1) { [weak self] in
-            guard let self else { return }
-            guard self.consumeLanguageSwitchGuardDecision().shouldToggleLanguage else { return }
-            self.apply(self.session.toggleEnglish())
-            self.restoresLanguageAfterLatinField = false
-            self.shifted = false
-            self.capsLocked = false
-            self.rebuildKeys()
-            self.updateAutoCapitalization()
+        if page != .letters { bottom.append(comma) }
+        // The number and symbol pages leave the language switch to the letters.
+        if page == .letters {
+            let language = key("", weight: 1) { [weak self] in
+                guard let self else { return }
+                guard self.consumeLanguageSwitchGuardDecision().shouldToggleLanguage else { return }
+                self.apply(self.session.toggleEnglish())
+                self.restoresLanguageAfterLatinField = false
+                self.shifted = false
+                self.capsLocked = false
+                self.rebuildKeys()
+                self.updateAutoCapitalization()
+            }
+            language.0.feedback = { [weak self] in self?.playFeedback(.utility) }
+            language.0.setImage(KeyboardGlyphs.language(active: session.inputTraits.language, other: session.inputTraits.alternateLanguage), for: .normal)
+            languageKey = language.0
+            language.0.accessibilityLabel = session.inputTraits.languageSwitchAccessibilityLabel
+            language.0.accessibilityIdentifier = "vime.key.language"
+            configureQuickSwitch(language.0)
+            bottom.append(language)
+        } else {
+            languageKey = nil
         }
-        language.0.feedback = { [weak self] in self?.playFeedback(.utility) }
-        language.0.setImage(KeyboardGlyphs.language(active: session.inputTraits.language, other: session.inputTraits.alternateLanguage), for: .normal)
-        languageKey = language.0
-        language.0.accessibilityLabel = session.inputTraits.languageSwitchAccessibilityLabel
-        language.0.accessibilityIdentifier = "vime.key.language"
-        configureQuickSwitch(language.0)
-        bottom.append(language)
         let enter = key(String(localized: "换行"), weight: 1.55) { [weak self] in
             guard let self else { return }
             self.apply(self.session.enter())

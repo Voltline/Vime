@@ -105,7 +105,7 @@ final class VimeLanguageModelMemoryTests: XCTestCase {
         panel.compact = landscape
         window.rootViewController?.view.addSubview(panel)
         func descendants(_ view: UIView) -> [UIView] { [view] + view.subviews.flatMap(descendants) }
-        for group in KeyboardSymbolCatalog.emoji.groups {
+        for group in KeyboardSymbolCatalog.emojiGroups {
             _ = await withCheckedContinuation { continuation in
                 KeyboardEmojiAvailability.load(group) { continuation.resume(returning: $0) }
             }
@@ -124,7 +124,7 @@ final class VimeLanguageModelMemoryTests: XCTestCase {
         func blankFraction() -> Double {
             var total: CGFloat = 0, blank: CGFloat = 0
             for attributes in grid.collectionViewLayout.layoutAttributesForElements(in: grid.bounds) ?? [] {
-                guard attributes.indexPath.section < KeyboardSymbolCatalog.emoji.groups.count else { continue }
+                guard attributes.indexPath.section < KeyboardSymbolCatalog.emojiGroups.count else { continue }
                 let frame = attributes.frame.intersection(grid.bounds)
                 let area = frame.width * frame.height
                 guard area > 0 else { continue }
@@ -134,7 +134,7 @@ final class VimeLanguageModelMemoryTests: XCTestCase {
             }
             return total > 0 ? Double(blank / total) : 0
         }
-        let emojiEnd = try XCTUnwrap(grid.collectionViewLayout.layoutAttributesForItem(at: IndexPath(item: 0, section: 10))).frame.minX - 6
+        let emojiEnd = max(0, grid.contentSize.width - grid.bounds.width)
         probe.update = {
             if probe.frames > 10 { missingBeforeMove.append(blankFraction()) }
             var offset = grid.contentOffset.x + direction * step
@@ -220,7 +220,7 @@ final class VimeLanguageModelMemoryTests: XCTestCase {
         defer { keyboard?.stopInteractions(); window.isHidden = true }
         func descendants(_ view: UIView) -> [UIView] { [view] + view.subviews.flatMap(descendants) }
         var available = [[KeyboardSymbolCatalog.Item]]()
-        for group in KeyboardSymbolCatalog.emoji.groups {
+        for group in KeyboardSymbolCatalog.emojiGroups {
             available.append(await withCheckedContinuation { continuation in
                 KeyboardEmojiAvailability.load(group) { continuation.resume(returning: $0) }
             })
@@ -566,7 +566,7 @@ final class VimeLanguageModelMemoryTests: XCTestCase {
                 try await Task.sleep(for: .milliseconds(200))
             }
         } else if scenario == "availability" || scenario == "legacyGlyphs" {
-            for (index, group) in KeyboardSymbolCatalog.emoji.groups.enumerated() {
+            for (index, group) in KeyboardSymbolCatalog.emojiGroups.enumerated() {
                 var items = [KeyboardSymbolCatalog.Item]()
                 await measure("availability_\(index)", inputCount: group.items.count) {
                     items = await withCheckedContinuation { continuation in
