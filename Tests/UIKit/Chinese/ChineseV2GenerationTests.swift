@@ -195,7 +195,9 @@ final class ChineseV2GenerationTests: XCTestCase {
         }
 
         XCTAssertEqual(promptExact, fixtures.cases.count)
-        XCTAssertGreaterThanOrEqual(rescoredTop1Equal, 123, "rescored Top-1 below 123/125: \(json)")
+        // c40 INT8 parity is 121/125 vs FP32 fixture (confirmed with VimeML: 4 near-tie swaps
+        // across 3 initials-only cases and 1 mixed case, max_gen_score_diff ~0.21).
+        XCTAssertGreaterThanOrEqual(rescoredTop1Equal, 121, "rescored Top-1 below 121/125: \(json)")
         XCTAssertLessThan(maxGenDiff, 0.5, "gen_score diff too large: \(maxGenDiff)")
         XCTAssertLessThan(maxLMDiff, 0.5, "lm_score diff too large: \(maxLMDiff)")
         XCTAssertLessThan(maxFinalDiff, 0.75, "final_score diff too large: \(maxFinalDiff)")

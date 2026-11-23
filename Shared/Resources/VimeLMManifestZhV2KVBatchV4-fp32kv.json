@@ -1,6 +1,6 @@
 {
   "format": "vime_ios_lm_zh_kv_batch_v4",
-  "bundle_manifest_sha256": "9d79a9d1dade3d7c1c33bf13904a175e9394b20b31e4d43a0376c18d475d3e27",
+  "bundle_manifest_sha256": "bce7eeffe684a38f4c6ad247efc9186eaf858965a6b1b5e28d305a6459677d64",
   "tokenizer_sha256": "68bd37c45bcb018b32b2eef5b241561ab5b6dc1b77c1c3aadcc1b41c4bf47e5a",
   "kv_batch_v4": {
     "resource": "TinyChineseV2KVBatchV4FP32KVINT8.mlmodelc",
@@ -11,13 +11,13 @@
       "tolerance": 0.0003,
       "sum_tolerance": 0.001
     },
-    "source_manifest_sha256": "f52711eaec2a27d5e818b5d1d2f8f6cd6be162cea3ab6281d55f87710947acba",
+    "source_manifest_sha256": "805652fac4e92b752ff9eb6fa3a5d150245db400b046149a520ed6929deac56d",
     "compiled_files_sha256": {
-      "analytics/coremldata.bin": "f6be97c3461d82574d28290321fca3e0912e4d9bdbd5a0e8d225d8eed93a8a1d",
+      "analytics/coremldata.bin": "9bcdb9451f8b3a00838895a8a72262aef091f8511cb79fd0d36517e0a8d261f6",
       "coremldata.bin": "072d929a17e85e150836e3b1a2a7ad3d7a8f82e50dd36db4e1094056695fb043",
       "metadata.json": "442ce9abadc0552465720759999e4d697f5a6a02fb2b877f4e9c23af6644030d",
       "model.mil": "6b4dd59e659b687c4e7ba669e47eea7704d90ce99b5511cda126f0df31b45e7f",
-      "weights/weight.bin": "4a08799d63a0d5ee9b9f54d26860fb7248c64400353cc883bfb37f221f05cdf4"
+      "weights/weight.bin": "0a6e68a9023896eb0ca79e4eadc449a734c638f7f4d8b300f1296fed82587670"
     },
     "functions": {
       "logits": {
@@ -84,20 +84,20 @@
       "rtol": 0.0003,
       "per_sum": 0.001
     },
-    "alignment_sha256": "47962877d25b8cd17c763874175f2b71aed65d62889e45faa566e14a3c3d7c36",
+    "alignment_sha256": "3c4953fc61266f6380ebdc4a60084d30849ce96bb1edd222b61ab6d681cdab3e",
     "search_check": {
       "cases": 125,
       "vs_fp32_fixture": {
-        "exact": 38,
-        "top1_equal": 122,
-        "max_common_score_diff": 0.18860895706176706
+        "exact": 37,
+        "top1_equal": 121,
+        "max_common_score_diff": 0.20964330383300744
       },
       "vs_reference": {
-        "exact": 38,
-        "top1_equal": 122,
-        "max_common_score_diff": 0.1885848045349121
+        "exact": 37,
+        "top1_equal": 121,
+        "max_common_score_diff": 0.20964622497558594
       },
-      "p50_ms": 65.8677909814287
+      "p50_ms": 65.85425000230316
     },
     "policy": "Caller owns all buffers. `prefix` returns only the new tokens' KV: append it to the prefix's valid slots. Masked slots must hold finite values. KV tensors are float32."
   }
