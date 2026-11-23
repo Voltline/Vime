@@ -49,6 +49,10 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         guard next != previous else { return }
         appliedPreferences = next
         heightFactor = CGFloat(next.heightFactor)
+        if next.keyCornerRadius != previous?.keyCornerRadius {
+            KeyboardKey.baseCornerRadius = CGFloat(next.keyCornerRadius)
+            invalidateKeyGrid(); numberSymbolRail?.setNeedsLayout()
+        }
         if followsInputLanguage, let previous, next.inputLanguage != previous.inputLanguage {
             switchSession(to: Self.session(for: next.inputLanguage))
         } else if next.chineseInputEnabled != previous?.chineseInputEnabled
@@ -440,6 +444,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         super.init(frame: frame)
         KeyboardCandidateTextMetrics.prepareFonts()
         heightFactor = CGFloat(preferences.heightFactor)
+        KeyboardKey.baseCornerRadius = CGFloat(preferences.keyCornerRadius)
         KeyboardPalette.theme = preferences.theme
         bind(session)
         appliedPreferences = preferences.snapshot

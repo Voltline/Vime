@@ -303,27 +303,34 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
         let wave = app.descendants(matching: .any)["vime.symbol.👋"]
         XCTAssertTrue(wave.waitForExistence(timeout: 3)); XCTAssertTrue(wave.isHittable)
         wave.tap(); XCTAssertEqual(editor.value as? String, before + "👋")
-        for index in 2...9 { app.buttons["vime.symbols.category.\(index)"].tap(); expectCategory(index) }
+        for index in 2...7 { app.buttons["vime.symbols.category.\(index)"].tap(); expectCategory(index) }
         let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         attachment.name = "emoji-continuous-flags"; attachment.lifetime = .keepAlways; add(attachment)
-        // A mode tap lands on its first item. A continuous drag across that
-        // boundary enters the preceding mode's final category, in either axis size.
-        modes.buttons["颜文字"].tap(); expectCategory(0)
-        drag(150); expectCategory(9); XCTAssertTrue(modes.buttons["Emoji"].isSelected)
-        drag(-300); expectCategory(0); XCTAssertTrue(modes.buttons["颜文字"].isSelected)
+        // Kaomoji share the emoji panel and turn pages; a drag never leaves them.
+        modes.buttons.element(boundBy: 1).tap(); expectCategory(0)
+        drag(150); expectCategory(0); XCTAssertTrue(modes.buttons.element(boundBy: 1).isSelected)
         app.buttons["vime.symbols.category.1"].tap(); expectCategory(1)
         let sad = app.descendants(matching: .any)["vime.symbol.(T_T)"]
         XCTAssertTrue(sad.waitForExistence(timeout: 3)); sad.tap()
         for index in 2...7 { app.buttons["vime.symbols.category.\(index)"].tap(); expectCategory(index) }
-        modes.buttons["符号"].tap(); expectCategory(0)
-        drag(150); expectCategory(7); XCTAssertTrue(modes.buttons["颜文字"].isSelected)
-        drag(-300); expectCategory(0); XCTAssertTrue(modes.buttons["符号"].isSelected)
-        app.buttons["vime.symbols.category.1"].tap(); expectCategory(1)
+        // Symbols open from the number page's 符号 key, in a panel of their own.
+        app.buttons["vime.symbols.close"].tap()
+        app.keys["123"].tap()
+        // The full number page or the number pad, whichever the settings show.
+        let symbols = app.keys["vime.key.symbols"].exists ? app.keys["vime.key.symbols"] : app.keys["vime.number.符号"]
+        symbols.tap()
+        XCTAssertTrue(grid.waitForExistence(timeout: 3)); expectCategory(0)
+        XCTAssertFalse(modes.exists && modes.isHittable, "The symbol panel has no slider")
+        // 常用, 括号, 标点, 数学, 单位, then 箭头.
+        app.buttons["vime.symbols.category.5"].tap(); expectCategory(5)
         let arrow = app.descendants(matching: .any)["vime.symbol.↑"]
         XCTAssertTrue(arrow.waitForExistence(timeout: 3)); arrow.tap()
-        for index in 2...10 { app.buttons["vime.symbols.category.\(index)"].tap(); expectCategory(index) }
+        for index in 6...10 { app.buttons["vime.symbols.category.\(index)"].tap(); expectCategory(index) }
         drag(-150); expectCategory(10)
-        modes.buttons["Emoji"].tap(); expectCategory(0)
+        // ABC goes back to the number page it came from, which has its own emoji key.
+        app.buttons["vime.symbols.close"].tap()
+        let emoji = app.keys["vime.key.emoji"].exists ? app.keys["vime.key.emoji"] : app.keys["vime.number.emoji"]
+        emoji.tap(); XCTAssertTrue(grid.waitForExistence(timeout: 3))
         XCUIDevice.shared.orientation = .landscapeLeft
         for _ in 0..<3 {
             grid.swipeLeft(velocity: .fast); grid.swipeRight(velocity: .fast)
@@ -333,8 +340,9 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
         app.buttons["vime.symbols.category.1"].tap(); expectCategory(1)
         drag(-100, -25); expectCategory(1)
         XCTAssertEqual(editor.value as? String, before + "👋(T_T)↑")
+        // Opened from the number page, the panel goes back to it.
         app.buttons["vime.symbols.close"].tap()
-        XCTAssertTrue(app.keys["vime.key.h"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.keys["vime.number.ABC"].waitForExistence(timeout: 3) || app.keys["ABC"].exists)
     }
 
     func testLandscapeMinimumHeightShowsAndTypesCompleteBottomRow() throws {
@@ -421,10 +429,8 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
             XCTAssertTrue(modes.waitForExistence(timeout: 3))
             XCTAssertEqual(app.buttons["vime.symbols.close"].frame.maxX, keyPlaneRight, accuracy: 1)
             capture("emoji")
-            modes.buttons["颜文字"].tap()
+            modes.buttons.element(boundBy: 1).tap()
             capture("kaomoji")
-            modes.buttons["符号"].tap()
-            capture("symbols")
             app.buttons["vime.symbols.close"].tap()
             XCTAssertTrue(firstRow.waitForExistence(timeout: 3))
             XCTAssertTrue(enter.isHittable)
@@ -516,8 +522,8 @@ final class KeyboardExtensionLifecycleTests: XCTestCase {
                 app.keys["vime.key.emoji"].tap()
                 let modes = app.segmentedControls["vime.symbols.mode"]
                 XCTAssertTrue(modes.waitForExistence(timeout: 3))
-                modes.buttons["颜文字"].tap()
-                modes.buttons["符号"].tap()
+                modes.buttons.element(boundBy: 1).tap()
+                modes.buttons.element(boundBy: 0).tap()
                 app.buttons["vime.symbols.close"].tap()
             }
             let committed = editor.value as? String

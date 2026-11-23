@@ -119,6 +119,68 @@ final class KeyboardShuangpinTests: XCTestCase {
         try XCTUnwrap(descendants(keyboard).first { $0.accessibilityIdentifier == id } as? KeyboardKey, id)
     }
 
+    func testLanguageKeyKeepsItsSwitchClearOfTheQuickSwitchHint() throws {
+        let suite = "VimeLanguageKey." + UUID().uuidString
+        suites.append(suite)
+        let preferences = KeyboardPreferences(defaults: UserDefaults(suiteName: suite)!)
+        preferences.chineseLanguageModel = false
+        preferences.chineseInputEnabled = true
+        preferences.japaneseInputEnabled = true
+        preferences.chineseLayout = .fullPinyin
+        let data = try XCTUnwrap(RimeEngine.bundledData, "RimeData.bundle is not bundled")
+        for width in [320, 375, 440] as [CGFloat] {
+            let session = ChineseInputSession(engine: RimeEngine(data: data, userDirectory: Self.user))
+            let keyboard = KeyboardView(frame: CGRect(x: 0, y: 0, width: width, height: 300), session: session, preferences: preferences)
+            defer { keyboard.stopInteractions() }
+            keyboard.followsInputLanguage = true
+            keyboard.frame.size.height = keyboard.preferredHeight(for: width)
+            keyboard.layoutIfNeeded()
+            let language = try key("vime.key.language", in: keyboard)
+            language.layoutIfNeeded()
+            XCTAssertEqual(language.hint, "あ", "Quick switch to Japanese")
+            let image = try XCTUnwrap(language.imageView)
+            XCTAssertGreaterThanOrEqual(image.frame.minY, language.hintLabel.frame.maxY, "\(width): the switch stays below the hint")
+            XCTAssertTrue(language.bounds.contains(image.frame), "\(width): the switch stays inside the key")
+            XCTAssertGreaterThanOrEqual(image.frame.height, 13, "\(width): still readable")
+            if let directory = ProcessInfo.processInfo.environment["VIME_SNAPSHOT_DIR"] {
+                let shot = UIGraphicsImageRenderer(bounds: language.bounds).image { language.layer.render(in: $0.cgContext) }
+                try? shot.pngData()?.write(to: URL(fileURLWithPath: directory).appendingPathComponent("language-\(Int(width)).png"))
+            }
+        }
+    }
+
+    func testFullNumberPageFollowsTheChineseLayout() throws {
+        let suite = "VimeChineseNumbers." + UUID().uuidString
+        suites.append(suite)
+        let preferences = KeyboardPreferences(defaults: UserDefaults(suiteName: suite)!)
+        preferences.chineseLanguageModel = false
+        preferences.chineseLayout = .fullPinyin
+        preferences.nineKeyNumbers = false
+        let data = try XCTUnwrap(RimeEngine.bundledData, "RimeData.bundle is not bundled")
+        let session = ChineseInputSession(engine: RimeEngine(data: data, userDirectory: Self.user))
+        let keyboard = KeyboardView(frame: CGRect(x: 0, y: 0, width: 440, height: 350), session: session, preferences: preferences)
+        defer { keyboard.stopInteractions() }
+        keyboard.page = .numbers; keyboard.rebuildKeys(); keyboard.layoutIfNeeded()
+        let rows = keyboard.rows.map { $0.compactMap { $0.0.title(for: .normal) } }
+        XCTAssertEqual(rows[0], Array("1234567890").map(String.init))
+        XCTAssertEqual(rows[1], ["-", "/", ":", "~", "(", ")", "…", "@", "“", "”"])
+        XCTAssertEqual(rows[2].filter { $0.count == 1 }, ["。", "，", "、", "？", "！", ".", "'"], "#+= and delete around them")
+        keyboard.frame.size.height = keyboard.preferredHeight(for: 440); keyboard.setNeedsLayout(); keyboard.layoutIfNeeded()
+        XCTAssertEqual(try XCTUnwrap(keyboard.rows[2].last).0.frame.maxX, try XCTUnwrap(keyboard.rows[0].last).0.frame.maxX,
+            accuracy: 1, "Delete ends the row like 0 does, with no gap")
+        // The bottom row has no language key; 符号 takes its place, right of the space bar.
+        let bottom = try XCTUnwrap(keyboard.rows.last).map(\.0)
+        XCTAssertEqual(bottom.map { $0.accessibilityIdentifier ?? $0.title(for: .normal) ?? "" },
+                       ["ABC", "vime.key.emoji", "vime.key.space", "vime.key.symbols", "vime.key.return"])
+        XCTAssertNil(keyboard.languageKey)
+        XCTAssertEqual(bottom[0].fillColor, KeyboardPalette.accent, "ABC stands out like the number pad's")
+        XCTAssertEqual(bottom[4].frame.maxX, try XCTUnwrap(keyboard.rows[0].last).0.frame.maxX, accuracy: 1)
+        for (left, right) in zip(bottom, bottom.dropFirst()) { XCTAssertLessThan(left.frame.maxX, right.frame.minX) }
+        keyboard.page = .symbols; keyboard.rebuildKeys()
+        let more = keyboard.rows.flatMap { $0.compactMap { $0.0.title(for: .normal) } }
+        for moved in [";", "¥", "&", "\""] { XCTAssertTrue(more.contains(moved), "\(moved) moves to #+=") }
+    }
+
     func testLetterKeysShowTheSchemeFinals() throws {
         let suite = "VimeShuangpinTests." + UUID().uuidString
         suites.append(suite)

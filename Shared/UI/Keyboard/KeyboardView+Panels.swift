@@ -32,10 +32,11 @@ extension KeyboardView {
         apply(session.confirm())
         panel = .symbols
         panelScroll.setContentOffset(.zero, animated: false)
-        refresh()
-        symbolPanel?.recents = preferences.emojiRecents
+        // Set up the panel before it shows, so it opens on `mode` in one go.
+        showSymbolPanel()
         symbolPanel?.chineseSymbols = session.inputTraits.language == .chinese
         symbolPanel?.selectMode(mode)
+        refresh()
     }
 
     /// Typing searches emoji by reading until a result is chosen or the

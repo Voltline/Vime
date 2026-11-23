@@ -3,6 +3,8 @@ import Foundation
 struct KeyboardPreferences {
     nonisolated static let appGroup = "group.com.Voltline.Vime"
     static let heightRange = 0.85...1.60
+    static let keyCornerRadiusRange = 0.0...16.0
+    static let defaultKeyCornerRadius = 6.2
     private let defaults: UserDefaults
     private let heightDefaults: UserDefaults
     private static let sharedStoreLock = NSLock()
@@ -61,6 +63,7 @@ struct KeyboardPreferences {
     var store: UserDefaults { defaults }
     struct Snapshot: Equatable {
         let heightFactor: Double
+        let keyCornerRadius: Double
         let sound: Bool
         let hapticIntensity: Double
         let nineKeyNumbers: Bool
@@ -103,7 +106,7 @@ struct KeyboardPreferences {
         let shuangpinScheme: ShuangpinScheme
     }
     var snapshot: Snapshot {
-        Snapshot(heightFactor: heightFactor, sound: sound, hapticIntensity: hapticIntensity,
+        Snapshot(heightFactor: heightFactor, keyCornerRadius: keyCornerRadius, sound: sound, hapticIntensity: hapticIntensity,
             nineKeyNumbers: nineKeyNumbers, kanaLayout: kanaLayout, prolongedKey: prolongedKey, previews: previews,
             previewHold: previewHold,
             theme: theme, customSkinID: customSkinID, skinRevision: skinRevision, candidateRanking: candidateRanking, phraseSuggestions: phraseSuggestions,
@@ -130,6 +133,19 @@ struct KeyboardPreferences {
         nonmutating set {
             heightDefaults.set(newValue.isFinite ? min(Self.heightRange.upperBound, max(Self.heightRange.lowerBound, newValue)) : 1,
                                forKey: "vime.heightFactor")
+        }
+    }
+    /// The corner radius of keys under the built-in themes; custom skins keep their own.
+    var keyCornerRadius: Double {
+        get {
+            let value = defaults.object(forKey: "vime.keyCornerRadius") as? Double ?? Self.defaultKeyCornerRadius
+            return value.isFinite ? min(Self.keyCornerRadiusRange.upperBound, max(Self.keyCornerRadiusRange.lowerBound, value))
+                : Self.defaultKeyCornerRadius
+        }
+        nonmutating set {
+            let value = newValue.isFinite ? newValue : Self.defaultKeyCornerRadius
+            defaults.set(min(Self.keyCornerRadiusRange.upperBound, max(Self.keyCornerRadiusRange.lowerBound, value)),
+                         forKey: "vime.keyCornerRadius")
         }
     }
     var sound: Bool {

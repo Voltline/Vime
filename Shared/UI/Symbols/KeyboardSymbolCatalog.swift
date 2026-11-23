@@ -10,6 +10,9 @@ enum KeyboardSymbolCatalog {
         else { return Catalog(version: "", groups: []) }
         return catalog
     }()
+    /// The emoji panel's categories: skin-tone components and Unicode's
+    /// symbol emoji stay out (the symbol panel holds symbols).
+    static let emojiGroups = emoji.groups.filter { $0.name != "Component" && $0.name != "Symbols" }
     static let emojiNames = Dictionary(emoji.groups.flatMap(\.items).map { ($0.text, $0.name) }, uniquingKeysWith: { first, _ in first })
     /// Group names stay stable Chinese IDs; the catalog localizes them for display.
     static func title(for name: String) -> String {
@@ -23,8 +26,9 @@ enum KeyboardSymbolCatalog {
     /// The first group is the common page for the current input language:
     /// one screen of 7 × 4 keys, read row by row, commonest first.
     static func symbols(chinese: Bool) -> [Group] { [chinese ? commonChinese : commonJapanese] + symbolGroups }
-    static let commonChinese = group("常用", "， | 。 | ？ | ！ | 、 | ： | ； | “ | ” | （ | ） | 《 | 》 | …… | —— | · | 【 | 】 | 「 | 」 | ～ | ℃ | % | ¥ | @ | # | & | →")
-    static let commonJapanese = group("常用", "、 | 。 | ？ | ！ | 「 | 」 | ・ | ー | 〜 | … | 『 | 』 | （ | ） | ： | ／ | ※ | ♪ | ☆ | 【 | 】 | 〒 | 々 | → | ＠ | ＃ | ％ | ＆")
+    /// 常用 fills the symbol panel's first page: 7 × 5 less ABC and delete.
+    static let commonChinese = group("常用", "， | 。 | ？ | ！ | 、 | ： | ； | “ | ” | （ | ） | 《 | 》 | …… | —— | · | 【 | 】 | 「 | 」 | ～ | ℃ | % | ¥ | @ | # | & | → | ‘ | ’ | * | + | ×")
+    static let commonJapanese = group("常用", "、 | 。 | ？ | ！ | 「 | 」 | ・ | ー | 〜 | … | 『 | 』 | （ | ） | ： | ／ | ※ | ♪ | ☆ | 【 | 】 | 〒 | 々 | → | ＠ | ＃ | ％ | ＆ | ＊ | ＋ | ＝ | ○ | ★")
     private static let symbolGroups: [Group] = [
         group("括号", "( | ) | [ | ] | { | } | < | > | （ | ） | ［ | ］ | ｛ | ｝ | ＜ | ＞ | 「 | 」 | 『 | 』 | 【 | 】 | 〔 | 〕 | 〈 | 〉 | 《 | 》 | 〖 | 〗 | 〘 | 〙 | 〚 | 〛 | ⌈ | ⌉ | ⌊ | ⌋ | ⟨ | ⟩"),
         group("标点", "| | \\ | _ | 。 | 、 | ， | ． | ！ | ？ | ： | ； | … | ‥ | · | ・ | 〜 | ～ | ー | — | – | ＿ | ﹏ | ' | \" | ‘ | ’ | “ | ” | « | » | ‹ | › | ¡ | ¿ | ‧ | ′ | ″ | § | ¶ | † | ‡ | ※ | 々 | 〃 | 〆"),

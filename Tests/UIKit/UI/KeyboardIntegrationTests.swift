@@ -315,7 +315,7 @@ final class KeyboardIntegrationTests: XCTestCase {
             return (panel, try XCTUnwrap(descendants(panel).compactMap { $0 as? UICollectionView }.first))
         }
         var (panel, grid) = try openEmoji()
-        XCTAssertNil(descendants(panel).first { $0.accessibilityIdentifier == "vime.symbols.category.recent" }, "No recent category before any use")
+        XCTAssertNil(descendants(panel).first { $0.accessibilityIdentifier == "vime.symbols.category.recent" }, "The panel has no recent category")
         try button("vime.symbols.search", in: keyboard).sendActions(for: .touchUpInside); keyboard.layoutIfNeeded()
         XCTAssertTrue(panel.isHidden)
         XCTAssertFalse(try button("vime.emojiSearch.prompt", in: keyboard).isEnabled)
@@ -332,20 +332,21 @@ final class KeyboardIntegrationTests: XCTestCase {
         XCTAssertEqual(keyboard.preferences.emojiRecents, ["🐱"])
 
         (panel, grid) = try openEmoji()
-        XCTAssertEqual(try button("vime.symbols.category.recent", in: keyboard).title(for: .normal), "最近")
-        XCTAssertEqual(grid.numberOfItems(inSection: 0), 1)
-        let smileys = try XCTUnwrap(KeyboardSymbolCatalog.emoji.groups.first?.items.first?.text)
+        XCTAssertNil(descendants(panel).first { $0.accessibilityIdentifier == "vime.symbols.category.recent" },
+            "Recents stay in emoji search, not in the panel")
+        let smileys = try XCTUnwrap(KeyboardSymbolCatalog.emojiGroups.first?.items.first?.text)
         // Emoji availability loads in the background; the panel publishes it whole.
         let deadline = Date().addingTimeInterval(5)
-        while panel.collectionView(grid, numberOfItemsInSection: 1) == 0 && Date() < deadline {
+        while panel.collectionView(grid, numberOfItemsInSection: 0) == 0 && Date() < deadline {
             RunLoop.main.run(until: Date().addingTimeInterval(0.01))
         }
-        panel.collectionView(grid, didSelectItemAt: IndexPath(item: 0, section: 1))
+        panel.collectionView(grid, didSelectItemAt: IndexPath(item: 0, section: 0))
         XCTAssertEqual(keyboard.preferences.emojiRecents, [smileys, "🐱"], "Most recent first")
-        let kaomoji = 1 + KeyboardSymbolCatalog.emoji.groups.count
-        panel.collectionView(grid, didSelectItemAt: IndexPath(item: 0, section: kaomoji))
+        panel.selectMode(.kaomoji); panel.layoutIfNeeded()
+        panel.collectionView(grid, didSelectItemAt: IndexPath(item: 0, section: 0))
         XCTAssertEqual(keyboard.preferences.emojiRecents.count, 2, "Only emoji are recorded")
         XCTAssertEqual(view.text, "🐱" + smileys + KeyboardSymbolCatalog.kaomoji[0].items[0].text)
+        (panel, grid) = try openEmoji()
 
         try button("vime.symbols.search", in: keyboard).sendActions(for: .touchUpInside); keyboard.layoutIfNeeded()
         XCTAssertNotNil(descendants(keyboard).first { $0.accessibilityIdentifier == "vime.emojiResult.🐱" }, "Idle search offers recents")
