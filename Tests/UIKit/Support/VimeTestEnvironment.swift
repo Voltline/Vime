@@ -4,7 +4,8 @@ import XCTest
 /// read the App Group, which a simulator keeps between runs; the input
 /// language is pinned to Japanese, with Chinese input on in simplified
 /// characters and live conversion off (it changes what typing shows), for
-/// the run and all are restored afterwards.
+/// the run and all are restored afterwards. Key hit calibration stays in
+/// memory, so taps one run teaches never move the keys of the next.
 @objc(VimeTestEnvironment)
 final class VimeTestEnvironment: NSObject, XCTestObservation {
     private static let pinnedKeys = ["vime.inputLanguage", "vime.chineseInputEnabled", "vime.liveConversion", "vime.traditionalChinese"]
@@ -17,6 +18,7 @@ final class VimeTestEnvironment: NSObject, XCTestObservation {
 
     func testBundleWillStart(_ testBundle: Bundle) {
         MainActor.assumeIsolated {
+            KeyHitCalibration.shared = KeyHitCalibration(directory: nil)
             let preferences = KeyboardPreferences()
             for key in Self.pinnedKeys { stored[key] = preferences.store.object(forKey: key) }
             preferences.inputLanguage = .japanese

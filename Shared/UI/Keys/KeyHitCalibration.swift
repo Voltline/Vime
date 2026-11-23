@@ -124,7 +124,10 @@ nonisolated final class KeyHitCalibration: @unchecked Sendable {
     static let rawKeyAnchorDx = 0.35
     static let rawKeyAnchorDy = 0.35
 
-    static let shared = KeyHitCalibration(directory: KeyHitCalibration.defaultDirectory())
+    /// The keyboard's stored calibration. The unit tests swap in an in-memory
+    /// one before any keyboard is built, so taps learned in one run never
+    /// shift the keys of the next.
+    nonisolated(unsafe) static var shared = KeyHitCalibration(directory: KeyHitCalibration.defaultDirectory())
 
     private let lock = NSLock()
     private let ioQueue = DispatchQueue(label: "com.Voltline.Vime.KeyHitCalibration.io", qos: .utility)
