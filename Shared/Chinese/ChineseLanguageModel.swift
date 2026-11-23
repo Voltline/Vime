@@ -50,7 +50,6 @@ nonisolated final class ChineseLanguageModel {
         guard configured == .v2 else { return .v1 }
         return ChineseModelFallback.shared.isFallenBackToV1 ? .v1 : .v2
     }
-    static var displayVersion: String { effectiveVersion.displayVersion }
     /// <CTX>, <READ> and <OUT>: the three-task model's markers, never part of a scored sentence.
     static let reservedTokens: Set<Int32> = [4, 5, 6]
 

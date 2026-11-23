@@ -23,6 +23,12 @@ extension KeyboardView {
         else { onDismiss?() }
     }
 
+    /// The emoji key's tap, unless the guard reads it as a graze while typing.
+    func tapEmojiKey() {
+        guard consumeEmojiKeyGuardDecision().shouldAct else { return }
+        toggleEmoji()
+    }
+
     func toggleEmoji() {
         openSymbolPanel(mode: .emoji)
     }

@@ -9,8 +9,10 @@ import os
 ///    2 consecutive unfinished loads switch the default to v1).
 /// 3. Latency guard (rolling p95 over the last 50 keys' first-candidate latency > 60 ms).
 ///
-/// Never uses accuracy or user-selection signals. Resets when the user manually
-/// switches back to v2 or when the app version changes.
+/// Never uses accuracy or user-selection signals. A slow window lasts only for
+/// the keyboard process it happened in; a stored fallback expires after
+/// `retryInterval`, and resets when the user switches back to v2 or the app
+/// version changes, so one bad moment never pins the keyboard to v1.
 nonisolated final class ChineseModelFallback: @unchecked Sendable {
     static let shared = ChineseModelFallback()
 
@@ -19,6 +21,9 @@ nonisolated final class ChineseModelFallback: @unchecked Sendable {
     static let fallbackActiveKey = "vime.chineseModel.v2AutoFallbackToV1"
     static let fallbackReasonKey = "vime.chineseModel.v2AutoFallbackReason"
     static let appVersionKey = "vime.chineseModel.v2AppVersion"
+    static let fallbackDateKey = "vime.chineseModel.v2AutoFallbackDate"
+    /// How long a stored fallback holds before v2 is tried again.
+    static let retryInterval: TimeInterval = 24 * 60 * 60
 
     static let crashThreshold = 2
     static let latencyWindowSize = 50
@@ -27,6 +32,7 @@ nonisolated final class ChineseModelFallback: @unchecked Sendable {
     private let lock = NSLock()
     private let defaultsProvider: () -> UserDefaults?
     private let appVersionProvider: () -> String
+    private let now: () -> Date
     private let log = Logger(subsystem: "com.Voltline.Vime", category: "LanguageModel")
     private var latencySamplesMS: [Double] = []
     private var inMemoryFallbackActive = false
@@ -34,10 +40,12 @@ nonisolated final class ChineseModelFallback: @unchecked Sendable {
 
     init(
         defaultsProvider: @escaping () -> UserDefaults? = { UserDefaults(suiteName: KeyboardPreferences.appGroup) },
-        appVersionProvider: @escaping () -> String = { ChineseModelFallback.currentBundleVersion() }
+        appVersionProvider: @escaping () -> String = { ChineseModelFallback.currentBundleVersion() },
+        now: @escaping () -> Date = Date.init
     ) {
         self.defaultsProvider = defaultsProvider
         self.appVersionProvider = appVersionProvider
+        self.now = now
     }
 
     static func currentBundleVersion(bundle: Bundle = .main) -> String {
@@ -57,6 +65,13 @@ nonisolated final class ChineseModelFallback: @unchecked Sendable {
             }
             defaults.set(current, forKey: Self.appVersionKey)
         }
+        if defaults.bool(forKey: Self.fallbackActiveKey) {
+            let since = defaults.object(forKey: Self.fallbackDateKey) as? Date ?? .distantPast
+            if now().timeIntervalSince(since) >= Self.retryInterval {
+                clearFallbackLocked(defaults)
+                log.notice("Chinese model fallback expired; retrying v2")
+            }
+        }
     }
 
     private func clearFallbackLocked(_ defaults: UserDefaults) {
@@ -64,6 +79,7 @@ nonisolated final class ChineseModelFallback: @unchecked Sendable {
         defaults.removeObject(forKey: Self.crashCountKey)
         defaults.removeObject(forKey: Self.fallbackActiveKey)
         defaults.removeObject(forKey: Self.fallbackReasonKey)
+        defaults.removeObject(forKey: Self.fallbackDateKey)
         inMemoryFallbackActive = false
         inMemoryFallbackReason = nil
         latencySamplesMS.removeAll(keepingCapacity: true)
@@ -111,7 +127,7 @@ nonisolated final class ChineseModelFallback: @unchecked Sendable {
         defer { lock.unlock() }
         guard let defaults = defaultsProvider() else { return !inMemoryFallbackActive }
         syncAppVersionLocked(defaults)
-        if defaults.bool(forKey: Self.fallbackActiveKey) {
+        if inMemoryFallbackActive || defaults.bool(forKey: Self.fallbackActiveKey) {
             return false
         }
         if defaults.bool(forKey: Self.inFlightKey) {
@@ -171,15 +187,12 @@ nonisolated final class ChineseModelFallback: @unchecked Sendable {
         guard p95 > Self.latencyP95LimitMS else { return false }
         let formatted = String(format: "%.1f", p95)
         let reason = "latency_p95_\(formatted)ms"
+        // Slowness passes (a cold cache, a hot phone), so it holds only for
+        // this keyboard process and is never stored.
         inMemoryFallbackActive = true
         inMemoryFallbackReason = reason
-        if let defaults = defaultsProvider() {
-            syncAppVersionLocked(defaults)
-            activateFallbackLocked(defaults, reason: reason)
-        } else {
-            latencySamplesMS.removeAll(keepingCapacity: true)
-            log.error("Chinese v2 rolling p95 latency \(formatted, privacy: .public) ms > 60 ms; falling back to v1")
-        }
+        latencySamplesMS.removeAll(keepingCapacity: true)
+        log.error("Chinese v2 rolling p95 latency \(formatted, privacy: .public) ms > 60 ms; falling back to v1")
         return true
     }
 
@@ -194,6 +207,7 @@ nonisolated final class ChineseModelFallback: @unchecked Sendable {
         defaults.set(false, forKey: Self.inFlightKey)
         defaults.set(true, forKey: Self.fallbackActiveKey)
         defaults.set(reason, forKey: Self.fallbackReasonKey)
+        defaults.set(now(), forKey: Self.fallbackDateKey)
         defaults.synchronize()
         latencySamplesMS.removeAll(keepingCapacity: true)
         log.error("Chinese v2 auto-fallback to v1 triggered: \(reason, privacy: .public)")

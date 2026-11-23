@@ -57,7 +57,7 @@ extension KeyboardView {
             self.refresh()
         }
         retype.0.accessibilityIdentifier = "vime.nineKey.retype"
-        let emoji = symbol("face.smiling", label: String(localized: "表情"), weight: 1) { [weak self] in self?.toggleEmoji() }
+        let emoji = symbol("face.smiling", label: String(localized: "表情"), weight: 1) { [weak self] in self?.tapEmojiKey() }
         emoji.0.accessibilityIdentifier = "vime.key.emoji"
         let numbers = key("123", utility: true) { [weak self] in
             guard let self else { return }

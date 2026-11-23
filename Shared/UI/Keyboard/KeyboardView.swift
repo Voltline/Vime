@@ -116,8 +116,18 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
 
     /// Swipe up on the language key: the target shows as a corner hint.
     func consumeLanguageSwitchGuardDecision() -> LanguageSwitchGuard.Evaluation {
-        let pending = pendingLanguageTouchContext
-        pendingLanguageTouchContext = nil
+        consumeKeyGuardDecision(for: "vime.key.language", guard: languageSwitchGuard)
+    }
+
+    /// The emoji key gets the language key's guard against grazes while
+    /// typing, with its own retry window.
+    func consumeEmojiKeyGuardDecision() -> LanguageSwitchGuard.Evaluation {
+        let emoji = pendingGuardedTouchContexts.keys.first { $0 != "vime.key.language" } ?? "vime.key.emoji"
+        return consumeKeyGuardDecision(for: emoji, guard: emojiKeyGuard)
+    }
+
+    private func consumeKeyGuardDecision(for identifier: String, guard keyGuard: LanguageSwitchGuard) -> LanguageSwitchGuard.Evaluation {
+        let pending = pendingGuardedTouchContexts.removeValue(forKey: identifier)
         let context = pending.map {
             LanguageSwitchGuard.TapContext(
                 dx: $0.dx,
@@ -128,7 +138,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
                 timestamp: $0.timestamp
             )
         }
-        return languageSwitchGuard.evaluate(context: context)
+        return keyGuard.evaluate(context: context)
     }
 
     func configureQuickSwitch(_ key: KeyboardKey) {
@@ -392,7 +402,8 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     var punctuationKey: KeyboardKey?
     var languageKey: KeyboardKey?
     var languageSwitchGuard: LanguageSwitchGuard = .shared
-    private var pendingLanguageTouchContext: KeyboardTouchSurface.LanguageKeyTouchContext?
+    var emojiKeyGuard = LanguageSwitchGuard()
+    private var pendingGuardedTouchContexts: [String: KeyboardTouchSurface.LanguageKeyTouchContext] = [:]
     var returnKey: KeyboardKey?
     var numberSymbolRail: KeyboardNumberSymbolRail?
     var numberBackKey: KeyboardKey?
@@ -564,10 +575,11 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         previewOverlay.layer.zPosition = 1
         addSubview(previewOverlay)
         keysContainer.onLanguageKeyPressContext = { [weak self] context in
-            self?.pendingLanguageTouchContext = context
+            self?.pendingGuardedTouchContexts = [context.keyIdentifier: context]
         }
         keysContainer.onAnyNonLanguageKeyDown = { [weak self] ts in
             self?.languageSwitchGuard.noteOtherActivity(at: ts)
+            self?.emojiKeyGuard.noteOtherActivity(at: ts)
         }
         keysContainer.onGestureChange = { [weak self] gesture in
             guard let self else { return }

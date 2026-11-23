@@ -79,10 +79,39 @@ final class ChineseModelFallbackTests: XCTestCase {
         XCTAssertTrue(fallback.recordKeyLatency(milliseconds: 80.0))
         XCTAssertTrue(fallback.isFallenBackToV1)
         XCTAssertEqual(fallback.fallbackReason, "latency_p95_80.0ms")
+        XCTAssertFalse(fallback.beginV2Load(), "this keyboard process stays on v1")
+
+        // Slowness is never stored: the next keyboard process tries v2 again.
+        XCTAssertFalse(defaults.bool(forKey: ChineseModelFallback.fallbackActiveKey))
+        let nextProcess = ChineseModelFallback(defaultsProvider: { defaults }, appVersionProvider: { "1.0(1)" })
+        XCTAssertFalse(nextProcess.isFallenBackToV1)
+        XCTAssertTrue(nextProcess.beginV2Load())
 
         // Manual switch back to v2 resets fallback and window.
         fallback.resetForManualV2Selection()
         XCTAssertFalse(fallback.isFallenBackToV1)
+    }
+
+    func testStoredFallbackExpiresSoTheSameBuildRetriesV2() {
+        let (defaults, suite) = makeIsolatedDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        var clock = Date(timeIntervalSinceReferenceDate: 0)
+        let fallback = ChineseModelFallback(defaultsProvider: { defaults }, appVersionProvider: { "1.3(5)" }, now: { clock })
+        XCTAssertTrue(fallback.beginV2Load())
+        XCTAssertTrue(fallback.beginV2Load())
+        XCTAssertFalse(fallback.beginV2Load())
+        XCTAssertTrue(fallback.isFallenBackToV1)
+
+        clock += ChineseModelFallback.retryInterval - 60
+        let later = ChineseModelFallback(defaultsProvider: { defaults }, appVersionProvider: { "1.3(5)" }, now: { clock })
+        XCTAssertTrue(later.isFallenBackToV1, "holds until the retry interval passes")
+
+        clock += 60
+        XCTAssertFalse(later.isFallenBackToV1)
+        XCTAssertNil(later.fallbackReason)
+        XCTAssertTrue(later.beginV2Load())
+        later.finishV2LoadSuccess()
     }
 
     func testInMemoryFallbackWithoutAppGroup() {
