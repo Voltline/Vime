@@ -300,6 +300,18 @@
     "noticeFile": "tatoeba"
   },
   {
+    "id": "wanxiang",
+    "name": "万象拼音 (rime_wanxiang)",
+    "use": "中文扩展单字与行政区划、名人、艺人领域词库",
+    "category": "语言与表情数据",
+    "license": "CC BY 4.0",
+    "copyright": "amzxyz",
+    "source": "https://github.com/amzxyz/rime_wanxiang",
+    "revision": "54de9584b584b8965963a16d948923f322f95c69",
+    "modified": "取 zi、diming、mingren、yiren，转为无调拼音、经 OpenCC 过滤繁体变体后补入拼音词库",
+    "noticeFile": "wanxiang"
+  },
+  {
     "id": "opencc",
     "name": "OpenCC",
     "use": "librime 依赖的简繁转换库",
