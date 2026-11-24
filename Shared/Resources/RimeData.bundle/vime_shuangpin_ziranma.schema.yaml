@@ -1,10 +1,10 @@
 __build_info:
   rime_version: vime
   timestamps:
-    default: 1795492136
+    default: 1795493368
     default.custom: 0
     vime_shuangpin_ziranma.custom: 0
-    vime_shuangpin_ziranma.schema: 1795492136
+    vime_shuangpin_ziranma.schema: 1795493368
 engine:
   filters:
     - simplifier

@@ -39,6 +39,9 @@ Sources and licenses:
       English vocabulary up to size 70 and its capitalization.
   Tatoeba Mandarin sentences (CC BY 2.0 FR): short runs of words common in
       conversation, such as 好的, which no word list has.
+  amzxyz/rime_wanxiang (CC BY 4.0): supplementary characters beyond the 8105
+      standard table (dicts/zi.dict.yaml, filtered to Simplified via OpenCC
+      t2s) and domain vocabularies (diming, mingren, yiren).
   Scripts/rime_words.txt (collected for Vime): newer words, names and terms
       the sources above lack or rank too low, such as 原神 and 避坑.
   Bangumi wiki dump (CC BY-SA 3.0) via Scripts/rime_bangumi.txt: Chinese
@@ -80,6 +83,7 @@ SOURCES = {
     "essay": ("rime/rime-essay-simp", "dc06d4c96ae72ad46b29e3aa824a5d1e8f721fd0", "2022-01-14", "LGPL-3.0"),
     "wordfreq": ("rspeer/wordfreq", "912caf64b657478d1dff1138efdc078947d54bb1", "2025-01-04", "data CC BY-SA 4.0"),
     "wordlist": ("en-wl/wordlist", "1e5b7d3a72f47a71da5d28686c1dd4b397178485", "2026-06-24", "MIT-like"),
+    "wanxiang": ("amzxyz/rime_wanxiang", "54de9584b584b8965963a16d948923f322f95c69", "2026-11-23", "CC BY 4.0"),
 }
 FILES = {
     "tghz": ("pinyin-data", "kTGHZ2013.txt"),
@@ -89,7 +93,18 @@ FILES = {
     "essay": ("essay", "essay-zh-hans.txt"),
     "wordfreq_en": ("wordfreq", "wordfreq/data/large_en.msgpack.gz"),
     "scowl": ("wordlist", "data/scowl-pre.txt"),
+    "wanxiang_zi": ("wanxiang", "dicts/zi.dict.yaml"),
+    "wanxiang_diming": ("wanxiang", "dicts/diming.dict.yaml"),
+    "wanxiang_mingren": ("wanxiang", "dicts/mingren.dict.yaml"),
+    "wanxiang_yiren": ("wanxiang", "dicts/yiren.dict.yaml"),
 }
+FILE_SHA256 = {
+    "wanxiang_zi": "f321215a3aa7eef6317ec3b9e9725bf777480627488f5b6a42febaf7687e4924",
+    "wanxiang_diming": "36ce6276336851eb258f42b52787eb6e826e7052d4b917921960dcb47fa49545",
+    "wanxiang_mingren": "02baa1530da465f9723b02476c96c527c926067a5a94264ab81413f571294b32",
+    "wanxiang_yiren": "ab041efdaf32af2f799c545244c8575cc5d871eccf6f0317a9a1c6182e61ea98",
+}
+OPENCC_ST_CHARS = Path(__file__).resolve().parent.parent / "Dependencies/VimeRime/OpenCC/STCharacters.txt"
 # Tatoeba replaces its export every week and keeps no old ones, so the counts
 # taken from it are kept in COLLOCATIONS, which records the export it counted.
 # --refresh-tatoeba downloads the current export and counts again.
@@ -158,6 +173,18 @@ BANGUMI_BASE = 0.4
 BANGUMI_EXPONENT = 0.4
 BANGUMI_TOP = 30.0
 BANGUMI_TWO_CHARACTERS = 50
+# Placeholder weights and per-source toggles for Wanxiang supplementary characters
+# and domain vocabularies (to be tuned empirically).
+# Supplementary characters stay strictly below FLOOR_CHAR (0.05) so they never
+# displace any character in the 8105 standard table.
+WANXIANG_CHAR_FREQ_MIN = 0.015
+WANXIANG_CHAR_FREQ_MAX = 0.045
+WANXIANG_DIMING_ENABLED = True
+WANXIANG_MINGREN_ENABLED = True
+WANXIANG_YIREN_ENABLED = True
+WANXIANG_DIMING_FREQ_RANGE = (0.35, 3.0)
+WANXIANG_MINGREN_FREQ_RANGE = (0.35, 3.0)
+WANXIANG_YIREN_FREQ_RANGE = (0.35, 3.0)
 # Readings the character table leaves out: colloquial ones, interjections
 # (嗯 is read ng there, which the speller drops for abbreviations), and the
 # only characters of syllables no listed character has. Each is a share of
@@ -213,7 +240,7 @@ def fetch(url, cache, sha256=None):
 def source(key, cache):
     name, path = FILES[key]
     repo, commit = SOURCES[name][:2]
-    return fetch(f"{GITHUB}/{repo}/{commit}/{path}", cache)
+    return fetch(f"{GITHUB}/{repo}/{commit}/{path}", cache, FILE_SHA256.get(key))
 
 
 def lines(data):
@@ -375,6 +402,118 @@ def load_changyong(cache, charset, valid):
                 readings.append(reading)
         table[word] = (readings, min(rank, int(parts[2])))
     return table
+
+
+def load_opencc_t2s():
+    """Builds a Traditional -> Simplified character map by inverting OpenCC's STCharacters.txt."""
+    t2s = defaultdict(set)
+    for line in OPENCC_ST_CHARS.read_text(encoding="utf-8").splitlines():
+        line = line.split("#", 1)[0].strip()
+        if not line or "\t" not in line:
+            continue
+        simp, trads = line.split("\t", 1)
+        if len(simp) != 1:
+            continue
+        for trad in trads.split():
+            if len(trad) == 1 and trad != simp:
+                t2s[trad].add(simp)
+    return t2s
+
+
+def parse_wanxiang_dict(data, valid):
+    """Parses a Wanxiang Rime yaml dict (word\\ttoned_pinyin\\tweight), converting toned
+    pinyin to Vime's toneless syllables and dropping entries with unsupported syllables."""
+    in_body = False
+    rows = []
+    dropped_syllable = 0
+    for raw in data.decode("utf-8").splitlines():
+        if not in_body:
+            if raw.strip() == "...":
+                in_body = True
+            continue
+        line = raw.split("#", 1)[0].strip()
+        if not line or "\t" not in line:
+            continue
+        parts = line.split("\t")
+        if len(parts) < 2:
+            continue
+        text = parts[0].strip()
+        raw_pinyin = parts[1].strip()
+        raw_weight = int(parts[2]) if len(parts) >= 3 and parts[2].strip().isdigit() else 1
+        spelled = [syllable(token) for token in raw_pinyin.split()]
+        if not text or len(spelled) != len(text) or any(s not in valid for s in spelled):
+            dropped_syllable += 1
+            continue
+        rows.append((text, " ".join(spelled), raw_weight))
+    return rows, dropped_syllable
+
+
+def map_wanxiang_weight(raw_weight, max_weight, freq_min, freq_max):
+    """Monotonically maps a Wanxiang integer weight into [freq_min, freq_max]."""
+    if raw_weight <= 1 or max_weight <= 1:
+        return freq_min
+    ratio = math.log(raw_weight) / math.log(max_weight)
+    return freq_min + (freq_max - freq_min) * max(0.0, min(1.0, ratio))
+
+
+def load_wanxiang_chars(cache, base_charset, valid, t2s):
+    """Loads supplementary Simplified characters from Wanxiang zi.dict.yaml.
+    - Existing characters in `base_charset` are untouched.
+    - Traditional variants whose t2s(c) != c and simplified form exists in `base_charset`
+      (or in Wanxiang itself) are dropped."""
+    rows, dropped_syllable = parse_wanxiang_dict(source("wanxiang_zi", cache), valid)
+    single_rows = [(ch, code, w) for ch, code, w in rows if len(ch) == 1]
+    wanxiang_chars = {ch for ch, _, _ in single_rows}
+    known_simplified = base_charset | wanxiang_chars
+
+    kept = {}
+    dropped_traditional = 0
+    for ch, code, w in single_rows:
+        if ch in base_charset:
+            continue
+        simps = t2s.get(ch)
+        if simps and any(s in known_simplified for s in simps):
+            dropped_traditional += 1
+            continue
+        prev = kept.get((ch, code))
+        if prev is None or w > prev:
+            kept[ch, code] = w
+
+    max_w = max(kept.values(), default=1)
+    mapped = {
+        (ch, code): map_wanxiang_weight(w, max_w, WANXIANG_CHAR_FREQ_MIN, WANXIANG_CHAR_FREQ_MAX)
+        for (ch, code), w in kept.items()
+    }
+    print(f"wanxiang zi: +{len(mapped)} readings ({len({c for c, _ in mapped})} chars), "
+          f"dropped {dropped_syllable} invalid-syllable, {dropped_traditional} traditional variants",
+          file=sys.stderr)
+    return mapped
+
+
+def load_wanxiang_domain_words(key, cache, existing_words, full_charset, valid, downweighted, freq_range):
+    """Loads supplementary domain words (diming/mingren/yiren) not already in `existing_words`."""
+    rows, dropped_syllable = parse_wanxiang_dict(source(key, cache), valid)
+    best_by_pair = {}
+    for text, code, w in rows:
+        if len(text) < 2 or len(text) > MAX_WORD_LENGTH:
+            continue
+        if text in existing_words or downweight_hash(text) in downweighted:
+            continue
+        if any(c not in full_charset for c in text):
+            continue
+        prev = best_by_pair.get((text, code))
+        if prev is None or w > prev:
+            best_by_pair[text, code] = w
+
+    max_w = max(best_by_pair.values(), default=1)
+    freq_min, freq_max = freq_range
+    mapped = {
+        (text, code): map_wanxiang_weight(w, max_w, freq_min, freq_max)
+        for (text, code), w in best_by_pair.items()
+    }
+    print(f"{key}: +{len(mapped)} entries ({len({t for t, _ in mapped})} words), "
+          f"dropped {dropped_syllable} invalid-syllable", file=sys.stderr)
+    return mapped
 
 
 def rank_scale(ranked, reference):
@@ -549,6 +688,31 @@ def build_chinese(cache, refresh_tatoeba=False):
     for word, (spellings, f) in words.items():
         for spelled in spellings:
             entries[word, spelled] = f / len(spellings)
+
+    # Wanxiang supplementary Simplified characters (outside the existing character table).
+    t2s = load_opencc_t2s()
+    existing_chars = set(readings)
+    extra_chars = load_wanxiang_chars(cache, existing_chars, valid, t2s)
+    for (ch, code), f in extra_chars.items():
+        entries.setdefault((ch, code), f)
+    full_charset = existing_chars | {ch for ch, _ in extra_chars}
+
+    # Wanxiang domain vocabularies (diming, mingren, yiren); existing words stay untouched.
+    existing_words = set(words)
+    domain_specs = [
+        ("wanxiang_diming", WANXIANG_DIMING_ENABLED, WANXIANG_DIMING_FREQ_RANGE),
+        ("wanxiang_mingren", WANXIANG_MINGREN_ENABLED, WANXIANG_MINGREN_FREQ_RANGE),
+        ("wanxiang_yiren", WANXIANG_YIREN_ENABLED, WANXIANG_YIREN_FREQ_RANGE),
+    ]
+    for key, enabled, freq_range in domain_specs:
+        if not enabled:
+            continue
+        domain_entries = load_wanxiang_domain_words(
+            key, cache, existing_words, full_charset, valid, downweighted, freq_range)
+        for (text, code), f in domain_entries.items():
+            entries[text, code] = f
+            existing_words.add(text)
+
     entries = [(text, code, f) for (text, code), f in entries.items()]
     entries.sort(key=lambda e: (-e[2], e[1], e[0]))
     return entries, valid
