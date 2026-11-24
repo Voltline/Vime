@@ -3,27 +3,55 @@ import Foundation
 /// Whole-sentence Chinese candidates generated under the pinyin typed, then
 /// rescored by the reranking model with the text before the caret.
 ///
-/// Not shown yet: Rime's candidates and their reranking
-/// (`ChineseCandidateRanking`) decide what the keyboard shows, and this path
-/// runs only behind `isEnabled`, a development switch. The generator is the
-/// zh-v1 batched KV package (kvbatch-v3) in lm mode for now — the prompt in
-/// one call, each bucket in one call scoring only its letter's tokens —
-/// searching forward only and kept across keystrokes (`ChineseIncrementalGeneration`); the three-task model puts the
-/// keys in the prompt, so it would search afresh with `mode: .task`.
-///
-/// Any failure — keys no sentence spells, no model, cancellation or the
-/// deadline — returns nil, and the caller keeps Rime's candidates. When only
-/// the rescoring fails, the generation scores alone decide.
+/// In v2 task mode (`decodingMode == .task`), `ChineseInputSession` schedules
+/// a single pause-triggered generation and weighs its top sentence against the
+/// current lead with `decide`. Any failure — keys no sentence spells, no model,
+/// suspension, cancellation or the deadline — returns nil, and the caller keeps
+/// Rime's candidates. When only rescoring fails, generation scores alone decide.
 nonisolated enum ChineseSentenceGeneration {
-    /// Development switch (App Group defaults); off unless set by hand.
+    /// Development switch (App Group defaults); on unless set to false.
     static let developmentSwitchKey = "vime.development.chineseSentenceGeneration"
     static var isEnabled: Bool {
-        UserDefaults(suiteName: KeyboardPreferences.appGroup)?.bool(forKey: developmentSwitchKey) ?? false
+        UserDefaults(suiteName: KeyboardPreferences.appGroup)?.object(forKey: developmentSwitchKey) as? Bool ?? true
     }
     static let mode: ChineseConstrainedGeneration.Mode = .lm
     static let parameters = ChineseConstrainedGeneration.Parameters()
     /// Weight of the reranking model's log probability against the generator's.
     static let rescoreWeight = 1.6
+    /// Input lengths eligible for pause-triggered sentence generation.
+    static let letters = 4...48
+    /// Generated lead replaces the current lead only when its LM score beats it by at least this much.
+    static let leadMargin = 3.0
+    /// Minimum LM score lead over the current lead required to show at rank 2.
+    static let showMargin = 0.0
+
+    /// Whether `input` is eligible for pause-triggered generation: plain lowercase letters in range.
+    static func wants(_ input: String) -> Bool {
+        letters.contains(input.count) && input.allSatisfy { ("a"..."z").contains($0) }
+    }
+
+    struct Decision: Equatable, Sendable {
+        let candidate: Candidate
+        /// True when the generated sentence should take rank 1; false for rank 2.
+        let leads: Bool
+    }
+
+    /// Decides whether `generated` should show against `currentLead`, using LM scores
+    /// computed with the same model and context. Protected leads (user phrases,
+    /// learned words, or whole-input Rime dictionary words) are never displaced.
+    static func decide(generated: Candidate, currentLead: String, currentScore: Double,
+                       generatedScore: Double, leadProtected: Bool) -> Decision? {
+        guard !generated.text.isEmpty, generated.text != currentLead,
+              currentScore.isFinite, generatedScore.isFinite else { return nil }
+        let margin = generatedScore - currentScore
+        if !leadProtected, margin >= leadMargin {
+            return Decision(candidate: generated, leads: true)
+        }
+        if margin >= showMargin {
+            return Decision(candidate: generated, leads: false)
+        }
+        return nil
+    }
 
     struct Candidate: Equatable, Sendable {
         let text: String
@@ -123,6 +151,39 @@ nonisolated enum ChineseSentenceGeneration {
                 }
             }
             DispatchQueue.main.async { MainActor.assumeIsolated { completion(result) } }
+        }
+    }
+
+    /// Runs v2 task-mode generation on the model queue, weighs its top candidate
+    /// against `currentLead` with the same model and context, and delivers a
+    /// placement decision on the main queue. Never records keystroke fallback latency.
+    static func generateAndWeigh(
+        keys: String,
+        leftContext: String,
+        currentLead: String,
+        leadProtected: Bool,
+        request: ChineseCandidateRanking.Request,
+        allows: @escaping @Sendable (String) -> Bool,
+        completion: @escaping @MainActor (Decision?) -> Void
+    ) {
+        let storage = JapaneseCandidateWorker.LanguageModelStorage.shared
+        JapaneseCandidateWorker.modelQueue.async {
+            var decision: Decision?
+            let stop = { request.isCancelled || storage.isSuspended }
+            if !stop(), let model = storage.chineseModel, model.decodingMode == .task,
+               let generator = Storage.shared.generator(for: model),
+               let ranked = candidates(keys: keys, leftContext: leftContext, generator: generator,
+                                       scorer: model, allows: allows, cancelled: stop),
+               let top = ranked.first, top.text != currentLead, !stop() {
+                let context = VimeLanguageModel.sentenceContext(leftContext)
+                if let pair = try? model.scores(context: context, candidates: [currentLead, top.text], cancelled: stop),
+                   pair.count == 2, !stop() {
+                    decision = decide(generated: top, currentLead: currentLead,
+                                      currentScore: pair[0], generatedScore: pair[1],
+                                      leadProtected: leadProtected)
+                }
+            }
+            DispatchQueue.main.async { MainActor.assumeIsolated { completion(decision) } }
         }
     }
 

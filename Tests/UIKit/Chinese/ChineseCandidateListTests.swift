@@ -60,4 +60,31 @@ final class ChineseCandidateListTests: XCTestCase {
         XCTAssertEqual(List.placement(readings: 2, capitals: false, rimeShort: false, best: -10, rival: -12), .overRime)
         XCTAssertEqual(List.placement(readings: 2, capitals: false, rimeShort: false, best: -12, rival: -10), .none)
     }
+
+    func testGeneratedSentencePlacementAndDeduplication() {
+        // Leading generated sentence takes rank 1 and deduplicates matching lower Rime candidate.
+        XCTAssertEqual(
+            List.slots(rime: ["在美国的", "怎么搞的", "在"], order: [0, 1, 2], corrections: [], correctionLeads: false,
+                       mixed: 0, placement: .none, phrases: [], generated: ["怎么搞的"], generatedLeads: true),
+            [.generated(0), .rime(0), .rime(2)]
+        )
+        // Non-leading generated sentence goes to rank 2.
+        XCTAssertEqual(
+            List.slots(rime: ["在美国的", "在"], order: [0, 1], corrections: [], correctionLeads: false,
+                       mixed: 0, placement: .none, phrases: [], generated: ["怎么搞的"], generatedLeads: false),
+            [.rime(0), .generated(0), .rime(1)]
+        )
+        // Generated sentence matching Rime's lead is omitted.
+        XCTAssertEqual(
+            List.slots(rime: ["怎么搞的", "在"], order: [0, 1], corrections: [], correctionLeads: false,
+                       mixed: 0, placement: .none, phrases: [], generated: ["怎么搞的"], generatedLeads: true),
+            [.rime(0), .rime(1)]
+        )
+        // User phrases always stay ahead of generated candidates.
+        XCTAssertEqual(
+            List.slots(rime: ["在美国的", "在"], order: [0, 1], corrections: [], correctionLeads: false,
+                       mixed: 0, placement: .none, phrases: ["自定词"], generated: ["怎么搞的"], generatedLeads: true),
+            [.phrase(0), .generated(0), .rime(0), .rime(1)]
+        )
+    }
 }
