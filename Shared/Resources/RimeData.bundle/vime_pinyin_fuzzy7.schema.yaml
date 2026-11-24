@@ -1,10 +1,10 @@
 __build_info:
   rime_version: vime
   timestamps:
-    default: 1795489494
+    default: 1795491709
     default.custom: 0
     vime_pinyin_fuzzy7.custom: 0
-    vime_pinyin_fuzzy7.schema: 1795489494
+    vime_pinyin_fuzzy7.schema: 1795491709
 engine:
   filters:
     - simplifier

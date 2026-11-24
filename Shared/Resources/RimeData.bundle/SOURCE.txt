@@ -8,3 +8,4 @@ Tencent AI Lab Embedding Corpus v0.2.0 vocabulary https://huggingface.co/conanyu
 现代汉语常用词表 gist revision ac66c1900b048e3c72a4388b2304893ca3b9a571 https://gist.githubusercontent.com/indiejoseph/eae09c673460aa0b56db/raw/b3a10af0119b28514cfc694485a317b272f3ab1a/%E7%8E%B0%E4%BB%A3%E6%B1%89%E8%AF%AD%E5%B8%B8%E7%94%A8%E8%AF%8D%E8%A1%A8.txt sha256 8e16b3e1c40593bfa81e18f285ecc830a349629877d45bdd033c2dd5b77783cb (no license stated)
 Tatoeba https://downloads.tatoeba.org/exports/per_language/cmn/cmn_sentences.tsv.bz2 export 2026-11-07 sha256 262a48cacb7693f6e47a2c4c42f216a5c45dd28b9b62014b159628cc908e8fcc via Scripts/rime_collocations.txt (CC BY 2.0 FR)
 Newer words collected for Vime: Scripts/rime_words.txt
+Bangumi wiki names: Scripts/rime_bangumi.txt (CC BY-SA 3.0)
