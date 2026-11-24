@@ -1,10 +1,10 @@
 __build_info:
   rime_version: vime
   timestamps:
-    default: 1795400108
+    default: 1795481718
     default.custom: 0
     vime_t9.custom: 0
-    vime_t9.schema: 1795400108
+    vime_t9.schema: 1795481718
 engine:
   filters:
     - simplifier
