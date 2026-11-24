@@ -192,7 +192,7 @@ final class KeyboardSegmentedConversionTests: XCTestCase {
         keyboard.onEdit = { committed += $0 }
         button.sendActions(for: .touchDown)
         session.acceptCandidateUpdate(Array(session.candidateSnapshots.reversed()), revision: session.revision, supplementary: false)
-        XCTAssertNotEqual(button.title(for: .normal), "天", "The same pooled button now presents another candidate")
+        XCTAssertEqual(button.title(for: .normal), "天", "A held candidate keeps its text until the finger lifts")
         button.sendActions(for: .touchUpInside)
         XCTAssertEqual(session.raw, originalInput)
         XCTAssertTrue(committed.isEmpty, "A stale touched token must not commit a replacement")

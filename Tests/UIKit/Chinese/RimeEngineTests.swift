@@ -119,6 +119,11 @@ final class RimeEngineTests: XCTestCase {
             _ = engine.sendAndWait(.clear)
             return index
         }
+        // Rime keeps the user directory of the first engine in the process,
+        // which an earlier test may have taught. A reset restarts it here,
+        // empty, so the baseline and the final rank share one dictionary.
+        reset(requests)
+        _ = engine.sendAndWait(.clear)
         let before = try XCTUnwrap(rank())
         for _ in 0..<3 {
             let index = try XCTUnwrap(engine.sendAndWait(.type("shi")).candidates.firstIndex { $0.text == "式" })
