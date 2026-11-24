@@ -114,6 +114,8 @@ final class ChinesePauseGenerationTests: XCTestCase {
             session.candidatePresentations.firstIndex { $0.text == "我们下个月底打算去杭州玩" },
             "Expected generated sentence in \(session.candidatePresentations.map(\.text))")
         XCTAssertLessThanOrEqual(generatedIdx, 1, "Generated sentence should be at rank 1 or 2")
+        // One changed character is below LateCorrectionMark.minimumChanges.
+        XCTAssertTrue(session.candidatePresentations.allSatisfy { $0.lateCorrection == nil })
         XCTAssertFalse(ChineseModelFallback.shared.isFallenBackToV1,
                        "Pause generation must not trigger v2->v1 latency fallback")
 

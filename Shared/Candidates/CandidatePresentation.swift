@@ -68,6 +68,8 @@ nonisolated struct CandidatePresentation: Equatable, Sendable {
     /// The word's hiragana reading, shown small above the text like furigana.
     /// Only words found by their Mandarin reading have one.
     var rubyReading: String? = nil
+    /// Set on a lead the model replaced after a pause.
+    var lateCorrection: LateCorrectionMark? = nil
     var annotation: String? { detailAnnotation ?? correction.map { String(localized: "\($0.suggestedReading) · 建议") } }
     var accessibilityLabel: String {
         if let rubyReading {

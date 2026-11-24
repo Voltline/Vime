@@ -68,6 +68,12 @@ final class ChineseInputSession: KeyboardInputSession {
     var generationWindow = ChineseCandidateRanking.lateWindow
     var hasPendingGeneration: Bool { generationRequest != nil }
     var hasGeneratedCandidate: Bool { !generatedCandidates.isEmpty }
+    /// The lead shown before a late correction lands, until the next list
+    /// compares against it (LateCorrectionMark).
+    private var leadBeforeLateCorrection: String?
+    /// The mark on the corrected lead while the input stays the same.
+    private var lateMark: (key: String, text: String, mark: LateCorrectionMark)?
+    private static var lateMarkCount = 0
     /// Readings of the open input that keep letters no pinyin takes as typed
     /// (ChineseMixedInput), placed by `mixedPlacement`.
     private var mixed: [ChineseMixedInput.Option] = []
@@ -681,6 +687,7 @@ final class ChineseInputSession: KeyboardInputSession {
         if cased.lowercased() != letters { cased = letters }
         if openKey != correctionInput, openKey != sentenceInput { clearCorrections() }
         if openKey != generationInput { clearGeneration() }
+        if lateMark?.key != openKey { lateMark = nil }
         // Later results are on their way: the list waits for the last.
         if received != sent, next.isComposing {
             if let round { round.cancel(); self.round = nil; roundKey = nil }
@@ -990,9 +997,28 @@ final class ChineseInputSession: KeyboardInputSession {
                     correction: nil, selectionToken: token, detailAnnotation: item.annotation)
             }
         }
+        markLateCorrection()
         scheduleCorrections()
         scheduleSentenceCorrection()
         scheduleSentenceGeneration()
+    }
+
+    /// Marks the lead when a late correction replaced it with enough change,
+    /// and keeps the mark on it while the list is rebuilt for the same input.
+    private func markLateCorrection() {
+        if let previous = leadBeforeLateCorrection {
+            leadBeforeLateCorrection = nil
+            if let lead = presentations.first?.text, lead != previous {
+                let changed = LateCorrectionMark.changedCharacters(from: previous, to: lead)
+                if changed.count >= LateCorrectionMark.minimumChanges {
+                    Self.lateMarkCount += 1
+                    lateMark = (openKey, lead, LateCorrectionMark(id: Self.lateMarkCount, changed: changed))
+                }
+            }
+        }
+        if let lateMark, presentations.first?.text == lateMark.text {
+            presentations[0].lateCorrection = lateMark.mark
+        }
     }
 
     // MARK: The open input
@@ -1576,6 +1602,7 @@ final class ChineseInputSession: KeyboardInputSession {
                     else { return }
                     self.sentenceCorrection = (decision.option.spelling, decision.option.candidate)
                     self.sentenceLeads = decision.leads
+                    if decision.leads { self.leadBeforeLateCorrection = self.presentations.first?.text }
                     self.refreshCorrections()
                 }
             }
@@ -1700,6 +1727,7 @@ final class ChineseInputSession: KeyboardInputSession {
         guard let decision else { return }
         generatedCandidates = [decision.candidate.text]
         generatedLeads = decision.leads
+        if decision.leads { leadBeforeLateCorrection = presentations.first?.text }
         show(shownCandidates, order: order)
         if received == sent { onCandidatesChange?() }
     }

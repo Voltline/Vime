@@ -13,6 +13,16 @@ final class KeyboardCandidateButton: UIButton {
     private let annotation = UILabel()
     /// The reading above a word found by its Mandarin reading, like furigana.
     private let ruby = UILabel()
+    /// The Vime mark on a lead a late correction replaced, made on first use.
+    private var correctionMark: VimeCorrectionMarkView?
+    /// Pooled buttons rebuild the same list; each correction plays once, and
+    /// its changed characters stay blue for `correctedTextDuration` from then.
+    private static var playedCorrection: (id: Int, at: CFTimeInterval)?
+    static let correctedTextDuration: CFTimeInterval = 1.2
+    /// Plays once the title is measured and laid out.
+    private var markPending = false
+    /// The trial ring around the corrected lead's box (VimeCorrectionRingView).
+    private var correctionRing: VimeCorrectionRingView?
     /// Ruby and text share the strip's height; the text is a point smaller
     /// so the pair fits the compact landscape strip as well.
     nonisolated static let rubyTitleFontSize: CGFloat = 17
@@ -118,7 +128,9 @@ final class KeyboardCandidateButton: UIButton {
         separator.isHidden = !suggests || index == 0
         if presentation != presentedPresentation {
             if presentation.text != presentedPresentation?.text { setTitle(presentation.text, for: .normal) }
+            let markChanged = presentation.lateCorrection != presentedPresentation?.lateCorrection
             presentedPresentation = presentation
+            if markChanged { presentLateCorrection(presentation, index: index) }
             ruby.text = presentation.rubyReading
             ruby.isHidden = presentation.rubyReading == nil
             annotation.text = presentation.annotation
@@ -132,6 +144,20 @@ final class KeyboardCandidateButton: UIButton {
         let indexChanged = presentedIndex != index || presentedRuby != hasRuby
         let highlightChanged = presentedHighlight != highlighted
         let colorChanged = titleColor(for: .normal)?.isEqual(KeyboardPalette.text) != true
+        defer {
+            if markPending {
+                markPending = false
+                if VimeCorrectionRingView.isEnabled, correctionRing == nil {
+                    let ring = VimeCorrectionRingView(frame: .zero)
+                    insertSubview(ring, aboveSubview: highlight)
+                    correctionRing = ring
+                }
+                layoutIfNeeded()
+                correctionMark?.play()
+                correctionRing?.play()
+                setNeedsLayout()
+            }
+        }
         if !needsMeasurement && !indexChanged && !highlightChanged && !colorChanged { return }
         if indexChanged {
             titleLabel?.font = .systemFont(ofSize: hasRuby ? Self.rubyTitleFontSize : Self.titleFontSize,
@@ -149,6 +175,7 @@ final class KeyboardCandidateButton: UIButton {
             annotation.textColor = .secondaryLabel
             ruby.textColor = annotation.textColor
         }
+        if presentation.lateCorrection != nil, indexChanged || colorChanged { colorCorrectedCharacters() }
         if needsMeasurement {
             let startedAt = KeyboardPerformance.start()
             let mainWidth = KeyboardCandidateTextMetrics.width(of: presentation.text, font: titleLabel!.font!)
@@ -212,7 +239,18 @@ final class KeyboardCandidateButton: UIButton {
         let width = min(max(0, bounds.width - 24), ceil(measuredTextWidth)) + padding.width * 2
         highlight.frame = CGRect(x: 12 - padding.width, y: top, width: min(bounds.width - (12 - padding.width) * 2, width),
             height: max(0, bottom - top))
-        highlight.layer.cornerRadius = min(10, highlight.bounds.height / 2)
+        // A glowing box takes the glow's rounder corners.
+        let glowing = correctionRing.map { !$0.isHidden } ?? false
+        highlight.layer.cornerRadius = glowing ? VimeCorrectionRingView.cornerRadius(for: highlight.bounds.height)
+            : min(10, highlight.bounds.height / 2)
+        correctionRing?.surround(highlight.frame, radius: highlight.layer.cornerRadius)
+        if let correctionMark, let title = titleLabel {
+            let side = VimeCorrectionMarkView.side
+            let textEnd = title.frame.minX + min(title.frame.width, ceil(measuredTitleWidth))
+            // Over the text's top-right corner, inside the button's own padding.
+            correctionMark.frame = CGRect(x: min(textEnd - 1, bounds.width - side), y: max(0, title.frame.minY - side / 2),
+                width: side, height: side)
+        }
         let separatorHeight = min(bounds.height, 18)
         separator.frame = CGRect(x: -1, y: (bounds.height - separatorHeight) / 2, width: 1 / max(1, traitCollection.displayScale), height: separatorHeight)
     }
@@ -222,5 +260,51 @@ final class KeyboardCandidateButton: UIButton {
         setTitleColor(KeyboardPalette.text, for: .normal)
         annotation.textColor = .secondaryLabel
         ruby.textColor = annotation.textColor
+        if presentedPresentation?.lateCorrection != nil { colorCorrectedCharacters() }
+    }
+
+    /// Shows a late correction's changed characters in brand blue and plays
+    /// the mark once; any other presentation clears both.
+    private func presentLateCorrection(_ presentation: CandidatePresentation, index: Int) {
+        guard let mark = presentation.lateCorrection, !suggestion else {
+            setAttributedTitle(nil, for: .normal)
+            setTitle(presentation.text, for: .normal)
+            correctionMark?.stop()
+            correctionRing?.stop()
+            setNeedsLayout()
+            return
+        }
+        let fresh = Self.playedCorrection?.id != mark.id
+        if fresh, index == 0 { Self.playedCorrection = (mark.id, CACurrentMediaTime()) }
+        colorCorrectedCharacters()
+        guard index == 0 else { correctionMark?.stop(); correctionRing?.stop(); setNeedsLayout(); return }
+        if correctionMark == nil {
+            let view = VimeCorrectionMarkView(frame: .zero)
+            addSubview(view)
+            correctionMark = view
+        }
+        guard fresh else { correctionMark?.show(); correctionRing?.show(); setNeedsLayout(); return }
+        markPending = true
+        // The characters return to the text colour; the mark stays.
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.correctedTextDuration + 0.02) { [weak self] in
+            guard let self, self.presentedPresentation?.lateCorrection?.id == mark.id, let label = self.titleLabel else { return }
+            UIView.transition(with: label, duration: 0.4, options: .transitionCrossDissolve) {
+                self.colorCorrectedCharacters()
+            }
+        }
+    }
+
+    private func colorCorrectedCharacters() {
+        guard let presentation = presentedPresentation, let mark = presentation.lateCorrection,
+              let font = titleLabel?.font else { return }
+        let blue = UIColor(cgColor: VimeLogo.blue)
+        let recent = Self.playedCorrection.map { $0.id == mark.id && CACurrentMediaTime() - $0.at < Self.correctedTextDuration } ?? false
+        let title = NSMutableAttributedString()
+        for (offset, character) in presentation.text.enumerated() {
+            title.append(NSAttributedString(string: String(character), attributes: [
+                .font: font, .foregroundColor: recent && mark.changed.contains(offset) ? blue : KeyboardPalette.text,
+            ]))
+        }
+        setAttributedTitle(title, for: .normal)
     }
 }
