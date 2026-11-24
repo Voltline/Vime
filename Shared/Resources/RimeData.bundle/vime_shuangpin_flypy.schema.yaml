@@ -1,10 +1,10 @@
 __build_info:
   rime_version: vime
   timestamps:
-    default: 1795493368
+    default: 1795495167
     default.custom: 0
     vime_shuangpin_flypy.custom: 0
-    vime_shuangpin_flypy.schema: 1795493368
+    vime_shuangpin_flypy.schema: 1795495167
 engine:
   filters:
     - simplifier
