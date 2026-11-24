@@ -41,7 +41,8 @@ Sources and licenses:
       conversation, such as 好的, which no word list has.
   amzxyz/rime_wanxiang (CC BY 4.0): supplementary characters beyond the 8105
       standard table (dicts/zi.dict.yaml, filtered to Simplified via OpenCC
-      t2s) and domain vocabularies (diming, mingren, yiren).
+      t2s and to what iOS fonts draw, Scripts/ios_han_glyphs.txt) and domain
+      vocabularies (diming, mingren, yiren).
   Scripts/rime_words.txt (collected for Vime): newer words, names and terms
       the sources above lack or rank too low, such as 原神 and 避坑.
   Bangumi wiki dump (CC BY-SA 3.0) via Scripts/rime_bangumi.txt: Chinese
@@ -118,6 +119,7 @@ COLLOCATIONS = Path(__file__).resolve().parent / "rime_collocations.txt"
 # After editing the list, run --hash-downweights.
 WORDS = Path(__file__).resolve().parent / "rime_words.txt"
 BANGUMI = Path(__file__).resolve().parent / "rime_bangumi.txt"
+IOS_HAN_GLYPHS = Path(__file__).resolve().parent / "ios_han_glyphs.txt"
 DOWNWEIGHTS = Path(__file__).resolve().parent / "rime_downweights.txt"
 DOWNWEIGHT_HASHES = Path(__file__).resolve().parent / "rime_downweights.sha256"
 DOWNWEIGHT_SALT = "vime-rime-downweight:"
@@ -456,20 +458,35 @@ def map_wanxiang_weight(raw_weight, max_weight, freq_min, freq_max):
     return freq_min + (freq_max - freq_min) * max(0.0, min(1.0, ratio))
 
 
+def ios_han_glyphs():
+    """The Han code points iOS fonts draw, from Scripts/ios_han_glyphs.txt."""
+    drawn = set()
+    for line in IOS_HAN_GLYPHS.read_text().splitlines():
+        if line and not line.startswith("#"):
+            first, last = line.split("-")
+            drawn.update(range(int(first, 16), int(last, 16) + 1))
+    return drawn
+
+
 def load_wanxiang_chars(cache, base_charset, valid, t2s):
     """Loads supplementary Simplified characters from Wanxiang zi.dict.yaml.
     - Existing characters in `base_charset` are untouched.
     - Traditional variants whose t2s(c) != c and simplified form exists in `base_charset`
-      (or in Wanxiang itself) are dropped."""
+      (or in Wanxiang itself) are dropped.
+    - Characters no iOS font draws (Scripts/ios_han_glyphs.txt) are dropped."""
     rows, dropped_syllable = parse_wanxiang_dict(source("wanxiang_zi", cache), valid)
     single_rows = [(ch, code, w) for ch, code, w in rows if len(ch) == 1]
     wanxiang_chars = {ch for ch, _, _ in single_rows}
     known_simplified = base_charset | wanxiang_chars
 
+    drawn = ios_han_glyphs()
     kept = {}
-    dropped_traditional = 0
+    dropped_traditional = dropped_undrawn = 0
     for ch, code, w in single_rows:
         if ch in base_charset:
+            continue
+        if ord(ch) not in drawn:
+            dropped_undrawn += 1
             continue
         simps = t2s.get(ch)
         if simps and any(s in known_simplified for s in simps):
@@ -485,7 +502,8 @@ def load_wanxiang_chars(cache, base_charset, valid, t2s):
         for (ch, code), w in kept.items()
     }
     print(f"wanxiang zi: +{len(mapped)} readings ({len({c for c, _ in mapped})} chars), "
-          f"dropped {dropped_syllable} invalid-syllable, {dropped_traditional} traditional variants",
+          f"dropped {dropped_syllable} invalid-syllable, {dropped_traditional} traditional variants, "
+          f"{dropped_undrawn} iOS cannot draw",
           file=sys.stderr)
     return mapped
 

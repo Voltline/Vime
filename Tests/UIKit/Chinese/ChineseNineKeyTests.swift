@@ -104,6 +104,8 @@ final class ChineseNineKeySessionTests: XCTestCase {
         XCTAssertEqual(session.raw, "xiong'486")
         XCTAssertTrue(session.markedText?.text.hasPrefix("xiong") == true)
         XCTAssertFalse(session.candidatePresentations.prefix(5).contains { $0.text == "中国" })
+        XCTAssertFalse(session.candidatePresentations.contains { ["中", "种", "印尼"].contains($0.text) },
+                       "nothing past the first rows still reads the digits another way")
         XCTAssertTrue(session.leadingSyllables.contains("gu"), "the rail moves on to the next digits")
         for _ in 0..<3 { _ = session.backspace() }
         waitUntilCurrent(session)

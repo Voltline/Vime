@@ -37,6 +37,12 @@ extension KeyboardView {
     @objc func selectCandidate(_ sender: UIButton) {
         guard let token = (sender as? KeyboardCandidateButton)?.takeSelectionToken() else { return }
         playFeedback()
+        if panel == .candidates {
+            // A pick that leaves input open lists the rest from its top, not
+            // at the depth the old list was scrolled to.
+            panelLimit = 40
+            panelScroll.setContentOffset(.zero, animated: false)
+        }
         apply(session.chooseCandidate(token))
     }
 
