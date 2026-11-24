@@ -106,8 +106,8 @@ final class KeyHitCalibrationTests: XCTestCase {
             .init(key: keyO, body: bodyO, cell: CGRect(x: 62, y: 0, width: 62, height: 60)),
         ]
 
-        // Point at x=65 is inside O's painted body (64..104) by 1pt.
-        let edgePoint = CGPoint(x: 65, y: 30)
+        // Point at x=63 is in the gap (60..64), in O's cell.
+        let edgePoint = CGPoint(x: 63, y: 30)
         XCTAssertTrue(surface.resolvedKey(at: edgePoint) === keyO)
 
         // Train 'i' with +0.22 * width rightward offset (+8.8 pt).
@@ -145,8 +145,37 @@ final class KeyHitCalibrationTests: XCTestCase {
 
         // Inside O's inner anchor zone (|nx| <= 0.35, midX=84 -> 70..98): must stay O.
         XCTAssertTrue(surface.resolvedKey(at: CGPoint(x: 72, y: 30)) === keyO)
-        // Outer edge of O (x=65 -> |nx| = 0.475 > 0.35): allowed to resolve to calibrated I.
-        XCTAssertTrue(surface.resolvedKey(at: CGPoint(x: 65, y: 30)) === keyI)
+        // Outer edge of O's painted body (x=65): I is likelier, but not by the
+        // margin a painted keycap needs, so it stays O.
+        XCTAssertTrue(surface.resolvedKey(at: CGPoint(x: 65, y: 30)) === keyO)
+        // In the gap (x=63) the likelier calibrated I takes it.
+        XCTAssertTrue(surface.resolvedKey(at: CGPoint(x: 63, y: 30)) === keyI)
+    }
+
+    @MainActor
+    func testWiderShiftedNeighbourDoesNotTakeTheKeycapEdge() {
+        let surface = KeyboardTouchSurface(frame: CGRect(x: 0, y: 0, width: 200, height: 60))
+        let keyI = KeyboardKey(title: "i")
+        keyI.correctionLetter = "i"
+        let keyO = KeyboardKey(title: "o")
+        keyO.correctionLetter = "o"
+        let bodyI = CGRect(x: 20, y: 5, width: 40, height: 50)
+        let bodyO = CGRect(x: 66, y: 5, width: 40, height: 50)
+        surface.regions = [
+            .init(key: keyI, body: bodyI, cell: CGRect(x: 0, y: 0, width: 63, height: 60)),
+            .init(key: keyO, body: bodyO, cell: CGRect(x: 63, y: 0, width: 63, height: 60)),
+        ]
+        // A keyboard's stored statistics: o is tapped toward i and spreads
+        // wider, i sits a little left of its center.
+        let models: [Character: KeyHitCalibration.EffectiveModel] = [
+            "i": .init(dx: -0.067, dy: -0.007, varX: 0.035, varY: 0.028, weight: 0.99, count: 843),
+            "o": .init(dx: -0.123, dy: -0.042, varX: 0.047, varY: 0.027, weight: 0.98, count: 370),
+        ]
+        surface.letterModel = { models[$0]! }
+
+        // Without the margin the boundary sat at nx ≈ 0.45, inside i's keycap.
+        XCTAssertTrue(surface.resolvedKey(at: CGPoint(x: bodyI.midX + 0.46 * bodyI.width, y: bodyI.midY)) === keyI)
+        XCTAssertTrue(surface.resolvedKey(at: CGPoint(x: bodyI.midX + 0.40 * bodyI.width, y: bodyI.midY)) === keyI)
     }
 
     @MainActor

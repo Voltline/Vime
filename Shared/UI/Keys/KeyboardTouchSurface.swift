@@ -134,6 +134,7 @@ final class KeyboardTouchSurface: UIView {
         var anyCalibrated = false
         var bestRegion: Region = raw
         var bestSpatial = -Double.infinity
+        var rawSpatial = -Double.infinity
         for candidate in regions where candidate.key.isEnabled && !candidate.key.isHidden && candidate.key.isUserInteractionEnabled {
             guard let letter = candidate.key.correctionLetter,
                   candidate.body.width > 0, candidate.body.height > 0,
@@ -142,12 +143,20 @@ final class KeyboardTouchSurface: UIView {
             let model = letterModel(letter)
             if model.weight > 0 { anyCalibrated = true }
             let spatial = KeyHitCalibration.spatialLogLikelihood(point: point, body: candidate.body, model: model)
+            if candidate.key === raw.key { rawSpatial = spatial }
             if spatial > bestSpatial {
                 bestSpatial = spatial
                 bestRegion = candidate
             }
         }
         guard anyCalibrated else { return (raw.key, raw.key, raw.body, false) }
+        // On the painted keycap a neighbour must be clearly likelier. A wider,
+        // shifted neighbour otherwise pulls the boundary inside the key, and
+        // taps on the outer edge of i turn into o.
+        if bestRegion.key !== raw.key, raw.body.contains(point),
+           bestSpatial < rawSpatial + KeyHitCalibration.bodySwitchMargin {
+            return (raw.key, raw.key, raw.body, false)
+        }
         return (bestRegion.key, raw.key, bestRegion.body, bestRegion.key !== raw.key)
     }
 
