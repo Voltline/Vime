@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Collects candidate game and game character names from Wikidata for review.
+"""Collects candidate names of games, anime, films, TV series and their
+characters from Wikidata for review.
 
     python3 Scripts/collect_wikidata_terms.py <generated vime_pinyin.dict.yaml> \
         <review.md> [--cache DIR]
@@ -55,18 +56,39 @@ class Domain:
     key: str
     title: str
     classes: list
-    allowed: set = field(default_factory=set)  # characters: classes that are characters
+    works_from: str | None = None  # character domains: the domain whose works they appear in
+    group: str = "origin"  # how the review groups rows: "vendor" or "origin" (country of origin)
+    min_year: int | None = None  # with classic_sitelinks: keep newer items or well-known ones
+    classic_sitelinks: int = 0
+    min_sitelinks: int = 0
+    allowed: set = field(default_factory=set)  # character domains: classes that are characters
 
+
+# Country of origin (P495) slices let a search reach past its 10,000-result
+# window, and they show where a name is likely the mainland one.
+ORIGIN_SLICES = ["Q148", "Q8646", "Q865", "Q17", "Q884", "Q30"]
 
 DOMAINS = [
-    Domain("games", "电子游戏", ["Q7889"]),
-    Domain("characters", "游戏角色", []),
+    Domain("games", "电子游戏", ["Q7889"], group="vendor", min_year=2015, classic_sitelinks=15),
+    Domain("characters", "游戏角色", [], works_from="games", group="vendor", min_sitelinks=3),
+    # Anime series, anime films, manga series, manga.
+    Domain("anime", "动画与漫画", ["Q63952888", "Q20650540", "Q21198342", "Q8274"], min_sitelinks=2),
+    Domain("anime_characters", "动漫角色", [], works_from="anime", min_sitelinks=2),
+    # Films and animated films.
+    Domain("films", "电影", ["Q11424", "Q202866"], min_year=2015, classic_sitelinks=25, min_sitelinks=3),
+    # Television series and miniseries.
+    Domain("tv", "电视剧与剧集", ["Q5398426", "Q1259759"], min_year=2015, classic_sitelinks=15, min_sitelinks=2),
 ]
 
-GAME_MIN_YEAR = 2015
 RECENT_YEAR = 2020
-GAME_CLASSIC_SITELINKS = 15
-CHARACTER_MIN_SITELINKS = 3
+ROWS_PER_ORIGIN = 60  # per origin group: the most linked, then as many from RECENT_YEAR on
+
+ORIGINS = [
+    ("中国大陆", {"Q148"}),
+    ("港澳台", {"Q8646", "Q865", "Q14773"}),
+    ("日本", {"Q17"}),
+    ("韩国", {"Q884"}),
+]
 
 VENDORS = [
     ("米哈游", ["mihoyo", "hoyoverse", "米哈游", "cognosphere"]),
@@ -86,11 +108,11 @@ class Client:
         # speed up again gradually while requests go through.
         self.spacing = 1.0
 
-    def get(self, params):
+    def get(self, params, cache=True):
         params = {**params, "format": "json", "formatversion": "2"}
         key = hashlib.sha256(json.dumps(params, sort_keys=True).encode()).hexdigest()[:32]
         path = self.cache / f"{key}.json"
-        if path.exists():
+        if cache and path.exists():
             return json.loads(path.read_text())
         url = API + "?" + urllib.parse.urlencode(params)
         delay = 5.0
@@ -106,7 +128,8 @@ class Client:
                     data = json.loads(response.read())
                 if "error" in data:
                     raise RuntimeError(data["error"].get("info", data["error"]))
-                path.write_text(json.dumps(data, ensure_ascii=False))
+                if cache:
+                    path.write_text(json.dumps(data, ensure_ascii=False))
                 self.spacing = max(1.0, self.spacing * 0.97)
                 return data
             except urllib.error.HTTPError as error:
@@ -122,11 +145,13 @@ class Client:
             delay = min(delay * 2, 300)
         raise SystemExit(f"giving up on {url}")
 
-    def search(self, query):
+    def search(self, query, popular=False):
         """Every item id the search returns, past the 10,000-result window
-        by reading it from both ends of the creation order."""
+        by reading it from both ends of the creation order; with popular, the
+        most linked items are read first."""
         ids, total = [], None
-        for order in ["create_timestamp_asc", "create_timestamp_desc"]:
+        orders = ["create_timestamp_asc", "create_timestamp_desc"]
+        for order in (["incoming_links_desc"] if popular else []) + orders:
             offset = 0
             while offset < SEARCH_WINDOW:
                 data = self.get({"action": "query", "list": "search", "srsearch": query, "srnamespace": 0,
@@ -137,26 +162,36 @@ class Client:
                 if "continue" not in data:
                     break
                 offset = data["continue"]["sroffset"]
-            if total <= SEARCH_WINDOW:
+            if len(set(ids)) >= total:
                 break
         unique = list(dict.fromkeys(ids))
         if total and len(unique) < total:
             print(f"  {query[:80]}: {len(unique)} of {total} reachable", file=sys.stderr)
         return unique
 
-    def entities(self, ids, store):
-        missing = [i for i in dict.fromkeys(ids) if i not in store]
+    def entities(self, ids, store, refresh=False):
+        """Summaries of the items, fetched fifty at a time into store. With
+        refresh, summaries written before countries were recorded are fetched
+        again. Film and series entities are large, so only the summaries in
+        store are kept, not the raw responses."""
+        missing = [i for i in dict.fromkeys(ids)
+                   if i not in store or (refresh and store[i] is not None and "countries" not in store[i])]
         for start in range(0, len(missing), 50):
             batch = missing[start:start + 50]
             data = self.get({"action": "wbgetentities", "ids": "|".join(batch),
-                             "props": "labels|claims|sitelinks", "languages": "|".join(LANGUAGES)})
+                             "props": "labels|claims|sitelinks", "languages": "|".join(LANGUAGES)}, cache=False)
             for qid, entity in data.get("entities", {}).items():
                 store[qid] = summarize(entity) if "missing" not in entity else None
             for qid in batch:
                 store.setdefault(qid, None)
+            if start // 50 % 100 == 99:
+                self.save(store)
             if start // 50 % 20 == 19:
                 print(f"  entities {start + 50}/{len(missing)}", file=sys.stderr)
         return {i: store[i] for i in ids if store.get(i)}
+
+    def save(self, store):
+        self.store_path.write_text(json.dumps(store, ensure_ascii=False))
 
 
 def summarize(entity):
@@ -187,6 +222,7 @@ def summarize(entity):
         "developers": items("P178"),
         "publishers": items("P123"),
         "works": items("P1441", "P8345"),
+        "countries": items("P495"),
     }
 
 
@@ -278,31 +314,47 @@ def vendor_of(item, maker_labels):
 
 
 def keep(domain, item):
-    if domain.key == "games":
+    if item["sitelinks"] < domain.min_sitelinks:
+        return False
+    if domain.works_from and not set(item["classes"]) & domain.allowed:
+        return False
+    if domain.min_year is not None:
         year = item["year"]
-        return (year is not None and year >= GAME_MIN_YEAR) or item["sitelinks"] >= GAME_CLASSIC_SITELINKS
-    if domain.key == "characters":
-        return item["sitelinks"] >= CHARACTER_MIN_SITELINKS and bool(set(item["classes"]) & domain.allowed)
+        return (year is not None and year >= domain.min_year) or item["sitelinks"] >= domain.classic_sitelinks
     return True
 
 
-def candidates(client, store, domain, games):
-    if domain.key == "characters":
+def origin_of(countries):
+    for name, codes in ORIGINS:
+        if set(countries) & codes:
+            return name
+    return "欧美及其他"
+
+
+def candidates(client, store, domain, works):
+    if domain.works_from:
         ids = []
-        works = sorted(games)
+        works = sorted(works)
         for start in range(0, len(works), 40):
             batch = works[start:start + 40]
             clause = "|".join(f"P1441={q}|P8345={q}" for q in batch)
             ids += client.search(f"haswbstatement:{clause} {ANY_CHINESE}")
     else:
-        queries = [f"haswbstatement:P31={c} {ANY_CHINESE}" for c in domain.classes]
-        ids = [qid for q in queries for qid in client.search(q)]
+        ids = []
+        for c in domain.classes:
+            query = f"haswbstatement:P31={c} {ANY_CHINESE}"
+            found = client.search(query, popular=domain.group == "origin")
+            ids += found
+            if domain.group == "origin" and len(found) >= SEARCH_WINDOW:
+                for country in ORIGIN_SLICES:
+                    ids += client.search(f"haswbstatement:P31={c} haswbstatement:P495={country} {ANY_CHINESE}",
+                                         popular=True)
     ids = list(dict.fromkeys(ids))
     print(f"{domain.key}: {len(ids)} items with a Chinese label", file=sys.stderr)
-    items = client.entities(ids, store)
-    if domain.key == "characters":
+    items = client.entities(ids, store, refresh=domain.group == "origin")
+    if domain.works_from:
         # "Present in work" also links real people, places and spells to
-        # games; keep items whose class is some kind of character.
+        # works; keep items whose class is some kind of character.
         classes = client.entities(sorted({c for i in items.values() for c in i["classes"]}), store)
         domain.allowed = {q for q, c in classes.items()
                           if CHARACTER_CLASS.search(" ".join(c["labels"].values()))}
@@ -323,7 +375,7 @@ def main():
     parser.add_argument("review", type=Path, help="Markdown review sheet to write")
     parser.add_argument("--cache", type=Path, default=Path("/private/tmp/vime-wikidata-cache"))
     parser.add_argument("--words", type=Path, default=Path(__file__).with_name("rime_words.txt"))
-    parser.add_argument("--only", help="comma-separated domain keys to run (games always runs for characters)")
+    parser.add_argument("--only", help="comma-separated domain keys to run (a character domain also runs its works)")
     args = parser.parse_args()
 
     t2s = OpenCC("t2s")
@@ -332,32 +384,35 @@ def main():
     listed = load_listed(args.words)
     client = Client(args.cache / "api")
     store_path = args.cache / "entities.json"
+    client.store_path = store_path
     store = json.loads(store_path.read_text()) if store_path.exists() else {}
     only = set(args.only.split(",")) if args.only else None
-    if only and "characters" in only:
-        only.add("games")
+    if only:
+        only |= {d.works_from for d in DOMAINS if d.key in only and d.works_from}
 
-    sections, games = [], set()
+    sections, kept_by_domain, seen = [], {}, set()
     try:
         for domain in DOMAINS:
             if only and domain.key not in only:
                 continue
-            ids, items = candidates(client, store, domain, games)
-            store_path.write_text(json.dumps(store, ensure_ascii=False))
+            works = set(kept_by_domain.get(domain.works_from, {}))
+            ids, items = candidates(client, store, domain, works)
+            client.save(store)
             kept = {q: i for q, i in items.items() if keep(domain, i)}
-            if domain.key == "games":
-                games = set(kept)
-            game_vendor, maker_labels = {}, {}
+            kept_by_domain[domain.key] = kept
+            work_group, maker_labels = {}, {}
             if domain.key == "games":
                 makers = client.entities(sorted({m for i in kept.values() for m in i["developers"] + i["publishers"]}), store)
                 maker_labels = {q: " ".join(m["labels"].values()) for q, m in makers.items()}
-            elif domain.key == "characters":
-                game_items = {q: store[q] for q in games if store.get(q)}
+            elif domain.works_from == "games":
+                game_items = kept_by_domain["games"]
                 makers = client.entities(sorted({m for g in game_items.values() for m in g["developers"] + g["publishers"]}), store)
                 labels = {q: " ".join(m["labels"].values()) for q, m in makers.items()}
-                game_vendor = {q: vendor_of(g, labels) for q, g in game_items.items()}
+                work_group = {q: vendor_of(g, labels) for q, g in game_items.items()}
+            elif domain.works_from:
+                work_group = {q: origin_of(w.get("countries", [])) for q, w in kept_by_domain[domain.works_from].items()}
 
-            main_rows, mixed_rows, seen = [], [], set()
+            main_rows, mixed_rows = [], []
             counts = {"found": len(ids), "kept": len(kept), "no_label": 0, "known": 0, "other": 0}
             for qid, item in sorted(kept.items(), key=lambda kv: -kv[1]["sitelinks"]):
                 label, converted = chinese_label(item["labels"], t2s)
@@ -377,12 +432,15 @@ def main():
                     continue
                 row = {"word": label, "qid": qid, "sitelinks": item["sitelinks"], "year": item["year"], "flags": flags}
                 if domain.key == "games":
-                    row["vendor"] = vendor_of(item, maker_labels)
-                elif domain.key == "characters":
-                    # A vendor only for characters of that vendor's games alone, so
-                    # crossover and franchise characters stay under 其他.
-                    vendors = {game_vendor.get(w, "其他") for w in item["works"]}
-                    row["vendor"] = vendors.pop() if len(vendors) == 1 else "其他"
+                    row["group"] = vendor_of(item, maker_labels)
+                elif domain.works_from:
+                    # A group only for characters of that group's works alone, so
+                    # crossover and franchise characters stay under the catch-all.
+                    fallback = "其他" if domain.group == "vendor" else "欧美及其他"
+                    groups = {work_group.get(w, fallback) for w in item["works"]}
+                    row["group"] = groups.pop() if len(groups) == 1 else fallback
+                else:
+                    row["group"] = origin_of(item.get("countries", []))
                 if PURE_HAN.match(label):
                     row["pinyin"], spelled_flags = spell(label, words, readings, valid)
                     row["flags"] = flags + spelled_flags
@@ -404,10 +462,12 @@ def main():
 
 
 def write_review(path, sections):
-    out = ["# Wikidata 游戏与角色新词审阅表", "",
+    out = ["# Wikidata 新词审阅表", "",
            "来源：Wikidata（CC0），通过搜索接口和 wbgetentities 抓取。热度是 sitelinks（有多少个维基语种条目）。",
            "已去掉生成词库 `vime_pinyin.dict.yaml`（含万象）和 `rime_words.txt` 里已有的词。",
-           f"每个领域最多列 {ROWS_PER_DOMAIN} 条，按 sitelinks 降序。", "",
+           f"游戏和游戏角色每节最多列 {ROWS_PER_DOMAIN} 条；影视动漫按出品地区分组，每组列 sitelinks 最高的 "
+           f"{ROWS_PER_ORIGIN} 条，再列 {RECENT_YEAR} 年以后的 {ROWS_PER_ORIGIN} 条。"
+           "同一个名字只在第一个出现的领域里列出。", "",
            "标记：转换 = 只有繁体名，已转简体；多音字待核；读音存疑 = pypinyin 的读音不在词库该字的读音里；"
            "读音与词库不同 = 词里某个词库已有的词读法不同；音节无效；去掉间隔号。", "",
            "## 总览", "",
@@ -418,13 +478,13 @@ def write_review(path, sections):
     out.append("")
     for domain, rows, mixed, counts in sections:
         out += [f"## {domain.title}", ""]
-        if domain.key in ("games", "characters"):
-            named = [r for r in rows if r["vendor"] != "其他"]
-            others = [r for r in rows if r["vendor"] == "其他"]
+        if domain.group == "vendor":
+            named = [r for r in rows if r["group"] != "其他"]
+            others = [r for r in rows if r["group"] == "其他"]
             shown = named + others[:max(0, ROWS_PER_DOMAIN - len(named))]
             out += [f"新词 {len(rows)} 条，列出 {len(shown)} 条，截掉 {len(rows) - len(shown)} 条。", ""]
             for vendor in [v for v, _ in VENDORS] + ["其他"]:
-                group = [r for r in shown if r["vendor"] == vendor]
+                group = [r for r in shown if r["group"] == vendor]
                 if group:
                     out += [f"### {vendor}（{len(group)} 条）", ""] + markdown_table(group) + [""]
             if domain.key == "games":
@@ -435,9 +495,19 @@ def write_review(path, sections):
                             f"{min(len(recent), ROWS_PER_DOMAIN)} 条）", ""]
                     out += markdown_table(recent[:ROWS_PER_DOMAIN]) + [""]
         else:
-            shown = rows[:ROWS_PER_DOMAIN]
-            out += [f"新词 {len(rows)} 条，列出 {len(shown)} 条，截掉 {len(rows) - len(shown)} 条。", ""]
-            out += markdown_table(shown) + [""]
+            parts, total = [], 0
+            for origin in [name for name, _ in ORIGINS] + ["欧美及其他"]:
+                group = [r for r in rows if r["group"] == origin]
+                if not group:
+                    continue
+                top = group[:ROWS_PER_ORIGIN]
+                recent = [r for r in group[ROWS_PER_ORIGIN:] if (r["year"] or 0) >= RECENT_YEAR][:ROWS_PER_ORIGIN]
+                total += len(top) + len(recent)
+                parts += [f"### {origin}（新词 {len(group)} 条）", ""] + markdown_table(top) + [""]
+                if recent:
+                    parts += [f"#### {origin}：{RECENT_YEAR} 年以后（再列 {len(recent)} 条）", ""]
+                    parts += markdown_table(recent) + [""]
+            out += [f"新词 {len(rows)} 条，列出 {total} 条，截掉 {len(rows) - total} 条。", ""] + parts
     out += ["## 附表：中英混合（不进主表）", ""]
     for domain, _, mixed, _ in sections:
         if not mixed:

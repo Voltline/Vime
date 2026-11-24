@@ -1727,8 +1727,10 @@
 ## Film, TV, anime, books, celebrities and fandom
 一键三连	yi jian san lian
 三笠	san li
+三笠阿克曼	san li a ke man
 上单	shang dan
 下路	xia lu
+不死不运	bu si bu yun
 丘巴卡	qiu ba ka
 中之人	zhong zhi ren
 中单	zhong dan
@@ -1750,6 +1752,7 @@
 你好李焕英	ni hao li huan ying
 兄控	xiong kong
 兄贵	xiong gui
+光逝去的夏天	guang shi qu de xia tian
 入宅	ru zhai
 全成就	quan cheng jiu
 八佰	ba bai
@@ -1758,11 +1761,13 @@
 兽设	shou she
 兽迷	shou mi
 再生侠	zai sheng xia
+冥斗士	ming dou shi
 冷冻队长	leng dong dui zhang
 凉宫春日	liang gong chun ri
 出音味来	chu yin wei lai
 刷图	shua tu
 刷金	shua jin
+加油吧同期酱	jia you ba tong qi jiang
 劳拉克劳馥	lao la ke lao fu
 卖腐	mai fu
 卡尔强森	ka er qiang sen
@@ -1794,6 +1799,7 @@
 噬元兽	shi yuan shou
 四排	si pai
 四斋蒸鹅心	si zhai zheng e xin
+四次元口袋	si ci yuan kou dai
 团本	tuan ben
 团综	tuan zong
 团饭	tuan fan
@@ -1801,6 +1807,7 @@
 圈名	quan ming
 圈地自萌	quan di zi meng
 圈饭	quan fan
+地海战记	di hai zhan ji
 坑王	keng wang
 埃伦里普利	ai lun li pu li
 塌房	ta fang
@@ -1808,9 +1815,11 @@
 墨雨云间	mo yu yun jian
 大招	da zhao
 天书奇谭	tian shu qi tan
+女友成双	nv you cheng shuang
 女频	nv pin
 如果云知道	ru guo yun zhi dao
 妆娘	zhuang niang
+妮可罗宾	ni ke luo bin
 妹抖	mei dou
 妹控	mei kong
 妹汁	mei zhi
@@ -1820,6 +1829,7 @@
 字幕君	zi mu jun
 孤独摇滚	gu du yao gun
 宅斗	zhai dou
+安妮雪莉	an ni xue li
 安纳金天行者	an na jin tian xing zhe
 宋茜	song xi
 官配	guan pei
@@ -1830,6 +1840,7 @@
 小怪	xiao guai
 小门神	xiao men shen
 尤达	you da
+尼摩船长	ni mo chuan zhang
 山治	shan zhi
 崩人设	beng ren she
 巴里艾伦	ba li ai lun
@@ -1849,6 +1860,7 @@
 御宅	yu zhai
 德国骨科	de guo gu ke
 急冻人	ji dong ren
+悬崖上的金鱼公主	xuan ya shang de jin yu gong zhu
 悬崖之上	xuan ya zhi shang
 成盒	cheng he
 我推的孩子	wo tui de hai zi
@@ -1862,8 +1874,10 @@
 抽卡	chou ka
 拉拉人	la la ren
 拉拉厨	la la chu
+拳四郎	quan si lang
 捏他	nie ta
 掉帧	diao zhen
+揍敌客家族	zou di ke jia zu
 攻壳机动队	gong ke ji dong dui
 斗图	dou tu
 断更	duan geng
@@ -1886,6 +1900,7 @@
 末日博士	mo ri bo shi
 术力口	shu li kou
 术术人	shu shu ren
+朱音落语	zhu yin luo yu
 机娘	ji niang
 朽木露琪亚	xiu mu lu qi ya
 杀必死	sha bi si
@@ -1917,6 +1932,7 @@
 沈腾	shen teng
 沙人	sha ren
 泥面人	ni mian ren
+海盗战记	hai dao zhan ji
 消消乐	xiao xiao le
 清平乐	qing ping yue
 港乐	gang yue
@@ -1930,6 +1946,7 @@
 爽文	shuang wen
 牌皇	pai huang
 狂野飙车	kuang ye biao che
+猫之报恩	mao zhi bao en
 猫人	mao ren
 王源	wang yuan
 玛丽简沃森	ma li jian wo sen
@@ -1972,6 +1989,7 @@
 索隆	suo long
 紫装	zi zhuang
 红坦克	hong tan ke
+约翰西尔弗	yue han xi er fu
 绝绝子	jue jue zi
 维托柯里昂	wei tuo ke li ang
 绿魔	lv mo
@@ -1988,6 +2006,7 @@
 艾斯	ai si
 艾莎	ai sha
 芭芭拉戈登	ba ba la ge deng
+苍鹭与少年	cang lu yu shao nian
 茶杯头	cha bei tou
 药娘	yao niang
 药屋少女	yao wu shao nv
@@ -1996,6 +2015,7 @@
 萌豚	meng tun
 葬送的芙莉莲	zang song de fu li lian
 蒂姆德雷克	di mu de lei ke
+蒂法洛克哈特	di fa luo ke ha te
 蓝色监狱	lan se jian yu
 薄樱鬼	bo ying gui
 薇娅	wei ya
@@ -2007,6 +2027,7 @@
 血源诅咒	xue yuan zu zhou
 西虹市首富	xi hong shi shou fu
 觉醒年代	jue xing nian dai
+言语如汽水般涌现	yan yu ru qi shui ban yong xian
 诚哥	cheng ge
 读档	du dang
 谜语人	mi yu ren
@@ -2024,11 +2045,14 @@
 达克赛德	da ke sai de
 达斯摩尔	da si mo er
 达斯维达	da si wei da
+迪克格雷森	di ke ge lei sen
+迷你哆啦	mi ni duo la
 追更	zhui geng
 追漫	zhui man
 追番	zhui fan
 速刷	su shua
 配布	pei bu
+野比伸助	ye bi shen zhu
 银魂	yin hun
 锦依卫	jin yi wei
 镇魂	zhen hun
@@ -2041,6 +2065,7 @@
 陈赫	chen he
 隐形女侠	yin xing nv xia
 隐藏关	yin cang guan
+隔壁的山田君	ge bi de shan tian jun
 雄狮少年	xiong shi shao nian
 雌小鬼	ci xiao gui
 零氪	ling ke
@@ -2059,10 +2084,12 @@
 鬼畜	gui chu
 鬼畜全明星	gui chu quan ming xing
 鹿晗	lu han
+黄泉比良坂	huang quan bi liang ban
 黄漫	huang man
 黑神话悟空	hei shen hua wu kong
 黑金丝雀	hei jin si que
 黑长直	hei chang zhi
+龙和雀斑公主	long he que ban gong zhu
 
 ## Games: Genshin Impact, Honkai: Star Rail, Zenless Zone Zero, Honkai Impact 3rd
 七圣召唤	qi sheng zhao huan
