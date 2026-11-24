@@ -425,7 +425,12 @@ extension KeyboardView {
     func deleteKey(weight: CGFloat) -> (KeyboardKey, CGFloat) {
         let item = symbol("delete.left", label: String(localized: "删除"), weight: weight) { [weak self] in
             guard let self else { return }
-            guard self.hasDeletableContent else { return }
+            guard self.hasDeletableContent else {
+                // An empty field still gets the delete: QQ and other apps
+                // remove a quoted reply or a mention chip on it.
+                self.apply([.deleteBackward])
+                return
+            }
             self.recordCalibrationBackspace()
             self.kanaToggle = nil
             self.apply(self.session.backspace())

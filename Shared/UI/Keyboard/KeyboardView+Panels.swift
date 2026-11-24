@@ -83,7 +83,8 @@ extension KeyboardView {
             panel.onEmojiUse = { [weak self] in self?.preferences.recordEmoji($0) }
             panel.onSearch = { [weak self] in self?.beginEmojiSearch() }
             panel.onDelete = { [weak self] in
-                guard let self, self.hasDeletableContent else { return }
+                guard let self else { return }
+                guard self.hasDeletableContent else { self.apply([.deleteBackward]); return }
                 self.kanaToggle = nil
                 self.apply(self.session.backspace())
             }
