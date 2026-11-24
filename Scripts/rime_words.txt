@@ -574,6 +574,7 @@
 三笠	san li
 上单	shang dan
 下路	xia lu
+丘巴卡	qiu ba ka
 中单	zhong dan
 乔巴	qiao ba
 乔杉	qiao shan
@@ -581,23 +582,38 @@
 二创	er chuang
 二刺螈	er ci yuan
 产屋敷	chan wu fu
+企鹅人	qi e ren
 伊之助	yi zhi zhu
+伍迪警长	wu di jing zhang
 伏黑惠	fu hei hui
 何广智	he guang zhi
 作精	zuo jing
 你好李焕英	ni hao li huan ying
 全成就	quan cheng jiu
 八佰	ba bai
+再生侠	zai sheng xia
+冷冻队长	leng dong dui zhang
 凉宫春日	liang gong chun ri
 刷图	shua tu
 刷金	shua jin
+劳拉克劳馥	lao la ke lao fu
+卡尔强森	ka er qiang sen
 卡比兽	ka bi shou
+卡罗尔丹弗斯	ka luo er dan fu si
+卢克天行者	lu ke tian xing zhe
+印第安纳琼斯	yin di an na qiong si
 卷王	juan wang
 双人成行	shuang ren cheng hang
 双排	shuang pai
 只狼	zhi lang
+史密斯特工	shi mi si te gong
+史矛革	shi mao ge
+史迪奇	shi di qi
+史高治麦克老鸭	shi gao zhi mai ke lao ya
 合成大西瓜	he cheng da xi gua
+吉米尼蟋蟀	ji mi ni xi shuai
 周深	zhou shen
+哈尔乔丹	ha er qiao dan
 唐朝诡事录	tang chao gui shi lu
 啊这	a zhe
 善逸	shan yi
@@ -606,6 +622,7 @@
 团综	tuan zong
 国创	guo chuang
 坑王	keng wang
+埃伦里普利	ai lun li pu li
 塌房	ta fang
 填坑	tian keng
 墨雨云间	mo yu yun jian
@@ -616,13 +633,17 @@
 娜美	na mei
 孤独摇滚	gu du yao gun
 宅斗	zhai dou
+安纳金天行者	an na jin tian xing zhe
 宋茜	song xi
 宫斗	gong dou
 宿傩	su nuo
 小怪	xiao guai
 小门神	xiao men shen
+尤达	you da
 山治	shan zhi
 崩人设	beng ren she
+巴里艾伦	ba li ai lun
+帕特罗克洛斯	pa te luo ke luo si
 带飞	dai fei
 开坑	kai keng
 开麦	kai mai
@@ -630,6 +651,7 @@
 影山飞雄	ying shan fei xiong
 徐志胜	xu zhi sheng
 御宅	yu zhai
+急冻人	ji dong ren
 悬崖之上	xuan ya zhi shang
 成盒	cheng he
 我推的孩子	wo tui de hai zi
@@ -650,32 +672,52 @@
 日向翔阳	ri xiang xiang yang
 日更	ri geng
 时光代理人	shi guang dai li ren
+星爵	xing jue
 星际牛仔	xing ji niu zai
 暗金	an jin
+暴风女	bao feng nv
+末日博士	mo ri bo shi
+朽木露琪亚	xiu mu lu qi ya
+杀手鳄	sha shou e
 李诞	li dan
 杨幂	yang mi
 杨洋	yang yang
 杨紫	yang zi
+杰克斯派罗	jie ke si pai luo
 杰尼龟	jie ni gui
+格里弗斯将军	ge li fu si jiang jun
 梗图	geng tu
 梦华录	meng hua lu
 橙装	cheng zhuang
+欧比旺克诺比	ou bi wang ke nuo bi
 欧皇	ou huang
+死亡射手	si wang she shou
 氪佬	ke lao
 永远的神	yong yuan de shen
+汉索罗	han suo luo
 汪苏泷	wang su long
 沈腾	shen teng
+沙人	sha ren
+泥面人	ni mian ren
 消消乐	xiao xiao le
 清平乐	qing ping yue
 满配	man pei
 漫威	man wei
 漫长的季节	man chang de ji jie
+火星猎人	huo xing lie ren
+灭霸	mie ba
+灵蝶	ling die
 爽文	shuang wen
+牌皇	pai huang
 狂野飙车	kuang ye biao che
 王源	wang yuan
+玛丽简沃森	ma li jian wo sen
 甜宠	tian chong
+电光人	dian guang ren
+电索	dian suo
 男频	nan pin
 番外	fan wai
+疯帽匠	feng mao jiang
 病娇	bing jiao
 痛吧	tong ba
 白切黑	bai qie hei
@@ -691,11 +733,16 @@
 穿书	chuan shu
 立绘	li hui
 站姐	zhan jie
+章鱼博士	zhang yu bo shi
 端游	duan you
 精致穷	jing zhi qiong
 索隆	suo long
 紫装	zi zhuang
+红坦克	hong tan ke
 绝绝子	jue jue zi
+维托柯里昂	wei tuo ke li ang
+绿魔	lv mo
+罗伯特兰登	luo bo te lan deng
 老番	lao fan
 肖战	xiao zhan
 肝帝	gan di
@@ -703,19 +750,26 @@
 艾伦	ai lun
 艾尔登法环	ai er deng fa huan
 艾斯	ai si
+艾莎	ai sha
+芭芭拉戈登	ba ba la ge deng
 茶杯头	cha bei tou
 药屋少女	yao wu shao nv
+莱克斯卢瑟	lai ke si lu se
 葬送的芙莉莲	zang song de fu li lian
+蒂姆德雷克	di mu de lei ke
 蓝色监狱	lan se jian yu
 薄樱鬼	bo ying gui
 薇娅	wei ya
 虎杖悠仁	hu zhang you ren
 虐文	nve wen
 蚌埠住了	beng bu zhu le
+蛋头博士	dan tou bo shi
 血源诅咒	xue yuan zu zhou
 西虹市首富	xi hong shi shou fu
 觉醒年代	jue xing nian dai
 读档	du dang
+谜语人	mi yu ren
+贝儿	bei er
 贾玲	jia ling
 赛马娘	sai ma niang
 走位	zou wei
@@ -724,6 +778,9 @@
 路飞	lu fei
 蹲草	dun cao
 辛巴	xin ba
+达克赛德	da ke sai de
+达斯摩尔	da si mo er
+达斯维达	da si wei da
 追更	zhui geng
 速刷	su shua
 银魂	yin hun
@@ -734,6 +791,7 @@
 长风渡	chang feng du
 间谍过家家	jian die guo jia jia
 陈赫	chen he
+隐形女侠	yin xing nv xia
 隐藏关	yin cang guan
 雄狮少年	xiong shi shao nian
 零氪	ling ke
@@ -746,8 +804,10 @@
 鬼畜	gui chu
 鹿晗	lu han
 黑神话悟空	hei shen hua wu kong
+黑金丝雀	hei jin si que
 
 ## Games: Genshin Impact, Honkai: Star Rail, Zenless Zone Zero, Honkai Impact 3rd
+七圣召唤	qi sheng zhao huan
 七天神像	qi tian shen xiang
 七神	qi shen
 三月七	san yue qi
@@ -774,6 +834,7 @@
 仙舟罗浮	xian zhou luo fu
 仙舟联盟	xian zhou lian meng
 伊涅芙	yi nie fu
+优菈	you la
 传说任务	chuan shuo ren wu
 传送锚点	chuan song mao dian
 侵蚀隧洞	qin shi sui dong
@@ -801,6 +862,7 @@
 凯亚	kai ya
 出红	chu hong
 创世结晶	chuang shi jie jing
+刻律德菈	ke lv de la
 刻晴	ke qing
 剧诗	ju shi
 副词条	fu ci tiao
@@ -898,6 +960,7 @@
 抽数	chou shu
 拟造花萼	ni zao hua e
 持明族	chi ming zu
+挪德卡莱	nuo de ka lai
 提瓦特	ti wa te
 提纳里	ti na li
 摇光星	yao guang xing
@@ -980,10 +1043,12 @@
 璃月	li yue
 璃月七星	li yue qi xing
 璃月港	li yue gang
+瓦尔特杨	wa er te yang
 瓦雷莎	wa lei sha
 甘雨	gan yu
 生之花	sheng zhi hua
 申鹤	shen he
+白厄	bai e
 白祇重工	bai qi zhong gong
 真理医生	zhen li yi sheng
 眼狩令	yan shou ling
@@ -1061,6 +1126,7 @@
 迪娜泽黛	di na ze dai
 迪希雅	di xi ya
 逐火之蛾	zhu huo zhi e
+遐蝶	xia die
 遗器	yi qi
 遗器词条	yi qi ci tiao
 邀约任务	yao yue ren wu
@@ -1441,93 +1507,168 @@
 万花	wan hua
 三代目	san dai mu
 三消	san xiao
+三角战略	san jiao zhan lve
+三角洲行动	san jiao zhou xing dong
 上号	shang hao
+上行战场	shang xing zhan chang
 下包	xia bao
 下界合金	xia jie he jin
+不予播出	bu yu bo chu
 不死图腾	bu si tu teng
+不羁联盟	bu ji lian meng
 业原火	ye yuan huo
 东海帝王	dong hai di wang
+丧尸围城	sang shi wei cheng
 个体值	ge ti zhi
 主宰龙	zhu zai long
+主播女孩重度依赖	zhu bo nv hai zhong du yi lai
+乔尼凯奇	qiao ni kai qi
 九尾	jiu wei
 乱斗	luan dou
 争霸艾泽拉斯	zheng ba ai ze la si
 云裳心经	yun shang xin jing
 云野	yun ye
 五人本	wu ren ben
+亚瑟摩根	ya se mo gen
 亡语	wang yu
 交界地	jiao jie di
+仙境传说	xian jing chuan shuo
+以撒的结合	yi sa de jie he
+任天堂明星大乱斗	ren tian tang ming xing da luan dou
+企鹅俱乐部	qi e ju le bu
 企鹅物流	qi e wu liu
+伊始之地	yi shi zhi di
+传说之下	chuan shuo zhi xia
 传说宝可梦	chuan shuo bao ke meng
 伽勒尔	jia le er
 佐井	zuo jing
+佐德将军	zuo de jiang jun
+侠盗公司	xia dao gong si
+侠盗猎魔	xia dao lie mo
 保全派驻	bao quan pai zhu
+偶像梦幻祭	ou xiang meng huan ji
 偷家	tou jia
 僵王博士	jiang wang bo shi
 元梦之星	yuan meng zhi xing
 充钱	chong qian
 光之翼	guang zhi yi
 光遇	guang yu
+克拉托斯	ke la tuo si
+克莱尔雷德菲尔德	ke lai er lei de fei er de
+克里斯雷德菲尔德	ke li si lei de fei er de
 入坑	ru keng
 全收集	quan shou ji
 全服	quan fu
 全装	quan zhuang
 军团再临	jun tuan zai lin
+军团要塞	jun tuan yao sai
 冰冻菇	bing dong gu
 冰心诀	bing xin jue
 冰车僵尸	bing che jiang shi
+冲呀饼干人王国	chong ya bing gan ren wang guo
+冲就完事模拟器	chong jiu wan shi mo ni qi
 凋零之星	diao ling zhi xing
 凌波城	ling bo cheng
 凌雪阁	ling xue ge
+几何冲刺	ji he chong ci
 凯尔希	kai er xi
 删档	shan dang
+利维亚的杰洛特	li wei ya de jie luo te
 制造站	zhi zao zhan
 刷怪笼	shua guai long
 刷本	shua ben
 刷材料	shua cai liao
 刷素材	shua su cai
+刻耳柏洛斯	ke er bo luo si
 剑三	jian san
 剑侠客	jian xia ke
+剑星	jian xing
+加侬	jia nong
 加尔鲁什	jia er lu shi
 动森	dong sen
+动物井	dong wu jing
 包装糖	bao zhuang tang
+匹诺曹的谎言	pi nuo cao de huang yan
 区服	qu fu
+匿名代码	ni ming dai ma
 十连	shi lian
+午夜之南	wu ye zhi nan
 半保	ban bao
 半藏	ban zang
+博德之门	bo de zhi men
 卡利亚	ka li ya
 卡包	ka bao
 卡咪龟	ka mi gui
+卡比	ka bi
+卡比的美食节	ka bi de mei shi jie
+卡比的驭天飞行者	ka bi de yu tian fei xing zhe
 卡组	ka zu
 卡背	ka bei
 卡西迪	ka xi di
+卡通农场	ka tong nong chang
 卢恩	lu en
+印蒂卡	yin di ka
 危机合约	wei ji he yue
 卷心菜投手	juan xin cai tou shou
 压枪	ya qiang
+原子之心	yuan zi zhi xin
+原子能降临	yuan zi neng jiang lin
 双发射手	shuang fa she shou
+双子幻境	shuang zi huan jing
+双点校园	shuang dian xiao yuan
 反野	fan ye
+古惑狼	gu huo lang
+古惑狼赛车	gu huo lang sai che
 史尔特尔	shi er te er
 叶隐	ye yin
 合成台	he cheng tai
 合服	he fu
+吉他英雄	ji ta ying xiong
 吉安娜	ji an na
+吉尔伽美什	ji er jia mei shi
+吉尔瓦伦蒂安	ji er wa lun di an
+吸血鬼幸存者	xi xue gui xing cun zhe
+周五夜放克	zhou wu ye fang ke
 周常	zhou chang
+命令与征服	ming ling yu zheng fu
+咩咩启示录	mie mie qi shi lu
+哈利波特与凤凰社	ha li bo te yu feng huang she
+哈利波特与密室	ha li bo te yu mi shi
+哈利波特与火焰杯	ha li bo te yu huo yan bei
+哈利波特与魔法石	ha li bo te yu mo fa shi
+哥特王朝	ge te wang chao
+哥谭骑士	ge tan qi shi
 唤魔者	huan mo zhe
+喋血复仇	die xue fu chou
+喵基因	miao ji yin
+嗨嗨人生	hai hai ren sheng
 四代目	si dai mu
 回坑	hui keng
 团藏	tuan zang
+固体蛇	gu ti she
 固有技能	gu you ji neng
 土豆雷	tu dou lei
 圣三一	sheng san yi
+圣兽之王	sheng shou zhi wang
 圣岛	sheng dao
 圣杯瓶	sheng bei ping
 圣盾	sheng dun
 地刺	di ci
 地心之战	di xin zhi zhan
+地狱即我们	di yu ji wo men
+地狱边境	di yu bian jing
+地球帝国	di qiu di guo
+坎巴拉太空计划	kan ba la tai kong ji hua
 垫刀	dian dao
+堕落之主	duo luo zhi zhu
+塔尔斯	ta er si
+塞尔达公主	sai er da gong zhu
 墓土	mu tu
 增幅书	zeng fu shu
+士官长	shi guan zhang
+多元宇宙大乱斗	duo yuan yu zhou da luan dou
+多重人生	duo chong ren sheng
+夜族崛起	ye zu jue qi
 大司命	da si ming
 大和赤骥	da he chi ji
 大嘴花	da zui hua
@@ -1545,130 +1686,227 @@
 天策	tian ce
 天罗诡道	tian luo gui dao
 天胡	tian hu
+天谕	tian yu
+太空侵略者	tai kong qin lve zhe
 太虚剑意	tai xu jian yi
+失落的方舟	shi luo de fang zhou
+奇异人生	qi yi ren sheng
 奇穴	qi xue
+奇诺比奥	qi nuo bi ao
 奥丽莎	ao li sha
 奥格瑞玛	ao ge rui ma
 季节蜡烛	ji jie la zhu
+宇宙机器人	yu zhou ji qi ren
 安洁莉娜	an jie li na
+完美音浪	wan mei yin lang
 宝冠	bao guan
 宝可梦中心	bao ke meng zhong xin
+宝可梦冠军	bao ke meng guan jun
+宝可梦大集结	bao ke meng da ji jie
 对抗路	dui kang lu
 对策委员会	dui ce wei yuan hui
+对马岛之魂	dui ma dao zhi hun
 小喷菇	xiao pen gu
+小小大冒险	xiao xiao da mao xian
 小拉达	xiao la da
 小智	xiao zhi
 小版本	xiao ban ben
 小磁怪	xiao ci guai
+小蒂娜的奇幻乐园	xiao di na de qi huan le yuan
 小西天	xiao xi tian
 小霞	xiao xia
+小龙斯派罗	xiao long si pai luo
 少前	shao qian
 尤菲米亚	you fei mi ya
+尼克明星大乱斗	ni ke ming xing da luan dou
 尼禄	ni lu
 峡谷之眼	xia gu zhi yan
+巨洞冒险	ju dong mao xian
 巨魔王	ju mo wang
 巨龙时代	ju long shi dai
 巫妖王之怒	wu yao wang zhi nu
 巫恋	wu lian
 差行	cha xing
+巴兰的异想奇境	ba lan de yi xiang qi jing
+巴别塔圣歌	ba bie ta sheng ge
+巴比伦的陨落	ba bi lun de yun luo
 巴蒂斯特	ba di si te
 希卡	xi ka
 希尔瓦娜斯	xi er wa na si
 帕底亚	pa di ya
 带土	dai tu
+幻兽帕鲁	huan shou pa lu
 幻塔	huan ta
 幻翼	huan yi
+幻裂奇境	huan lie qi jing
 幽暗城	you an cheng
+幽灵行者	you ling xing zhe
+幽闭求生	you bi qiu sheng
+庄园领主	zhuang yuan ling zhu
 开心消消乐	kai xin xiao xiao le
+异于天堂	yi yu tian tang
+异域镇魂曲	yi yu zhen hun qu
+异星工厂	yi xing gong chang
+异环	yi huan
 异色	yi se
 弃坑	qi keng
+影之刃零	ying zhi ren ling
 御灵	yu ling
 御魂副本	yu hun fu ben
+循环英雄	xun huan ying xiong
 微氪	wei ke
+微软模拟飞行	wei ruan mo ni fei xing
+德州电锯杀人狂	de zhou dian ju sha ren kuang
 德邦	de bang
+心灵之眼	xin ling zhi yan
+心灵杀手	xin ling sha shou
 忧郁菇	you yu gu
 总力战	zong li zhan
 恋与深空	lian yu shen kong
+恐鬼症	kong gui zheng
+恶灵附身	e ling fu shen
+恶霸鲁尼	e ba lu ni
 恶魂	e hun
+恶魔轮盘	e mo lun pan
 惊羽诀	jing yu jue
+戈登弗里曼	ge deng fu li man
+我的世界中国版	wo de shi jie zhong guo ban
+战争机器战术小队	zhan zheng ji qi zhan shu xiao dui
+战争雷霆	zhan zheng lei ting
 战列	zhan lie
 战吼	zhan hou
+战场双马尾	zhan chang shuang ma wei
 战术人形	zhan shu ren xing
+戴森球计划	dai sen qiu ji hua
 手枪局	shou qiang ju
 打金	da jin
 托比昂	tuo bi ang
 扫本	sao ben
 报纸僵尸	bao zhi jiang shi
+披萨塔	pi sa ta
 抽牌	chou pai
 拆包	chai bao
 拆塔	chai ta
 拉塔恩	la ta en
 拉普兰德	la pu lan de
 拉玛刹	la ma sha
+拓麻歌子	tuo ma ge zi
 挂人	gua ren
 指令方块	zhi ling fang kuai
 挖化石	wa hua shi
 捏脸	nie lian
+捣蛋猪	dao dan zhu
 捷风	jie feng
+推箱子	tui xiang zi
 推线	tui xian
 推进之王	tui jin zhi wang
 攻略组	gong lve zu
 放置类	fang zhi lei
 救赎之恩	jiu shu zhi en
 散野	san ye
+整蛊邻居	zheng gu lin ju
 斯卡蒂	si ka di
+斯普拉遁	si pu la dun
+新美妙世界	xin mei miao shi jie
+新超级马力欧兄弟	xin chao ji ma li ou xiong di
+无主之地	wu zhu zhi di
+无冬之夜	wu dong zhi ye
 无声铃鸣	wu sheng ling ming
 无尽的拉格朗日	wu jin de la ge lang ri
 无期迷途	wu qi mi tu
+无路之旅	wu lu zhi lv
+无限暖暖	wu xian nuan nuan
 无限池	wu xian chi
+无限法则	wu xian fa ze
 日本德比	ri ben de bi
+日落黄昏时	ri luo huang hun shi
+时空之轮	shi kong zhi lun
 旷野之息	kuang ye zhi xi
+旺达与巨像	wang da yu ju xiang
+星之海	xing zhi hai
+星布谷地	xing bu gu di
+星战前夜	xing zhan qian ye
 星熊	xing xiong
+星球大战零号连队	xing qiu da zhan ling hao lian dui
+星痕共鸣	xing hen gong ming
 星芒	xing mang
 星野	xing ye
 星钻	xing zuan
+星鸣特攻	xing ming te gong
 普拉娜	pu la na
 普雷	pu lei
+暗区突围	an qu tu wei
+暗邪西部	an xie xi bu
 暗黑骑士	an hei qi shi
 暮土	mu tu
 暴伤	bao shang
 暴君龙	bao jun long
+最后生还者	zui hou sheng huan zhe
 有马纪念	you ma ji nian
+木卫四协议	mu wei si xie yi
 木斧	mu fu
+未定事件簿	wei ding shi jian bu
 末地	mo di
 末地传送门	mo di chuan song men
 末影珍珠	mo ying zhen zhu
+杀戮公主	sha lu gong zhu
 条纹糖	tiao wen tang
+极乐迪斯科	ji le di si ke
+极限国度	ji xian guo du
+林克的冒险	lin ke de mao xian
 林地府邸	lin di fu di
+栗宝宝	li bao bao
 格黑娜	ge hei na
+森喜刚	sen xi gang
+森林之子	sen lin zhi zi
 樱桃炸弹	ying tao zha dan
+欧洲卡车模拟	ou zhou ka che mo ni
+欧陆风云	ou lu feng yun
+死亡回归	si wang hui gui
+死亡循环	si wang xun huan
+毁灭全人类	hui mie quan ren lei
 毒圈	du quan
 比比鸟	bi bi niao
 水箭龟	shui jian gui
 永劫无间	yong jie wu jian
+沙罗周期	sha luo zhou qi
 法力水晶	fa li shui jing
 法老之鹰	fa lao zhi ying
 波克比	bo ke bi
 洗翠	xi cui
 派对岛	pai dui dao
+浩劫前夕	hao jie qian xi
+浪人崛起	lang ren jue qi
+海之呼唤	hai zhi hu huan
 海克斯大乱斗	hai ke si da luan dou
 海外服	hai wai fu
 海底神殿	hai di shen dian
 海拉鲁	hai la lu
 海拉鲁平原	hai la lu ping yuan
+深岩银河	shen yan yin he
 深海侵蚀	shen hai qin shi
 深渊派对	shen yuan pai dui
+深空梦里人	shen kong meng li ren
 渔女	yu nv
+渔帆暗涌	yu fan an yong
 源氏	yuan shi
 源石	yuan shi
 源石虫	yuan shi chong
 溜鬼	liu gui
 满图鉴	man tu jian
+漫威争锋	man wei zheng feng
+漫威午夜之子	man wei wu ye zhi zi
+漫威复仇者联盟	man wei fu chou zhe lian meng
+漫威对决	man wei dui jue
+漫威金刚狼	man wei jin gang lang
+漫威银河护卫队	man wei yin he hu wei dui
 潜影盒	qian ying he
 潜影贝	qian ying bei
+潜水员戴夫	qian shui yuan dai fu
 火爆辣椒	huo bao la jiao
 灵素	ling su
 灵虚子	ling xu zi
+灵魂摆渡人	ling hun bai du ren
 灵魂沙	ling hun sha
 炉石	lu shi
 烈焰人	lie yan ren
@@ -1681,77 +1919,138 @@
 燕云	yan yun
 燕云十六声	yan yun shi liu sheng
 爆伤	bao shang
+爆裂小队	bao lie xiao dui
 爱慕织姬	ai mu zhi ji
 特别周	te bie zhou
 特效糖	te xiao tang
+特雷弗菲利普斯	te lei fu fei li pu si
+狂怒世界	kuang nu shi jie
 狂欢之椅	kuang huan zhi yi
+狂野之心	kuang ye zhi xin
 狂鼠	kuang shu
+狐妖小红娘手游	hu yao xiao hong niang shou you
 狙神	ju shen
 狸克	li ke
+猎天使魔女	lie tian shi mo nv
 猎空	lie kong
+猎逃惊魂	lie tao jing hun
+猛兽派对	meng shou pai dui
+猴岛的秘密	hou dao de mi mi
 率土	shuai tu
 率土之滨	shuai tu zhi bin
 玉米投手	yu mi tou shou
+王国之心	wang guo zhi xin
 王国之泪	wang guo zhi lei
 王家之剑	wang jia zhi jian
+王权与自由	wang quan yu zi you
+王牌竞速	wang pai jing su
 王都	wang du
 玛法里奥	ma fa li ao
+玛莎已死	ma sha yi si
 玛莲妮亚	ma lian ni ya
 玩具商	wan ju shang
+玩具熊的五夜后宫	wan ju xiong de wu ye hou gong
+瓦力欧	wa li ou
+瓦路易吉	wa lu yi ji
+生化变种	sheng hua bian zhong
+生化奇兵	sheng hua qi bing
 生息演算	sheng xi yan suan
+生灵重塑	sheng ling chong su
+疯狂出租车	feng kuang chu zu che
+病娇模拟器	bing jiao mo ni qi
+瘟疫公司	wen yi gong si
+白夜极光	bai ye ji guang
 白狼	bai lang
+白荆回廊	bai jing hui lang
 白蜡烛	bai la zhu
 百变怪	bai bian guai
 百眼魔君	bai yan mo jun
 皋月赏	gao yue shang
+皮克敏盛开	pi ke min sheng kai
 盖侬	gai nong
 盖欧卡	gai ou ka
+盖瑞模组	gai rui mo zu
 盘丝岭	pan si ling
 目白麦昆	mu bai mai kun
+直到黎明	zhi dao li ming
 相性	xiang xing
+真人快打	zhen ren kuai da
 石镐	shi gao
+破晓传说	po xiao chuan shuo
 硬保底	ying bao di
+碧姬公主	bi ji gong zhu
+碧海黑帆	bi hai hei fan
 祖达萨	zu da sa
+神之浩劫	shen zhi hao jie
 神乐	shen le
 神职者	shen zhi zhe
 神都	shen du
 神队友	shen dui you
+神鬼寓言	shen gui yu yan
+禁闭求生	jin bi qiu sheng
 禁阁	jin ge
 福利号	fu li hao
 秒伤	miao shang
 秩序之光	zhi xu zhi guang
 空弦	kong xian
 窝瓜	wo gua
+符文之地传说	fu wen zhi di chuan shuo
+筑梦颂	zhu meng song
+米塔	mi ta
+精灵与萤火意志	jing ling yu ying huo yi zhi
+糖果传奇	tang guo chuan qi
+索尼克大冒险	suo ni ke da mao xian
+索尼克未知边境	suo ni ke wei zhi bian jing
+索尼克英雄	suo ni ke ying xiong
 紧箍	jin gu
 紫卡	zi ka
 紫霞功	zi xia gong
+红怪	hong guai
 红石	hong shi
 红石电路	hong shi dian lu
+红色沙漠	hong se sha mo
 红蝶	hong die
+红霞岛	hong xia dao
+约翰马斯顿	yue han ma si dun
 纲手	gang shou
 纳克萨玛斯	na ke sa ma si
+纳克鲁斯	na ke lu si
+纸片马力欧	zhi pian ma li ou
+终结战场	zhong jie zhan chang
 经济局	jing ji ju
 绑银	bang yin
 结界突破	jie jie tu po
+绯红结系	fei hong jie xi
 缩圈	suo quan
 缪尔赛思	miao er sai si
+网络奇兵	wang luo qi bing
+罗布乐思	luo bu le si
 罗德尔	luo de er
+罗莎塔	luo sha ta
 羊了个羊	yang le ge yang
+羊蹄山之魂	yang ti shan zhi hun
+美国卡车模拟	mei guo ka che mo ni
+美洲新世界	mei zhou xin shi jie
 耿鬼	geng gui
 肝度	gan du
 肝等级	gan deng ji
 肝金	gan jin
 育成目标	yu cheng mu biao
 胖丁	pang ding
+胡桃日记	hu tao ri ji
+致命公司	zhi ming gong si
+致命躯壳	zhi ming qu qiao
 舞王僵尸	wu wang jiang shi
 舰娘	jian niang
 艾尔登	ai er deng
 艾泽拉斯	ai ze la si
+艾达王	ai da wang
 艾雅法拉	ai ya fa la
 芙兰卡	fu lan ka
 花合战	hua he zhan
 花间游	hua jian you
 苍云	cang yun
+英灵神殿	ying ling shen dian
 草上飞	cao shang fei
 荒川之主	huang chuan zhi zhu
 荒野之息	huang ye zhi xi
@@ -1760,7 +2059,9 @@
 莫莫伊	mo mo yi
 菊花赏	ju hua shang
 菜鸡	cai ji
+萨姆斯阿兰	sa mu si a lan
 蓝卡	lan ka
+蓝途王子	lan tu wang zi
 蔚蓝档案	wei lan dang an
 蕾米	lei mi
 藏剑	cang jian
@@ -1776,35 +2077,68 @@
 褪色者	tui shai zhe
 观音禅院	guan yin chan yuan
 讯使	xun shi
+识质存在	shi zhi cun zai
+请出示文件	qing chu shi wen jian
 诺森德	nuo sen de
 调香师	tiao xiang shi
 账号交易	zhang hao jiao yi
+质量效应	zhi liang xiao ying
 贸易站	mao yi zhan
+费卢杰六日	fei lu jie liu ri
+赛伯利亚	sai bo li ya
 走路草	zou lu cao
+超猎都市	chao lie du shi
+超级变色龙	chao ji bian se long
+超级森喜刚	chao ji sen xi gang
 超级球	chao ji qiu
+超级银河战士	chao ji yin he zhan shi
+超级马力欧世界	chao ji ma li ou shi jie
+超级马力欧兄弟	chao ji ma li ou xiong di
+超级马力欧创作家	chao ji ma li ou chuang zuo jia
+超级马力欧卡丁车	chao ji ma li ou ka ding che
+超级马力欧酷跑	chao ji ma li ou ku pao
+超级马力欧银河	chao ji ma li ou yin he
+超级马力欧阳光	chao ji ma li ou yang guang
+超英派遣中心	chao ying pai qian zhong xin
 跨服	kua fu
+路易吉洋馆	lu yi ji yang guan
 路障僵尸	lu zhang jiang shi
+轮回之兽	lun hui zhi shou
 软保底	ruan bao di
 轻巡	qing xun
 达纳苏斯	da na su si
 迈特戴	mai te dai
 远古城市	yuan gu cheng shi
 远古守卫者	yuan gu shou wei zhe
+远古文明	yuan gu wen ming
+迪士尼扭曲仙境	di shi ni niu qu xian jing
+迪士尼无限飞车	di shi ni wu xian fei che
 逃马	tao ma
 逆战	ni zhan
+逆转裁判	ni zhuan cai pan
 逢魔	feng mo
 道馆馆主	dao guan guan zhu
 邦邦	bang bang
+邪恶冥刻	xie e ming ke
+酷霸王	ku ba wang
+里昂斯科特肯尼迪	li ang si ke te ken ni di
 重巡	zhong xun
+重返德军总部	chong fan de jun zong bu
+重返猴岛	chong fan hou dao
 野怪	ye guai
+量子特攻	liang zi te gong
 金皮	jin pi
 金铲铲	jin chan chan
+钢铁雄心	gang tie xiong xin
 钩锁	gou suo
 钻石镐	zuan shi gao
 铁桶僵尸	tie tong jiang shi
+铁肺	tie fei
 铁驭	tie yu
 银月城	yin yue cheng
 银角大王	yin jiao da wang
+锈兔异途	xiu tu yi tu
+镜之边缘	jing zhi bian yuan
 镜姬	jing ji
 长歌	chang ge
 长歌门	chang ge men
@@ -1818,21 +2152,34 @@
 限定角色	xian ding jue se
 陪玩	pei wan
 隐藏结局	yin cang jie ju
+隐迹渐现	yin ji jian xian
 雨隐	yu yin
 雪傀儡	xue kui lei
+雪地奔驰	xue di ben chi
 雪女	xue nv
 雷丘	lei qiu
 雷霆崖	lei ting ya
+霍格沃茨之遗	huo ge wo ci zhi yi
 霞谷	xia gu
 霸刀	ba dao
+青蛙过河	qing wa guo he
 面灵气	mian ling qi
+韦诺之战	wei nuo zhi zhan
 预瞄	yu miao
+风之旅人	feng zhi lv ren
+风暴之门	feng bao zhi men
 风纪委员会	feng ji wei yuan hui
+风间仁	feng jian ren
+飞扬的小鸟	fei yang de xiao niao
 首充号	shou chong hao
 首测	shou ce
+马力欧兄弟	ma li ou xiong di
+马力欧卡丁车世界	ma li ou ka ding che shi jie
 马娘	ma niang
+高岭铁卫	gao ling tie wei
 鬼童丸	gui tong wan
 魅惑菇	mei huo gu
+魔咒之地	mo zhou zhi di
 鹿丸	lu wan
 黄眉	huang mei
 黄衣之主	huang yi zhi zhu
@@ -1841,9 +2188,13 @@
 黄金船	huang jin chuan
 黄风大圣	huang feng da sheng
 黄风岭	huang feng ling
+黎明行者之血	li ming xing zhe zhi xue
+黑山基地	hei shan ji di
 黑百合	hei bai he
 黑神话	hei shen hua
+黑色洛城	hei se luo cheng
 黑风山	hei feng shan
+黛西公主	dai xi gong zhu
 龙门币	long men bi
 
 ## Other newer words, picked by hand from web word frequencies
