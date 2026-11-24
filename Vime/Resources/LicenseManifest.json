@@ -230,7 +230,7 @@
   {
     "id": "wikidata",
     "name": "Wikidata",
-    "use": "游戏名与游戏角色名的中文名称来源",
+    "use": "游戏、动画作品名与角色名的中文名称来源",
     "category": "语言与表情数据",
     "license": "CC0 1.0",
     "copyright": "Wikidata contributors",

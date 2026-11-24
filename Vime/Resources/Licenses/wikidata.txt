@@ -1,5 +1,5 @@
 Wikidata (CC0 1.0)
-Source: https://www.wikidata.org/ , Chinese labels of video games and game characters
+Source: https://www.wikidata.org/ , Chinese labels of video games, anime and their characters
 License: CC0 1.0 https://creativecommons.org/publicdomain/zero/1.0/
 Vime modifications: Scripts/collect_wikidata_terms.py listed candidate names; reviewed names, some replaced with their
 mainland Chinese names, were added by hand to Scripts/rime_words.txt.
