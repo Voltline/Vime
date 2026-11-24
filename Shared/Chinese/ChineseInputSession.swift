@@ -338,7 +338,7 @@ final class ChineseInputSession: KeyboardInputSession {
         case .mixed(let index): return chooseMixed(index)
         case .correction(let index): return chooseCorrection(index)
         case .special(let index): return chooseSpecial(index)
-        case .rime(let index): enqueue(.select(index))
+        case .rime(let index): enqueue(.select(rimeIndex(index)))
         }
         return []
     }
@@ -354,7 +354,7 @@ final class ChineseInputSession: KeyboardInputSession {
         case .correction(let index)?: return chooseCorrection(index)
         case .special(let index)?: return chooseSpecial(index)
         case _ where hasCapitals: return commitTyped()
-        case .rime(let index)? where index != 0: enqueue(.select(index))
+        case .rime(let index)? where rimeIndex(index) != 0: enqueue(.select(rimeIndex(index)))
         default: enqueue(.space)
         }
         return []
@@ -658,6 +658,10 @@ final class ChineseInputSession: KeyboardInputSession {
     }
 
     private func publish(_ next: RimeState) {
+        var next = next
+        let candidates = keepingPickedSyllables(next)
+        rimeOrder = candidates == next.candidates ? nil : Self.order(of: candidates, in: next.candidates)
+        next.candidates = candidates
         state = next
         let letters = Self.letters(next.input + echo)
         if cased.count > letters.count { cased = String(cased.prefix(letters.count)) }
@@ -1255,18 +1259,18 @@ final class ChineseInputSession: KeyboardInputSession {
     /// Reads the open input as starting with `syllable`, so the list shows
     /// what starts with it; a correction respells the syllable in use.
     /// Text chosen before it is committed first, since Rime takes a new input
-    /// whole; Rime's own reading restores the input.
+    /// whole.
     func chooseLeadingSyllable(_ syllable: String) -> [KeyboardEdit] {
         if nineKey { return chooseNineKeySyllable(syllable) }
         let column = leadingColumn
         guard candidatesAreCurrent, let anchor = column.anchor,
               column.exact.contains(syllable) || column.corrections.contains(syllable) else { return [] }
         let base = leadingBase
-        let input = syllable == base.natural ? base.input
-            : column.exact.contains(syllable) ? PinyinLeadingSyllable.input(base.input, leadingWith: syllable)
+        // Rime's own syllable is spelled out too, so the whole list follows it.
+        let input = column.exact.contains(syllable) ? PinyinLeadingSyllable.input(base.input, leadingWith: syllable)
             : PinyinLeadingSyllable.input(base.input, replacing: anchor.count, with: syllable)
         let chosen = open.chosen
-        leadingPick = input == base.input ? nil : (base.input, base.natural, input)
+        leadingPick = (base.input, base.natural, input)
         guard !chosen.isEmpty else {
             if input != state.input { enqueue(.setInput(input)) }
             return []
@@ -1277,6 +1281,96 @@ final class ChineseInputSession: KeyboardInputSession {
         clearSuggestions()
         commitIsForgettable = false
         return edits + run(.setInput(input))
+    }
+
+    /// The syllables picked from the column that still stand at the start of
+    /// the open input: the leading pick in full pinyin, every picked syllable
+    /// before the digits in nine-key.
+    private func pickedSyllables(_ next: RimeState) -> [String] {
+        if nineKey {
+            return NineKeyPinyin.segments(nineKeyOpenInput(next)).prefix { if case .letters = $0 { true } else { false } }.compactMap {
+                if case .letters(let syllable) = $0 { syllable } else { nil }
+            }
+        }
+        guard let leadingPick, leadingPick.picked == next.input, Self.unchosen(next)?.chosen.isEmpty != false,
+              let syllable = next.input.split(separator: "'").first else { return [] }
+        return [String(syllable)]
+    }
+
+    /// Rime still reads a picked syllable as the start of a longer one (xia
+    /// as xian or xiao) or across a break (xia as xi + a), so after a pick
+    /// the list keeps only candidates whose characters read as the picked
+    /// syllables; anything the lexicon cannot read stays.
+    private func nineKeyOpenInput(_ next: RimeState) -> String {
+        if let (chosen, rest) = Self.unchosen(next, digits: true), !chosen.isEmpty {
+            return Self.suffix(of: next.input, spelling: rest.count)
+        }
+        return next.input
+    }
+
+    /// The first syllable the column highlights for `next` before any pick.
+    private func naturalSyllable(_ next: RimeState) -> String? {
+        if nineKey {
+            let input = nineKeyOpenInput(next)
+            guard NineKeyPinyin.segments(input).first.map({ if case .letters = $0 { false } else { true } }) ?? false else { return nil }
+            return NineKeyPinyin.reading(of: input, hint: next.candidates.first?.comment).first
+        }
+        guard shuangpin == nil, !next.input.contains(where: \.isUppercase) else { return nil }
+        let chosen = Self.unchosen(next)?.chosen ?? ""
+        return PinyinLeadingSyllable.first(ofPreedit: String(next.preedit.dropFirst(chosen.count)))
+    }
+
+    /// Before a pick the column highlights Rime's first syllable, but the
+    /// shorter candidates may start with a longer one (xin for xi'nan); those
+    /// reading as the highlighted syllable move ahead of the rest, behind the
+    /// candidates that cover the whole input.
+    private func followingNaturalSyllable(_ next: RimeState) -> [RimeCandidate] {
+        guard let natural = naturalSyllable(next), let lexicon = ChinesePinyinLexicon.bundled else { return next.candidates }
+        let lead = next.candidates.prefix { $0.coversInput }
+        var following: [RimeCandidate] = [], others: [RimeCandidate] = []
+        for candidate in next.candidates.dropFirst(lead.count) {
+            if let first = candidate.genuine.unicodeScalars.first, let readings = lexicon.readings[first], !readings.contains(natural) {
+                others.append(candidate)
+            } else {
+                following.append(candidate)
+            }
+        }
+        return Array(lead) + following + others
+    }
+
+    /// Where each listed candidate sits in Rime's own list, once the list is
+    /// filtered or reordered; nil while it is Rime's.
+    private var rimeOrder: (indices: [Int], rimeCount: Int)?
+
+    /// Rime's index for the candidate listed at `index`; past the list, the
+    /// engine's split candidates, which follow Rime's whole list.
+    private func rimeIndex(_ index: Int) -> Int {
+        guard let rimeOrder else { return index }
+        return rimeOrder.indices.indices.contains(index) ? rimeOrder.indices[index]
+            : index - rimeOrder.indices.count + rimeOrder.rimeCount
+    }
+
+    private static func order(of candidates: [RimeCandidate], in rime: [RimeCandidate]) -> (indices: [Int], rimeCount: Int) {
+        var unused = Array(rime.indices)
+        let indices = candidates.map { candidate in
+            let at = unused.firstIndex { rime[$0] == candidate } ?? 0
+            return unused.isEmpty ? 0 : unused.remove(at: at)
+        }
+        return (indices, rime.count)
+    }
+
+    private func keepingPickedSyllables(_ next: RimeState) -> [RimeCandidate] {
+        let picked = pickedSyllables(next)
+        guard !picked.isEmpty else { return followingNaturalSyllable(next) }
+        guard let lexicon = ChinesePinyinLexicon.bundled else { return next.candidates }
+        let kept = next.candidates.filter { candidate in
+            for (character, syllable) in zip(candidate.genuine.unicodeScalars, picked) {
+                guard let readings = lexicon.readings[character] else { return true }
+                if !readings.contains(syllable) { return false }
+            }
+            return true
+        }
+        return kept.isEmpty ? next.candidates : kept
     }
 
     /// Spells the open input's first digits as `syllable`, so the list

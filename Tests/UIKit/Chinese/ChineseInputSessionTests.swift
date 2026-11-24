@@ -627,6 +627,11 @@ final class ChineseInputSessionTests: XCTestCase {
         waitUntilCurrent(session)
         XCTAssertEqual(session.leadingSyllables.prefix(3), ["xian", "xia", "xi"])
         XCTAssertEqual(session.currentLeadingSyllable, "xian")
+        // Before any pick the shorter candidates follow the highlighted xian.
+        let natural = session.candidatePresentations.map(\.text)
+        if let xian = natural.firstIndex(of: "先"), let xi = natural.firstIndex(of: "西安") {
+            XCTAssertLessThan(xian, xi, "\(natural)")
+        }
         XCTAssertEqual(session.chooseLeadingSyllable("xi"), [])
         waitUntilCurrent(session)
         XCTAssertEqual(session.raw, "xi'anren")
@@ -634,10 +639,21 @@ final class ChineseInputSessionTests: XCTestCase {
         XCTAssertEqual(session.leadingSyllables.prefix(3), ["xian", "xia", "xi"], "the column keeps the input's options")
         let shown = session.candidatePresentations.map(\.text)
         XCTAssertTrue(shown.contains("西") && !shown.contains("先") && !shown.contains("现"), "\(shown)")
-        // Rime's own reading puts the input back as typed.
+        // Rime reads a picked xia as the start of xian or xiao and as xi + a;
+        // the whole list keeps to xia, its single characters too.
+        _ = session.chooseLeadingSyllable("xia")
+        waitUntilCurrent(session)
+        XCTAssertEqual(session.raw, "xia'nren")
+        let xia = session.candidatePresentations.map(\.text)
+        XCTAssertTrue(xia.contains("下") && xia.contains("夏"), "\(xia)")
+        XCTAssertFalse(xia.contains { ["西安", "喜爱", "小女", "鲜嫩", "仙女", "西"].contains($0) }, "\(xia)")
+        // Rime's own reading is spelled out too, so the list keeps to it.
         _ = session.chooseLeadingSyllable("xian")
         waitUntilCurrent(session)
-        XCTAssertEqual(session.raw, "xianren")
+        XCTAssertEqual(session.raw, "xian'ren")
+        let xian = session.candidatePresentations.map(\.text)
+        XCTAssertTrue(xian.contains("先"), "\(xian)")
+        XCTAssertFalse(xian.contains { ["西安", "喜爱", "西", "下"].contains($0) }, "\(xian)")
         _ = session.chooseLeadingSyllable("xi")
         waitUntilCurrent(session)
         XCTAssertEqual(session.chooseCandidate(try token("西", in: session)), [])
@@ -713,10 +729,11 @@ final class ChineseInputSessionTests: XCTestCase {
         XCTAssertEqual(session.raw, "zhi'fu")
         XCTAssertEqual(session.currentLeadingSyllable, "zhi")
         XCTAssertTrue(session.candidatePresentations.map(\.text).contains("支付"), "\(session.candidatePresentations.map(\.text))")
-        // Rime's own reading puts the typed letters back.
+        // Back to Rime's own reading, spelled out so the list keeps to zi.
         _ = session.chooseLeadingSyllable("zi")
         waitUntilCurrent(session)
-        XCTAssertEqual(session.raw, "zifu")
+        XCTAssertEqual(session.raw, "zi'fu")
+        XCTAssertTrue(session.candidatePresentations.map(\.text).contains("字符"), "\(session.candidatePresentations.map(\.text))")
         session.reset()
     }
 
