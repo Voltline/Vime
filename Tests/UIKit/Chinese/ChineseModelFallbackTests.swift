@@ -132,7 +132,7 @@ final class ChineseModelFallbackTests: XCTestCase {
 
     func testDefaultV2RerankingCorrectionAndV1V2SwitchingWithoutResidualState() throws {
         XCTAssertEqual(ChineseLanguageModel.defaultVersion, .v2)
-        XCTAssertFalse(ChineseSentenceGeneration.isEnabled, "sentence generation must remain off by default")
+        XCTAssertTrue(ChineseSentenceGeneration.isEnabled, "sentence generation is enabled by default")
 
         let bundle = Bundle(for: Self.self)
         let storage = JapaneseCandidateWorker.LanguageModelStorage.shared
