@@ -2774,6 +2774,16 @@ Vime modifications: counted common short runs of words, such as 好的, into Scr
 added them to Vime's Rime pinyin dictionary by Scripts/build_rime_dicts.py; no sentence is included.
 
 
+Bangumi wiki data (CC BY-SA 3.0)
+Copyright the Bangumi contributors.
+Source: Bangumi wiki dump bangumi-2026-11-17 from https://github.com/bangumi/Archive , the entry and character
+information of https://bgm.tv
+License: CC BY-SA 3.0 https://creativecommons.org/licenses/by-sa/3.0/ (https://bgm.tv/about/copyright)
+Vime modifications: Scripts/collect_bangumi_terms.py took the Chinese names of works and characters, leaving out NSFW and
+adult-tagged works, into Scripts/rime_bangumi.txt; Scripts/build_rime_dicts.py added the names its other sources lack,
+with generated readings, to Vime's Rime pinyin dictionary.
+
+
 Wiktionary & Kaikki.org / Chinese Wikipedia (CC BY-SA 4.0)
 Sources:
   - English Wiktionary Chinese entries via Kaikki.org (wiktextract by Tatu Ylonen):

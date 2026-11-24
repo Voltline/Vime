@@ -312,6 +312,18 @@
     "noticeFile": "tatoeba"
   },
   {
+    "id": "bangumi",
+    "name": "Bangumi 番组计划",
+    "use": "动画、游戏、书籍作品名与角色名的中文名称来源",
+    "category": "语言与表情数据",
+    "license": "CC BY-SA 3.0",
+    "copyright": "Bangumi contributors",
+    "source": "https://github.com/bangumi/Archive",
+    "revision": "bangumi-2026-11-17",
+    "modified": "提取作品与角色中文名，排除 NSFW 与成人向作品，生成读音后并入拼音词库",
+    "noticeFile": "bangumi"
+  },
+  {
     "id": "wiktionary",
     "name": "Wiktionary / Kaikki.org",
     "use": "中文科技、游戏、网络用语与日常新词来源",
