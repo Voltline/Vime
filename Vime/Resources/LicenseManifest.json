@@ -300,6 +300,18 @@
     "noticeFile": "tatoeba"
   },
   {
+    "id": "wiktionary",
+    "name": "Wiktionary / Kaikki.org",
+    "use": "中文科技、游戏、网络用语与日常新词来源",
+    "category": "语言与表情数据",
+    "license": "CC BY-SA 4.0",
+    "copyright": "Wiktionary and Wikipedia contributors; Kaikki.org (wiktextract)",
+    "source": "https://kaikki.org/dictionary/Chinese/",
+    "revision": "2026-11 export / web-slang 20261018",
+    "modified": "经筛选与人工审阅后整理简体中文词条与无调拼音并入 Scripts/rime_words.txt",
+    "noticeFile": "wiktionary"
+  },
+  {
     "id": "opencc",
     "name": "OpenCC",
     "use": "librime 依赖的简繁转换库",

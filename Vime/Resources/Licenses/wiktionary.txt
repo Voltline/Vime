@@ -1,0 +1,11 @@
+Wiktionary & Kaikki.org / Chinese Wikipedia (CC BY-SA 4.0)
+Sources:
+  - English Wiktionary Chinese entries via Kaikki.org (wiktextract by Tatu Ylonen):
+    https://kaikki.org/dictionary/Chinese/kaikki.org-dictionary-Chinese.jsonl.gz
+  - Chinese Wikipedia web-slang vocabulary via fcitx5-pinyin-zhwiki (release 0.3.1, 2026-10-18):
+    https://github.com/felixonmars/fcitx5-pinyin-zhwiki
+License: CC BY-SA 4.0 https://creativecommons.org/licenses/by-sa/4.0/
+Vime modifications: filtered and manually reviewed Simplified Chinese technology, gaming,
+Internet slang, and Mainland everyday terms into Scripts/rime_words.txt with toneless pinyin.
+
+
