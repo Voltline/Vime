@@ -349,7 +349,7 @@ final class KeyboardKey: UIButton {
             else if alternate { alternateAction?() }
             else { action?() }
         }
-        if !cancelled && repeats && deferredRepeat && !resolvedRepeatOccurred && repeatIsAllowed { action?() }
+        if !cancelled && repeats && deferredRepeat && !resolvedRepeatOccurred { action?() }
     }
 
     /// Flick directions and the swipe-up symbol need a gesture VoiceOver users
@@ -413,7 +413,6 @@ final class KeyboardKey: UIButton {
 
     override func accessibilityActivate() -> Bool {
         feedback?()
-        guard !repeats || repeatIsAllowed else { return true }
         action?()
         return true
     }
@@ -493,9 +492,13 @@ final class KeyboardKey: UIButton {
         usedAlternate = false
         previewWasAlternate = false
         // Every press answers once, even a delete with nothing to delete;
-        // only its repeats wait for something to remove.
+        // only its repeats wait for something to remove. That one delete
+        // still reaches the app: QQ removes a quoted reply on it.
         feedback?()
-        guard !repeats || repeatIsAllowed else { return }
+        if repeats && !repeatIsAllowed {
+            if !deferred { action?() }
+            return
+        }
         holdFired = false
         if holdAction != nil, !repeats, holdTimer == nil {
             let timer = Timer(timeInterval: Self.holdDelay, repeats: false) { [weak self] _ in

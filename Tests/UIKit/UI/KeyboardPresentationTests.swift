@@ -380,7 +380,7 @@ final class KeyboardPresentationTests: XCTestCase {
         XCTAssertGreaterThan(try XCTUnwrap(keyboard.subviews.firstIndex(of: previewRoot)),
             try XCTUnwrap(keyboard.subviews.firstIndex(of: ancestor)), "A held preview must stay above header/candidates after any layout")
         XCTAssertEqual(bubble.alpha, 1)
-        XCTAssertEqual(try XCTUnwrap(bubble.backgroundColor).resolvedColor(with: keyboard.traitCollection).cgColor.alpha, 1)
+        XCTAssertEqual(try XCTUnwrap(bubble.layer.backgroundColor).alpha, 1, "The preview fill is opaque; it sits on the layer under the shadow")
         XCTAssertFalse(previewRoot.isUserInteractionEnabled, "Preview must not intercept keyboard/candidate touches")
         capture(keyboard, name: "opaque-key-preview-over-candidates")
         surface.endPress(id: 1, at: p)

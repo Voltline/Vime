@@ -375,20 +375,20 @@ final class KeyboardIntegrationTests: XCTestCase {
         for character in "hi" { try button("vime.key." + String(character), in: keyboard).sendActions(for: .touchUpInside) }
         try button("vime.key.language", in: keyboard).sendActions(for: .touchUpInside)
         XCTAssertEqual(view.text, "前ひ後")
-        XCTAssertNil(view.markedTextRange)
+        XCTAssertNotNil(view.markedTextRange, "Switching to English keeps the kana composition and its candidates")
         try button("vime.key.a", in: keyboard).sendActions(for: .touchUpInside)
-        XCTAssertEqual(view.text, "前ひa後")
+        XCTAssertEqual(view.text, "前hia後", "A letter in English commits the romaji as typed, then itself")
         try button("vime.key.language", in: keyboard).sendActions(for: .touchUpInside)
         try button("vime.key.k", in: keyboard).sendActions(for: .touchUpInside)
         // A host caret/document change must never delete text at the new location.
         view.unmarkText()
         view.selectedRange = NSRange(location: 0, length: 0)
         host.abandon(); keyboard.resetComposition()
-        XCTAssertEqual(view.text, "前ひak後")
+        XCTAssertEqual(view.text, "前hiak後")
         try button("vime.key.a", in: keyboard).sendActions(for: .touchUpInside)
-        XCTAssertEqual(view.text, "あ前ひak後")
+        XCTAssertEqual(view.text, "あ前hiak後")
         try button("vime.key.return", in: keyboard).sendActions(for: .touchUpInside)
-        XCTAssertEqual(view.text, "あ前ひak後")
+        XCTAssertEqual(view.text, "あ前hiak後")
         XCTAssertNil(view.markedTextRange)
     }
 

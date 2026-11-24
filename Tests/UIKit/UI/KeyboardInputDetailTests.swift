@@ -9,7 +9,7 @@ final class KeyboardInputDetailTests: XCTestCase {
         return KeyboardPreferences(defaults: try XCTUnwrap(UserDefaults(suiteName: suite)))
     }
 
-    func testDeleteWithNothingToDeleteAnswersEveryPressButNeverRepeats() {
+    func testDeleteWithNothingToDeleteActsOncePerPressButNeverRepeats() {
         let key = KeyboardKey()
         var feedback = 0, actions = 0
         key.repeats = true
@@ -23,14 +23,18 @@ final class KeyboardInputDetailTests: XCTestCase {
             key.finishResolvedPress(cancelled: false, alternate: false, stillPressed: false, deferredRepeat: true)
             XCTAssertFalse(key.isHighlighted)
         }
-        XCTAssertEqual(actions, 0)
+        // Each press still sends its one delete: apps such as QQ remove a
+        // quoted reply on a delete in an empty field.
+        XCTAssertEqual(actions, 3)
 
-        // A hold with nothing to delete answers once and starts no repeat.
+        // A hold with nothing to delete answers once, starts no repeat and
+        // sends its one delete on release.
         key.beginResolvedPress(deferRepeatingAction: true)
         RunLoop.main.run(until: Date().addingTimeInterval(0.7))
         XCTAssertEqual(feedback, 4)
-        XCTAssertEqual(actions, 0)
+        XCTAssertEqual(actions, 3)
         key.finishResolvedPress(cancelled: false, alternate: false, stillPressed: false, deferredRepeat: true)
+        XCTAssertEqual(actions, 4)
     }
 
     func testSwipeSymbolsFollowTheJapaneseFullWidthSetting() throws {

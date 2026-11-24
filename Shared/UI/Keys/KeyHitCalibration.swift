@@ -123,6 +123,10 @@ nonisolated final class KeyHitCalibration: @unchecked Sendable {
     /// Inner anchor zone of the raw painted keycap: taps within ±0.35 of the raw body center stay anchored.
     static let rawKeyAnchorDx = 0.35
     static let rawKeyAnchorDy = 0.35
+    /// Log-likelihood lead (about 2.7×) a neighbour needs to take a tap that
+    /// landed on the touched key's painted body. With the stored statistics
+    /// of a real keyboard this puts the i/o boundary back near the keycap edge.
+    static let bodySwitchMargin = 1.0
 
     /// The keyboard's stored calibration. The unit tests swap in an in-memory
     /// one before any keyboard is built, so taps learned in one run never
