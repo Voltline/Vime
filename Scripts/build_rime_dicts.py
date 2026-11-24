@@ -44,8 +44,12 @@ Sources and licenses:
       t2s) and domain vocabularies (diming, mingren, yiren).
   Scripts/rime_words.txt (collected for Vime): newer words, names and terms
       the sources above lack or rank too low, such as 原神 and 避坑.
+  Bangumi wiki dump (CC BY-SA 3.0) via Scripts/rime_bangumi.txt: Chinese
+      names of anime, games, books and their characters, ranked by how many
+      users collected them.
 
 The generated dictionaries contain CC BY-SA 4.0 data (CC-CEDICT, wordfreq) and
+CC BY-SA 3.0 data (Bangumi), which 3.0 lets an adaptation carry under 4.0, and
 are distributed under CC BY-SA 4.0; see Shared/Resources/ThirdPartyNotices.txt.
 
 Weights. Rime ranks the candidates of one reading by weight and builds a
@@ -113,6 +117,7 @@ COLLOCATIONS = Path(__file__).resolve().parent / "rime_collocations.txt"
 # committed (DOWNWEIGHT_HASHES), which is all the build needs to match them.
 # After editing the list, run --hash-downweights.
 WORDS = Path(__file__).resolve().parent / "rime_words.txt"
+BANGUMI = Path(__file__).resolve().parent / "rime_bangumi.txt"
 DOWNWEIGHTS = Path(__file__).resolve().parent / "rime_downweights.txt"
 DOWNWEIGHT_HASHES = Path(__file__).resolve().parent / "rime_downweights.sha256"
 DOWNWEIGHT_SALT = "vime-rime-downweight:"
@@ -160,6 +165,14 @@ COLLOCATION_SHARE = 0.3
 # fairly common two-character word, so it ranks for its full pinyin without
 # outweighing everyday words that share the reading.
 NEW_WORD_FREQUENCY = 180
+# Bangumi names rank low, above rime-essay-simp's rarest words (0.36) and
+# rising with how many users collected them: about 1 at 10, 2.5 at 100 and
+# 16 at 10,000. Two-character names, which collide with common words most,
+# need BANGUMI_TWO_CHARACTERS collects.
+BANGUMI_BASE = 0.4
+BANGUMI_EXPONENT = 0.4
+BANGUMI_TOP = 30.0
+BANGUMI_TWO_CHARACTERS = 50
 # Placeholder weights and per-source toggles for Wanxiang supplementary characters
 # and domain vocabularies (to be tuned empirically).
 # Supplementary characters stay strictly below FLOOR_CHAR (0.05) so they never
@@ -646,6 +659,25 @@ def build_chinese(cache, refresh_tatoeba=False):
                      for w in gram]
             if all(parts):
                 words[text] = ([" ".join(parts)], f)
+    # Bangumi names the sources lack, read like any other word; a name with a
+    # character outside 通用规范汉字表 (traditional or Japanese forms) is left out.
+    # Transliterated names often read a character its usual way where a word
+    # inside would not (莉莉什卡 is li li shi ka, not 什 shen as in 什卡), so a
+    # name whose characters all have one dominant reading lists that too.
+    for word, collects in bangumi_names():
+        if word in words or len(word) > MAX_WORD_LENGTH or not all(c in charset for c in word):
+            continue
+        if (len(word) == 2 and collects < BANGUMI_TWO_CHARACTERS) or downweight_hash(word) in downweighted:
+            continue
+        spellings = list(known_readings(word) or [])
+        if not spellings:
+            spellings = [reading] if (reading := inferred_reading(word)) else []
+            if all(c in dominant for c in word):
+                plain = " ".join(dominant[c] for c in word)
+                if plain not in spellings:
+                    spellings.append(plain)
+        if spellings:
+            words[word] = (spellings, min(BANGUMI_TOP, BANGUMI_BASE * (1 + collects) ** BANGUMI_EXPONENT) * len(spellings))
     # Newer words the sources lack; a listed word they have keeps its
     # readings and ranks at least as high.
     for word, spelled in listed_words(valid):
@@ -758,6 +790,16 @@ def collocations():
             gram, count = line.split("\t")
             counts[tuple(gram.split(" "))] = int(count)
     return {gram: count / total * 1e8 * COLLOCATION_SHARE for gram, count in counts.items()}
+
+
+def bangumi_names():
+    """(name, collects) pairs from BANGUMI."""
+    pairs = []
+    for line in BANGUMI.read_text(encoding="utf-8").splitlines():
+        if line and not line.startswith("#"):
+            name, collects = line.split("\t")
+            pairs.append((name, int(collects)))
+    return pairs
 
 
 def listed_words(valid):
@@ -928,6 +970,7 @@ def main():
         out.write(f"现代汉语常用词表 {CHANGYONG[1]} {CHANGYONG[0]} sha256 {CHANGYONG[2]} ({CHANGYONG[3]})\n")
         out.write(f"Tatoeba {collocation_source()} via Scripts/{COLLOCATIONS.name} ({TATOEBA[1]})\n")
         out.write(f"Newer words collected for Vime: Scripts/{WORDS.name}\n")
+        out.write(f"Bangumi wiki names: Scripts/{BANGUMI.name} (CC BY-SA 3.0)\n")
     print(f"{len(chinese)} Chinese entries, {len(english)} English words", file=sys.stderr)
 
 

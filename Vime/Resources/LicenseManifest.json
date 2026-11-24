@@ -228,6 +228,18 @@
     "noticeFile": "tencent"
   },
   {
+    "id": "wikidata",
+    "name": "Wikidata",
+    "use": "游戏、动画作品名与角色名的中文名称来源",
+    "category": "语言与表情数据",
+    "license": "CC0 1.0",
+    "copyright": "Wikidata contributors",
+    "source": "https://www.wikidata.org/",
+    "revision": "2026-11 query",
+    "modified": "脚本列出候选名称，经人工审阅、部分改为大陆通行译名后并入 Scripts/rime_words.txt",
+    "noticeFile": "wikidata"
+  },
+  {
     "id": "essay",
     "name": "rime-essay-simp",
     "use": "中文词频",
@@ -298,6 +310,30 @@
     "revision": "2026-11-07 export",
     "modified": "统计中文例句中的常见短语，编入拼音词库；不含例句本身",
     "noticeFile": "tatoeba"
+  },
+  {
+    "id": "bangumi",
+    "name": "Bangumi 番组计划",
+    "use": "动画、游戏、书籍作品名与角色名的中文名称来源",
+    "category": "语言与表情数据",
+    "license": "CC BY-SA 3.0",
+    "copyright": "Bangumi contributors",
+    "source": "https://github.com/bangumi/Archive",
+    "revision": "bangumi-2026-11-17",
+    "modified": "提取作品与角色中文名，排除 NSFW 与成人向作品，生成读音后并入拼音词库",
+    "noticeFile": "bangumi"
+  },
+  {
+    "id": "wiktionary",
+    "name": "Wiktionary / Kaikki.org",
+    "use": "中文科技、游戏、网络用语与日常新词来源",
+    "category": "语言与表情数据",
+    "license": "CC BY-SA 4.0",
+    "copyright": "Wiktionary and Wikipedia contributors; Kaikki.org (wiktextract)",
+    "source": "https://kaikki.org/dictionary/Chinese/",
+    "revision": "2026-11 export / web-slang 20261018",
+    "modified": "经筛选与人工审阅后整理简体中文词条与无调拼音并入 Scripts/rime_words.txt",
+    "noticeFile": "wiktionary"
   },
   {
     "id": "wanxiang",

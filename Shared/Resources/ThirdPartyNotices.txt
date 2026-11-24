@@ -2417,6 +2417,13 @@ rime-essay-simp, and generated them, with the other sources listed in Dependenci
 Rime pinyin dictionary by Scripts/build_rime_dicts.py.
 
 
+Wikidata (CC0 1.0)
+Source: https://www.wikidata.org/ , Chinese labels of video games, anime and their characters
+License: CC0 1.0 https://creativecommons.org/publicdomain/zero/1.0/
+Vime modifications: Scripts/collect_wikidata_terms.py listed candidate names; reviewed names, some replaced with their
+mainland Chinese names, were added by hand to Scripts/rime_words.txt.
+
+
 rime-essay-simp (LGPL-3.0)
 Copyright the RIME Developers.
 Source: https://github.com/rime/rime-essay-simp at revision dc06d4c96ae72ad46b29e3aa824a5d1e8f721fd0
@@ -2765,6 +2772,27 @@ SHA-256 262a48cacb7693f6e47a2c4c42f216a5c45dd28b9b62014b159628cc908e8fcc)
 License: CC BY 2.0 FR https://creativecommons.org/licenses/by/2.0/fr/
 Vime modifications: counted common short runs of words, such as 好的, into Scripts/rime_collocations.txt and
 added them to Vime's Rime pinyin dictionary by Scripts/build_rime_dicts.py; no sentence is included.
+
+
+Bangumi wiki data (CC BY-SA 3.0)
+Copyright the Bangumi contributors.
+Source: Bangumi wiki dump bangumi-2026-11-17 from https://github.com/bangumi/Archive , the entry and character
+information of https://bgm.tv
+License: CC BY-SA 3.0 https://creativecommons.org/licenses/by-sa/3.0/ (https://bgm.tv/about/copyright)
+Vime modifications: Scripts/collect_bangumi_terms.py took the Chinese names of works and characters, leaving out NSFW and
+adult-tagged works, into Scripts/rime_bangumi.txt; Scripts/build_rime_dicts.py added the names its other sources lack,
+with generated readings, to Vime's Rime pinyin dictionary.
+
+
+Wiktionary & Kaikki.org / Chinese Wikipedia (CC BY-SA 4.0)
+Sources:
+  - English Wiktionary Chinese entries via Kaikki.org (wiktextract by Tatu Ylonen):
+    https://kaikki.org/dictionary/Chinese/kaikki.org-dictionary-Chinese.jsonl.gz
+  - Chinese Wikipedia web-slang vocabulary via fcitx5-pinyin-zhwiki (release 0.3.1, 2026-10-18):
+    https://github.com/felixonmars/fcitx5-pinyin-zhwiki
+License: CC BY-SA 4.0 https://creativecommons.org/licenses/by-sa/4.0/
+Vime modifications: filtered and manually reviewed Simplified Chinese technology, gaming,
+Internet slang, and Mainland everyday terms into Scripts/rime_words.txt with toneless pinyin.
 
 
 万象拼音 / rime_wanxiang (CC BY 4.0)
