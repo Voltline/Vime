@@ -2423,6 +2423,7 @@ License: CC0 1.0 https://creativecommons.org/publicdomain/zero/1.0/
 Vime modifications: Scripts/collect_wikidata_terms.py listed candidate names; reviewed names, some replaced with their
 mainland Chinese names, were added by hand to Scripts/rime_words.txt.
 
+
 rime-essay-simp (LGPL-3.0)
 Copyright the RIME Developers.
 Source: https://github.com/rime/rime-essay-simp at revision dc06d4c96ae72ad46b29e3aa824a5d1e8f721fd0

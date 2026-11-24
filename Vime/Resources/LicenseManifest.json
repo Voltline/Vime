@@ -228,6 +228,18 @@
     "noticeFile": "tencent"
   },
   {
+    "id": "wikidata",
+    "name": "Wikidata",
+    "use": "游戏名与游戏角色名的中文名称来源",
+    "category": "语言与表情数据",
+    "license": "CC0 1.0",
+    "copyright": "Wikidata contributors",
+    "source": "https://www.wikidata.org/",
+    "revision": "2026-11 query",
+    "modified": "脚本列出候选名称，经人工审阅、部分改为大陆通行译名后并入 Scripts/rime_words.txt",
+    "noticeFile": "wikidata"
+  },
+  {
     "id": "essay",
     "name": "rime-essay-simp",
     "use": "中文词频",
