@@ -59,6 +59,15 @@ final class ChineseInputSession: KeyboardInputSession {
     private var sentenceLeads = false
     private var wordCorrections: [(spelling: String, candidate: RimeCandidate)] = []
     static let shownCorrections = 2
+    /// Pause-triggered v2 task-mode whole-sentence generation (ChineseSentenceGeneration).
+    private var generationRequest: ChineseCandidateRanking.Request?
+    private var generationInput = ""
+    private var generatedCandidates: [String] = []
+    private var generatedLeads = false
+    /// How long a pause-triggered generation may run before being dropped; tests may widen it.
+    var generationWindow = ChineseCandidateRanking.lateWindow
+    var hasPendingGeneration: Bool { generationRequest != nil }
+    var hasGeneratedCandidate: Bool { !generatedCandidates.isEmpty }
     /// Readings of the open input that keep letters no pinyin takes as typed
     /// (ChineseMixedInput), placed by `mixedPlacement`.
     private var mixed: [ChineseMixedInput.Option] = []
@@ -337,6 +346,7 @@ final class ChineseInputSession: KeyboardInputSession {
         case .contact(let index): return chooseContact(index)
         case .mixed(let index): return chooseMixed(index)
         case .correction(let index): return chooseCorrection(index)
+        case .generated(let index): return chooseGenerated(index)
         case .special(let index): return chooseSpecial(index)
         case .rime(let index): enqueue(.select(rimeIndex(index)))
         }
@@ -352,6 +362,7 @@ final class ChineseInputSession: KeyboardInputSession {
         case .contact(let index)?: return chooseContact(index)
         case .mixed(let index)?: return chooseMixed(index)
         case .correction(let index)?: return chooseCorrection(index)
+        case .generated(let index)?: return chooseGenerated(index)
         case .special(let index)?: return chooseSpecial(index)
         case _ where hasCapitals: return commitTyped()
         case .rime(let index)? where rimeIndex(index) != 0: enqueue(.select(rimeIndex(index)))
@@ -526,6 +537,7 @@ final class ChineseInputSession: KeyboardInputSession {
     /// Sends a command and returns at once; its result arrives in order.
     private func enqueue(_ command: RimeEngine.Command, echo count: Int = 0) {
         dropLate()
+        cancelSentenceGeneration()
         sent += 1
         let ticket = RimeResultInbox.Ticket(sequence: sent, era: era, echo: count)
         let inbox = inbox
@@ -540,6 +552,7 @@ final class ChineseInputSession: KeyboardInputSession {
     /// Runs a command and waits, returning its commit and any earlier one.
     private func run(_ command: RimeEngine.Command) -> [KeyboardEdit] {
         dropLate()
+        cancelSentenceGeneration()
         sent += 1
         let ticket = RimeResultInbox.Ticket(sequence: sent, era: era, echo: 0)
         // Earlier commands have delivered by the time this one runs.
@@ -667,6 +680,7 @@ final class ChineseInputSession: KeyboardInputSession {
         if cased.count > letters.count { cased = String(cased.prefix(letters.count)) }
         if cased.lowercased() != letters { cased = letters }
         if openKey != correctionInput, openKey != sentenceInput { clearCorrections() }
+        if openKey != generationInput { clearGeneration() }
         // Later results are on their way: the list waits for the last.
         if received != sent, next.isComposing {
             if let round { round.cancel(); self.round = nil; roundKey = nil }
@@ -914,6 +928,7 @@ final class ChineseInputSession: KeyboardInputSession {
             sentenceCorrection = nil
             sentenceLeads = false
             sentenceInput = ""
+            clearGeneration()
             collectCorrections()
         }
         (mixedPlacement, self.mixed) = (placement, mixed)
@@ -943,7 +958,8 @@ final class ChineseInputSession: KeyboardInputSession {
         let slots = ChineseCandidateList.slots(
             rime: candidates.map(\.text), order: order, corrections: corrections.map(\.candidate.text),
             correctionLeads: correctionLeads, mixed: mixed.count, placement: mixedPlacement,
-            phrases: phrases.map(\.text), specials: specials.map(\.text), contacts: contactCandidates)
+            phrases: phrases.map(\.text), specials: specials.map(\.text), contacts: contactCandidates,
+            generated: generatedCandidates, generatedLeads: generatedLeads)
         self.slots = slots
         presentations = slots.enumerated().map { index, slot in
             let token = CandidateSelectionToken(sessionID: sessionID, generation: generation, index: index, kind: .composition)
@@ -962,6 +978,9 @@ final class ChineseInputSession: KeyboardInputSession {
                 let (spelling, candidate) = corrections[source]
                 return CandidatePresentation(text: candidate.text, source: .typoCorrection, consumedInputCount: 0, correction: nil,
                     selectionToken: token, detailAnnotation: spellingHints ? spelling : nil)
+            case .generated(let source):
+                return CandidatePresentation(text: generatedCandidates[source], source: .conversion, consumedInputCount: 0,
+                    correction: nil, selectionToken: token)
             case .mixed(let source):
                 return CandidatePresentation(text: mixed[source].text, source: .conversion, consumedInputCount: 0,
                     correction: nil, selectionToken: token)
@@ -973,6 +992,7 @@ final class ChineseInputSession: KeyboardInputSession {
         }
         scheduleCorrections()
         scheduleSentenceCorrection()
+        scheduleSentenceGeneration()
     }
 
     // MARK: The open input
@@ -1403,6 +1423,7 @@ final class ChineseInputSession: KeyboardInputSession {
         sentenceRequest = nil
         sentenceInput = ""
         correctionLeads = false
+        clearGeneration()
     }
 
     /// A correction is for the open input: with nothing chosen Rime takes
@@ -1559,6 +1580,128 @@ final class ChineseInputSession: KeyboardInputSession {
                 }
             }
         }
+    }
+
+    // MARK: Sentence generation
+
+    private func cancelSentenceGeneration() {
+        generationRequest?.cancel()
+        generationRequest = nil
+    }
+
+    private func clearGeneration() {
+        cancelSentenceGeneration()
+        generationInput = ""
+        generatedCandidates = []
+        generatedLeads = false
+    }
+
+    /// Commits a generated whole sentence and records it in the contextual
+    /// learning cache just like a Rime-selected candidate.
+    private func chooseGenerated(_ index: Int) -> [KeyboardEdit] {
+        guard generatedCandidates.indices.contains(index) else { return [] }
+        let text = generatedCandidates[index]
+        let prevText = leftContextProvider?() ?? ""
+        let committed = open.chosen + text
+        let edits = commitInstead(text)
+        if !english, !committed.isEmpty {
+            ChinesePersonalRankingCache.shared.record(
+                prevText: prevText,
+                committed: committed,
+                exclusionsActive: exclusionsActive,
+                exclusionList: exclusions
+            )
+        }
+        return edits
+    }
+
+    /// Returns the current lead candidate text and whether it is protected
+    /// from being displaced (user phrase, learned word, or whole-input Rime
+    /// dictionary word).
+    private func currentGenerationLead() -> (text: String, protected: Bool)? {
+        guard let firstSlot = slots.first else { return nil }
+        switch firstSlot {
+        case .rime(let index):
+            guard shownCandidates.indices.contains(index) else { return nil }
+            let candidate = shownCandidates[index]
+            guard candidate.coversInput,
+                  candidate.genuine.unicodeScalars.contains(where: { $0.properties.isIdeographic }) else { return nil }
+            let isProtected = candidate.userPhrase || !candidate.sentence
+            return (candidate.genuine, isProtected)
+        case .phrase(let index):
+            guard phrases.indices.contains(index) else { return nil }
+            return (phrases[index].text, true)
+        case .contact(let index):
+            guard contactCandidates.indices.contains(index) else { return nil }
+            return (contactCandidates[index], true)
+        case .correction(let index):
+            guard corrections.indices.contains(index) else { return nil }
+            return (corrections[index].candidate.genuine, true)
+        case .mixed(let index):
+            guard mixed.indices.contains(index) else { return nil }
+            return (mixed[index].genuine, true)
+        case .special(let index):
+            guard specials.indices.contains(index) else { return nil }
+            return (specials[index].text, true)
+        case .generated:
+            return nil
+        }
+    }
+
+    /// After the same short pause as sentence correction, runs v2 task-mode
+    /// whole-sentence generation and weighs its lead against the current lead.
+    /// Any new keystroke, candidate change, or commit cancels it immediately.
+    private func scheduleSentenceGeneration() {
+        let input = open.input, key = openKey
+        let storage = JapaneseCandidateWorker.LanguageModelStorage.shared
+        guard !nineKey, shuangpin == nil, !traditional, generationInput != key,
+              isComposing, echo.isEmpty, round == nil, usesModel, !hasCapitals,
+              ChineseSentenceGeneration.isEnabled, ChineseSentenceGeneration.wants(input),
+              storage.isReady(for: .chinese), !storage.isSuspended,
+              storage.chineseModelVersion == .v2,
+              let lead = currentGenerationLead() else { return }
+
+        let request = ChineseCandidateRanking.Request(deadline: .infinity)
+        generationRequest?.cancel()
+        generationRequest = request
+        generationInput = key
+        let scheduledSent = sent
+        let context = modelContext
+        let active = exclusionsActive, list = exclusions, blocklist = blocklist
+        let allows: @Sendable (String) -> Bool = { text in
+            LearningExclusionPolicy.allowsLearning(text, active: active, list: list) && !blocklist.matches(text)
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.correctionDelay) { [weak self] in
+            guard let self, self.generationRequest === request, !request.isCancelled,
+                  self.openKey == key, self.sent == scheduledSent, self.round == nil else { return }
+            let timedRequest = ChineseCandidateRanking.Request(
+                deadline: ProcessInfo.processInfo.systemUptime + self.generationWindow)
+            self.generationRequest = timedRequest
+            ChineseSentenceGeneration.generateAndWeigh(
+                keys: input,
+                leftContext: context,
+                currentLead: lead.text,
+                leadProtected: lead.protected,
+                request: timedRequest,
+                allows: allows
+            ) { [weak self] decision in
+                self?.finishSentenceGeneration(decision, key: key, scheduledSent: scheduledSent, request: timedRequest)
+            }
+        }
+    }
+
+    private func finishSentenceGeneration(_ decision: ChineseSentenceGeneration.Decision?, key: String,
+                                          scheduledSent: Int, request: ChineseCandidateRanking.Request) {
+        guard generationRequest === request, !request.isCancelled,
+              openKey == key, sent == scheduledSent, round == nil,
+              generatedCandidates.isEmpty else { return }
+        generationRequest = nil
+        guard let decision else { return }
+        generatedCandidates = [decision.candidate.text]
+        generatedLeads = decision.leads
+        show(shownCandidates, order: order)
+        if received == sent { onCandidatesChange?() }
     }
 }
 
