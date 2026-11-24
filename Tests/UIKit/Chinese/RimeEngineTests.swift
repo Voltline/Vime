@@ -222,6 +222,37 @@ final class RimeEngineTests: XCTestCase {
         XCTAssertEqual(engine.sendAndWait(.clear).input, "")
     }
 
+    func testSupplementaryRareCharactersAreTypable() throws {
+        let engine = try engine()
+        defer {
+            _ = engine.sendAndWait(.setCandidateLimit(60))
+            _ = engine.sendAndWait(.clear)
+        }
+        _ = engine.sendAndWait(.setTraditional(false))
+        _ = engine.sendAndWait(.setCandidateLimit(500))
+        for (input, rare) in [("biao", "嫑"), ("jiao", "嘦"), ("yin", "烎")] {
+            let candidates = engine.sendAndWait(.type(input)).candidates.map(\.text)
+            _ = engine.sendAndWait(.clear)
+            XCTAssertTrue(candidates.contains(rare), "Expected rare char \(rare) in candidates for \(input)")
+            XCTAssertNotEqual(candidates.first, rare, "Rare char \(rare) must not displace common lead for \(input)")
+        }
+    }
+
+    func testTraditionalVariantsAreFilteredFromSimplifiedCandidates() throws {
+        let engine = try engine()
+        defer {
+            _ = engine.sendAndWait(.setCandidateLimit(60))
+            _ = engine.sendAndWait(.clear)
+        }
+        _ = engine.sendAndWait(.setTraditional(false))
+        _ = engine.sendAndWait(.setCandidateLimit(500))
+        for (input, trad) in [("a", "錒"), ("guo", "國")] {
+            let candidates = engine.sendAndWait(.type(input)).candidates.map(\.text)
+            _ = engine.sendAndWait(.clear)
+            XCTAssertFalse(candidates.contains(trad), "Traditional variant \(trad) must not appear in simplified candidates for \(input)")
+        }
+    }
+
     func testClosingReleasesTheUserDictionaryAndKeepsWhatWasLearned() throws {
         let engine = try engine()
         _ = engine.sendAndWait(.clear)

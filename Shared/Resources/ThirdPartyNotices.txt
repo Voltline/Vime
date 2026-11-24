@@ -2767,6 +2767,16 @@ Vime modifications: counted common short runs of words, such as 好的, into Scr
 added them to Vime's Rime pinyin dictionary by Scripts/build_rime_dicts.py; no sentence is included.
 
 
+万象拼音 / rime_wanxiang (CC BY 4.0)
+Author: amzxyz
+Project: https://github.com/amzxyz/rime_wanxiang
+Source: https://github.com/amzxyz/rime_wanxiang at commit 54de9584b584b8965963a16d948923f322f95c69
+(dicts/zi.dict.yaml, dicts/diming.dict.yaml, dicts/mingren.dict.yaml, dicts/yiren.dict.yaml)
+License: CC BY 4.0 https://creativecommons.org/licenses/by/4.0/
+Vime modifications: converted toned pinyin to toneless syllables, filtered Traditional variants via OpenCC t2s,
+and added supplementary Simplified characters and domain words (diming, mingren, yiren) to Vime's Rime pinyin
+dictionary by Scripts/build_rime_dicts.py.
+
 OpenCC (Apache-2.0)
 Source: https://github.com/BYVoid/OpenCC
 Revision: 025f371dc76b598d77384fbdab90c937471844d8
