@@ -93,6 +93,7 @@ final class KeyboardIntegrationTests: XCTestCase {
         XCTAssertEqual(prolonged.frame.minX, 399.2, accuracy: 0.001)
         XCTAssertEqual(prolonged.frame.minY, a.frame.minY)
         XCTAssertEqual(prolonged.frame.width, a.frame.width)
+        XCTAssertTrue(keyboard.lettersRowHasProlongedKey, "The ー row keeps its own hit calibration")
         let surface = try XCTUnwrap(descendants(keyboard).compactMap { $0 as? KeyboardTouchSurface }.first)
         let gap = CGPoint(x: (l.frame.maxX + prolonged.frame.minX) / 2, y: l.frame.midY)
         XCTAssertNotNil(surface.resolvedKey(at: gap), "New second-row gap stays covered")

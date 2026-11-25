@@ -46,6 +46,7 @@ extension KeyboardView {
             let point: CGPoint
             let body: CGRect
             let bucket: KeyHitCalibration.LayoutBucket
+            let prolongedRow: Bool
             let timestamp: TimeInterval
         }
         var pendingTaps: [PendingTap] = []
@@ -68,18 +69,21 @@ extension KeyboardView {
         guard panel == .keyboard, page == .letters, !kanaLayoutActive, !chineseNineKeyActive else {
             return .init(dx: 0, dy: 0, varX: KeyHitCalibration.defaultVarX, varY: KeyHitCalibration.defaultVarY, weight: 0, count: 0)
         }
-        return hitCalibration.effectiveModel(for: letter, in: hitCalibrationBucket)
+        return hitCalibration.effectiveModel(for: letter, in: hitCalibrationBucket,
+                                             prolongedRow: lettersRowHasProlongedKey)
     }
 
     func recordCalibratedLetterTap(_ outcome: KeyboardTouchSurface.LetterTapOutcome) {
         guard panel == .keyboard, page == .letters, !kanaLayoutActive, !chineseNineKeyActive else { return }
         let now = Date().timeIntervalSince1970
         let bucket = hitCalibrationBucket
+        let prolongedRow = lettersRowHasProlongedKey
 
         // Check if this tap corrects the earliest backspaced key in a 1–3 key rollback.
         if let entry = hitCalibrationTracker.deletedStack.last,
            now - entry.deletedAt <= HitCalibrationTracker.neighborFixWindow,
            entry.tap.bucket == bucket,
+           entry.tap.prolongedRow == prolongedRow,
            entry.tap.letter != outcome.letter,
            outcome.body.width > 0, outcome.body.height > 0,
            abs(entry.tap.body.midX - outcome.body.midX) <= outcome.body.width * 1.6,
@@ -90,6 +94,7 @@ extension KeyboardView {
                 mistypedPoint: entry.tap.point,
                 intendedBody: outcome.body,
                 bucket: bucket,
+                prolongedRow: prolongedRow,
                 timestamp: now
             )
         }
@@ -106,6 +111,7 @@ extension KeyboardView {
             point: outcome.point,
             body: outcome.body,
             bucket: bucket,
+            prolongedRow: prolongedRow,
             timestamp: now
         ))
         if hitCalibrationTracker.pendingTaps.count > 64 {
@@ -154,6 +160,7 @@ extension KeyboardView {
                 point: tap.point,
                 body: tap.body,
                 bucket: tap.bucket,
+                prolongedRow: tap.prolongedRow,
                 timestamp: tap.timestamp
             )
         }

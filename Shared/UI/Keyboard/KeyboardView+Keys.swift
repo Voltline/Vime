@@ -216,7 +216,9 @@ extension KeyboardView {
                     row.append(item)
                 }
                 if letters == "zxcvbnm" { row.append(deleteKey(weight: 1.35)) }
+                if letters == "asdfghjkl" { lettersRowHasProlongedKey = false }
                 if letters == "asdfghjkl", preferences.prolongedKey, let prolongedInput = session.inputTraits.prolongedInput {
+                    lettersRowHasProlongedKey = true
                     let prolonged = key(prolongedInput) { [weak self] in
                         guard let self else { return }
                         self.apply(self.session.type(prolongedInput))
