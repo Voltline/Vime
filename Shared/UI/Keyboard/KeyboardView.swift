@@ -300,6 +300,9 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     var englishPrefixCache: [String: Bool] = [:]
     var hitCalibration: KeyHitCalibration = .shared
     var hitCalibrationTracker = HitCalibrationTracker()
+    /// Whether the built letters page has the prolonged-sound key (ー) in its
+    /// middle row; that row's keys sit half a key over, so it calibrates apart.
+    var lettersRowHasProlongedKey = false
     var autocapitalizationType: UITextAutocapitalizationType = .sentences {
         didSet { if oldValue != autocapitalizationType { updateAutoCapitalization() } }
     }

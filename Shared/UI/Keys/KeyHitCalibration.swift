@@ -9,6 +9,8 @@ import Foundation
 /// - No hand-posture inference and no hierarchical multi-level backoff: each
 ///   `(layoutBucket, letter)` adapts strictly from its own observations, with smooth
 ///   single-key shrinkage toward the painted center `(0, 0)` when samples are few.
+/// - The romaji layout's prolonged-sound key (ー) shifts the middle row by half a
+///   key, so a bucket's statistics are kept apart for rows with and without it.
 /// - Only per-key statistics are stored (`Calibration/state.json` in the App
 ///   Group container), never typed text or individual taps.
 nonisolated final class KeyHitCalibration: @unchecked Sendable {
@@ -18,6 +20,15 @@ nonisolated final class KeyHitCalibration: @unchecked Sendable {
         case oneHandedRight
         case landscape
         case pad
+
+        /// Key into `Snapshot.buckets`. Layouts whose middle row carries the
+        /// prolonged-sound key (ー) sit half a key away from the plain
+        /// QWERTY row, so they learn on their own.
+        func storageKey(prolongedRow: Bool) -> String {
+            prolongedRow ? rawValue + Self.prolongedSuffix : rawValue
+        }
+
+        static let prolongedSuffix = "+prolonged"
     }
 
     struct KeyStats: Codable, Equatable, Sendable {
@@ -89,10 +100,25 @@ nonisolated final class KeyHitCalibration: @unchecked Sendable {
     }
 
     struct Snapshot: Codable, Equatable, Sendable {
-        var version: Int = 2
+        static let currentVersion = 3
+
+        var version: Int = Snapshot.currentVersion
         var updatedAt: Date = Date()
         var buckets: [String: [String: KeyStats]] = [:]
         var summary: Summary = Summary()
+
+        /// Version 2 kept one set of statistics per bucket for every
+        /// language. Seed the prolonged-key layouts from it so neither side
+        /// loses what was learned before the split.
+        mutating func migrate() -> Bool {
+            guard version < Self.currentVersion else { return false }
+            for (key, stats) in buckets where !key.hasSuffix(LayoutBucket.prolongedSuffix) {
+                let split = key + LayoutBucket.prolongedSuffix
+                if buckets[split] == nil { buckets[split] = stats }
+            }
+            version = Self.currentVersion
+            return true
+        }
     }
 
     // MARK: - Tuning & Safety Guards
@@ -152,8 +178,10 @@ nonisolated final class KeyHitCalibration: @unchecked Sendable {
         decoder.dateDecodingStrategy = .iso8601
         if let url = directory?.appendingPathComponent("state.json"),
            let data = try? Data(contentsOf: url),
-           let decoded = try? decoder.decode(Snapshot.self, from: data) {
+           var decoded = try? decoder.decode(Snapshot.self, from: data) {
+            let migrated = decoded.migrate()
             self.snapshot = decoded
+            self.dirty = migrated
         } else {
             self.snapshot = Snapshot()
         }
@@ -162,10 +190,10 @@ nonisolated final class KeyHitCalibration: @unchecked Sendable {
     // MARK: - Query
 
     /// Effective per-key anisotropic 2D Gaussian parameters after single-key shrinkage toward `(0, 0)`.
-    func effectiveModel(for letter: Character, in bucket: LayoutBucket) -> EffectiveModel {
+    func effectiveModel(for letter: Character, in bucket: LayoutBucket, prolongedRow: Bool = false) -> EffectiveModel {
         let key = String(letter).lowercased()
         lock.lock()
-        let stats = snapshot.buckets[bucket.rawValue]?[key]
+        let stats = snapshot.buckets[bucket.storageKey(prolongedRow: prolongedRow)]?[key]
         lock.unlock()
         guard let stats else {
             return EffectiveModel(dx: 0, dy: 0, varX: Self.defaultVarX, varY: Self.defaultVarY, weight: 0, count: 0)
@@ -174,15 +202,17 @@ nonisolated final class KeyHitCalibration: @unchecked Sendable {
     }
 
     /// Effective normalized `(dx, dy)` offset for `letter` in `bucket`.
-    func effectiveNormalizedOffset(for letter: Character, in bucket: LayoutBucket) -> (dx: Double, dy: Double) {
-        let model = effectiveModel(for: letter, in: bucket)
+    func effectiveNormalizedOffset(for letter: Character, in bucket: LayoutBucket,
+                                   prolongedRow: Bool = false) -> (dx: Double, dy: Double) {
+        let model = effectiveModel(for: letter, in: bucket, prolongedRow: prolongedRow)
         return (model.dx, model.dy)
     }
 
     /// Effective offset in points for `letter` given its painted `body`.
-    func effectivePointOffset(for letter: Character, body: CGRect, in bucket: LayoutBucket) -> CGPoint {
+    func effectivePointOffset(for letter: Character, body: CGRect, in bucket: LayoutBucket,
+                              prolongedRow: Bool = false) -> CGPoint {
         guard body.width > 0, body.height > 0 else { return .zero }
-        let model = effectiveModel(for: letter, in: bucket)
+        let model = effectiveModel(for: letter, in: bucket, prolongedRow: prolongedRow)
         return CGPoint(x: CGFloat(model.dx) * body.width, y: CGFloat(model.dy) * body.height)
     }
 
@@ -231,9 +261,10 @@ nonisolated final class KeyHitCalibration: @unchecked Sendable {
         point: CGPoint,
         body: CGRect,
         bucket: LayoutBucket,
+        prolongedRow: Bool = false,
         timestamp: TimeInterval = Date().timeIntervalSince1970
     ) -> Bool {
-        learn(letter: letter, point: point, body: body, bucket: bucket,
+        learn(letter: letter, point: point, body: body, storageKey: bucket.storageKey(prolongedRow: prolongedRow),
               isNeighborFix: false, timestamp: timestamp)
     }
 
@@ -244,17 +275,18 @@ nonisolated final class KeyHitCalibration: @unchecked Sendable {
         mistypedPoint: CGPoint,
         intendedBody: CGRect,
         bucket: LayoutBucket,
+        prolongedRow: Bool = false,
         timestamp: TimeInterval = Date().timeIntervalSince1970
     ) -> Bool {
-        learn(letter: intendedLetter, point: mistypedPoint,
-              body: intendedBody, bucket: bucket, isNeighborFix: true, timestamp: timestamp)
+        learn(letter: intendedLetter, point: mistypedPoint, body: intendedBody,
+              storageKey: bucket.storageKey(prolongedRow: prolongedRow), isNeighborFix: true, timestamp: timestamp)
     }
 
     private func learn(
         letter: Character,
         point: CGPoint,
         body: CGRect,
-        bucket: LayoutBucket,
+        storageKey: String,
         isNeighborFix: Bool,
         timestamp: TimeInterval
     ) -> Bool {
@@ -272,7 +304,7 @@ nonisolated final class KeyHitCalibration: @unchecked Sendable {
         let key = String(letter).lowercased()
 
         lock.lock()
-        var bucketMap = snapshot.buckets[bucket.rawValue] ?? [:]
+        var bucketMap = snapshot.buckets[storageKey] ?? [:]
         var stats = bucketMap[key] ?? KeyStats()
         let alpha: Double
         if isNeighborFix {
@@ -297,7 +329,7 @@ nonisolated final class KeyHitCalibration: @unchecked Sendable {
         }
         stats.count += 1
         bucketMap[key] = stats
-        snapshot.buckets[bucket.rawValue] = bucketMap
+        snapshot.buckets[storageKey] = bucketMap
         snapshot.updatedAt = Date(timeIntervalSince1970: timestamp)
 
         dirty = true

@@ -64,6 +64,46 @@ final class KeyHitCalibrationTests: XCTestCase {
         XCTAssertEqual(aOneHanded.dy, 0, accuracy: 1e-6)
     }
 
+    func testProlongedKeyRowLearnsApart() {
+        let cal = KeyHitCalibration(directory: nil)
+        let body = CGRect(x: 0, y: 0, width: 40, height: 50)
+        let shifted = CGPoint(x: body.midX + 8, y: body.midY)
+        for _ in 0..<80 {
+            cal.learnCommittedTap(letter: "a", point: shifted, body: body, bucket: .portrait, prolongedRow: true)
+        }
+        XCTAssertGreaterThan(cal.effectiveNormalizedOffset(for: "a", in: .portrait, prolongedRow: true).dx, 0.15)
+        XCTAssertEqual(cal.effectiveNormalizedOffset(for: "a", in: .portrait).dx, 0, accuracy: 1e-6,
+                       "Taps on the romaji row with ー never move the plain row's keys")
+    }
+
+    func testVersion2StateSeedsBothRowLayouts() throws {
+        let dir = tempDir()
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let old = """
+        {"version": 2, "updatedAt": "2026-11-01T00:00:00Z",
+         "buckets": {"portrait": {"a": {"dx": 0.12, "dy": 0.05, "varX": 0.044, "varY": 0.032, "count": 200}}},
+         "summary": {}}
+        """
+        try Data(old.utf8).write(to: dir.appendingPathComponent("state.json"))
+
+        let cal = KeyHitCalibration(directory: dir)
+        let plain = cal.effectiveNormalizedOffset(for: "a", in: .portrait)
+        let prolonged = cal.effectiveNormalizedOffset(for: "a", in: .portrait, prolongedRow: true)
+        XCTAssertGreaterThan(plain.dx, 0.1)
+        XCTAssertEqual(plain.dx, prolonged.dx, accuracy: 1e-9)
+        XCTAssertEqual(cal.currentSnapshot().version, KeyHitCalibration.Snapshot.currentVersion)
+
+        // Once split, each side learns on its own and the split survives a reload.
+        for _ in 0..<200 {
+            cal.learnCommittedTap(letter: "a", point: CGPoint(x: 20 - 8, y: 25), body: CGRect(x: 0, y: 0, width: 40, height: 50),
+                                  bucket: .portrait, prolongedRow: true)
+        }
+        cal.flushSync()
+        let reloaded = KeyHitCalibration(directory: dir)
+        XCTAssertGreaterThan(reloaded.effectiveNormalizedOffset(for: "a", in: .portrait).dx, 0.1)
+        XCTAssertLessThan(reloaded.effectiveNormalizedOffset(for: "a", in: .portrait, prolongedRow: true).dx, 0)
+    }
+
     func testOutlierRejectionDoesNotPolluteStats() {
         let cal = KeyHitCalibration(directory: nil)
         let body = CGRect(x: 100, y: 100, width: 40, height: 50)
@@ -209,8 +249,9 @@ final class KeyHitCalibrationTests: XCTestCase {
 
         let snap = cal.currentSnapshot()
         XCTAssertEqual(snap.summary.committedSamples, 1)
-        XCTAssertNil(snap.buckets[view.hitCalibrationBucket.rawValue]?["o"])
-        XCTAssertEqual(snap.buckets[view.hitCalibrationBucket.rawValue]?["n"]?.count, 1)
+        let key = view.hitCalibrationBucket.storageKey(prolongedRow: view.lettersRowHasProlongedKey)
+        XCTAssertNil(snap.buckets[key]?["o"])
+        XCTAssertEqual(snap.buckets[key]?["n"]?.count, 1)
     }
 
     func testPersistenceRoundTrip() throws {
