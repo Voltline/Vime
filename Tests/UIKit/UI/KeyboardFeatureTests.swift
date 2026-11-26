@@ -378,14 +378,27 @@ final class KeyboardFeatureTests: XCTestCase {
             arrows.sendActions(for: .touchUpInside); panel.layoutIfNeeded()
             let grid = try XCTUnwrap(descendants(panel).compactMap { $0 as? UICollectionView }.first)
             XCTAssertGreaterThanOrEqual(grid.numberOfItems(inSection: arrowSection), 4)
-            text.text = ""; text.selectedRange = NSRange(location: 0, length: 0)
-            for i in 0..<4 { panel.collectionView(grid, didSelectItemAt: IndexPath(item: i, section: arrowSection)) }
-            XCTAssertEqual(text.text, "↑↓←→")
-            XCTAssertFalse(panel.isHidden)
             attachAppearance(keyboard, name: nineKey ? "symbols-arrows" : "symbols-arrows-full-numbers")
-            try button("vime.symbols.close", in: panel).sendActions(for: .touchUpInside)
-            let abc = try XCTUnwrap(descendants(keyboard).first { ($0 as? UIButton)?.title(for: .normal) == "ABC" } as? UIButton)
-            abc.sendActions(for: .touchUpInside); keyboard.layoutIfNeeded()
+            // Tapping ABC in the symbol panel returns straight to the input page, not numbers.
+            try button("vime.symbols.close", in: panel).sendActions(for: .touchUpInside); keyboard.layoutIfNeeded()
+            XCTAssertTrue(panel.isHidden)
+            XCTAssertNotNil(descendants(keyboard).first { ($0 as? UIButton)?.title(for: .normal) == "123" },
+                            "ABC in symbol panel should return to the input page, not the number page")
+
+            // Re-open the symbol panel and tap a symbol: it inserts and auto-returns to the input page.
+            let numericAgain = try XCTUnwrap(descendants(keyboard).first { ($0 as? UIButton)?.title(for: .normal) == "123" } as? UIButton)
+            numericAgain.sendActions(for: .touchUpInside); keyboard.layoutIfNeeded()
+            let symbolsAgain = try button(nineKey ? "vime.number.符号" : "vime.key.symbols", in: keyboard)
+            symbolsAgain.sendActions(for: .touchUpInside); keyboard.layoutIfNeeded()
+            let arrowsAgain = try XCTUnwrap(descendants(panel).first { ($0 as? UIButton)?.title(for: .normal) == "箭头" } as? UIButton)
+            arrowsAgain.sendActions(for: .touchUpInside); panel.layoutIfNeeded()
+            text.text = ""; text.selectedRange = NSRange(location: 0, length: 0)
+            panel.collectionView(grid, didSelectItemAt: IndexPath(item: 0, section: arrowSection))
+            keyboard.layoutIfNeeded()
+            XCTAssertEqual(text.text, "↑")
+            XCTAssertTrue(panel.isHidden, "Tapping any symbol in the symbol panel should return to the input page")
+            XCTAssertNotNil(descendants(keyboard).first { ($0 as? UIButton)?.title(for: .normal) == "123" },
+                            "Tapping a symbol should return to the input page, not the number page")
         }
         for chinese in [false, true] {
             let symbols = KeyboardSymbolCatalog.symbols(chinese: chinese)
