@@ -69,17 +69,30 @@ extension KeyboardView {
             : results.map { .init(title: $0, action: .emoji($0)) }
     }
 
+    /// Returns from the symbol/emoji panel directly to the main input page
+    /// rather than leaving the number pad open underneath.
+    func closeSymbolPanelToInput() {
+        let needsLetters = page != .letters
+        if needsLetters { page = .letters }
+        panel = .keyboard
+        if needsLetters { rebuildKeys() }
+        refresh()
+    }
+
     func showSymbolPanel() {
         if symbolPanel == nil {
             let panel = KeyboardSymbolPanel()
             panel.onFeedback = { [weak self] in self?.playFeedback() }
-            panel.onSelect = { [weak self] text in
+            panel.onSelect = { [weak self, weak panel] text in
                 guard let self else { return }
                 self.playFeedback()
                 let composes = self.session.isComposing && self.session.inputTraits.compositionInputSymbols.contains(text)
                 if composes { self.apply(self.session.type(text)) } else { self.insertSymbol(text) }
+                if panel?.displayedMode == .symbols {
+                    self.closeSymbolPanelToInput()
+                }
             }
-            panel.onClose = { [weak self] in self?.headerArrow() }
+            panel.onClose = { [weak self] in self?.closeSymbolPanelToInput() }
             panel.onEmojiUse = { [weak self] in self?.preferences.recordEmoji($0) }
             panel.onSearch = { [weak self] in self?.beginEmojiSearch() }
             panel.onDelete = { [weak self] in
