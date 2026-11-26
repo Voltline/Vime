@@ -86,6 +86,62 @@ final class ChinesePauseGenerationTests: XCTestCase {
         XCTAssertEqual(decision, .init(candidate: cand, leads: false))
     }
 
+    func testDecideRankedSurfacesSecondCandidateWhenFirstMatchesLead() {
+        let first = ChineseSentenceGeneration.Candidate(
+            text: "今天天气很好", generationScore: -1.0, modelScore: -8.0, score: -13.8)
+        let second = ChineseSentenceGeneration.Candidate(
+            text: "今天天气真好", generationScore: -2.0, modelScore: -10.5, score: -18.8)
+        let third = ChineseSentenceGeneration.Candidate(
+            text: "今天天气太好", generationScore: -3.0, modelScore: -11.0, score: -20.6)
+        let tooWeak = ChineseSentenceGeneration.Candidate(
+            text: "今天天起很好", generationScore: -6.0, modelScore: -15.0, score: -30.0)
+        let decision = ChineseSentenceGeneration.decide(
+            ranked: [first, second, third, tooWeak],
+            currentLead: "今天天气很好",
+            currentScore: -8.0,
+            leadProtected: false
+        )
+        XCTAssertEqual(decision, .init(candidates: [second, third], leads: false))
+    }
+
+    func testDecideRankedFiltersWeakSecondaryCandidates() {
+        let first = ChineseSentenceGeneration.Candidate(
+            text: "今天天气很好", generationScore: -1.0, modelScore: -8.0, score: -13.8)
+        let weak = ChineseSentenceGeneration.Candidate(
+            text: "今天天起很好", generationScore: -6.0, modelScore: -12.0, score: -25.2)
+        // -12.0 - (-8.0) = -4.0 < secondaryMargin (-3.5)
+        XCTAssertNil(ChineseSentenceGeneration.decide(
+            ranked: [first, weak],
+            currentLead: "今天天气很好",
+            currentScore: -8.0,
+            leadProtected: false
+        ))
+    }
+
+    func testDecideRankedHandlesIncompleteRimeLeadFallback() {
+        let first = ChineseSentenceGeneration.Candidate(
+            text: "怎么搞的", generationScore: -2.0, modelScore: -6.0, score: -11.6)
+        let second = ChineseSentenceGeneration.Candidate(
+            text: "怎么干的", generationScore: -3.0, modelScore: -8.0, score: -15.8)
+        let third = ChineseSentenceGeneration.Candidate(
+            text: "怎么改的", generationScore: -4.0, modelScore: -9.0, score: -18.4)
+        let decision = ChineseSentenceGeneration.decide(
+            ranked: [first, second, third],
+            currentLead: nil,
+            currentScore: nil,
+            leadProtected: false
+        )
+        XCTAssertEqual(decision, .init(candidates: [first, second], leads: true))
+
+        let protectedDecision = ChineseSentenceGeneration.decide(
+            ranked: [first, second],
+            currentLead: nil,
+            currentScore: nil,
+            leadProtected: true
+        )
+        XCTAssertEqual(protectedDecision, .init(candidates: [first, second], leads: false))
+    }
+
     func testWantsAcceptsOnlyPlainLowercaseWithinLengthRange() {
         XCTAssertFalse(ChineseSentenceGeneration.wants("abc"))
         XCTAssertTrue(ChineseSentenceGeneration.wants("abcd"))

@@ -24,6 +24,10 @@ nonisolated enum ChineseSentenceGeneration {
     static let leadMargin = 3.0
     /// Minimum LM score lead over the current lead required to show at rank 2.
     static let showMargin = 0.0
+    /// Maximum number of generated candidates surfaced to the candidate bar.
+    static let maxShown = 2
+    /// Minimum LM score gap vs `max(currentScore, topModelScore)` to show a supplementary rank-2/3 alternative.
+    static let secondaryMargin = -3.5
 
     /// Whether `input` is eligible for pause-triggered generation: plain lowercase letters in range.
     static func wants(_ input: String) -> Bool {
@@ -31,9 +35,18 @@ nonisolated enum ChineseSentenceGeneration {
     }
 
     struct Decision: Equatable, Sendable {
-        let candidate: Candidate
-        /// True when the generated sentence should take rank 1; false for rank 2.
+        let candidates: [Candidate]
+        /// True when the generated sentence should take rank 1; false for rank 2+.
         let leads: Bool
+        var candidate: Candidate { candidates[0] }
+        init(candidates: [Candidate], leads: Bool) {
+            self.candidates = candidates
+            self.leads = leads
+        }
+        init(candidate: Candidate, leads: Bool) {
+            self.candidates = [candidate]
+            self.leads = leads
+        }
     }
 
     /// Decides whether `generated` should show against `currentLead`, using LM scores
@@ -51,6 +64,46 @@ nonisolated enum ChineseSentenceGeneration {
             return Decision(candidate: generated, leads: false)
         }
         return nil
+    }
+
+    /// Decides which ranked generated candidates (up to `maxShown`) should show against
+    /// `currentLead` (or fill the top slot when `currentLead == nil`, e.g. `!coversInput`).
+    static func decide(ranked: [Candidate], currentLead: String?, currentScore: Double?,
+                       leadProtected: Bool) -> Decision? {
+        guard let currentLead else {
+            var seen: Set<String> = []
+            let picked = ranked.filter { !$0.text.isEmpty && seen.insert($0.text).inserted }.prefix(maxShown)
+            guard !picked.isEmpty else { return nil }
+            return Decision(candidates: Array(picked), leads: !leadProtected)
+        }
+        guard let currentScore, currentScore.isFinite else { return nil }
+        let valid = ranked.filter { !$0.text.isEmpty && $0.modelScore?.isFinite == true }
+        guard let top = valid.first, let topModelScore = top.modelScore else { return nil }
+
+        var leads = false
+        var picked: [Candidate] = []
+        var seen: Set<String> = [currentLead]
+
+        if top.text != currentLead {
+            let margin = topModelScore - currentScore
+            if !leadProtected && margin >= leadMargin {
+                leads = true
+                picked.append(top)
+                seen.insert(top.text)
+            } else if margin >= showMargin {
+                picked.append(top)
+                seen.insert(top.text)
+            }
+        }
+
+        let referenceScore = max(currentScore, topModelScore)
+        for candidate in valid where picked.count < maxShown {
+            guard seen.insert(candidate.text).inserted,
+                  candidate.modelScore! - referenceScore >= secondaryMargin else { continue }
+            picked.append(candidate)
+        }
+        guard !picked.isEmpty else { return nil }
+        return Decision(candidates: picked, leads: leads)
     }
 
     struct Candidate: Equatable, Sendable {
@@ -154,13 +207,14 @@ nonisolated enum ChineseSentenceGeneration {
         }
     }
 
-    /// Runs v2 task-mode generation on the model queue, weighs its top candidate
-    /// against `currentLead` with the same model and context, and delivers a
-    /// placement decision on the main queue. Never records keystroke fallback latency.
+    /// Runs v2 task-mode generation on the model queue, weighs its ranked candidates
+    /// against `currentLead` (or surfaces them when `currentLead == nil`) in one
+    /// batched LM call, and delivers a placement decision on the main queue.
+    /// Never records keystroke fallback latency.
     static func generateAndWeigh(
         keys: String,
         leftContext: String,
-        currentLead: String,
+        currentLead: String?,
         leadProtected: Bool,
         request: ChineseCandidateRanking.Request,
         allows: @escaping @Sendable (String) -> Bool,
@@ -172,15 +226,31 @@ nonisolated enum ChineseSentenceGeneration {
             let stop = { request.isCancelled || storage.isSuspended }
             if !stop(), let model = storage.chineseModel, model.decodingMode == .task,
                let generator = Storage.shared.generator(for: model),
-               let ranked = candidates(keys: keys, leftContext: leftContext, generator: generator,
-                                       scorer: model, allows: allows, cancelled: stop),
-               let top = ranked.first, top.text != currentLead, !stop() {
+               let typed = ChinesePinyinKeys(keys) {
                 let context = VimeLanguageModel.sentenceContext(leftContext)
-                if let pair = try? model.scores(context: context, candidates: [currentLead, top.text], cancelled: stop),
-                   pair.count == 2, !stop() {
-                    decision = decide(generated: top, currentLead: currentLead,
-                                      currentScore: pair[0], generatedScore: pair[1],
-                                      leadProtected: leadProtected)
+                if let parts = try? ChineseConstrainedGeneration.taskPromptParts(
+                       context: context, keys: keys, tokenizer: generator.tokenizer),
+                   let output = try? ChineseConstrainedGeneration.generateTask(
+                       model: generator.model, vocabulary: generator.vocabulary, lexicon: generator.lexicon,
+                       keys: typed, contextPrefix: parts.contextPrefix, keySuffix: parts.keySuffix,
+                       parameters: parameters, cancelled: stop) {
+                    let allowed = output.results.filter { allows($0.text) }
+                    if !allowed.isEmpty, !stop() {
+                        var textsToScore = allowed.map(\.text)
+                        let existingLeadIndex = currentLead.flatMap { textsToScore.firstIndex(of: $0) }
+                        let appendedLead = currentLead != nil && existingLeadIndex == nil
+                        if appendedLead, let currentLead { textsToScore.append(currentLead) }
+
+                        if let allScores = try? model.scores(context: context, candidates: textsToScore, cancelled: stop),
+                           allScores.count == textsToScore.count, !stop() {
+                            let modelScores = Array(allScores.prefix(allowed.count))
+                            let ranked = rescored(allowed, modelScores: modelScores)
+                            let currentScore: Double? = existingLeadIndex.map { allScores[$0] }
+                                ?? (appendedLead ? allScores.last : nil)
+                            decision = decide(ranked: ranked, currentLead: currentLead,
+                                              currentScore: currentScore, leadProtected: leadProtected)
+                        }
+                    }
                 }
             }
             DispatchQueue.main.async { MainActor.assumeIsolated { completion(decision) } }
