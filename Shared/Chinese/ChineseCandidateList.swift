@@ -49,8 +49,19 @@ nonisolated enum ChineseCandidateList {
         if !corrections.isEmpty, let lead = order.first {
             // A correction moves its phrase up instead of showing it twice.
             let moved = Set(corrections)
-            slots.removeAll { if case .rime(let index) = $0 { index != lead && moved.contains(rime[index]) } else { false } }
-            let shown = corrections.indices.filter { corrections[$0] != rime[lead] }
+            slots.removeAll {
+                switch $0 {
+                case .rime(let index): index != lead && moved.contains(rime[index])
+                case .generated(let index): correctionLeads && moved.contains(generated[index])
+                default: false
+                }
+            }
+            let shownGenerated = Set(slots.compactMap {
+                if case .generated(let index) = $0 { generated[index] } else { nil }
+            })
+            let shown = corrections.indices.filter {
+                corrections[$0] != rime[lead] && !shownGenerated.contains(corrections[$0])
+            }
             if correctionLeads, shown.first == 0 {
                 slots.insert(.correction(0), at: 0)
                 slots.insert(contentsOf: shown.dropFirst().map(Slot.correction), at: min(2, slots.count))

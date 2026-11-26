@@ -87,4 +87,30 @@ final class ChineseCandidateListTests: XCTestCase {
             [.phrase(0), .generated(0), .rime(0), .rime(1)]
         )
     }
+
+    func testGeneratedAndCorrectionDeduplicateSameCandidate() {
+        let rime = ["我去伤害", "我去商海"]
+        let order = [0, 1]
+
+        // Generated leads and correction produces the same text (correctionLeads = false).
+        XCTAssertEqual(
+            List.slots(rime: rime, order: order, corrections: ["我去上海"], correctionLeads: false,
+                       mixed: 0, placement: .none, phrases: [], generated: ["我去上海"], generatedLeads: true),
+            [.generated(0), .rime(0), .rime(1)]
+        )
+
+        // Both generated and correction lead with the same text (correctionLeads = true).
+        XCTAssertEqual(
+            List.slots(rime: rime, order: order, corrections: ["我去上海"], correctionLeads: true,
+                       mixed: 0, placement: .none, phrases: [], generated: ["我去上海"], generatedLeads: true),
+            [.correction(0), .rime(0), .rime(1)]
+        )
+
+        // Neither leads, both produce the same text -> appears once at slot 1.
+        XCTAssertEqual(
+            List.slots(rime: rime, order: order, corrections: ["我去上海"], correctionLeads: false,
+                       mixed: 0, placement: .none, phrases: [], generated: ["我去上海"], generatedLeads: false),
+            [.rime(0), .generated(0), .rime(1)]
+        )
+    }
 }
