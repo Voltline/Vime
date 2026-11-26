@@ -1642,19 +1642,20 @@ final class ChineseInputSession: KeyboardInputSession {
         return edits
     }
 
-    /// Returns the current lead candidate text and whether it is protected
-    /// from being displaced (user phrase, learned word, or whole-input Rime
-    /// dictionary word).
-    private func currentGenerationLead() -> (text: String, protected: Bool)? {
+    /// Returns the current lead candidate text (nil when Rime's lead stops short of the input)
+    /// and whether it is protected from being displaced (user phrase, learned word, or
+    /// whole-input Rime dictionary word).
+    private func currentGenerationLead() -> (text: String?, protected: Bool)? {
         guard let firstSlot = slots.first else { return nil }
         switch firstSlot {
         case .rime(let index):
             guard shownCandidates.indices.contains(index) else { return nil }
             let candidate = shownCandidates[index]
-            guard candidate.coversInput,
-                  candidate.genuine.unicodeScalars.contains(where: { $0.properties.isIdeographic }) else { return nil }
-            let isProtected = candidate.userPhrase || !candidate.sentence
-            return (candidate.genuine, isProtected)
+            if candidate.coversInput {
+                guard candidate.genuine.unicodeScalars.contains(where: { $0.properties.isIdeographic }) else { return nil }
+                return (candidate.genuine, candidate.userPhrase || !candidate.sentence)
+            }
+            return (nil, candidate.userPhrase)
         case .phrase(let index):
             guard phrases.indices.contains(index) else { return nil }
             return (phrases[index].text, true)
@@ -1676,8 +1677,8 @@ final class ChineseInputSession: KeyboardInputSession {
     }
 
     /// After the same short pause as sentence correction, runs v2 task-mode
-    /// whole-sentence generation and weighs its lead against the current lead.
-    /// Any new keystroke, candidate change, or commit cancels it immediately.
+    /// whole-sentence generation and weighs its candidates against the current
+    /// lead. Any new keystroke, candidate change, or commit cancels it immediately.
     private func scheduleSentenceGeneration() {
         let input = open.input, key = openKey
         let storage = JapaneseCandidateWorker.LanguageModelStorage.shared
@@ -1725,7 +1726,7 @@ final class ChineseInputSession: KeyboardInputSession {
               generatedCandidates.isEmpty else { return }
         generationRequest = nil
         guard let decision else { return }
-        generatedCandidates = [decision.candidate.text]
+        generatedCandidates = decision.candidates.map(\.text)
         generatedLeads = decision.leads
         if decision.leads { leadBeforeLateCorrection = presentations.first?.text }
         show(shownCandidates, order: order)

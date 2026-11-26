@@ -186,6 +186,8 @@ final class RimeSmokeTests: XCTestCase {
             "nihao": "你好", "women": "我们", "shenme": "什么", "zhongguo": "中国", "xianzai": "现在",
             "wodou": "我都", "jintiantianqizhenhao": "今天天气真好", "xiexie": "谢谢", "mingtian": "明天",
             "pengyou": "朋友", "zhidao": "知道", "keyi": "可以",
+            "luanzi": "乱子", "yeye": "爷爷", "chengren": "承认", "shouyin": "收银",
+            "bocai": "菠菜", "yuanjiao": "圆角", "zaoxie": "早些", "shoujing": "受惊",
         ]
         for (input, word) in expected { XCTAssertEqual(candidates(for: input).first, word, input) }
     }

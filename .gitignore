@@ -65,5 +65,6 @@ __pycache__/
 /Scripts/prediction_blocklist_japanese.txt
 /Scripts/prediction_blocklist_allowed.txt
 
-# Reviewed Rime downweight list; only its hashes (rime_downweights.sha256) are committed.
+# Reviewed Rime downweight lists; only their hashes (*.sha256) are committed.
 /Scripts/rime_downweights.txt
+/Scripts/rime_soft_downweights.txt
