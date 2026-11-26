@@ -35,6 +35,21 @@ nonisolated final class ChinesePersonalRankingCache: @unchecked Sendable {
         static let maximumEntries = 1024
         static let maximumFileBytes = 512 * 1024
         static let writeCoalesceDelay: TimeInterval = 1.5
+
+        // Negative feedback (skipped lead / immediate backspace undo after commit).
+        /// Weight recorded when the user skips rank 1 to pick a lower full-input candidate.
+        static let skipWeight = 1.0
+        /// Weight recorded when the user deletes the exact freshly committed word and retypes.
+        /// Kept below `negativeMinimumEvidence` so a single accidental delete never triggers a penalty.
+        static let undoWeight = 1.0
+        /// Minimum decayed negative evidence before any penalty applies (at least 2 independent events).
+        static let negativeMinimumEvidence = 1.4
+        /// Faster decay than positive memory so transient mistakes fade naturally.
+        static let negativeHalfLife: TimeInterval = 14 * 24 * 60 * 60
+        static let negativeWeight = 1.6
+        static let maximumPenalty = 2.4
+        static let maximumPenaltyEntries = 512
+        static let undoWindowSeconds: TimeInterval = 5.0
     }
 
     struct Parameters: Equatable, Sendable {
@@ -45,6 +60,10 @@ nonisolated final class ChinesePersonalRankingCache: @unchecked Sendable {
         var sentencePrefixFactor: Double = Policy.sentencePrefixFactor
         var shortContextFactor: Double = Policy.shortContextFactor
         var maximumBonus: Double = Policy.maximumBonus
+        var negativeMinimumEvidence: Double = Policy.negativeMinimumEvidence
+        var negativeHalfLife: TimeInterval = Policy.negativeHalfLife
+        var negativeWeight: Double = Policy.negativeWeight
+        var maximumPenalty: Double = Policy.maximumPenalty
     }
 
     private struct Entry: Codable, Equatable {
@@ -59,6 +78,7 @@ nonisolated final class ChinesePersonalRankingCache: @unchecked Sendable {
         var version = 1
         var resetID: String?
         var entries: [Entry]
+        var penalties: [Entry]?
     }
 
     static let shared = ChinesePersonalRankingCache(directory: ChinesePersonalRankingCache.defaultDirectory())
@@ -70,6 +90,7 @@ nonisolated final class ChinesePersonalRankingCache: @unchecked Sendable {
 
     private var loaded = false
     private var entriesByKey: [String: Entry] = [:]
+    private var penaltiesByKey: [String: Entry] = [:]
     private var totalEvidenceByContext: [String: Double] = [:]
     private var lastResetID: String?
     private var dirty = false
@@ -89,11 +110,15 @@ nonisolated final class ChinesePersonalRankingCache: @unchecked Sendable {
 
     // MARK: Public API (Pure read/write hooks)
 
-    /// Records a confirmed Chinese commit following `prevText`.
-    /// Callers must pass the current `LearningExclusionPolicy` active flag.
+    /// Records a confirmed Chinese commit following `prevText` (and optional `input` pinyin).
+    /// When `clearsPenalty` is true, also clears any negative penalty on `committed` for the
+    /// same context/input (self-healing). Callers tracking an immediate-undo window can pass
+    /// `clearsPenalty: false` and call `clearPenalty(...)` once the commit is kept.
     func record(
         prevText: String,
         committed: String,
+        input: String = "",
+        clearsPenalty: Bool = true,
         now: Date = Date(),
         exclusionsActive: Bool = LearningExclusionPolicy.isActive(),
         exclusionList: LearningExclusionList = .shared
@@ -106,13 +131,16 @@ nonisolated final class ChinesePersonalRankingCache: @unchecked Sendable {
         }
 
         let contexts = Self.contextHashes(from: prevText)
-        guard !contexts.isEmpty else { return }
+        let negKeys = clearsPenalty ? Self.negativeHashes(prevText: prevText, input: input, surface: surface) : []
+        guard !contexts.isEmpty || !negKeys.isEmpty else { return }
 
         let ts = now.timeIntervalSince1970
         lock.lock()
         ensureLoadedLocked()
+        var mutated = false
         for ctx in contexts {
             recordLocked(ctxHash: ctx.hash, surface: surface, weight: 1.0, at: ts)
+            mutated = true
             // For longer sentence commits, also store leading 2- and 3-char prefixes at 0.5x
             // so future segmented typing after the same context benefits.
             if surface.count >= 4 {
@@ -122,10 +150,109 @@ nonisolated final class ChinesePersonalRankingCache: @unchecked Sendable {
                 recordLocked(ctxHash: ctx.hash, surface: p3, weight: 0.5, at: ts)
             }
         }
+        for hash in negKeys {
+            if penaltiesByKey.removeValue(forKey: compositeKey(ctxHash: hash, surface: surface)) != nil {
+                mutated = true
+            }
+        }
+        guard mutated else {
+            lock.unlock()
+            return
+        }
         pruneLocked(now: ts)
         dirty = true
         scheduleFlushLocked()
         lock.unlock()
+    }
+
+    /// Clears any negative penalty for `candidate` in the given context/input (self-healing
+    /// once a committed candidate is kept rather than immediately deleted).
+    func clearPenalty(prevText: String, input: String = "", candidate: String) {
+        let surface = candidate.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !surface.isEmpty, containsHan(surface) else { return }
+        let keys = Self.negativeHashes(prevText: prevText, input: input, surface: surface)
+        guard !keys.isEmpty else { return }
+
+        lock.lock()
+        ensureLoadedLocked()
+        var mutated = false
+        for hash in keys {
+            if penaltiesByKey.removeValue(forKey: compositeKey(ctxHash: hash, surface: surface)) != nil {
+                mutated = true
+            }
+        }
+        if mutated {
+            dirty = true
+            scheduleFlushLocked()
+        }
+        lock.unlock()
+    }
+
+    /// Records negative feedback when the user skips rank 1 (`rejected`) to pick a lower
+    /// candidate covering the same input, or immediately deletes a freshly committed word.
+    /// Existing positive entries are kept so both coexist and combine via `adjustment`.
+    func recordNegative(
+        prevText: String,
+        input: String,
+        rejected: String,
+        weight: Double = Policy.skipWeight,
+        now: Date = Date(),
+        exclusionsActive: Bool = LearningExclusionPolicy.isActive(),
+        exclusionList: LearningExclusionList = .shared
+    ) {
+        let surface = rejected.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard weight > 0, !surface.isEmpty, surface.count <= 24, containsHan(surface) else { return }
+        guard LearningExclusionPolicy.allowsLearning(surface, active: exclusionsActive, list: exclusionList),
+              LearningExclusionPolicy.allowsLearning(prevText, active: exclusionsActive, list: exclusionList) else {
+            return
+        }
+
+        let keys = Self.negativeHashes(prevText: prevText, input: input, surface: surface)
+        guard !keys.isEmpty else { return }
+
+        let ts = now.timeIntervalSince1970
+        lock.lock()
+        ensureLoadedLocked()
+        for hash in keys {
+            recordPenaltyLocked(ctxHash: hash, surface: surface, weight: weight, at: ts)
+        }
+        prunePenaltiesLocked(now: ts)
+        dirty = true
+        scheduleFlushLocked()
+        lock.unlock()
+    }
+
+    /// Computes a bounded log-probability-scale penalty (`0.0 ... Policy.maximumPenalty`)
+    /// for `candidate` given `prevText` and `input`. Pure O(1) in-memory lookup; returns
+    /// early before computing SHA-256 hashes when no penalties are stored.
+    func penalty(prevText: String, input: String = "", candidate: String, now: Date = Date()) -> Double {
+        lock.lock()
+        ensureLoadedLocked()
+        let empty = penaltiesByKey.isEmpty
+        lock.unlock()
+        guard !empty else { return 0 }
+
+        let surface = candidate.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !surface.isEmpty, containsHan(surface) else { return 0 }
+        let keys = Self.negativeHashes(prevText: prevText, input: input, surface: surface)
+        guard !keys.isEmpty else { return 0 }
+
+        let ts = now.timeIntervalSince1970
+        lock.lock()
+        var worst = 0.0
+        for hash in keys {
+            let p = penaltyScoreLocked(ctxHash: hash, surface: surface, now: ts)
+            if p > worst { worst = p }
+        }
+        lock.unlock()
+        return min(parameters.maximumPenalty, worst)
+    }
+
+    /// Net personal log-probability adjustment (`bonus - penalty`) in
+    /// `-Policy.maximumPenalty ... +Policy.maximumBonus`.
+    func adjustment(prevText: String, input: String = "", candidate: String, now: Date = Date()) -> Double {
+        bonus(prevText: prevText, candidate: candidate, now: now)
+            - penalty(prevText: prevText, input: input, candidate: candidate, now: now)
     }
 
     /// Computes a bounded log-probability-scale bonus (`0.0 ... Policy.maximumBonus`)
@@ -174,6 +301,7 @@ nonisolated final class ChinesePersonalRankingCache: @unchecked Sendable {
         ensureLoadedLocked()
         if lastResetID != resetID {
             entriesByKey.removeAll()
+            penaltiesByKey.removeAll()
             totalEvidenceByContext.removeAll()
             lastResetID = resetID
             dirty = true
@@ -187,6 +315,7 @@ nonisolated final class ChinesePersonalRankingCache: @unchecked Sendable {
         lock.lock()
         loaded = true
         entriesByKey.removeAll()
+        penaltiesByKey.removeAll()
         totalEvidenceByContext.removeAll()
         if let resetID { lastResetID = resetID }
         pendingFlushWork?.cancel()
@@ -226,11 +355,47 @@ nonisolated final class ChinesePersonalRankingCache: @unchecked Sendable {
         return count
     }
 
+    var penaltyEntryCount: Int {
+        lock.lock()
+        ensureLoadedLocked()
+        let count = penaltiesByKey.count
+        lock.unlock()
+        return count
+    }
+
     // MARK: Context Hashing (never stores plaintext)
 
     private struct ContextKey {
         let hash: String
         let isShort: Bool
+    }
+
+    private static func normalizedInput(_ input: String) -> String {
+        input.lowercased().filter { ("a"..."z").contains($0) || ("0"..."9").contains($0) }
+    }
+
+    /// Keys used for negative feedback:
+    /// - Always pairs left Han context with input (`ci:<ctxHash>:<input>`) when context exists,
+    ///   so short high-frequency syllables (e.g. `shi` -> "是") are never penalized globally.
+    /// - Allows an input-only key (`in:<input>`) only for phrases of at least 3 Han characters
+    ///   (>= 3 syllables, >= 6 pinyin characters) so multi-syllable mistakes at sentence start can
+    ///   still be learned without risking cross-context regressions on short words.
+    private static func negativeHashes(prevText: String, input: String, surface: String) -> [String] {
+        let norm = normalizedInput(input)
+        let hasValidInput = !norm.isEmpty && norm.count <= 48
+        var keys: [String] = []
+        for ctx in contextHashes(from: prevText) {
+            if hasValidInput {
+                keys.append(sha256Prefix("ci:" + ctx.hash + ":" + norm))
+            } else {
+                keys.append(ctx.hash)
+            }
+        }
+        let hanCount = surface.filter(isHanCharacter).count
+        if hanCount >= 3, norm.count >= 6, norm.count <= 48 {
+            keys.append(sha256Prefix("in:" + norm))
+        }
+        return keys
     }
 
     /// Extracts trailing Han characters from `prevText` (stopping at punctuation/whitespace)
@@ -277,9 +442,43 @@ nonisolated final class ChinesePersonalRankingCache: @unchecked Sendable {
         ctxHash + "\0" + surface
     }
 
-    private func decayed(_ value: Double, elapsed: TimeInterval) -> Double {
-        guard elapsed > 0, parameters.halfLife > 0 else { return value }
-        return value * exp(-log(2.0) * elapsed / parameters.halfLife)
+    private func decayed(_ value: Double, elapsed: TimeInterval, halfLife: TimeInterval? = nil) -> Double {
+        let hl = halfLife ?? parameters.halfLife
+        guard elapsed > 0, hl > 0 else { return value }
+        return value * exp(-log(2.0) * elapsed / hl)
+    }
+
+    private func recordPenaltyLocked(ctxHash: String, surface: String, weight: Double, at ts: TimeInterval) {
+        let key = compositeKey(ctxHash: ctxHash, surface: surface)
+        if var existing = penaltiesByKey[key] {
+            let dt = max(0, ts - existing.updatedAt)
+            existing.evidence = decayed(existing.evidence, elapsed: dt, halfLife: parameters.negativeHalfLife) + weight
+            existing.confirmations += 1
+            existing.updatedAt = ts
+            penaltiesByKey[key] = existing
+        } else {
+            penaltiesByKey[key] = Entry(ctxHash: ctxHash, surface: surface, evidence: weight, confirmations: 1, updatedAt: ts)
+        }
+    }
+
+    private func penaltyScoreLocked(ctxHash: String, surface: String, now ts: TimeInterval) -> Double {
+        let key = compositeKey(ctxHash: ctxHash, surface: surface)
+        guard let entry = penaltiesByKey[key] else { return 0 }
+        let dt = max(0, ts - entry.updatedAt)
+        let ev = decayed(entry.evidence, elapsed: dt, halfLife: parameters.negativeHalfLife)
+        guard ev >= parameters.negativeMinimumEvidence else { return 0 }
+        let raw = parameters.negativeWeight * log1p(ev - parameters.negativeMinimumEvidence + 1.0)
+        return min(parameters.maximumPenalty, raw)
+    }
+
+    private func prunePenaltiesLocked(now ts: TimeInterval) {
+        guard penaltiesByKey.count > Policy.maximumPenaltyEntries else { return }
+        let ranked = penaltiesByKey.sorted { lhs, rhs in
+            let lScore = decayed(lhs.value.evidence, elapsed: max(0, ts - lhs.value.updatedAt), halfLife: parameters.negativeHalfLife)
+            let rScore = decayed(rhs.value.evidence, elapsed: max(0, ts - rhs.value.updatedAt), halfLife: parameters.negativeHalfLife)
+            return lScore > rScore
+        }
+        penaltiesByKey = Dictionary(uniqueKeysWithValues: ranked.prefix(Policy.maximumPenaltyEntries).map { ($0.key, $0.value) })
     }
 
     private func recordLocked(ctxHash: String, surface: String, weight: Double, at ts: TimeInterval) {
@@ -350,15 +549,24 @@ nonisolated final class ChinesePersonalRankingCache: @unchecked Sendable {
         }
         lastResetID = archive.resetID
         entriesByKey.removeAll(keepingCapacity: true)
+        penaltiesByKey.removeAll(keepingCapacity: true)
         for entry in archive.entries.prefix(Policy.maximumEntries) {
             entriesByKey[compositeKey(ctxHash: entry.ctxHash, surface: entry.surface)] = entry
+        }
+        for entry in (archive.penalties ?? []).prefix(Policy.maximumPenaltyEntries) {
+            penaltiesByKey[compositeKey(ctxHash: entry.ctxHash, surface: entry.surface)] = entry
         }
         rebuildContextTotalsLocked()
     }
 
     private func makeArchiveSnapshotLocked() -> Archive? {
         guard dirty, fileURL != nil else { return nil }
-        return Archive(version: 1, resetID: lastResetID, entries: Array(entriesByKey.values))
+        return Archive(
+            version: 1,
+            resetID: lastResetID,
+            entries: Array(entriesByKey.values),
+            penalties: penaltiesByKey.isEmpty ? nil : Array(penaltiesByKey.values)
+        )
     }
 
     private func scheduleFlushLocked(immediate: Bool = false) {

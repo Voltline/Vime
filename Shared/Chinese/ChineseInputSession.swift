@@ -124,6 +124,10 @@ final class ChineseInputSession: KeyboardInputSession {
     /// The last thing that reached the host was a Rime commit, so BackSpace
     /// deleting it also takes back what Rime learned from it.
     private var commitIsForgettable = false
+    /// Open pinyin input snapshot captured right before a candidate commit.
+    private var pendingCommitInput = ""
+    /// Tracks immediate backspaces after a commit to record negative feedback.
+    private var lastCommitUndo: (document: String?, prevText: String, input: String, text: String, at: TimeInterval, deletes: Int)?
     /// Opt-in profiling only (nil otherwise): when the latest key was typed,
     /// until its candidates show, and when the waiting for the model began.
     private var inputStartedAt: TimeInterval?
@@ -237,6 +241,8 @@ final class ChineseInputSession: KeyboardInputSession {
         clearSuggestions()
         if english {
             commitIsForgettable = false
+            pendingCommitInput = ""
+            lastCommitUndo = nil
             if isComposing {
                 let edits = commitTyped()
                 suppressesEnglishCompletions = Self.isEnglishWordText(text)
@@ -245,6 +251,7 @@ final class ChineseInputSession: KeyboardInputSession {
             if !Self.isEnglishWordText(text) { suppressesEnglishCompletions = false }
             return settle() + [.insert(text)]
         }
+        resolvePendingCommitUndo(allowNegative: true)
         // `v` numeric mode (bypasses Rime so digits/`.` build RMB uppercase candidates directly).
         if !vBuffer.isEmpty {
             if ChineseSpecialConversions.canAppendToVBuffer(vBuffer, text: text) {
@@ -270,6 +277,8 @@ final class ChineseInputSession: KeyboardInputSession {
         guard pinyin, !text.isEmpty else { return insertLiteral(text) }
         let edits = spaceWaits ? commitWaitingSpace() : []
         commitIsForgettable = false
+        pendingCommitInput = ""
+        lastCommitUndo = nil
         inputStartedAt = KeyboardPerformance.start()
         typedAt = inputStartedAt
         echo += text
@@ -296,12 +305,23 @@ final class ChineseInputSession: KeyboardInputSession {
         let edits = settle()
         if isComposing { enqueue(.backspace); return edits }
         if commitIsForgettable, !english { enqueue(.backspace) }
+        if !english { noteCommitUndoBackspace(count: 1) }
         commitIsForgettable = false
+        pendingCommitInput = ""
         return edits + [.deleteBackward]
+    }
+
+    func noteDeletedBackward(count: Int) {
+        guard count > 0, !english, !isComposing else { return }
+        if commitIsForgettable { enqueue(.backspace) }
+        noteCommitUndoBackspace(count: count)
+        commitIsForgettable = false
+        pendingCommitInput = ""
     }
 
     func space() -> [KeyboardEdit] {
         clearSuggestions()
+        lastCommitUndo = nil
         if !vBuffer.isEmpty { return commitVBuffer(lead: true) }
         if isComposing {
             // Space takes the first candidate of the final list.
@@ -310,17 +330,22 @@ final class ChineseInputSession: KeyboardInputSession {
             return []
         }
         commitIsForgettable = false
+        pendingCommitInput = ""
+        lastCommitUndo = nil
         suppressesEnglishCompletions = false
         return settle() + [.insert(" ")]
     }
 
     func enter() -> [KeyboardEdit] {
         clearSuggestions()
+        lastCommitUndo = nil
         spaceWaits = false
         if !vBuffer.isEmpty { return commitVBuffer(lead: false) }
         if isComposing, hasCapitals || nineKey || shuangpin != nil { return commitTyped() }
         if isComposing { enqueue(.commitInput); return [] }
         commitIsForgettable = false
+        pendingCommitInput = ""
+        lastCommitUndo = nil
         suppressesEnglishCompletions = false
         return settle() + [.returnKey]
     }
@@ -339,6 +364,8 @@ final class ChineseInputSession: KeyboardInputSession {
         let edits = confirmAll()
         clearSuggestions()
         commitIsForgettable = false
+        pendingCommitInput = ""
+        lastCommitUndo = nil
         suppressesEnglishCompletions = false
         return edits + [.insert(text)]
     }
@@ -347,6 +374,22 @@ final class ChineseInputSession: KeyboardInputSession {
         if token.kind == .suggestion { return chooseSuggestion(token) }
         guard token.sessionID == sessionID, token.generation == generation, token.kind == .composition,
               candidatesAreCurrent, isComposing, slots.indices.contains(token.index) else { return [] }
+        let inputSnapshot = negativeFeedbackInputKey
+        let chosenFull = fullInputCandidateText(at: token.index)
+        if !english, token.index > 0,
+           let leadText = fullInputCandidateText(at: 0),
+           let chosenText = chosenFull,
+           leadText != chosenText {
+            ChinesePersonalRankingCache.shared.recordNegative(
+                prevText: personalContext,
+                input: inputSnapshot,
+                rejected: leadText,
+                weight: ChinesePersonalRankingCache.Policy.skipWeight,
+                exclusionsActive: exclusionsActive,
+                exclusionList: exclusions
+            )
+        }
+        pendingCommitInput = chosenFull != nil ? inputSnapshot : ""
         switch slots[token.index] {
         case .phrase(let index): return choosePhrase(index)
         case .contact(let index): return chooseContact(index)
@@ -359,10 +402,98 @@ final class ChineseInputSession: KeyboardInputSession {
         return []
     }
 
+    /// Returns the candidate text at `slotIndex` only when it covers the full open input
+    /// (excluding partial prefix picks, special conversions, and mixed raw English).
+    private func fullInputCandidateText(at slotIndex: Int) -> String? {
+        guard slots.indices.contains(slotIndex) else { return nil }
+        switch slots[slotIndex] {
+        case .rime(let source):
+            guard shownCandidates.indices.contains(source) else { return nil }
+            let candidate = shownCandidates[source]
+            return candidate.coversInput ? candidate.text : nil
+        case .generated(let source):
+            return generatedCandidates.indices.contains(source) ? generatedCandidates[source] : nil
+        case .correction(let source):
+            return corrections.indices.contains(source) ? corrections[source].candidate.text : nil
+        case .phrase(let source):
+            return phrases.indices.contains(source) ? phrases[source].text : nil
+        case .contact(let source):
+            return contactCandidates.indices.contains(source) ? contactCandidates[source] : nil
+        case .mixed, .special:
+            return nil
+        }
+    }
+
+    private func noteCommitUndoBackspace(count: Int = 1) {
+        guard count > 0, var undo = lastCommitUndo else { return }
+        guard ProcessInfo.processInfo.systemUptime - undo.at <= ChinesePersonalRankingCache.Policy.undoWindowSeconds else {
+            lastCommitUndo = nil
+            return
+        }
+        undo.deletes += count
+        if undo.deletes > undo.text.count {
+            // Deleting past the freshly committed word usually means editing earlier text.
+            lastCommitUndo = nil
+        } else {
+            lastCommitUndo = undo
+        }
+    }
+
+    /// Resolves a pending commit tracker when the user moves on:
+    /// - If the user deleted the exact length of the committed word within the undo window,
+    ///   records a conservative negative feedback event (`undoWeight`).
+    /// - If the user kept the committed word untouched (`deletes == 0`), clears any prior
+    ///   penalty on it (self-healing).
+    private func resolvePendingCommitUndo(allowNegative: Bool) {
+        guard let undo = lastCommitUndo else { return }
+        lastCommitUndo = nil
+        if undo.deletes == 0 {
+            ChinesePersonalRankingCache.shared.clearPenalty(
+                prevText: undo.prevText,
+                input: undo.input,
+                candidate: undo.text
+            )
+            return
+        }
+        guard allowNegative,
+              ProcessInfo.processInfo.systemUptime - undo.at <= ChinesePersonalRankingCache.Policy.undoWindowSeconds,
+              undo.deletes == undo.text.count else { return }
+        ChinesePersonalRankingCache.shared.recordNegative(
+            prevText: undo.prevText,
+            input: undo.input,
+            rejected: undo.text,
+            weight: ChinesePersonalRankingCache.Policy.undoWeight,
+            exclusionsActive: exclusionsActive,
+            exclusionList: exclusions
+        )
+    }
+
+    /// Preserves an in-flight commit-undo tracker across host-triggered `reset()` calls
+    /// (e.g. `textDidChange` / `selectionDidChange` arriving asynchronously right after
+    /// inserting the commit or deleting its first character), as long as the user stayed
+    /// in the same text field and inside the undo window.
+    private func shouldPreserveCommitUndoOnReset() -> Bool {
+        guard !isComposing, let undo = lastCommitUndo else { return false }
+        guard ProcessInfo.processInfo.systemUptime - undo.at <= ChinesePersonalRankingCache.Policy.undoWindowSeconds else {
+            return false
+        }
+        if let doc = undo.document, let currentDoc = learningContextProvider?()?.document, doc != currentDoc {
+            return false
+        }
+        return true
+    }
+
+    /// Canonical input key for negative-feedback tracking across 26-key, 双拼, and 9-key layouts.
+    private var negativeFeedbackInputKey: String {
+        if let pinyin = openPinyin, !pinyin.isEmpty { return pinyin }
+        return open.input.lowercased().filter { ("a"..."z").contains($0) || ("0"..."9").contains($0) }
+    }
+
     /// Commits the first candidate shown, which the model may have moved;
     /// with capitals and no reading keeping them, the letters as typed.
     private func takeLead() -> [KeyboardEdit] {
         spaceWaits = false
+        pendingCommitInput = fullInputCandidateText(at: 0) != nil ? negativeFeedbackInputKey : ""
         switch slots.first {
         case .phrase(let index)?: return choosePhrase(index)
         case .contact(let index)?: return chooseContact(index)
@@ -514,6 +645,7 @@ final class ChineseInputSession: KeyboardInputSession {
     }
 
     func reset(preservingContext: Bool) {
+        let preservedUndo = shouldPreserveCommitUndoOnReset() ? lastCommitUndo : nil
         if !preservingContext { hostEpoch += 1; suppressesEnglishCompletions = false }
         era += 1
         echo = ""
@@ -523,6 +655,8 @@ final class ChineseInputSession: KeyboardInputSession {
         leadingPick = nil
         clearSuggestions()
         commitIsForgettable = false
+        pendingCommitInput = ""
+        lastCommitUndo = preservedUndo
         exclusionsActive = exclusionsApply()
         typedAt = nil
         publish(RimeState())
@@ -532,7 +666,8 @@ final class ChineseInputSession: KeyboardInputSession {
     }
 
     func didApplyEdits(_ edits: [KeyboardEdit]) {}
-    func invalidateLearningFeedback() {}
+    func finishLearningFeedback() { resolvePendingCommitUndo(allowNegative: false) }
+    func invalidateLearningFeedback() { lastCommitUndo = nil }
     func takeInputTiming() -> TimeInterval? {
         defer { inputStartedAt = nil }
         return inputStartedAt
@@ -643,6 +778,8 @@ final class ChineseInputSession: KeyboardInputSession {
         let edits = settle()
         clearSuggestions()
         commitIsForgettable = false
+        pendingCommitInput = ""
+        lastCommitUndo = nil
         lookUpContinuations(of: item.genuine, code: item.code)
         return edits + [.insert(item.text)]
     }
@@ -662,12 +799,25 @@ final class ChineseInputSession: KeyboardInputSession {
                 commitIsForgettable = true
                 pendingContinuation = result.commitWord.flatMap { word in result.commitCode.map { (word, $0) } }
                 if !english {
+                    let prevText = leftContextProvider?() ?? ""
+                    let inputForCommit = pendingCommitInput
+                    pendingCommitInput = ""
+                    let trackUndo = !result.isComposing && !inputForCommit.isEmpty
                     ChinesePersonalRankingCache.shared.record(
-                        prevText: leftContextProvider?() ?? "",
+                        prevText: prevText,
                         committed: commit,
+                        input: inputForCommit,
+                        clearsPenalty: !trackUndo,
                         exclusionsActive: exclusionsActive,
                         exclusionList: exclusions
                     )
+                    if trackUndo {
+                        lastCommitUndo = (document: learningContextProvider?()?.document,
+                                          prevText: prevText, input: inputForCommit, text: commit,
+                                          at: ProcessInfo.processInfo.systemUptime, deletes: 0)
+                    } else {
+                        lastCommitUndo = nil
+                    }
                 }
             }
             latest = result
@@ -764,7 +914,15 @@ final class ChineseInputSession: KeyboardInputSession {
         let active = exclusionsActive, list = exclusions
         let run = ChineseCandidateRanking.sentenceRun(next.candidates)
         let rimeOrder = ChineseCandidateRanking.order(count: next.candidates.count, sentences: run)
-        let slots = usesModel ? ChineseCandidateRanking.slots(next.candidates, sentenceLimit: sentenceLimit) {
+        let personalPrev = personalContext
+        let personalInput = negativeFeedbackInputKey
+        let slots = usesModel ? ChineseCandidateRanking.slots(
+            next.candidates,
+            sentenceLimit: sentenceLimit,
+            penalized: {
+                ChinesePersonalRankingCache.shared.penalty(prevText: personalPrev, input: personalInput, candidate: $0) > 0
+            }
+        ) {
             LearningExclusionPolicy.allowsLearning($0, active: active, list: list)
         } : ChineseCandidateRanking.Slots()
         let splits = next.isComposing && !nineKey && shuangpin == nil ? casedUnchosen.map { ChineseMixedInput.splits(for: $0.rest) } ?? [] : []
@@ -786,7 +944,8 @@ final class ChineseInputSession: KeyboardInputSession {
         let round = Round(candidates: next.candidates, run: run, rimeOrder: rimeOrder, slots: slots,
                           splits: splits, context: context, scores: warm, kept: kept(next, run: run),
                           personal: warm ? ChineseCandidateRanking.personal(next.candidates, slots: slots,
-                                                                           before: personalContext) : [:])
+                                                                           before: personalPrev,
+                                                                           input: personalInput) : [:])
         self.round = round
         rankingStartedAt = KeyboardPerformance.start()
         if warm {
@@ -1053,6 +1212,8 @@ final class ChineseInputSession: KeyboardInputSession {
         let edits = run(.clear)
         clearSuggestions()
         commitIsForgettable = false
+        pendingCommitInput = ""
+        lastCommitUndo = nil
         return edits + [.insert(chosen + text)]
     }
 
@@ -1118,6 +1279,8 @@ final class ChineseInputSession: KeyboardInputSession {
             presentations = []
             generation += 1
             commitIsForgettable = false
+        pendingCommitInput = ""
+        lastCommitUndo = nil
             return [.insert(text)]
         }
         return commitInstead(text)
@@ -1154,6 +1317,8 @@ final class ChineseInputSession: KeyboardInputSession {
         presentations = []
         generation += 1
         commitIsForgettable = false
+        pendingCommitInput = ""
+        lastCommitUndo = nil
         return [.insert(text)]
     }
 
@@ -1218,6 +1383,8 @@ final class ChineseInputSession: KeyboardInputSession {
         let cleared = run(.clear)
         clearSuggestions()
         commitIsForgettable = false
+        pendingCommitInput = ""
+        lastCommitUndo = nil
         return edits + cleared + [.insert(text)]
     }
 
@@ -1326,6 +1493,8 @@ final class ChineseInputSession: KeyboardInputSession {
         let edits = run(.clear) + [.insert(chosen)]
         clearSuggestions()
         commitIsForgettable = false
+        pendingCommitInput = ""
+        lastCommitUndo = nil
         return edits + run(.setInput(input))
     }
 
@@ -1432,6 +1601,8 @@ final class ChineseInputSession: KeyboardInputSession {
         let edits = run(.clear) + [.insert(chosen)]
         clearSuggestions()
         commitIsForgettable = false
+        pendingCommitInput = ""
+        lastCommitUndo = nil
         return edits + run(.setInput(input))
     }
 
@@ -1629,15 +1800,24 @@ final class ChineseInputSession: KeyboardInputSession {
         guard generatedCandidates.indices.contains(index) else { return [] }
         let text = generatedCandidates[index]
         let prevText = leftContextProvider?() ?? ""
+        let inputForCommit = negativeFeedbackInputKey
         let committed = open.chosen + text
         let edits = commitInstead(text)
         if !english, !committed.isEmpty {
+            let trackUndo = !inputForCommit.isEmpty
             ChinesePersonalRankingCache.shared.record(
                 prevText: prevText,
                 committed: committed,
+                input: inputForCommit,
+                clearsPenalty: !trackUndo,
                 exclusionsActive: exclusionsActive,
                 exclusionList: exclusions
             )
+            if trackUndo {
+                lastCommitUndo = (document: learningContextProvider?()?.document,
+                                  prevText: prevText, input: inputForCommit, text: committed,
+                                  at: ProcessInfo.processInfo.systemUptime, deletes: 0)
+            }
         }
         return edits
     }
@@ -1695,6 +1875,8 @@ final class ChineseInputSession: KeyboardInputSession {
         generationInput = key
         let scheduledSent = sent
         let context = modelContext
+        let personalPrev = personalContext
+        let personalInput = negativeFeedbackInputKey
         let active = exclusionsActive, list = exclusions, blocklist = blocklist
         let allows: @Sendable (String) -> Bool = { text in
             LearningExclusionPolicy.allowsLearning(text, active: active, list: list) && !blocklist.matches(text)
@@ -1709,6 +1891,8 @@ final class ChineseInputSession: KeyboardInputSession {
             ChineseSentenceGeneration.generateAndWeigh(
                 keys: input,
                 leftContext: context,
+                personalContext: personalPrev,
+                personalInput: personalInput,
                 currentLead: lead.text,
                 leadProtected: lead.protected,
                 request: timedRequest,
