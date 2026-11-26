@@ -460,6 +460,7 @@ extension KeyboardView {
             apply(session.backspace())
             return
         }
+        session.noteDeletedBackward(count: count)
         session.invalidateLearningFeedback()
         session.dismissSuggestions()
         apply(Array(repeating: .deleteBackward, count: count))

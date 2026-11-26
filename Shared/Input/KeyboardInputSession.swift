@@ -90,6 +90,9 @@ protocol KeyboardInputSession: AnyObject {
     /// should feed into the active composition instead of inserting literally.
     func acceptsCompositionSymbol(_ text: String) -> Bool
     func backspace() -> [KeyboardEdit]
+    /// Notifies the session that the keyboard deleted `count` characters directly
+    /// without routing through `backspace()` (for example, word-delete on hold).
+    func noteDeletedBackward(count: Int)
     func space() -> [KeyboardEdit]
     /// Shift picks the other space width in Japanese mode.
     func space(alternateWidth: Bool) -> [KeyboardEdit]
@@ -158,6 +161,7 @@ protocol KeyboardInputSession: AnyObject {
 
 extension KeyboardInputSession {
     func retryLanguageModel(requestID: String) {}
+    func noteDeletedBackward(count: Int) {}
     func setUndoesCommitOnBackspace(_ enabled: Bool) {}
     func space(alternateWidth: Bool) -> [KeyboardEdit] { space() }
     func setFullWidthSpace(_ enabled: Bool) {}

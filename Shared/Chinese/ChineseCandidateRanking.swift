@@ -66,12 +66,15 @@ nonisolated enum ChineseCandidateRanking {
     /// The candidates the model may reorder: up to `sentenceLimit` of
     /// Rime's sentences, and the others among the first `candidateLimit`
     /// shown when only Rime's first sentence counts.
+    /// Learned `userPhrase` entries keep their places unless the user has
+    /// explicitly given negative feedback (`penalized`).
     static func slots(_ candidates: [RimeCandidate], sentenceLimit: Int = sentenceLimit,
+                      penalized: (String) -> Bool = { _ in false },
                       allows: (String) -> Bool) -> Slots {
         var seen = Set<String>()
         func eligible(_ index: Int) -> Bool {
             let candidate = candidates[index]
-            return candidate.coversInput && !candidate.userPhrase
+            return candidate.coversInput && (!candidate.userPhrase || penalized(candidate.text))
                 && candidate.genuine.unicodeScalars.contains { $0.properties.isIdeographic }
                 && allows(candidate.genuine) && allows(candidate.text)
                 && seen.insert(candidate.genuine).inserted
@@ -87,16 +90,17 @@ nonisolated enum ChineseCandidateRanking {
         return slots
     }
 
-    /// What the user picked after this context before: each slot's bonus
-    /// (ChinesePersonalRankingCache), the ones without left out.
+    /// Personal ranking adjustment (positive collocation bonus minus negative feedback penalty)
+    /// from `ChinesePersonalRankingCache`, omitting neutral zero slots.
     static func personal(_ candidates: [RimeCandidate], slots: Slots, before prevText: String,
+                         input: String = "",
                          cache: ChinesePersonalRankingCache = .shared) -> [Int: Double] {
-        var bonuses: [Int: Double] = [:]
+        var adjustments: [Int: Double] = [:]
         for index in slots.all {
-            let bonus = cache.bonus(prevText: prevText, candidate: candidates[index].text)
-            if bonus > 0 { bonuses[index] = bonus }
+            let delta = cache.adjustment(prevText: prevText, input: input, candidate: candidates[index].text)
+            if delta != 0 { adjustments[index] = delta }
         }
-        return bonuses
+        return adjustments
     }
 
     /// Rime's order, with only its first sentence.
@@ -109,7 +113,7 @@ nonisolated enum ChineseCandidateRanking {
     /// lead; the best of them then competes with the other slots under
     /// `placePenalty`, and the other candidates keep their places. Sentences
     /// in `kept` gain their share (0...1) of `keepBonus`; candidates in
-    /// `personal` add theirs (ChinesePersonalRankingCache.bonus, in log
+    /// `personal` add theirs (ChinesePersonalRankingCache.adjustment, in log
     /// probability) to the model's score.
     static func order(count: Int, sentences run: Range<Int>, slots: Slots, scores: [Double],
                       kept: [Int: Double] = [:], personal: [Int: Double] = [:]) -> [Int] {

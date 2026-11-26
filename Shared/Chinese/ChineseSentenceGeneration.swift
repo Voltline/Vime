@@ -214,6 +214,8 @@ nonisolated enum ChineseSentenceGeneration {
     static func generateAndWeigh(
         keys: String,
         leftContext: String,
+        personalContext: String? = nil,
+        personalInput: String? = nil,
         currentLead: String?,
         leadProtected: Bool,
         request: ChineseCandidateRanking.Request,
@@ -243,10 +245,16 @@ nonisolated enum ChineseSentenceGeneration {
 
                         if let allScores = try? model.scores(context: context, candidates: textsToScore, cancelled: stop),
                            allScores.count == textsToScore.count, !stop() {
-                            let modelScores = Array(allScores.prefix(allowed.count))
+                            let cache = ChinesePersonalRankingCache.shared
+                            let prevText = personalContext ?? leftContext
+                            let inputKey = personalInput ?? keys
+                            let adjustedScores = zip(textsToScore, allScores).map { text, score in
+                                score + cache.adjustment(prevText: prevText, input: inputKey, candidate: text)
+                            }
+                            let modelScores = Array(adjustedScores.prefix(allowed.count))
                             let ranked = rescored(allowed, modelScores: modelScores)
-                            let currentScore: Double? = existingLeadIndex.map { allScores[$0] }
-                                ?? (appendedLead ? allScores.last : nil)
+                            let currentScore: Double? = existingLeadIndex.map { adjustedScores[$0] }
+                                ?? (appendedLead ? adjustedScores.last : nil)
                             decision = decide(ranked: ranked, currentLead: currentLead,
                                               currentScore: currentScore, leadProtected: leadProtected)
                         }
