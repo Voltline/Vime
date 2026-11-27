@@ -116,6 +116,16 @@ final class KeyboardHostConnection {
     /// the old mark; forgetting ownership must not edit the new input location.
     func abandon() { markedPreedit = nil; discardDeletionUndo() }
 
+    /// Clears a host-retained marked range left over from a previous keyboard
+    /// session (e.g. WeChat keeping underlined markedText after dismissing the
+    /// keyboard on scroll). Safe only when there is no active text selection.
+    func clearOrphanedMarkedText() {
+        setMarkedText("", NSRange(location: 0, length: 0))
+        unmarkText()
+        markedPreedit = nil
+        discardDeletionUndo()
+    }
+
     private func discardDeletionUndo() {
         guard deletedLine != nil else { return }
         deletedLine = nil; onUndoAvailabilityChange?(false)
