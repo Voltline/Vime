@@ -7,10 +7,23 @@ extension KeyboardView {
               !(shifted && shiftTypesCapitals) else { return nil }
         switch session.inputTraits.language {
         case .japanese: return KeyHitCorrection.romajiPrior(after: session.raw + held)
-        case .chinese: return KeyHitCorrection.pinyinPrior(after: session.raw + held)
+        case .chinese: return chinesePrior(after: session.raw + held)
         case .english:
             let word = Self.trailingWord(in: session.leftContextProvider?() ?? "") + held
             return englishPrior(after: word)
+        }
+    }
+
+    /// Pinyin continuations, plus any letter that keeps an English word going:
+    /// English is typed in Chinese mode too ("hi", "ok"), so such a letter is
+    /// never treated as a slip.
+    func chinesePrior(after raw: String) -> KeyHitCorrection.Prior? {
+        guard let pinyin = KeyHitCorrection.pinyinPrior(after: raw) else { return nil }
+        guard raw.allSatisfy({ $0.isASCII && $0.isLetter }) else { return pinyin }
+        return { [weak self] letter in
+            let value = pinyin(letter)
+            guard value < KeyHitCorrection.implausible, let self else { return value }
+            return self.beginsEnglishWord(raw + String(letter)) ? 1 : value
         }
     }
 

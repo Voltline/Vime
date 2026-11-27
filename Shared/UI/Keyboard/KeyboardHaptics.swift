@@ -34,6 +34,9 @@ final class KeyboardHaptics {
     static let impactsPerGenerator = 128
     static let repeatDeleteInterval: TimeInterval = 0.085
     static let cursorTickInterval: TimeInterval = 0.050
+    /// Heavy layer under the rigid snap, relative to the press intensity.
+    static let letterBodyScale = 0.55
+    static let utilityBodyScale = 0.90
 
     private let makeGenerator: () -> Generator
     private let makeUtilityGenerator: () -> Generator
@@ -48,8 +51,8 @@ final class KeyboardHaptics {
     private var lastCursorTickAt: TimeInterval = -.infinity
 
     init(
-        makeGenerator: @escaping () -> Generator = { UIImpactFeedbackGenerator(style: .heavy) },
-        makeUtilityGenerator: @escaping () -> Generator = { UIImpactFeedbackGenerator(style: .rigid) },
+        makeGenerator: @escaping () -> Generator = { UIImpactFeedbackGenerator(style: .rigid) },
+        makeUtilityGenerator: @escaping () -> Generator = { UIImpactFeedbackGenerator(style: .heavy) },
         makeSelectionGenerator: @escaping () -> SelectionGenerator = { UISelectionFeedbackGenerator() },
         now: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }
     ) {
@@ -96,16 +99,18 @@ final class KeyboardHaptics {
         case .utility:
             guard clamped > 0 else { return true }
             rotateIfNeeded()
-            // Compound bottom-out: full heavy thud + crisp rigid snap.
+            // Compound bottom-out: crisp rigid snap + a fuller heavy thud.
             currentLetter().impactOccurred(intensity: CGFloat(clamped))
-            currentUtility().impactOccurred(intensity: CGFloat(min(1, clamped * 0.80)))
+            currentUtility().impactOccurred(intensity: CGFloat(min(1, clamped * Self.utilityBodyScale)))
             impacts += 2
             return true
         case .letter:
             guard clamped > 0 else { return true }
             rotateIfNeeded()
+            // Rigid alone is crisp but thin; a softer heavy layer gives it body.
             currentLetter().impactOccurred(intensity: CGFloat(clamped))
-            impacts += 1
+            currentUtility().impactOccurred(intensity: CGFloat(min(1, clamped * Self.letterBodyScale)))
+            impacts += 2
             return true
         }
     }
