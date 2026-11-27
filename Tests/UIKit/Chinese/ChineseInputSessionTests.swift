@@ -768,6 +768,130 @@ final class ChineseInputSessionTests: XCTestCase {
         session.reset()
     }
 
+    func testDigitsMidCompositionKeepLiteralAlphanumericAndRestoreOnBackspace() throws {
+        let session = try session()
+        session.setChineseLanguageModel(false)
+
+        // When not composing, digits are not captured into composition.
+        XCTAssertFalse(session.acceptsCompositionSymbol("1"))
+
+        // Type pinyin without committing, then enter digits (as from the 123 number page).
+        XCTAssertEqual(session.type("wozhengzaiceshi"), [])
+        waitUntilCurrent(session)
+        let chineseLeadBefore = try XCTUnwrap(session.candidatePresentations.first?.text)
+        XCTAssertTrue(chineseLeadBefore.contains("测试") || chineseLeadBefore.contains("正在"), chineseLeadBefore)
+        XCTAssertTrue(session.acceptsCompositionSymbol("1"))
+
+        XCTAssertEqual(session.type("1"), [])
+        XCTAssertEqual(session.type("2"), [])
+        XCTAssertEqual(session.type("3"), [])
+        XCTAssertTrue(batches.isEmpty, "typing digits must not commit the first Chinese candidate")
+        XCTAssertEqual(session.markedText?.text, "wozhengzaiceshi123")
+        XCTAssertEqual(session.candidatePresentations.map(\.text), ["wozhengzaiceshi123"])
+
+        // Switching back to letters appends verbatim instead of sending back to Rime.
+        XCTAssertEqual(session.type("a"), [])
+        XCTAssertEqual(session.type("b"), [])
+        XCTAssertEqual(session.markedText?.text, "wozhengzaiceshi123ab")
+        XCTAssertEqual(session.candidatePresentations.map(\.text), ["wozhengzaiceshi123ab"])
+
+        // Backspacing away all appended characters restores normal Chinese candidates immediately.
+        for _ in 0..<5 {
+            XCTAssertEqual(session.backspace(), [])
+        }
+        XCTAssertTrue(session.isComposing)
+        XCTAssertEqual(session.candidatePresentations.first?.text, chineseLeadBefore)
+
+        // Re-entering digits and pressing Space commits the literal string without an extra space.
+        XCTAssertEqual(session.type("1"), [])
+        XCTAssertEqual(session.type("2"), [])
+        XCTAssertEqual(session.type("3"), [])
+        XCTAssertEqual(session.space(), [.insert("wozhengzaiceshi123")])
+        XCTAssertFalse(session.isComposing)
+
+        // Punctuation commits the literal buffer first, then inserts the punctuation.
+        XCTAssertEqual(session.type("ceshi"), [])
+        waitUntilCurrent(session)
+        XCTAssertEqual(session.type("9"), [])
+        XCTAssertEqual(session.insertLiteral("。"), [.insert("ceshi9"), .insert("。")])
+        XCTAssertFalse(session.isComposing)
+    }
+
+    func testDigitsAfterPartialSelectionKeepChosenPrefixAndRemainingLetters() throws {
+        let session = try session()
+        session.setChineseLanguageModel(false)
+
+        XCTAssertEqual(session.type("wozhengzaiceshi"), [])
+        waitUntilCurrent(session)
+        let prefixToken = try XCTUnwrap(session.candidatePresentations.first { $0.text == "我正在" || $0.text == "我" }?.selectionToken)
+        let chosenPrefix = try XCTUnwrap(session.candidatePresentations.first { $0.selectionToken == prefixToken }?.text)
+        _ = session.chooseCandidate(prefixToken)
+        waitUntilCurrent(session)
+        XCTAssertTrue(session.isComposing)
+
+        let expectedRest = chosenPrefix == "我正在" ? "ceshi" : "zhengzaiceshi"
+        XCTAssertEqual(session.type("1"), [])
+        XCTAssertEqual(session.type("2"), [])
+        XCTAssertEqual(session.type("3"), [])
+        XCTAssertEqual(session.markedText?.text, chosenPrefix + expectedRest + "123")
+        XCTAssertEqual(session.candidatePresentations.map(\.text), [chosenPrefix + expectedRest + "123"])
+
+        // Backspacing 123 restores the partial selection + remaining Chinese candidates.
+        for _ in 0..<3 { XCTAssertEqual(session.backspace(), []) }
+        XCTAssertTrue(session.isComposing)
+        XCTAssertTrue(session.markedText?.text.hasPrefix(chosenPrefix) == true, "\(session.markedText?.text ?? "nil")")
+        XCTAssertNotEqual(session.candidatePresentations.first?.text, chosenPrefix + expectedRest + "123")
+
+        // Re-entering 123 and tapping the candidate commits the combined string.
+        XCTAssertEqual(session.type("1"), [])
+        XCTAssertEqual(session.type("2"), [])
+        XCTAssertEqual(session.type("3"), [])
+        let literalToken = try XCTUnwrap(session.candidatePresentations.first?.selectionToken)
+        XCTAssertEqual(session.chooseCandidate(literalToken), [.insert(chosenPrefix + expectedRest + "123")])
+        XCTAssertFalse(session.isComposing)
+    }
+
+    func testCandidateScrollCancelsButtonTouchesAndDisablesLongPressOnNonForgettableCandidates() throws {
+        let session = try session()
+        session.setChineseLanguageModel(false)
+        let keyboard = KeyboardView(frame: CGRect(x: 0, y: 0, width: 440, height: 350), session: session)
+        keyboard.layoutIfNeeded()
+        keyboard.apply(session.type("nihao"))
+        waitUntilCurrent(session)
+        keyboard.refresh()
+
+        let firstButton = try XCTUnwrap(keyboard.stripButtons.first)
+        XCTAssertTrue(keyboard.candidateScroll.touchesShouldCancel(in: firstButton))
+        XCTAssertTrue(keyboard.panelScroll.touchesShouldCancel(in: firstButton))
+
+        // Normal dictionary candidates that are not forgettable keep long-press disabled
+        // so holding and then dragging still scrolls the candidate strip.
+        let longPress = firstButton.gestureRecognizers?.compactMap { $0 as? UILongPressGestureRecognizer }.first
+        XCTAssertNotNil(longPress)
+        let expectedEnabled = firstButton.selectionToken.flatMap { session.forgettableCandidate($0) } != nil
+        XCTAssertEqual(longPress?.isEnabled, expectedEnabled)
+        session.reset()
+    }
+
+    func testPickingSplittableLeadingSyllableKeepsHighlightOnPickedSyllable() throws {
+        let session = try session()
+        session.setChineseLanguageModel(false)
+
+        // When the user picks a leading syllable that Rime's segmenter splits in preedit
+        // (e.g. dia'nhua -> "di a...", xia'nren -> "xi a...", jia'nguo -> "ji a..."),
+        // currentLeadingSyllable must stay on the picked syllable instead of jumping to "di"/"xi"/"ji".
+        for (input, picked) in [("dianhua", "dia"), ("xianren", "xia"), ("jianguo", "jia")] {
+            _ = session.type(input)
+            waitUntilCurrent(session)
+            XCTAssertTrue(session.leadingSyllables.contains(picked), "\(input): \(session.leadingSyllables)")
+            _ = session.chooseLeadingSyllable(picked)
+            waitUntilCurrent(session)
+            XCTAssertEqual(session.currentLeadingSyllable, picked, "\(input) -> \(picked)")
+            XCTAssertTrue(session.leadingSyllables.contains(picked))
+            session.reset()
+        }
+    }
+
     private func descendants(_ view: UIView) -> [UIView] { [view] + view.subviews.flatMap(descendants) }
 }
 

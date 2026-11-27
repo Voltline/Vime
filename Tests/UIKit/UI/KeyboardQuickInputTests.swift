@@ -120,6 +120,34 @@ final class KeyboardQuickInputTests: XCTestCase {
         }
     }
 
+    func testNumberStripSymbolsFollowLayoutAndLanguageWidthRules() {
+        // Full number keyboard (CJK): + − × ÷ % first, @ before ¥, three bracket pairs at end (full-width （）).
+        let zhFull = KeyboardCalculation.symbols(nineKey: false, language: .chinese)
+        XCTAssertEqual(Array(zhFull.prefix(7)), ["+", "−", "×", "÷", "%", "=", "@"])
+        XCTAssertLessThan(zhFull.firstIndex(of: "@")!, zhFull.firstIndex(of: "¥")!)
+        XCTAssertEqual(Array(zhFull.suffix(6)), ["（", "）", "「", "」", "[", "]"])
+        XCTAssertEqual(KeyboardCalculation.symbols(nineKey: false, language: .japanese), zhFull)
+
+        // Full number keyboard (English): half-width punctuation.
+        let enFull = KeyboardCalculation.symbols(nineKey: false, language: .english)
+        XCTAssertEqual(Array(enFull.prefix(7)), ["+", "−", "×", "÷", "%", "=", "@"])
+        XCTAssertTrue(enFull.contains("(") && enFull.contains(")") && enFull.contains("~"))
+        XCTAssertFalse(enFull.contains("（") || enFull.contains("〜"))
+
+        // Nine-key number pad (Chinese): full-width punctuation, single-char ellipsis.
+        let zhPad = KeyboardCalculation.symbols(nineKey: true, language: .chinese)
+        XCTAssertEqual(Array(zhPad.prefix(9)), ["。", "？", "！", "…", "-", "&", ".", "%", "："])
+
+        // Nine-key number pad (Japanese): full-width punctuation + 「」 inside visible leading slots.
+        let jaPad = KeyboardCalculation.symbols(nineKey: true, language: .japanese)
+        XCTAssertTrue(jaPad.prefix(8).contains("「") && jaPad.prefix(8).contains("」"))
+        XCTAssertTrue(jaPad.prefix(9).contains("？") && jaPad.prefix(9).contains("！"))
+
+        // Nine-key number pad (English): half-width punctuation, single-char ellipsis.
+        let enPad = KeyboardCalculation.symbols(nineKey: true, language: .english)
+        XCTAssertEqual(Array(enPad.prefix(9)), [".", "?", "!", "…", "-", "&", ",", "%", ":"])
+    }
+
     func testClipboardRequiresOptInAndFullAccessReadsChangedVersionsOnceAndBoundsStorage() async {
         var version = 1, reads = 0, metadataReads = 0
         var value: String? = " first\nsecond "
@@ -205,7 +233,7 @@ final class KeyboardQuickInputTests: XCTestCase {
                 defer { fixture.close() }
                 fixture.text.text = "前文👩🏽‍💻 "; fixture.text.selectedRange = NSRange(location: fixture.text.text.utf16.count, length: 0)
                 try fixture.tapKey(title: "123")
-                XCTAssertFalse(try fixture.button("vime.quickSymbol.(").isHidden)
+                XCTAssertFalse(try fixture.button(english ? "vime.quickSymbol.(" : "vime.quickSymbol.（").isHidden)
                 for digit in ["1", "+", "1"] { try fixture.tapKey(id: "vime.number." + digit) }
                 XCTAssertEqual(fixture.text.text, "前文👩🏽‍💻 1+1")
                 let result = try fixture.button("vime.calculation.\(choice)")
@@ -231,8 +259,8 @@ final class KeyboardQuickInputTests: XCTestCase {
         XCTAssertEqual(result.title(for: .normal), "2")
         result.sendActions(for: .touchUpInside)
         XCTAssertEqual(fixture.text.text, "2")
-        try fixture.button("vime.quickSymbol.(").sendActions(for: .touchUpInside)
-        XCTAssertEqual(fixture.text.text, "2()")
+        try fixture.button("vime.quickSymbol.（").sendActions(for: .touchUpInside)
+        XCTAssertEqual(fixture.text.text, "2（）")
         XCTAssertEqual(fixture.text.selectedRange.location, 2)
     }
 
