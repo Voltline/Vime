@@ -107,6 +107,12 @@ final class ChineseInputSession: KeyboardInputSession {
     private var specials: [ChineseSpecialConversions.Candidate] = []
     /// Local `v`-prefixed numeric buffer (bypasses Rime so digits/`.` compose RMB uppercase directly).
     private var vBuffer = ""
+    /// Local alphanumeric literal buffer entered when typing ASCII digits mid-composition
+    /// (e.g. `wozhengzaiceshi` + `123` -> `wozhengzaiceshi123`, or `我正在` + `ceshi` + `123` -> `我正在ceshi123`).
+    /// Rime's session stays paused underneath so backspacing away the tail restores
+    /// normal Chinese candidates (including any partial selection) immediately.
+    private var literalBuffer: (base: String, tail: String)?
+    private var literalText: String? { literalBuffer.map { $0.base + $0.tail } }
     private var specialDateFormat: ChineseSpecialConversions.DateFormat = .chinese
     private var specialTimeFormat: ChineseSpecialConversions.TimeFormat = .colon
     var specialConversionsNow: () -> Date = { Date() }
@@ -191,15 +197,19 @@ final class ChineseInputSession: KeyboardInputSession {
             primaryVariantAccessibilityLabel: String(localized: "切换简体和繁体"), compositionInputSymbols: ["'"],
             comma: english ? "," : "，", period: english ? "." : "。")
     }
-    var isComposing: Bool { !vBuffer.isEmpty || state.isComposing || !echo.isEmpty }
+    var isComposing: Bool { literalBuffer != nil || !vBuffer.isEmpty || state.isComposing || !echo.isEmpty }
     private(set) var suppressesEnglishCompletions = false
     var composition: String { markedText?.text ?? "" }
-    var raw: String { !vBuffer.isEmpty ? vBuffer : (isComposing ? state.input + echo : "") }
+    var raw: String {
+        if let text = literalText { return text }
+        return !vBuffer.isEmpty ? vBuffer : (isComposing ? state.input + echo : "")
+    }
     /// Rime separates syllables with a space; a full space reads as a gap
     /// between words, so the preedit shows a narrow one instead.
     static let syllableGap = "\u{2006}"
 
     var markedText: KeyboardPreedit? {
+        if let text = literalText { return KeyboardPreedit(text: text) }
         if !vBuffer.isEmpty { return KeyboardPreedit(text: vBuffer) }
         guard isComposing else { return nil }
         if nineKey {
@@ -220,7 +230,7 @@ final class ChineseInputSession: KeyboardInputSession {
     var showsStrip: Bool { !stripPresentations.isEmpty }
     var suggestionTexts: [String] { isComposing ? [] : suggestionPresentations.map(\.text) }
     /// Old candidates stay visible while commands run but cannot be chosen.
-    var candidatesAreCurrent: Bool { !vBuffer.isEmpty || (received == sent && round == nil) }
+    var candidatesAreCurrent: Bool { literalBuffer != nil || !vBuffer.isEmpty || (received == sent && round == nil) }
     var selectedIndex: Int? { nil }
     var candidateResultReadyAt: TimeInterval? { nil }
 
@@ -230,11 +240,26 @@ final class ChineseInputSession: KeyboardInputSession {
         !text.isEmpty && text.allSatisfy { $0.isLetter || $0.isNumber || $0 == "'" }
     }
 
+    private static func isASCIIDigits(_ text: String) -> Bool {
+        !text.isEmpty && text.unicodeScalars.allSatisfy { ("0"..."9").contains($0) }
+    }
+
+    private static func isAlphanumericLiteralInput(_ text: String) -> Bool {
+        !text.isEmpty && text.unicodeScalars.allSatisfy {
+            ("0"..."9").contains($0) || ("a"..."z").contains($0) || ("A"..."Z").contains($0)
+        }
+    }
+
     func acceptsCompositionSymbol(_ text: String) -> Bool {
         guard !english else { return false }
         // In 双拼 v types zh.
         let candidateBuffer = !vBuffer.isEmpty ? vBuffer : (raw == "v" && shuangpin == nil ? "v" : "")
-        return ChineseSpecialConversions.canAppendToVBuffer(candidateBuffer, text: text)
+        if ChineseSpecialConversions.canAppendToVBuffer(candidateBuffer, text: text) { return true }
+        if literalBuffer != nil {
+            return Self.isAlphanumericLiteralInput(text)
+        }
+        guard !nineKey, vBuffer.isEmpty, isComposing else { return false }
+        return Self.isASCIIDigits(text)
     }
 
     func type(_ text: String) -> [KeyboardEdit] {
@@ -243,6 +268,11 @@ final class ChineseInputSession: KeyboardInputSession {
             commitIsForgettable = false
             pendingCommitInput = ""
             lastCommitUndo = nil
+            if literalBuffer != nil {
+                let edits = commitLiteralBuffer()
+                suppressesEnglishCompletions = Self.isEnglishWordText(text)
+                return edits + [.insert(text)]
+            }
             if isComposing {
                 let edits = commitTyped()
                 suppressesEnglishCompletions = Self.isEnglishWordText(text)
@@ -266,6 +296,31 @@ final class ChineseInputSession: KeyboardInputSession {
             let edits = run(.clear)
             vBuffer = "v" + ChineseSpecialConversions.normalizedVCharacter(text)
             refreshVBufferCandidates()
+            return edits
+        }
+        // Alphanumeric literal buffer (entered by typing ASCII digits mid-composition).
+        if var literal = literalBuffer {
+            if Self.isAlphanumericLiteralInput(text) {
+                literal.tail += text
+                literalBuffer = literal
+                refreshLiteralBufferCandidates()
+                return []
+            }
+            let committed = commitLiteralBuffer()
+            return committed + insertLiteral(text)
+        }
+        if !nineKey, isComposing, Self.isASCIIDigits(text) {
+            let edits = spaceWaits ? commitWaitingSpace() : settle()
+            guard isComposing else { return edits + insertLiteral(text) }
+            round?.cancel()
+            round = nil
+            dropLate()
+            cancelSentenceGeneration()
+            commitIsForgettable = false
+            pendingCommitInput = ""
+            lastCommitUndo = nil
+            literalBuffer = (base: typedLiteralBase, tail: text)
+            refreshLiteralBufferCandidates()
             return edits
         }
         // A capital composes too, never as pinyin: it stays as typed (ChineseMixedInput).
@@ -295,6 +350,17 @@ final class ChineseInputSession: KeyboardInputSession {
             refreshVBufferCandidates()
             return []
         }
+        if var literal = literalBuffer {
+            if !literal.tail.isEmpty { literal.tail.removeLast() }
+            if literal.tail.isEmpty {
+                literalBuffer = nil
+                show(shownCandidates, order: order)
+            } else {
+                literalBuffer = literal
+                refreshLiteralBufferCandidates()
+            }
+            return []
+        }
         // A picked syllable with nothing after it goes back to its digits.
         if nineKey, isComposing, echo.isEmpty, candidatesAreCurrent, open.chosen.isEmpty,
            let input = NineKeyPinyin.unpickingLast(state.input) {
@@ -322,6 +388,7 @@ final class ChineseInputSession: KeyboardInputSession {
     func space() -> [KeyboardEdit] {
         clearSuggestions()
         lastCommitUndo = nil
+        if literalBuffer != nil { return commitLiteralBuffer() }
         if !vBuffer.isEmpty { return commitVBuffer(lead: true) }
         if isComposing {
             // Space takes the first candidate of the final list.
@@ -340,6 +407,7 @@ final class ChineseInputSession: KeyboardInputSession {
         clearSuggestions()
         lastCommitUndo = nil
         spaceWaits = false
+        if literalBuffer != nil { return commitLiteralBuffer() }
         if !vBuffer.isEmpty { return commitVBuffer(lead: false) }
         if isComposing, hasCapitals || nineKey || shuangpin != nil { return commitTyped() }
         if isComposing { enqueue(.commitInput); return [] }
@@ -354,6 +422,7 @@ final class ChineseInputSession: KeyboardInputSession {
 
     func confirmAll() -> [KeyboardEdit] {
         spaceWaits = false
+        if literalBuffer != nil { return commitLiteralBuffer() }
         if !vBuffer.isEmpty { return commitVBuffer(lead: false) }
         return isComposing ? run(.commitComposition) : settle()
     }
@@ -372,6 +441,11 @@ final class ChineseInputSession: KeyboardInputSession {
 
     func chooseCandidate(_ token: CandidateSelectionToken) -> [KeyboardEdit] {
         if token.kind == .suggestion { return chooseSuggestion(token) }
+        if literalBuffer != nil {
+            guard token.sessionID == sessionID, token.generation == generation,
+                  token.kind == .composition, token.index == 0 else { return [] }
+            return commitLiteralBuffer()
+        }
         guard token.sessionID == sessionID, token.generation == generation, token.kind == .composition,
               candidatesAreCurrent, isComposing, slots.indices.contains(token.index) else { return [] }
         let inputSnapshot = negativeFeedbackInputKey
@@ -650,6 +724,7 @@ final class ChineseInputSession: KeyboardInputSession {
         era += 1
         echo = ""
         vBuffer = ""
+        literalBuffer = nil
         specials = []
         spaceWaits = false
         leadingPick = nil
@@ -1370,16 +1445,47 @@ final class ChineseInputSession: KeyboardInputSession {
     }
 
     /// Commits the letters as typed, capitals kept, after any chosen text.
+    private func refreshLiteralBufferCandidates() {
+        generation += 1
+        guard let text = literalText else {
+            slots = []
+            presentations = []
+            return
+        }
+        slots = []
+        let token = CandidateSelectionToken(sessionID: sessionID, generation: generation, index: 0, kind: .composition)
+        presentations = [
+            CandidatePresentation(text: text, source: .conversion, consumedInputCount: 0,
+                                  correction: nil, selectionToken: token)
+        ]
+    }
+
+    private func commitLiteralBuffer() -> [KeyboardEdit] {
+        guard let text = literalText else { return [] }
+        literalBuffer = nil
+        let cleared = run(.clear)
+        clearSuggestions()
+        commitIsForgettable = false
+        pendingCommitInput = ""
+        lastCommitUndo = nil
+        return cleared + [.insert(text)]
+    }
+
+    private var typedLiteralBase: String {
+        if let shuangpin {
+            let chosen = Self.unchosen(state)?.chosen ?? ""
+            let rest = String((state.preedit.isEmpty ? state.input : state.preedit).dropFirst(chosen.count))
+            return chosen + shuangpin.readings(ofPreedit: rest).joined()
+        }
+        return (Self.unchosen(state)?.chosen ?? "") + (casedUnchosen?.rest ?? Self.recased(state.input, as: casedInput))
+    }
+
     private func commitTyped() -> [KeyboardEdit] {
         let edits = settle()
         guard isComposing else { return edits }
         let text = nineKey
             ? open.chosen + NineKeyPinyin.letters(of: open.input, hint: state.candidates.first?.comment)
-            : shuangpin.map { scheme in
-                let chosen = Self.unchosen(state)?.chosen ?? ""
-                let rest = String((state.preedit.isEmpty ? state.input : state.preedit).dropFirst(chosen.count))
-                return chosen + scheme.readings(ofPreedit: rest).joined()
-            } ?? (Self.unchosen(state)?.chosen ?? "") + (casedUnchosen?.rest ?? Self.recased(state.input, as: casedInput))
+            : typedLiteralBase
         let cleared = run(.clear)
         clearSuggestions()
         commitIsForgettable = false
