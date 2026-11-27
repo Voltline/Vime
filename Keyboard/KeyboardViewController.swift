@@ -3,6 +3,8 @@ import os
 
 class KeyboardViewController: UIInputViewController {
     private static let liveControllers = NSHashTable<KeyboardViewController>.weakObjects()
+    /// Marked text left in the host when the keyboard went away (WeChat keeps it on scroll-dismiss).
+    private let orphanedMark = KeyboardOrphanedMark(defaults: KeyboardOrphanedMark.sharedDefaults)
     private let keyboard = KeyboardView()
     private let synchronizationLog = Logger(subsystem: "com.Voltline.Vime", category: "CompositionSync")
     private let lifecycleLog = Logger(subsystem: "com.Voltline.Vime", category: "ExtensionLifecycle")
@@ -148,6 +150,8 @@ class KeyboardViewController: UIInputViewController {
         host.abandon()
         consumedLineContext = nil
         keyboard.resetComposition()
+        orphanedMark.beginShowing()
+        clearOrphanedMarkIfNeeded()
         // A pause for memory pressure ends here once memory has recovered,
         // so it does not last until a manual retry.
         JapaneseCandidateWorker.LanguageModelStorage.shared.resumeAfterPressure()
@@ -162,6 +166,18 @@ class KeyboardViewController: UIInputViewController {
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        clearOrphanedMarkIfNeeded()
+        if orphanedMark.isArmed {
+            // The host's context can arrive after the keyboard appears.
+            let delays = KeyboardOrphanedMark.retryDelays
+            for (index, delay) in delays.enumerated() {
+                DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                    guard let self else { return }
+                    self.clearOrphanedMarkIfNeeded()
+                    if index == delays.count - 1 { self.orphanedMark.finishShowing() }
+                }
+            }
+        }
         clipboardVisible = true
         keyboard.setClipboardActive(true)
     }
@@ -195,9 +211,26 @@ class KeyboardViewController: UIInputViewController {
         clipboardVisible = false
         keyboard.setClipboardActive(false)
         keyboard.finishLearningFeedback()
+        recordOrphanedMarkedTextIfNeeded()
         host.abandon()
         keyboard.resetComposition()
         super.viewWillDisappear(animated)
+    }
+
+    private func recordOrphanedMarkedTextIfNeeded() {
+        guard let mark = host.markedText, !mark.isEmpty else { return }
+        orphanedMark.record()
+    }
+
+    /// Clears a mark the host kept from an earlier showing; see `KeyboardOrphanedMark`.
+    private func clearOrphanedMarkIfNeeded() {
+        guard !isApplyingEdits, let proxy = attachedProxy,
+              orphanedMark.shouldClear(hasComposition: host.markedText != nil, selectedText: proxy.selectedText) else { return }
+        isApplyingEdits = true
+        defer { isApplyingEdits = false }
+        host.clearOrphanedMarkedText()
+        orphanedMark.noteCleared()
+        rememberContext()
     }
 
     override func viewDidDisappear(_ animated: Bool) {
@@ -263,12 +296,14 @@ class KeyboardViewController: UIInputViewController {
 
     override func textDidChange(_ textInput: UITextInput?) {
         super.textDidChange(textInput)
+        clearOrphanedMarkIfNeeded()
         // The caret drag confirmed the composition when it began, and each of
         // its steps reports here. Reading the context and refreshing for each
         // step lagged the caret; the drag's end catches up once.
         if keyboard.isMovingCursor { keyboard.hostContextDidChange(); return }
         if !isApplyingEdits && contextChanged {
             partialCommitReceipt = nil
+            recordOrphanedMarkedTextIfNeeded()
             host.abandon()
             keyboard.resetComposition()
         }
@@ -279,12 +314,14 @@ class KeyboardViewController: UIInputViewController {
 
     override func selectionDidChange(_ textInput: UITextInput?) {
         super.selectionDidChange(textInput)
+        clearOrphanedMarkIfNeeded()
         // The caret drag confirmed the composition when it began, and each of
         // its steps reports here. Reading the context and refreshing for each
         // step lagged the caret; the drag's end catches up once.
         if keyboard.isMovingCursor { keyboard.hostContextDidChange(); return }
         if !isApplyingEdits && contextChanged {
             partialCommitReceipt = nil
+            recordOrphanedMarkedTextIfNeeded()
             host.abandon(); keyboard.resetComposition()
         }
         rememberContext()
@@ -329,6 +366,7 @@ class KeyboardViewController: UIInputViewController {
     }
 
     private func apply(_ edits: [KeyboardEdit]) {
+        orphanedMark.cancel()
         partialCommitReceipt = nil
         if edits.contains(.undoLineDeletion) { consumedLineContext = nil }
         isApplyingEdits = true
@@ -408,7 +446,7 @@ class KeyboardViewController: UIInputViewController {
     }
 
     private func updatePreedit(_ preedit: KeyboardPreedit?) {
-        if let preedit { partialCommitReceipt?.updatePreedit(preedit) }
+        if let preedit { orphanedMark.cancel(); partialCommitReceipt?.updatePreedit(preedit) }
         else { partialCommitReceipt = nil }
         isApplyingEdits = true
         defer { isApplyingEdits = false }
