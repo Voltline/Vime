@@ -873,6 +873,25 @@ final class ChineseInputSessionTests: XCTestCase {
         session.reset()
     }
 
+    func testPickingSplittableLeadingSyllableKeepsHighlightOnPickedSyllable() throws {
+        let session = try session()
+        session.setChineseLanguageModel(false)
+
+        // When the user picks a leading syllable that Rime's segmenter splits in preedit
+        // (e.g. dia'nhua -> "di a...", xia'nren -> "xi a...", jia'nguo -> "ji a..."),
+        // currentLeadingSyllable must stay on the picked syllable instead of jumping to "di"/"xi"/"ji".
+        for (input, picked) in [("dianhua", "dia"), ("xianren", "xia"), ("jianguo", "jia")] {
+            _ = session.type(input)
+            waitUntilCurrent(session)
+            XCTAssertTrue(session.leadingSyllables.contains(picked), "\(input): \(session.leadingSyllables)")
+            _ = session.chooseLeadingSyllable(picked)
+            waitUntilCurrent(session)
+            XCTAssertEqual(session.currentLeadingSyllable, picked, "\(input) -> \(picked)")
+            XCTAssertTrue(session.leadingSyllables.contains(picked))
+            session.reset()
+        }
+    }
+
     private func descendants(_ view: UIView) -> [UIView] { [view] + view.subviews.flatMap(descendants) }
 }
 

@@ -1571,6 +1571,7 @@ final class ChineseInputSession: KeyboardInputSession {
         guard isComposing else { return nil }
         if nineKey { return nineKeyNatural }
         if shuangpin != nil { return nil }
+        if let picked = pickedSyllables(state).first { return picked }
         let chosen = Self.unchosen(state)?.chosen ?? ""
         return PinyinLeadingSyllable.first(ofPreedit: String(state.preedit.dropFirst(chosen.count)))
     }
