@@ -30,12 +30,13 @@ final class KeyboardTactilePhase1Tests: XCTestCase {
             now: { clock }
         )
 
-        // 1. Compound bottom-out: letter fires 1.0x heavy; utility fires 1.0x heavy + 0.80x rigid.
+        // 1. Compound bottom-out: letter fires 1.0x rigid + 0.55x heavy; utility fires 1.0x rigid + 0.90x heavy.
         XCTAssertTrue(haptics.play(intensity: 1.0, style: .letter))
         XCTAssertEqual(letterGens.last?.impacts, [1.0])
+        XCTAssertEqual(utilGens.last?.impacts, [CGFloat(KeyboardHaptics.letterBodyScale)])
         XCTAssertTrue(haptics.play(intensity: 1.0, style: .utility))
         XCTAssertEqual(letterGens.last?.impacts, [1.0, 1.0])
-        XCTAssertEqual(utilGens.last?.impacts, [0.80])
+        XCTAssertEqual(utilGens.last?.impacts, [CGFloat(KeyboardHaptics.letterBodyScale), CGFloat(KeyboardHaptics.utilityBodyScale)])
 
         // 2. Repeat delete throttles at 85ms and scales intensity by 0.40.
         XCTAssertTrue(haptics.play(intensity: 1.0, style: .repeatDelete))
