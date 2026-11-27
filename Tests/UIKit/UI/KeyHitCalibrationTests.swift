@@ -285,12 +285,12 @@ final class KeyHitCalibrationTests: XCTestCase {
         keySpace.accessibilityIdentifier = "vime.key.space"
 
         let bodyO = CGRect(x: 200, y: 10, width: 32, height: 42)
-        let bodyP = CGRect(x: 238, y: 10, width: 32, height: 42)
+        let bodyP = CGRect(x: 246, y: 10, width: 32, height: 42)
         let bodySpace = CGRect(x: 100, y: 10, width: 60, height: 42)
         surface.regions = [
             .init(key: keySpace, body: bodySpace, cell: bodySpace),
             .init(key: keyO, body: bodyO, cell: CGRect(x: 195, y: 0, width: 40, height: 60)),
-            .init(key: keyP, body: bodyP, cell: CGRect(x: 235, y: 0, width: 40, height: 60)),
+            .init(key: keyP, body: bodyP, cell: CGRect(x: 242, y: 0, width: 40, height: 60)),
         ]
         surface.letterPrior = { _ in KeyHitCorrection.romajiPrior(after: "ky") }
 
@@ -301,12 +301,11 @@ final class KeyHitCalibrationTests: XCTestCase {
         var clock: TimeInterval = 50.0
         surface.pressNow = { clock }
 
-        // Borderline tap on P: x = 249.5 is 17.5pt outside O.maxX (232).
-        // Normalized distance dx = 17.5 / 32 / 0.45 = 1.215 (> 1.0 default, <= 1.12 fast reach: 1.215 / 1.12 = 1.08;
-        // let's pick x = 247.5 -> 15.5pt outside O.maxX: 15.5 / 32 / 0.45 = 1.076:
-        // - Under fast IKI (100ms, scale = 1.12): 1.076 / 1.12 = 0.96 <= 1.0 -> rescues to 'o'!
-        // - Under slow IKI (450ms, scale = 0.78): 1.076 / 0.78 = 1.38 > 1.0 -> keeps 'p'!
-        // - After Space or > 1s pause (nil IKI, scale = 1.0): 1.076 > 1.0 -> keeps 'p'!)
+        // Borderline tap on P's outer edge (outside its anchor zone, which starts at x = 250.8):
+        // x = 247.5 is 15.5pt outside O.maxX (232): 15.5 / 32 / 0.45 = 1.076.
+        // - Under fast IKI (100ms, scale = 1.12): 1.076 / 1.12 = 0.96 <= 1.0 -> rescues to 'o'.
+        // - Under slow IKI (450ms, scale = 0.78): 1.38 > 1.0 -> keeps 'p'.
+        // - After Space or > 1s pause (nil IKI, scale = 1.0): 1.076 > 1.0 -> keeps 'p'.
         let borderlinePoint = CGPoint(x: 247.5, y: 30)
 
         // Prime first letter tap at t = 50.0

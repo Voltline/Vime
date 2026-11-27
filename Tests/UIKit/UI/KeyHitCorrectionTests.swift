@@ -85,4 +85,30 @@ final class KeyHitCorrectionTests: XCTestCase {
         surface.endPress(id: 1, at: kCenter); surface.endPress(id: 2, at: yCenter); surface.endPress(id: 3, at: pEdge)
         XCTAssertEqual(session.raw, "kyo")
     }
+
+    func testEnglishWordsStayPlausibleInChinese() {
+        let keyboard = KeyboardView(frame: CGRect(x: 0, y: 0, width: 440, height: 350), session: KeyboardSession())
+        defer { keyboard.stopInteractions() }
+        XCTAssertLessThan(KeyHitCorrection.pinyinPrior(after: "h")?("i") ?? 1, KeyHitCorrection.implausible)
+        XCTAssertEqual(keyboard.chinesePrior(after: "h")?("i"), 1, "hi is an English word")
+        XCTAssertEqual(keyboard.chinesePrior(after: "zh")?("a"), 1)
+        XCTAssertLessThan(keyboard.chinesePrior(after: "zh")?("q") ?? 1, KeyHitCorrection.implausible,
+                          "a letter that is neither pinyin nor English is still a slip")
+    }
+
+    func testTapInsideKeycapIsNeverMoved() throws {
+        let session = KeyboardSession()
+        let keyboard = KeyboardView(frame: CGRect(x: 0, y: 0, width: 440, height: 350), session: session)
+        defer { keyboard.stopInteractions() }
+        keyboard.layoutIfNeeded()
+        let surface = try XCTUnwrap(keyboard.subviews.compactMap { $0 as? KeyboardTouchSurface }.first)
+        func tap(_ point: CGPoint, id: Int) { surface.beginPress(id: id, at: point); surface.endPress(id: id, at: point) }
+        for (index, letter) in "ky".enumerated() {
+            let body = try region(surface, letter).body
+            tap(CGPoint(x: body.midX, y: body.midY), id: index)
+        }
+        let p = try region(surface, "p").body
+        tap(CGPoint(x: p.midX - p.width * 0.3, y: p.midY), id: 10)
+        XCTAssertEqual(session.raw, "kyp", "off-centre but still on the keycap types p")
+    }
 }

@@ -228,6 +228,9 @@ final class KeyboardTouchSurface: UIView {
     private func correctedKey(_ key: KeyboardKey, at point: CGPoint, interKeyInterval: TimeInterval? = nil) -> KeyboardKey {
         guard let letter = key.correctionLetter, let letterPrior,
               let body = regions.first(where: { $0.key === key })?.body else { return key }
+        // A tap well inside the painted keycap is what the user meant, whatever
+        // the language prior says (e.g. "hi" typed in Chinese mode).
+        if KeyHitCalibration.isInRawKeyAnchorZone(point: point, body: body) { return key }
         let adjustedBody: (Character, CGRect) -> CGRect = { ch, rect in
             guard let model = self.letterModel?(ch), model.weight > 0 else { return rect }
             return rect.offsetBy(dx: CGFloat(model.dx) * rect.width, dy: CGFloat(model.dy) * rect.height)
