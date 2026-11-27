@@ -1,5 +1,11 @@
 import UIKit
 
+/// Scroll view for candidate strips and grids that always cancels button tracking
+/// when the user drags, even after holding a candidate button longer than `delaysContentTouches`.
+final class KeyboardCandidateScrollView: UIScrollView {
+    override func touchesShouldCancel(in view: UIView) -> Bool { true }
+}
+
 // Candidate strip, expanded panel, conversion range and quick candidates.
 extension KeyboardView {
     func layoutCandidateStrip() {
@@ -22,9 +28,9 @@ extension KeyboardView {
 
     func candidateButton(_ presentation: CandidatePresentation, index: Int) -> KeyboardCandidateButton {
         let button = KeyboardCandidateButton(frame: .zero)
-        presentCandidate(button, presentation: presentation, index: index)
         button.addTarget(self, action: #selector(selectCandidate(_:)), for: .touchUpInside)
         button.addGestureRecognizer(UILongPressGestureRecognizer(target: self, action: #selector(longPressCandidate(_:))))
+        presentCandidate(button, presentation: presentation, index: index)
         return button
     }
 
@@ -32,6 +38,10 @@ extension KeyboardView {
         let configurationStartedAt = KeyboardPerformance.start()
         defer { KeyboardPerformance.record(.candidateButtonConfiguration, since: configurationStartedAt) }
         button.present(presentation, index: index, highlighted: session.isComposing && index == (session.selectedIndex ?? 0))
+        let canForget = presentation.selectionToken.flatMap { session.forgettableCandidate($0) } != nil
+        button.gestureRecognizers?.forEach {
+            if $0 is UILongPressGestureRecognizer { $0.isEnabled = canForget }
+        }
     }
 
     @objc func selectCandidate(_ sender: UIButton) {

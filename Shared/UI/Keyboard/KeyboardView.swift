@@ -318,7 +318,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     var previewHold: TimeInterval { preferences.previewHold }
     let haptics = KeyboardHaptics()
     let header = UIView()
-    let candidateScroll = UIScrollView()
+    let candidateScroll = KeyboardCandidateScrollView()
     let candidateRow = UIView()
     let quickCandidates = KeyboardQuickCandidateStrip()
     let clipboardSuggestion = ClipboardSuggestionView()
@@ -361,7 +361,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     let deletePrompt = KeyboardDeletePrompt()
     let previewOverlay = UIView()
     let keysContainer = KeyboardTouchSurface()
-    let panelScroll = UIScrollView()
+    let panelScroll = KeyboardCandidateScrollView()
     /// Chinese: the syllables the input can start with, left of the panel.
     let syllableColumn = UIScrollView()
     let syllableDivider = UIView()
