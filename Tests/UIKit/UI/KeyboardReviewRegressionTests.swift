@@ -152,6 +152,36 @@ final class KeyboardReviewRegressionTests: XCTestCase {
         XCTAssertTrue(try XCTUnwrap(retry.superview).isHidden)
     }
 
+    func testQuickSettingsHapticValueStaysSingleLineWithStableSliderWidth() throws {
+        let host = UIViewController(), window = UIWindow(frame: CGRect(x: 0, y: 0, width: 393, height: 600))
+        window.rootViewController = host; window.isHidden = false
+        defer { window.isHidden = true }
+        let prefs = try preferences()
+        prefs.hapticIntensity = 1.0
+        let panel = KeyboardSettingsPanel(preferences: prefs)
+        host.view.addSubview(panel)
+        // Simulate first layout before/after resizing from zero to phone width.
+        panel.frame = CGRect(x: 0, y: 0, width: 393, height: 260)
+        panel.update(hasFullAccess: true, neuralPaused: false)
+        panel.layoutIfNeeded()
+
+        let valueLabel = try XCTUnwrap(descendants(panel).first { $0.accessibilityIdentifier == "vime.setting.hapticValue" } as? UILabel)
+        let slider = try XCTUnwrap(descendants(panel).compactMap { $0 as? UISlider }.first)
+        XCTAssertEqual(valueLabel.numberOfLines, 1)
+        XCTAssertLessThan(valueLabel.bounds.height, valueLabel.font.lineHeight * 1.6)
+        let widthAt100 = slider.bounds.width
+        XCTAssertGreaterThan(widthAt100, 100)
+
+        // Changing intensity from 100% -> 0% -> 60% keeps slider width stable.
+        for intensity in [0.0, 0.6, 1.0] {
+            prefs.hapticIntensity = intensity
+            panel.update(hasFullAccess: true, neuralPaused: false)
+            panel.layoutIfNeeded()
+            XCTAssertEqual(slider.bounds.width, widthAt100, accuracy: 0.5)
+            XCTAssertLessThan(valueLabel.bounds.height, valueLabel.font.lineHeight * 1.6)
+        }
+    }
+
     func testQuickSettingsKeepsFeedbackVisibleAndShortcutsActionable() throws {
         for (width, compact) in [(CGFloat(320), false), (375, false), (568, true), (680, true)] {
             let prefs = try preferences()

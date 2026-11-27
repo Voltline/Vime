@@ -34,6 +34,7 @@ final class KeyboardSettingsPanel: UIScrollView {
     /// Half-width switch rows, which drop their icon when the label would wrap.
     private var compactRows: [UIStackView] = []
     private var accessibleSliderWidth: NSLayoutConstraint?
+    private var hapticValueWidth: NSLayoutConstraint?
     private var typography: [(UILabel, CGFloat, UIFont.Weight)] = []
     private var groups: [UIView] = []
     private var icons: [UIImageView] = []
@@ -115,10 +116,12 @@ final class KeyboardSettingsPanel: UIScrollView {
         // Vibration needs a full-width slider; the rest pair up two to a row,
         // the sound and live conversion switches first.
         configureTypography(hapticValue, size: 11)
+        hapticValue.numberOfLines = 1
         hapticValue.textAlignment = .right
         hapticValue.accessibilityIdentifier = "vime.setting.hapticValue"
         hapticValue.setContentHuggingPriority(.required, for: .horizontal)
         hapticValue.setContentCompressionResistancePriority(.required, for: .horizontal)
+        hapticValueWidth = hapticValue.widthAnchor.constraint(equalToConstant: 0)
         haptics.setContentHuggingPriority(.defaultLow, for: .horizontal)
         haptics.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         haptics.widthAnchor.constraint(greaterThanOrEqualToConstant: 40).isActive = true
@@ -129,7 +132,9 @@ final class KeyboardSettingsPanel: UIScrollView {
             if settled { self.onFeedback?() }
         }
         let vibration = label(String(localized: "振动"))
+        vibration.numberOfLines = 1
         vibration.setContentHuggingPriority(.required, for: .horizontal)
+        vibration.setContentCompressionResistancePriority(.required, for: .horizontal)
         let hapticRow = row(symbol: "iphone.radiowaves.left.and.right", content: [vibration, haptics, hapticValue], height: 46, adaptive: true)
         accessibleSliderWidth = haptics.widthAnchor.constraint(equalTo: haptics.superview!.widthAnchor)
 
@@ -341,7 +346,16 @@ final class KeyboardSettingsPanel: UIScrollView {
             row.axis = traitCollection.preferredContentSizeCategory.isAccessibilityCategory ? .vertical : .horizontal
             row.alignment = row.axis == .vertical ? .leading : .center
         }
-        accessibleSliderWidth?.isActive = traitCollection.preferredContentSizeCategory.isAccessibilityCategory
+        accessibleSliderWidth?.isActive = accessibilitySize
+        hapticValue.numberOfLines = accessibilitySize ? 0 : 1
+        hapticValue.textAlignment = accessibilitySize ? .left : .right
+        if let font = hapticValue.font {
+            let maxWidth = [0.0, 0.25, 0.6, 1.0].map {
+                ceil((HapticIntensity.description($0) as NSString).size(withAttributes: [.font: font]).width)
+            }.max() ?? 0
+            hapticValueWidth?.constant = maxWidth + 2
+        }
+        hapticValueWidth?.isActive = !accessibilitySize
         updatePairs()
         numbers.isHidden = traitCollection.preferredContentSizeCategory.isAccessibilityCategory
         accessibleNumbers.isHidden = !numbers.isHidden
