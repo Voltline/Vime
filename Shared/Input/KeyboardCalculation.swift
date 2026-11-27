@@ -3,7 +3,30 @@ import Foundation
 /// A bounded decimal parser; never evaluates code or uses NSExpression/KVC.
 nonisolated struct KeyboardCalculation: Equatable, Sendable {
     static let maximumCharacters = 128
-    static let symbols = ["(", ")", "「", "」", "[", "]", "%", "+", "−", "×", "÷", "=", "¥", "€", "$", "…", "〜", "@", "#"]
+    /// Default full-keyboard number strip symbols (CJK full-width punctuation).
+    static let symbols = ["+", "−", "×", "÷", "%", "=", "@", "¥", "€", "$", "…", "〜", "#", "（", "）", "「", "」", "[", "]"]
+
+    /// Top-strip shortcut symbols for the number page, tailored to layout (nine-key pad
+    /// vs full keyboard) and active language (full-width punctuation for Chinese/Japanese,
+    /// half-width for English; `「」「」` placed within the visible range on Japanese nine-key).
+    static func symbols(nineKey: Bool, language: KeyboardInputLanguage) -> [String] {
+        if nineKey {
+            switch language {
+            case .chinese:
+                return ["。", "？", "！", "…", "-", "&", ".", "%", "：", "=", "@", "¥", "€", "$", "〜", "#", "（", "）", "「", "」", "[", "]"]
+            case .japanese:
+                return ["。", "？", "！", "…", "「", "」", "-", "：", "%", "&", ".", "=", "@", "¥", "€", "$", "〜", "#", "（", "）", "[", "]"]
+            case .english:
+                return [".", "?", "!", "…", "-", "&", ",", "%", ":", "=", "@", "¥", "€", "$", "~", "#", "(", ")", "[", "]"]
+            }
+        }
+        switch language {
+        case .chinese, .japanese:
+            return symbols
+        case .english:
+            return ["+", "−", "×", "÷", "%", "=", "@", "¥", "€", "$", "…", "~", "#", "(", ")", "[", "]"]
+        }
+    }
     let expression: String
     let result: String
     var equation: String { expression.hasSuffix("=") || expression.hasSuffix("＝") ? expression + result : expression + "=" + result }

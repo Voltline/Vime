@@ -222,7 +222,11 @@ extension KeyboardView {
                 items.append(.init(title: text, action: .replacement(replacement)))
             }
         }
-        items += KeyboardCalculation.symbols.map { .init(title: $0, action: .symbol($0)) }
+        let stripSymbols = KeyboardCalculation.symbols(
+            nineKey: usesNumberPad,
+            language: session.inputTraits.language
+        )
+        items += stripSymbols.map { .init(title: $0, action: .symbol($0)) }
         return items
     }
 
