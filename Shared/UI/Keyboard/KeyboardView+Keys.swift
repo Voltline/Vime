@@ -169,6 +169,7 @@ extension KeyboardView {
         punctuationKey = nil
         kanaLayoutActive = usesKanaLayout
         chineseNineKeyActive = usesChineseNineKey
+        koreanLayoutActive = usesKoreanLayout
         shuangpinActive = wantedShuangpin
         shuangpinHints = shuangpinActive?.keyHints
         kanaToggle = nil
@@ -181,20 +182,34 @@ extension KeyboardView {
             applyKeySkins(); updateKeyLabels(); refresh(); setNeedsLayout(); return
         }
         if page == .letters {
+            let isKorean = koreanLayoutActive
             for letters in ["qwertyuiop", "asdfghjkl", "zxcvbnm"] {
                 var row: [(KeyboardKey, CGFloat)] = []
                 if letters == "zxcvbnm" {
-                    let shift = symbol("shift", label: String(localized: "切换大小写"), weight: 1.35) { [weak self] in self?.shift() }
+                    let shiftLabel = isKorean ? String(localized: "切换双辅音") : String(localized: "切换大小写")
+                    let shift = symbol("shift", label: shiftLabel, weight: 1.35) { [weak self] in self?.shift() }
                     shift.0.accessibilityIdentifier = "vime.key.shift"
                     shiftKey = shift.0
                     row.append(shift)
                 }
                 for character in letters {
                     let value = String(character)
-                    let item = key(value.uppercased()) { [weak self] in
+                    let displayTitle: String
+                    if isKorean, let jamo = KoreanLayout.jamo(forQWERTY: character, shifted: shifted) {
+                        displayTitle = String(jamo)
+                    } else {
+                        displayTitle = value.uppercased()
+                    }
+                    let item = key(displayTitle) { [weak self] in
                         guard let self else { return }
                         KeyboardPerformance.record(.touchUpToType, since: self.keysContainer.releaseStartedAt)
                         self.lastShiftTap = 0
+                        if self.session.inputTraits.language == .korean,
+                           let jamo = KoreanLayout.jamo(forQWERTY: character, shifted: self.shifted) {
+                            if self.shifted && !self.capsLocked { self.shifted = false; self.updateKeyLabels() }
+                            self.apply(self.session.type(String(jamo)))
+                            return
+                        }
                         let upper = self.shifted && self.shiftTypesCapitals
                         // Consume Shift first, so auto-capitalization decides the next letter.
                         if self.shifted && !self.capsLocked { self.shifted = false; self.updateKeyLabels() }
@@ -203,7 +218,13 @@ extension KeyboardView {
                     item.0.showsPreview = previewsEnabled
                     item.0.previewHold = previewHold
                     item.0.accessibilityIdentifier = "vime.key." + value
-                    item.0.correctionLetter = character
+                    if isKorean, let baseJamo = KoreanLayout.jamo(forQWERTY: character, shifted: false),
+                       let activeJamo = KoreanLayout.jamo(forQWERTY: character, shifted: shifted) {
+                        item.0.correctionLetter = baseJamo
+                        item.0.accessibilityLabel = KoreanLayout.voiceOverLabel(for: activeJamo)
+                    } else {
+                        item.0.correctionLetter = character
+                    }
                     let swipeSymbol = swipeSymbol(for: value)
                     item.0.hint = swipeSymbol
                     item.0.footnote = shuangpinHints?[character]
@@ -292,8 +313,15 @@ extension KeyboardView {
             // Digits and common symbols like the system's Chinese keyboard;
             // Chinese ends on its own punctuation, and ' separates syllables.
             // The third row always holds seven keys.
-            let punctuation = session.inputTraits.language == .chinese
-                ? ["。", "，", "、", "？", "！", ".", "'"] : ["。", "、", "？", "！", "'", "ー", "・"]
+            let punctuation: [String]
+            switch session.inputTraits.language {
+            case .chinese:
+                punctuation = ["。", "，", "、", "？", "！", ".", "'"]
+            case .japanese:
+                punctuation = ["。", "、", "？", "！", "'", "ー", "・"]
+            case .korean, .english:
+                punctuation = [".", ",", "?", "!", "'", "-", "~"]
+            }
             let values = page == .numbers
                 ? [Array("1234567890").map(String.init), ["-", "/", ":", "~", "(", ")", "…", "@", "“", "”"], punctuation]
                 : [["[", "]", "{", "}", "#", "%", "^", "*", "+", "="], ["_", "\\", "|", ";", "<", ">", "¥", "$", "€", "£"], ["「", "」", "『", "』", "&", "'", "\""]]
@@ -521,6 +549,18 @@ extension KeyboardView {
         let locked = capsLocked && shiftTypesCapitals
         shiftKey?.accessibilityValue = locked ? String(localized: "大写锁定") : active ? String(localized: "已开启") : nil
         shiftKey?.accessibilityTraits = active ? [.keyboardKey, .selected] : .keyboardKey
+        if koreanLayoutActive && page == .letters {
+            for key in letterKeys {
+                guard let id = key.accessibilityIdentifier, id.hasPrefix("vime.key."),
+                      let ch = id.dropFirst("vime.key.".count).first,
+                      let jamo = KoreanLayout.jamo(forQWERTY: ch, shifted: active) else { continue }
+                let title = String(jamo)
+                if key.title(for: .normal) != title {
+                    key.setTitle(title, for: .normal)
+                }
+                key.accessibilityLabel = KoreanLayout.voiceOverLabel(for: jamo)
+            }
+        }
     }
 
     /// Shift types a capital in English and Chinese. The Chinese session
@@ -546,9 +586,12 @@ extension KeyboardView {
     func swipeSymbol(for letter: String) -> String? {
         guard let hint = Self.letterHints[letter] else { return nil }
         switch session.inputTraits.language {
-        case .chinese where preferences.chinesePunctuation: return Self.chinesePunctuation[hint] ?? hint
-        case .japanese where preferences.japaneseFullWidthSymbols: return Self.japaneseFullWidthSymbols[hint] ?? hint
-        default: return hint
+        case .chinese:
+            return preferences.chinesePunctuation ? (Self.chinesePunctuation[hint] ?? hint) : hint
+        case .japanese:
+            return preferences.japaneseFullWidthSymbols ? (Self.japaneseFullWidthSymbols[hint] ?? hint) : hint
+        case .korean, .english:
+            return hint
         }
     }
 

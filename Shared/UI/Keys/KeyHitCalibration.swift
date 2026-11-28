@@ -23,12 +23,15 @@ nonisolated final class KeyHitCalibration: @unchecked Sendable {
 
         /// Key into `Snapshot.buckets`. Layouts whose middle row carries the
         /// prolonged-sound key (ー) sit half a key away from the plain
-        /// QWERTY row, so they learn on their own.
-        func storageKey(prolongedRow: Bool) -> String {
-            prolongedRow ? rawValue + Self.prolongedSuffix : rawValue
+        /// QWERTY row, and Korean 2-beolsik has its own jamo layout, so each
+        /// learns in its own isolated bucket.
+        func storageKey(prolongedRow: Bool, korean: Bool = false) -> String {
+            if korean { return rawValue + Self.koreanSuffix }
+            return prolongedRow ? rawValue + Self.prolongedSuffix : rawValue
         }
 
         static let prolongedSuffix = "+prolonged"
+        static let koreanSuffix = "+korean"
     }
 
     struct KeyStats: Codable, Equatable, Sendable {
@@ -190,10 +193,10 @@ nonisolated final class KeyHitCalibration: @unchecked Sendable {
     // MARK: - Query
 
     /// Effective per-key anisotropic 2D Gaussian parameters after single-key shrinkage toward `(0, 0)`.
-    func effectiveModel(for letter: Character, in bucket: LayoutBucket, prolongedRow: Bool = false) -> EffectiveModel {
+    func effectiveModel(for letter: Character, in bucket: LayoutBucket, prolongedRow: Bool = false, korean: Bool = false) -> EffectiveModel {
         let key = String(letter).lowercased()
         lock.lock()
-        let stats = snapshot.buckets[bucket.storageKey(prolongedRow: prolongedRow)]?[key]
+        let stats = snapshot.buckets[bucket.storageKey(prolongedRow: prolongedRow, korean: korean)]?[key]
         lock.unlock()
         guard let stats else {
             return EffectiveModel(dx: 0, dy: 0, varX: Self.defaultVarX, varY: Self.defaultVarY, weight: 0, count: 0)
@@ -203,16 +206,16 @@ nonisolated final class KeyHitCalibration: @unchecked Sendable {
 
     /// Effective normalized `(dx, dy)` offset for `letter` in `bucket`.
     func effectiveNormalizedOffset(for letter: Character, in bucket: LayoutBucket,
-                                   prolongedRow: Bool = false) -> (dx: Double, dy: Double) {
-        let model = effectiveModel(for: letter, in: bucket, prolongedRow: prolongedRow)
+                                   prolongedRow: Bool = false, korean: Bool = false) -> (dx: Double, dy: Double) {
+        let model = effectiveModel(for: letter, in: bucket, prolongedRow: prolongedRow, korean: korean)
         return (model.dx, model.dy)
     }
 
     /// Effective offset in points for `letter` given its painted `body`.
     func effectivePointOffset(for letter: Character, body: CGRect, in bucket: LayoutBucket,
-                              prolongedRow: Bool = false) -> CGPoint {
+                              prolongedRow: Bool = false, korean: Bool = false) -> CGPoint {
         guard body.width > 0, body.height > 0 else { return .zero }
-        let model = effectiveModel(for: letter, in: bucket, prolongedRow: prolongedRow)
+        let model = effectiveModel(for: letter, in: bucket, prolongedRow: prolongedRow, korean: korean)
         return CGPoint(x: CGFloat(model.dx) * body.width, y: CGFloat(model.dy) * body.height)
     }
 
@@ -262,9 +265,10 @@ nonisolated final class KeyHitCalibration: @unchecked Sendable {
         body: CGRect,
         bucket: LayoutBucket,
         prolongedRow: Bool = false,
+        korean: Bool = false,
         timestamp: TimeInterval = Date().timeIntervalSince1970
     ) -> Bool {
-        learn(letter: letter, point: point, body: body, storageKey: bucket.storageKey(prolongedRow: prolongedRow),
+        learn(letter: letter, point: point, body: body, storageKey: bucket.storageKey(prolongedRow: prolongedRow, korean: korean),
               isNeighborFix: false, timestamp: timestamp)
     }
 
@@ -276,10 +280,11 @@ nonisolated final class KeyHitCalibration: @unchecked Sendable {
         intendedBody: CGRect,
         bucket: LayoutBucket,
         prolongedRow: Bool = false,
+        korean: Bool = false,
         timestamp: TimeInterval = Date().timeIntervalSince1970
     ) -> Bool {
         learn(letter: intendedLetter, point: mistypedPoint, body: intendedBody,
-              storageKey: bucket.storageKey(prolongedRow: prolongedRow), isNeighborFix: true, timestamp: timestamp)
+              storageKey: bucket.storageKey(prolongedRow: prolongedRow, korean: korean), isNeighborFix: true, timestamp: timestamp)
     }
 
     private func learn(

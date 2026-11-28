@@ -98,6 +98,7 @@ struct KeyboardSettingsSummary: Equatable {
     var japanese = true
     var kanaLayout = false
     var chinese = true
+    var korean = false
     var chineseModel = true
 
     static func load(preferences: KeyboardPreferences = KeyboardPreferences(),
@@ -110,6 +111,7 @@ struct KeyboardSettingsSummary: Equatable {
              added: KeyboardSetupProgress.load(status: status).added,
              japanese: preferences.japaneseInputEnabled, kanaLayout: preferences.kanaLayout,
              chinese: preferences.chineseInputEnabled && RimeEngine.bundledData != nil,
+             korean: preferences.koreanInputEnabled,
              chineseModel: preferences.chineseLanguageModel)
     }
 
@@ -398,6 +400,7 @@ struct KeyboardInputSettingsView: View {
     @AppStorage private var englishCompletion: Bool
     @AppStorage private var japaneseInput: Bool
     @AppStorage private var chineseInput: Bool
+    @AppStorage private var koreanInput: Bool
     @AppStorage private var pinyinLookup: Bool
     @AppStorage private var chineseModel: Bool
     @AppStorage private var fuzzyRetroflex: Bool
@@ -415,6 +418,7 @@ struct KeyboardInputSettingsView: View {
         // The stored choices, not the effective values, which follow the other input method.
         _japaneseInput = AppStorage(wrappedValue: true, "vime.japaneseInputEnabled", store: prefs.store)
         _chineseInput = AppStorage(wrappedValue: prefs.chineseInputEnabled, "vime.chineseInputEnabled", store: prefs.store)
+        _koreanInput = AppStorage(wrappedValue: prefs.koreanInputEnabled, "vime.koreanInputEnabled", store: prefs.store)
         _pinyinLookup = AppStorage(wrappedValue: true, "vime.pinyinLookupInJapanese", store: prefs.store)
         _chineseModel = AppStorage(wrappedValue: prefs.chineseLanguageModel, "vime.chineseLanguageModel", store: prefs.store)
         _fuzzyRetroflex = AppStorage(wrappedValue: false, FuzzyPinyin.retroflex.key, store: prefs.store)
@@ -439,7 +443,7 @@ struct KeyboardInputSettingsView: View {
 
     /// As KeyboardPreferences reads them: one input method always stays on.
     private var chinese: Bool { chineseInput && RimeEngine.bundledData != nil }
-    private var japanese: Bool { japaneseInput || !chinese }
+    private var japanese: Bool { japaneseInput || (!chinese && !koreanInput) }
 
     var body: some View {
         Form {
@@ -602,6 +606,7 @@ struct KeyboardFeedbackSettingsView: View {
     @AppStorage private var kanaLayout: Bool
     @AppStorage private var japaneseInput: Bool
     @AppStorage private var chineseInput: Bool
+    @AppStorage private var koreanInput: Bool
     @AppStorage private var prolongedKey: Bool
     @AppStorage private var previews: Bool
     @AppStorage private var previewHold: Double
@@ -614,6 +619,7 @@ struct KeyboardFeedbackSettingsView: View {
         _kanaLayout = AppStorage(wrappedValue: prefs.kanaLayout, "vime.kanaLayout", store: store)
         _japaneseInput = AppStorage(wrappedValue: true, "vime.japaneseInputEnabled", store: store)
         _chineseInput = AppStorage(wrappedValue: prefs.chineseInputEnabled, "vime.chineseInputEnabled", store: store)
+        _koreanInput = AppStorage(wrappedValue: prefs.koreanInputEnabled, "vime.koreanInputEnabled", store: store)
         _prolongedKey = AppStorage(wrappedValue: prefs.prolongedKey, "vime.prolongedKey", store: store)
         _previews = AppStorage(wrappedValue: prefs.previews, "vime.previews", store: store)
         _previewHold = AppStorage(wrappedValue: prefs.previewHold, "vime.previewHold", store: store)
@@ -823,7 +829,7 @@ struct KeyboardDataPrivacyView: View {
         .navigationTitle("学习与隐私").navigationBarTitleDisplayMode(.inline)
         .confirmationDialog("清空所有学习记录？", isPresented: $confirmLearningReset, titleVisibility: .visible) {
             Button("清空学习记录", role: .destructive) {
-                ChineseLearnedWords.shared().discardPending(); KeyboardPreferences().learningResetRequests.request()
+                ChineseLearnedWords.shared().discardPending(); KoreanPersonalLearningStore.shared.reset(); KeyboardPreferences().learningResetRequests.request()
             }
             Button("取消", role: .cancel) {}
         } message: {

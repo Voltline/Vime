@@ -4,22 +4,23 @@ import SwiftUI
 /// two layouts, of which one is used; one input method always stays on.
 struct KeyboardInputMethodsView: View {
     enum Method: CaseIterable, Identifiable {
-        case romaji, kana, pinyin
+        case romaji, kana, pinyin, korean
         var id: Self { self }
         var title: LocalizedStringResource {
-            switch self { case .romaji, .kana: "日语"; case .pinyin: "简体中文" }
+            switch self { case .romaji, .kana: "日语"; case .pinyin: "简体中文"; case .korean: "韩语" }
         }
         var layout: LocalizedStringResource {
-            switch self { case .romaji: "罗马字"; case .kana: "假名九宫格"; case .pinyin: "全拼" }
+            switch self { case .romaji: "罗马字"; case .kana: "假名九宫格"; case .pinyin: "全拼"; case .korean: "两套式" }
         }
         var glyph: String {
-            switch self { case .romaji: "A"; case .kana: "あ"; case .pinyin: "中" }
+            switch self { case .romaji: "A"; case .kana: "あ"; case .pinyin: "中"; case .korean: "한" }
         }
         var identifier: String { "vime.settings.inputMethod.\(self)" }
     }
 
     @AppStorage private var japanese: Bool
     @AppStorage private var chinese: Bool
+    @AppStorage private var korean: Bool
     @AppStorage private var kanaLayout: Bool
     @AppStorage private var inputLanguage: KeyboardInputLanguage
     private let chineseAvailable: Bool
@@ -28,21 +29,26 @@ struct KeyboardInputMethodsView: View {
         let prefs = KeyboardPreferences(), store = prefs.store
         _japanese = AppStorage(wrappedValue: true, "vime.japaneseInputEnabled", store: store)
         _chinese = AppStorage(wrappedValue: prefs.chineseInputEnabled, "vime.chineseInputEnabled", store: store)
+        _korean = AppStorage(wrappedValue: prefs.koreanInputEnabled, "vime.koreanInputEnabled", store: store)
         _kanaLayout = AppStorage(wrappedValue: prefs.kanaLayout, "vime.kanaLayout", store: store)
         _inputLanguage = AppStorage(wrappedValue: prefs.inputLanguage, "vime.inputLanguage", store: store)
         self.chineseAvailable = chineseAvailable
     }
 
-    private var methods: [Method] { chineseAvailable ? Method.allCases : [.romaji, .kana] }
-    /// As KeyboardPreferences reads them: Japanese is on whenever Chinese is off.
-    private var japaneseOn: Bool { japanese || !chineseOn }
+    private var methods: [Method] { chineseAvailable ? Method.allCases : [.romaji, .kana, .korean] }
+    /// As KeyboardPreferences reads them: Japanese is on whenever no other primary method is on.
+    private var japaneseOn: Bool { japanese || (!chineseOn && !korean) }
     private var chineseOn: Bool { chinese && chineseAvailable }
+    private var enabledPrimaryCount: Int {
+        (japaneseOn ? 1 : 0) + (chineseOn ? 1 : 0) + (korean ? 1 : 0)
+    }
 
     private func isOn(_ method: Method) -> Bool {
         switch method {
         case .romaji: japaneseOn && !kanaLayout
         case .kana: japaneseOn && kanaLayout
         case .pinyin: chineseOn
+        case .korean: korean
         }
     }
 
@@ -65,10 +71,17 @@ struct KeyboardInputMethodsView: View {
             }
         case .pinyin:
             if chineseOn {
-                japanese = true
+                if !korean { japanese = true }
                 chinese = false
             } else {
                 chinese = true
+            }
+        case .korean:
+            if korean {
+                if !chineseOn { japanese = true }
+                korean = false
+            } else {
+                korean = true
             }
         }
     }
@@ -85,14 +98,19 @@ struct KeyboardInputMethodsView: View {
             } footer: {
                 Text("日语的罗马字与假名九宫格二选一，至少保留一种输入法\n假名九宫格：点按输入あ段，上下左右滑动输入其他段；连续点按同一键依次切换\n切换后，下次打开键盘时生效")
             }
-            if japaneseOn && chineseOn {
+            if enabledPrimaryCount >= 2 {
                 Section {
                     Picker("输入语言", selection: $inputLanguage) {
-                        Text("日语").tag(KeyboardInputLanguage.japanese)
-                        Text("简体中文").tag(KeyboardInputLanguage.chinese)
+                        if japaneseOn { Text("日语").tag(KeyboardInputLanguage.japanese) }
+                        if chineseOn { Text("简体中文").tag(KeyboardInputLanguage.chinese) }
+                        if korean { Text("韩语").tag(KeyboardInputLanguage.korean) }
                     }.accessibilityIdentifier("vime.settings.inputLanguage")
                 } footer: {
-                    Text("打开键盘时使用的语言；在键盘上，向上滑动语言键即可在日语和中文之间切换")
+                    if enabledPrimaryCount == 3 {
+                        Text("打开键盘时使用的语言；在键盘上，向上斜滑语言键可在已启用的语言间切换")
+                    } else {
+                        Text("打开键盘时使用的语言；在键盘上，向上滑动语言键即可在已启用的语言之间切换")
+                    }
                 }
             }
         }
@@ -127,6 +145,7 @@ extension KeyboardSettingsSummary {
         var names: [String] = []
         if japanese { names.append(kanaLayout ? String(localized: "假名九宫格") : String(localized: "罗马字")) }
         if chinese { names.append(String(localized: "全拼")) }
+        if korean { names.append(String(localized: "两套式")) }
         return names.joined(separator: " · ")
     }
 }

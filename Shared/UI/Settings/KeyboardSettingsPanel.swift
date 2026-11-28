@@ -15,7 +15,12 @@ final class KeyboardSettingsPanel: UIScrollView {
     private let accessibleNumbers = UIStackView()
     private let oneHanded = UISegmentedControl(items: [String(localized: "关闭"), String(localized: "靠左"), String(localized: "靠右")])
     private var oneHandedGroup: UIView?
-    private static let languages: [KeyboardInputLanguage] = [.japanese, .chinese]
+    var enabledLanguages: [KeyboardInputLanguage] = [.japanese, .chinese] {
+        didSet {
+            guard enabledLanguages != oldValue else { return }
+            rebuildLanguageSegments()
+        }
+    }
     private let inputLanguage = UISegmentedControl(items: [String(localized: "日语"), String(localized: "简体中文")])
     private var inputLanguageGroup: UIView?
     private static let chineseLayouts = ChineseKeyboardLayout.allCases
@@ -213,8 +218,8 @@ final class KeyboardSettingsPanel: UIScrollView {
         inputLanguage.accessibilityLabel = String(localized: "输入语言"); inputLanguage.accessibilityIdentifier = "vime.setting.inputLanguage"
         inputLanguage.setContentHuggingPriority(.required, for: .horizontal)
         inputLanguage.addAction(UIAction { [weak self] _ in
-            guard let self, Self.languages.indices.contains(self.inputLanguage.selectedSegmentIndex) else { return }
-            self.onInputLanguageChange?(Self.languages[self.inputLanguage.selectedSegmentIndex])
+            guard let self, self.enabledLanguages.indices.contains(self.inputLanguage.selectedSegmentIndex) else { return }
+            self.onInputLanguageChange?(self.enabledLanguages[self.inputLanguage.selectedSegmentIndex])
         }, for: .valueChanged)
         let inputLanguageGroup = group(row(symbol: "globe", content: [label(String(localized: "输入语言")), inputLanguage],
             height: 48, adaptive: true))
@@ -264,7 +269,7 @@ final class KeyboardSettingsPanel: UIScrollView {
         updateLiveConversion()
         updateNumberSelection()
         oneHanded.selectedSegmentIndex = KeyboardOneHandedSide.allCases.firstIndex(of: preferences.oneHanded) ?? 0
-        inputLanguage.selectedSegmentIndex = Self.languages.firstIndex(of: preferences.inputLanguage) ?? 0
+        inputLanguage.selectedSegmentIndex = enabledLanguages.firstIndex(of: preferences.inputLanguage) ?? 0
         chineseLayout.selectedSegmentIndex = Self.chineseLayouts.firstIndex(of: preferences.chineseLayout) ?? 0
         if !haptics.isAdjusting {
             haptics.setIntensity(preferences.hapticIntensity)
@@ -273,6 +278,23 @@ final class KeyboardSettingsPanel: UIScrollView {
         notice.isHidden = hasFullAccess
         neuralStatus.isHidden = !neuralPaused
         retryGroup?.isHidden = !neuralPaused
+    }
+
+    private static func segmentTitle(for language: KeyboardInputLanguage) -> String {
+        switch language {
+        case .japanese: String(localized: "日语")
+        case .chinese: String(localized: "简体中文")
+        case .korean: String(localized: "韩语")
+        case .english: String(localized: "英文")
+        }
+    }
+
+    private func rebuildLanguageSegments() {
+        inputLanguage.removeAllSegments()
+        for (index, language) in enabledLanguages.enumerated() {
+            inputLanguage.insertSegment(withTitle: Self.segmentTitle(for: language), at: index, animated: false)
+        }
+        inputLanguage.selectedSegmentIndex = enabledLanguages.firstIndex(of: preferences.inputLanguage) ?? 0
     }
 
     private func updateLiveConversion() {

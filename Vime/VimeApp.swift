@@ -45,7 +45,11 @@ struct VimeApp: App {
            let language = KeyboardInputLanguage(rawValue: arguments[index + 1]), language != .english {
             let preferences = KeyboardPreferences()
             preferences.inputLanguage = language
-            if language == .chinese { preferences.chineseInputEnabled = true } else { preferences.japaneseInputEnabled = true }
+            switch language {
+            case .chinese: preferences.chineseInputEnabled = true
+            case .korean: preferences.koreanInputEnabled = true
+            case .japanese, .english: preferences.japaneseInputEnabled = true
+            }
         }
 #endif
     }
