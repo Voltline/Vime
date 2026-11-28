@@ -954,7 +954,10 @@ final class KeyboardSession: KeyboardInputSession {
         let continuity = candidateSnapshots.first(where: { $0.source != .pinyinLookup }).map { CandidateContinuity(surface: $0.text, reading: $0.reading, input: lastPublishedInput) }
         worker.candidates(for: boundary ? PreeditPresentation.finalized(composing) : composing,
                           katakana: compositionMode == .katakana, revision: requestedRevision, leftContext: leftContext, continuity: continuity,
-                          ranking: candidateRanking, conversionLength: conversionLength, expanded: expandedCandidates) { [weak self] values, resultReadyAt, supplementary in
+                          ranking: candidateRanking, conversionLength: conversionLength, expanded: expandedCandidates,
+                          onPauseMerge: { [weak self] merged in
+            self?.acceptPauseMergedCandidates(merged, revision: requestedRevision)
+        }) { [weak self] values, resultReadyAt, supplementary in
             if let self, self.revision == requestedRevision { self.lastPublishedInput = requestedInput }
             self?.acceptCandidateUpdate(values, revision: requestedRevision, readyAt: resultReadyAt, supplementary: supplementary)
         }
@@ -1003,6 +1006,18 @@ final class KeyboardSession: KeyboardInputSession {
             // A Return pressed before this result commits what it now shows.
             if pendingConfirm { return flushPendingConfirm() }
         }
+        onCandidatesChange?()
+    }
+
+    func acceptPauseMergedCandidates(_ values: [CandidateSnapshot], revision requestedRevision: Int) {
+        guard revision == requestedRevision, isComposing, !candidatesPending,
+              selectedIndex == nil, pendingSpaces == 0,
+              values.allSatisfy({ $0.revision == requestedRevision }) else { return }
+        let updated = addingPinyinLookup(to: liveOrdered(values), revision: requestedRevision)
+        guard updated.map(\.presentation) != candidateSnapshots.map(\.presentation) else { return }
+        candidateSnapshots = updated
+        candidateListGeneration += 1
+        rememberLiveSurface()
         onCandidatesChange?()
     }
 }

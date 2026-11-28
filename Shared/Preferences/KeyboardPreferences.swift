@@ -57,7 +57,7 @@ struct KeyboardPreferences {
     }
     private static let sharedKeys = ["vime.sound", "vime.hapticLevel", "vime.hapticIntensity", "vime.nineKeyNumbers", "vime.kanaLayout",
         "vime.prolongedKey", "vime.previews", "vime.previewHold", "vime.theme", "vime.candidateRanking", "vime.phraseSuggestions", "vime.clipboardSuggestions", "vime.autoPairBrackets", "vime.autoCapitalize", "vime.doubleSpacePeriod", "vime.undoConversionOnBackspace", "vime.fullWidthSpace", "vime.liveConversion", "vime.textReplacements", "vime.englishCompletion", "vime.oneHanded", "vime.customSkinID", "vime.skinRevision", "vime.numberSymbols", "vime.inputLanguage",
-        "vime.chineseInputEnabled", "vime.japaneseInputEnabled", "vime.koreanInputEnabled", "vime.pinyinLookupInJapanese", "vime.traditionalChinese", "vime.chineseLanguageModel", "vime.chineseModelVersion",
+        "vime.chineseInputEnabled", "vime.japaneseInputEnabled", "vime.koreanInputEnabled", "vime.pinyinLookupInJapanese", "vime.traditionalChinese", "vime.chineseLanguageModel", "vime.chineseModelVersion", "vime.japaneseModelVersion",
         "vime.fuzzyRetroflex", "vime.fuzzyNasal", "vime.fuzzyInitials", "vime.chinesePunctuation", "vime.japaneseFullWidthSymbols", "vime.correctionSpellingHints",
         "vime.chineseDateFormat", "vime.chineseTimeFormat", "vime.chineseLayout", "vime.shuangpinScheme"]
     var store: UserDefaults { defaults }
@@ -97,6 +97,7 @@ struct KeyboardPreferences {
         let traditionalChinese: Bool
         let chineseLanguageModel: Bool
         let chineseModelVersion: ChineseLanguageModel.Version
+        let japaneseModelVersion: JapaneseLanguageModelV6.Version
         let fuzzyPinyin: FuzzyPinyin
         let chinesePunctuation: Bool
         let japaneseFullWidthSymbols: Bool
@@ -121,7 +122,7 @@ struct KeyboardPreferences {
             inputLanguage: inputLanguage, chineseInputEnabled: chineseInputEnabled, japaneseInputEnabled: japaneseInputEnabled,
             koreanInputEnabled: koreanInputEnabled,
             pinyinLookupInJapanese: pinyinLookupInJapanese, traditionalChinese: traditionalChinese,
-            chineseLanguageModel: chineseLanguageModel, chineseModelVersion: chineseModelVersion, fuzzyPinyin: fuzzyPinyin,
+            chineseLanguageModel: chineseLanguageModel, chineseModelVersion: chineseModelVersion, japaneseModelVersion: japaneseModelVersion, fuzzyPinyin: fuzzyPinyin,
             chinesePunctuation: chinesePunctuation, japaneseFullWidthSymbols: japaneseFullWidthSymbols,
             correctionSpellingHints: correctionSpellingHints,
             chineseDateFormat: chineseDateFormat, chineseTimeFormat: chineseTimeFormat, chineseLayout: chineseLayout,
@@ -235,6 +236,18 @@ struct KeyboardPreferences {
         nonmutating set {
             defaults.set(newValue.rawValue, forKey: ChineseLanguageModel.versionPreferenceKey)
             if newValue == .v2 { ChineseModelFallback.shared.resetForManualV2Selection() }
+        }
+    }
+    /// Which bundled Japanese model (and matching pipeline) is active:
+    /// v6 (`vimeml-ja-v6-20m` rerank + pause generation, default) or v42 (`V4.2` rerank fallback).
+    var japaneseModelVersion: JapaneseLanguageModelV6.Version {
+        get {
+            guard let raw = defaults.string(forKey: JapaneseLanguageModelV6.versionPreferenceKey),
+                  let version = JapaneseLanguageModelV6.Version(rawValue: raw) else { return JapaneseLanguageModelV6.defaultVersion }
+            return version
+        }
+        nonmutating set {
+            defaults.set(newValue.rawValue, forKey: JapaneseLanguageModelV6.versionPreferenceKey)
         }
     }
     /// Fuzzy pinyin groups for Chinese input, all off by default.
