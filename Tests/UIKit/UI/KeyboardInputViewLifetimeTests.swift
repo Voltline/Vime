@@ -61,6 +61,7 @@ final class KeyboardInputViewLifetimeTests: XCTestCase {
     }
 
     func testNativeHostReleasesSupersededInputRoots() async throws {
+        try skipSlowTestUnlessFullRun()
         let roots = try await nativeHostRootsAfterTeardown()
         // In-process UIKit hosting caches its most recent input view even
         // after the editor is removed. Earlier connections must not pile up.

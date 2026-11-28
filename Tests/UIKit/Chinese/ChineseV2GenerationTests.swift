@@ -98,6 +98,7 @@ final class ChineseV2GenerationTests: XCTestCase {
     /// - `rescored` Top-1 match >= 123/125
     /// - score differences within INT8 tolerance (~0.6)
     func testV2FixtureParity125Cases() throws {
+        try skipSlowTestUnlessFullRun()
         let fixtures = try loadFixtures()
         let s = try setupV2()
 

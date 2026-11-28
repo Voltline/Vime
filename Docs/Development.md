@@ -16,6 +16,27 @@ python3 Scripts/validate_model_resources.py
 
 App 的分组件许可与隐私政策可以用 `python3 Scripts/validate_app_resources.py` 校验，构建产物可传 `--resources <Vime.app>`，以检查声明原文和公开政策的一致性。合并到 dev 或 beta 的 PR 由 [Resource check](../.github/workflows/resource-check.yml) 工作流运行同一校验，只改文档的 PR 也跑，因为公开隐私政策在 Docs 下
 
+### 装到手机
+
+用 [install_device.sh](../Scripts/install_device.sh) 构建 Release 并装到手机。只连了一台 iPhone 时自动选它，否则用 `VIME_DEVICE` 指定名称或 UDID：
+
+```sh
+bash Scripts/install_device.sh          # 正常构建：和上架包一样整模块优化
+bash Scripts/install_device.sh --fast   # 快速构建：只用于看界面和行为
+```
+
+快速构建把 App 和键盘扩展按文件分别优化，改一行后约 15 秒就能装好，正常构建约 90 秒。代价是跨文件的内联、泛型特化等优化做不了，键盘可能变慢，依赖包（azooKey 等）不受影响。按这条规则选：
+
+- **只演示纯界面效果**（布局、颜色、动画、交互流程、文案）：可以用快速构建。
+- **其他一切情况都用正常构建**，包括：按键延迟、候选速度、内存、发热或卡顿的判断，候选质量、纠错、组字等输入逻辑的验收，以及交给用户试用、准备提交的版本。拿不准时用正常构建。
+- 在快速构建上觉得慢，不能据此下结论；换正常构建复现后再查。
+
+两种模式各用一个构建目录，来回切换不会从头编译。上架包（archive、Xcode Cloud）永远是正常构建。
+
+### 编译缓存
+
+`test.sh` 和 `install_device.sh` 开启了 Xcode 编译缓存，缓存放在 `~/Library/Developer/Xcode/DerivedData/CompilationCache.noindex`，本机所有 checkout 和 worktree 共用。新建的构建目录（新 worktree、删掉 DerivedData 后）不再重编 librime 等 C++ 依赖：全新构建约 75 秒降到约 41 秒。Swift 代码目前命中不了缓存，照常编译。缓存约占 1 GB，可以随时删掉，下次构建会重建。项目文件里的设置传不到 SwiftPM 包，所以由脚本在命令行传入；在 Xcode 里按 ⌘B 不走缓存。
+
 ## 本地化
 
 App 与键盘支持简体中文（源语言）、繁体中文、日语、英语和韩语。界面文字统一放在 [Localizable.xcstrings](../Shared/Resources/Localizable.xcstrings)，由 App 与键盘扩展共用：
@@ -46,7 +67,8 @@ App 与键盘支持简体中文（源语言）、繁体中文、日语、英语�
 开发时用 [test.sh](../Scripts/test.sh)。它固定使用一个构建目录做增量构建，模拟器默认取已启动的那台，没有就取第一台 iPhone，也可以用 `VIME_SIMULATOR` 指定名称或 UDID：
 
 ```sh
-bash Scripts/test.sh                                   # 全部单元测试
+bash Scripts/test.sh                                   # 全部单元测试，慢测试除外
+bash Scripts/test.sh --full                            # 全部单元测试，包括慢测试
 bash Scripts/test.sh KeyboardFeatureTests KeyboardCoreTests/testRomajiAndVisibleKanaDeletion
 bash Scripts/test.sh --failed                          # 只重跑上次失败的用例
 bash Scripts/test.sh --extension                       # 真实键盘扩展的 UI 测试
@@ -55,6 +77,10 @@ bash Scripts/test.sh --extension                       # 真实键盘扩展的 U
 结束时按结果包汇总通过、失败和跳过的数量，并列出失败用例；完整输出在构建目录的 `Results/` 下。需要留存证据时改用下文的 `verify_review.sh`。
 
 `--` 之后的参数原样交给 xcodebuild。GitHub 上不跑单元测试，合并前用 `Scripts/test.sh` 在本机跑一遍。依赖真实耗时的用例（时间与内存预算、要在期限内出结果的纠错等）开头调用 `skipTimingSensitiveTestOnCI()`，设置了 `VIME_CI=1` 时跳过；新写的用例只要结果取决于耗时，也照此标记。扩展 UI 测试需要在系统设置里启用键盘，只在本机跑。
+
+单个耗时十秒以上的语料守卫和模型一致性用例（约占全部耗时的三分之二）开头调用 `skipSlowTestUnlessFullRun()`，日常的 `test.sh` 跳过它们；点名类或方法、加 `--full`、以及 `verify_review.sh` 都会运行。合并前用 `--full` 跑一遍。
+
+`VimeKeyboardTests` 不再自己编译 `Shared`：它以 Vime.app 为宿主，通过 `-testable-import-module Vime` 隐式 `@testable import Vime`，只额外编译 `Keyboard/` 和测试代码；App 不打包的中文模型、分词器和清单由测试 bundle 单独携带，用 `Bundle(for:)` 读取。因此 App 与键盘扩展的 Swift 并发设置须保持一致（都不设默认 MainActor 隔离），`Vime/` 里需要主线程的类型显式标 `@MainActor`。
 
 [KeyboardBudgetTests](../Tests/UIKit/Diagnostics/KeyboardBudgetTests.swift) 随本机单元测试每次运行（CI 上跳过），检查热状态下按键到候选的 p50/p95、按键在主线程的耗时、连续 120 次输入并确认后的内存增长，以及 1,024 条词典的导入导出耗时。上限约为本机 Debug 模拟器实测的四倍，只拦截明显变慢或内存持续增长的改动；数值逐项打印为 `VIME_BUDGET` 行，`test.sh` 在汇总后列出，便于对比趋势。模拟器数字不能代替真机扩展的内存与性能验收。确有理由放宽上限时，在同一提交里写明新的实测值。
 

@@ -246,6 +246,7 @@ final class KeyboardPersonalRecallTests: XCTestCase {
     }
 
     func testMixedTiersReserveGlobalCapacityAndGlobalFloodPreservesFrequentAndRecentChoices() throws {
+        try skipSlowTestUnlessFullRun()
         let url = try directory(), memory = CandidatePreferenceMemory(directory: url), now = Date()
         for _ in 0..<10 { memory.record(reading: reading, surface: surface, scope: "choice", now: now) }
         for index in 0..<2_200 { memory.record(reading: "テスト", surface: "表記\(index)", scope: "choice", now: now.addingTimeInterval(Double(index + 1))) }

@@ -1,13 +1,17 @@
 #!/bin/bash
 # Day-to-day test runs on one simulator, reusing one build folder.
 #
-#   Scripts/test.sh                          all unit tests (VimeKeyboardTests)
+#   Scripts/test.sh                          all unit tests except the slow ones
+#   Scripts/test.sh --full                   all unit tests, slow ones included
 #   Scripts/test.sh KeyboardFeatureTests KeyboardCoreTests/testRomajiAndVisibleKanaDeletion
 #                                            only these classes or methods
 #   Scripts/test.sh --failed                 only what failed in the last run
 #   Scripts/test.sh --extension [names]      extension UI tests (VimeExtensionUITests)
 #   Scripts/test.sh [names] -- -retry-tests-on-failure -test-iterations 2
 #                                            arguments after -- go to xcodebuild as is
+#
+# Slow tests (corpus guards, model parity; see Tests/UIKit/Support/SlowTests.swift)
+# also run whenever classes or methods are named.
 #
 # VIME_SIMULATOR picks the simulator by name or UDID; otherwise the booted
 # one, else the first available iPhone. VIME_DERIVED_DATA overrides the
@@ -17,6 +21,8 @@ cd "$(dirname "$0")/.."
 
 scheme=Vime; target=VimeKeyboardTests
 if [ "${1:-}" = --extension ]; then scheme=VimeExtensionTests; target=VimeExtensionUITests; shift; fi
+full=0
+if [ "${1:-}" = --full ]; then full=1; shift; fi
 derived=${VIME_DERIVED_DATA:-$HOME/Library/Developer/Xcode/DerivedData/Vime-tests}
 results=$derived/Results
 mkdir -p "$results"
@@ -49,12 +55,21 @@ while [ $# -gt 0 ]; do
     selectors+=("-only-testing:$target/$1"); shift
 done
 
+[ ${#selectors[@]} -gt 0 ] && full=1
+if [ "$full" = 1 ]; then export TEST_RUNNER_VIME_FULL_TESTS=1; fi
+
 bundle=$results/$target.xcresult
 rm -rf "$bundle"
+# Compilation caching, shared by every checkout and worktree on this Mac: a
+# fresh build folder reuses the C++ objects (librime and its dependencies)
+# instead of compiling them again. Settings in the project do not reach
+# SwiftPM packages, so they are passed here.
+cache=(COMPILATION_CACHE_ENABLE_CACHING=YES CLANG_ENABLE_COMPILE_CACHE=YES SWIFT_ENABLE_COMPILE_CACHE=YES
+    "COMPILATION_CACHE_CAS_PATH=$HOME/Library/Developer/Xcode/DerivedData/CompilationCache.noindex")
 run_tests() {
     xcodebuild test -project Vime.xcodeproj -scheme "$scheme" -destination "$destination" \
         -derivedDataPath "$derived" -parallel-testing-enabled NO -collect-test-diagnostics never \
-        -resultBundlePath "$bundle" ${selectors[@]+"${selectors[@]}"}
+        -resultBundlePath "$bundle" "${cache[@]}" ${selectors[@]+"${selectors[@]}"}
 }
 status=0
 if [ -n "${CI:-}" ]; then

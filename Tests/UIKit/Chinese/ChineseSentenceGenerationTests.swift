@@ -282,6 +282,7 @@ final class ChineseSentenceGenerationTests: XCTestCase {
     /// not expected to match. Set VIME_INCREMENTAL_REPORT to a file path for
     /// the numbers and the cases that differ.
     func testForwardOnlyAgainstVimeML() throws {
+        try skipSlowTestUnlessFullRun()
         let fixtures = try fixtures(), s = try setup()
         var report: [String] = []
         var top = 0, topThree = 0, order = 0, shared = 0, total = 0, worst = 0.0

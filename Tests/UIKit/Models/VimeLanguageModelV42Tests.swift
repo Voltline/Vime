@@ -68,6 +68,7 @@ final class VimeLanguageModelV42Tests: XCTestCase {
     }
 
     func testNativeBeamMatchesTwentyMacV42INT8Prefixes() throws {
+        try skipSlowTestUnlessFullRun()
         let lm = try VimeLanguageModel(variant: .v42)
         let corpus = try fixtures().phrases
         XCTAssertEqual(corpus.count, 20)

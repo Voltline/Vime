@@ -14,6 +14,8 @@ output=$(cd "$output" && pwd)
 derived=${VIME_DERIVED_DATA:-$output/DerivedData}
 optimization=${VIME_SWIFT_OPTIMIZATION:--Onone}
 case "$optimization" in -Onone|-O) ;; *) echo "VIME_SWIFT_OPTIMIZATION must be -Onone or -O" >&2; exit 2 ;; esac
+# Review evidence always includes the slow tests (Tests/UIKit/Support/SlowTests.swift).
+export TEST_RUNNER_VIME_FULL_TESTS=1
 manifest() {
   python3 - "$1" <<'PY'
 import hashlib, json, pathlib, subprocess, sys

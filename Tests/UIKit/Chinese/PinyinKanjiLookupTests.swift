@@ -406,11 +406,13 @@ final class PinyinKanjiLookupTests: XCTestCase {
     }
     private var listDifferences = 0
 
-    func testJapaneseSentencesAreUnchangedByTheLookup() {
+    func testJapaneseSentencesAreUnchangedByTheLookup() throws {
+        try skipSlowTestUnlessFullRun()
         for input in Self.japaneseInputs { _ = assertJapaneseUnchanged(input) }
     }
 
     func testEverydayBenchmarkIsUnchangedByTheLookup() throws {
+        try skipSlowTestUnlessFullRun()
         let inputs = try readings("CandidateBenchmarkEveryday", key: "reading").compactMap(KeyboardCandidateBenchmarkTests.romaji)
         XCTAssertGreaterThan(inputs.count, 200)
         let failed = inputs.filter { !assertJapaneseUnchanged($0) }
@@ -418,6 +420,7 @@ final class PinyinKanjiLookupTests: XCTestCase {
     }
 
     func testMixedSoundCorpusIsUnchangedByTheLookup() throws {
+        try skipSlowTestUnlessFullRun()
         let inputs = try readings("MixedSoundCorpus", key: "input").compactMap(KeyboardCandidateBenchmarkTests.romaji)
         XCTAssertGreaterThan(inputs.count, 100)
         let failed = inputs.filter { !assertJapaneseUnchanged($0) }

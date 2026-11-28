@@ -103,9 +103,11 @@
 		F10000000000000000000003 /* Exceptions for "Shared" folder in "VimeKeyboardTests" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				Resources/DictionarySource.json,
-				Resources/JapaneseLexicon.tsv,
-				Resources/PinyinKanjiLookupSource.json,
+				Resources/TinyChineseKVBatchV4FP32KVINT8.mlmodelc,
+				Resources/TinyChineseV2KVBatchV4FP32KVINT8.mlmodelc,
+				Resources/VimeChineseTokenizerV1.model,
+				Resources/VimeLMManifestZhKVBatchV4-fp32kv.json,
+				Resources/VimeLMManifestZhV2KVBatchV4-fp32kv.json,
 			);
 			target = D10000000000000000000004 /* VimeKeyboardTests */;
 		};
@@ -168,9 +170,6 @@
 		D10000000000000000000007 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
-				E10000000000000000000003 /* KanaKanjiConverterModuleWithDefaultDictionary in Frameworks */,
-				A81000000000000000000003 /* VimeSentencePiece in Frameworks */,
-				A84000000000000000000003 /* VimeRime in Frameworks */,
 			);
 		};
 		D20000000000000000000007 /* Frameworks */ = {
@@ -186,7 +185,6 @@
 			children = (
 				B2ED4C0A3071EF7600C73DB0 /* Vime */,
 				C10000000000000000000007 /* Keyboard */,
-				C10000000000000000000008 /* Shared */,
 				D10000000000000000000003 /* Tests/UIKit */,
 				D20000000000000000000003 /* Tests/ExtensionUI */,
 				B2ED4C093071EF7600C73DB0 /* Products */,
@@ -276,14 +274,10 @@
 			);
 			fileSystemSynchronizedGroups = (
 				C10000000000000000000007 /* Keyboard */,
-				C10000000000000000000008 /* Shared */,
 				D10000000000000000000003 /* Tests/UIKit */,
 			);
 			name = VimeKeyboardTests;
 			packageProductDependencies = (
-				E20000000000000000000003 /* KanaKanjiConverterModuleWithDefaultDictionary */,
-				A82000000000000000000003 /* VimeSentencePiece */,
-				A85000000000000000000003 /* VimeRime */,
 			);
 			productName = VimeKeyboardTests;
 			productReference = D10000000000000000000001 /* VimeKeyboardTests.xctest */;
@@ -576,7 +570,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
-				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_COMPILATION_MODE = "$(VIME_SWIFT_COMPILATION_MODE:default=wholemodule)";
 				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;
@@ -611,8 +605,6 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.Voltline.Vime;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
@@ -650,8 +642,6 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.Voltline.Vime;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
@@ -716,6 +706,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
+				OTHER_SWIFT_FLAGS = "$(inherited) -Xfrontend -testable-import-module -Xfrontend Vime";
 				DEVELOPMENT_TEAM = 8R5Q4A3RC7;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSPrincipalClass = VimeTestEnvironment;
@@ -738,6 +729,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
+				OTHER_SWIFT_FLAGS = "$(inherited) -Xfrontend -testable-import-module -Xfrontend Vime";
 				DEVELOPMENT_TEAM = 8R5Q4A3RC7;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSPrincipalClass = VimeTestEnvironment;

@@ -1,5 +1,5 @@
 import XCTest
-@testable import VimeKeyboard
+@testable import Vime
 
 @MainActor
 final class ChinesePersonalRankingCacheTests: XCTestCase {
