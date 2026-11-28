@@ -56,10 +56,12 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         if followsInputLanguage, let previous, next.inputLanguage != previous.inputLanguage {
             switchSession(to: Self.session(for: next.inputLanguage))
         } else if next.chineseInputEnabled != previous?.chineseInputEnabled
-                    || next.japaneseInputEnabled != previous?.japaneseInputEnabled {
-            rebuildKeys() // The language key gains or loses its swipe-up switch.
+                    || next.japaneseInputEnabled != previous?.japaneseInputEnabled
+                    || next.koreanInputEnabled != previous?.koreanInputEnabled {
+            rebuildKeys() // The language key gains, loses, or updates its swipe-up switch.
         }
-        settingsPanel?.showsInputLanguage = quickSwitchLanguage != nil
+        settingsPanel?.enabledLanguages = enabledPrimaryLanguages
+        settingsPanel?.showsInputLanguage = enabledPrimaryLanguages.count > 1 && followsInputLanguage
         session.updateIntelligence(ranking: next.candidateRanking, suggestionsEnabled: next.phraseSuggestions)
         session.setUndoesCommitOnBackspace(next.undoConversionOnBackspace)
         session.setFullWidthSpace(next.fullWidthSpace)
@@ -74,6 +76,7 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         applyNeuralRetry()
         if next.learningResetID != previous?.learningResetID {
             ChinesePersonalRankingCache.shared.applyResetIfNeeded(resetID: next.learningResetID)
+            KoreanPersonalLearningStore.shared.applyResetIfNeeded(resetID: next.learningResetID)
             session.reset()
             session.prepareForInput()
             publishPreedit()
@@ -96,20 +99,51 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         if next.theme != previous?.theme || next.customSkinID != previous?.customSkinID || next.skinRevision != previous?.skinRevision { applyTheme() }
         settingsPanel?.update(hasFullAccess: hasFullAccess, neuralPaused: session.neuralModeSuspendedForMemoryPressure)
     }
-    /// The language a swipe up on the language key switches to, or nil when
-    /// this keyboard has a fixed session, Chinese or Japanese input is off, or
-    /// there is no Rime data. Then the key toggles one language and English.
-    var quickSwitchLanguage: KeyboardInputLanguage? {
-        guard followsInputLanguage, preferences.chineseInputEnabled, preferences.japaneseInputEnabled,
-              RimeEngine.bundledData != nil else { return nil }
-        return session is ChineseInputSession ? .japanese : .chinese
+    /// Enabled primary languages in canonical left-to-right order (`あ`, `中`, `한`).
+    var enabledPrimaryLanguages: [KeyboardInputLanguage] {
+        var result: [KeyboardInputLanguage] = []
+        if preferences.japaneseInputEnabled { result.append(.japanese) }
+        if preferences.chineseInputEnabled && RimeEngine.bundledData != nil { result.append(.chinese) }
+        if preferences.koreanInputEnabled { result.append(.korean) }
+        return result.isEmpty ? [.japanese] : result
     }
 
-    /// Japanese ↔ Chinese without opening the app. The choice is stored, so the
-    /// app's setting and the next keyboard show the same language.
+    /// The primary language owned by the current session (even while temporarily in English).
+    var activePrimaryLanguage: KeyboardInputLanguage {
+        if session is ChineseInputSession { return .chinese }
+        if session is KoreanInputSession { return .korean }
+        return .japanese
+    }
+
+    /// Other enabled primary languages reachable by swiping up on the language key,
+    /// preserving canonical left-to-right order (`あ`, `中`, `한`):
+    /// - Japanese active -> `[.chinese, .korean]`
+    /// - Chinese active  -> `[.japanese, .korean]`
+    /// - Korean active   -> `[.japanese, .chinese]`
+    var quickSwitchLanguages: [KeyboardInputLanguage] {
+        guard followsInputLanguage else { return [] }
+        let enabled = enabledPrimaryLanguages
+        guard enabled.count > 1 else { return [] }
+        let active = activePrimaryLanguage
+        return enabled.filter { $0 != active }
+    }
+
+    /// The language a single swipe up on the language key switches to, or nil when
+    /// only one primary language is enabled or this keyboard has a fixed session.
+    var quickSwitchLanguage: KeyboardInputLanguage? {
+        quickSwitchLanguages.first
+    }
+
+    /// Switches between enabled primary languages without opening the app.
+    /// The choice is stored so the app and next keyboard open in the same language.
     func switchInputLanguage(to language: KeyboardInputLanguage) {
-        guard followsInputLanguage, language != .english, language != .chinese || preferences.chineseInputEnabled,
-              language != .japanese || preferences.japaneseInputEnabled else { return }
+        guard followsInputLanguage, language != .english else { return }
+        switch language {
+        case .japanese: guard preferences.japaneseInputEnabled else { return }
+        case .chinese: guard preferences.chineseInputEnabled && RimeEngine.bundledData != nil else { return }
+        case .korean: guard preferences.koreanInputEnabled else { return }
+        case .english: return
+        }
         preferences.inputLanguage = language
         reloadPreferences()
     }
@@ -141,23 +175,56 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
         return keyGuard.evaluate(context: context)
     }
 
-    func configureQuickSwitch(_ key: KeyboardKey) {
-        guard let target = quickSwitchLanguage else {
-            key.hint = nil; key.alternateTitle = nil; key.alternateAccessibilityName = nil; key.alternateAction = nil
-            return
+    private static func switchAccessibilityLabel(for target: KeyboardInputLanguage) -> String {
+        switch target {
+        case .japanese: String(localized: "切换到日语")
+        case .chinese: String(localized: "切换到简体中文")
+        case .korean: String(localized: "切换到韩语")
+        case .english: String(localized: "切换到英文")
         }
-        let glyph = target == .chinese ? "中" : "あ"
-        key.hint = glyph
-        key.alternateTitle = glyph
-        key.alternateAccessibilityName = target == .chinese ? String(localized: "切换到简体中文") : String(localized: "切换到日语")
-        key.alternateAction = { [weak self] in self?.switchInputLanguage(to: target) }
     }
 
-    /// Chinese needs the bundled Rime data; without it the keyboard stays Japanese.
-    /// Callers pass the effective preference, which is never Chinese while
-    /// Chinese input is off, so Rime is not started then.
+    func configureQuickSwitch(_ key: KeyboardKey) {
+        let targets = quickSwitchLanguages
+        if targets.isEmpty {
+            key.hint = nil; key.alternateTitle = nil; key.alternateAccessibilityName = nil
+            key.alternateAction = nil; key.swipeOptions = nil
+            return
+        }
+        if targets.count == 1, let target = targets.first {
+            let glyph = target.glyph
+            key.hint = glyph
+            key.alternateTitle = glyph
+            key.alternateAccessibilityName = Self.switchAccessibilityLabel(for: target)
+            key.alternateAction = { [weak self] in self?.switchInputLanguage(to: target) }
+            key.swipeOptions = nil
+            return
+        }
+        // Three enabled primary languages: swipe up-left picks targets[0], swipe up-right picks targets[1].
+        key.hint = "\(targets[0].glyph)·\(targets[1].glyph)"
+        key.alternateTitle = nil
+        key.alternateAccessibilityName = nil
+        key.alternateAction = nil
+        key.swipeOptions = targets.prefix(2).map { target in
+            KeyboardKey.SwipeOption(
+                title: target.glyph,
+                accessibilityName: Self.switchAccessibilityLabel(for: target),
+                action: { [weak self] in self?.switchInputLanguage(to: target) }
+            )
+        }
+    }
+
+    /// Creates the input session for the given primary language.
+    /// Never loads Chinese Rime or Korean lexicon data unless that language is selected.
     static func session(for language: KeyboardInputLanguage) -> any KeyboardInputSession {
-        (language == .chinese ? ChineseInputSession.bundled() : nil) ?? KeyboardSession(asynchronousCandidates: true)
+        switch language {
+        case .chinese:
+            return ChineseInputSession.bundled() ?? KeyboardSession(asynchronousCandidates: true)
+        case .korean:
+            return KoreanInputSession()
+        case .japanese, .english:
+            return KeyboardSession(asynchronousCandidates: true)
+        }
     }
 
     /// Connects a session to this view and applies the current preferences.
@@ -437,6 +504,9 @@ final class KeyboardView: UIView, UIInputViewAudioFeedback, UIScrollViewDelegate
     var usesKanaLayout: Bool { page == .letters && prefersKanaLayout }
     /// The layout the current rows were built for.
     var kanaLayoutActive = false
+    /// Korean 2-beolsik letter plane active on the letters page.
+    var usesKoreanLayout: Bool { page == .letters && session.inputTraits.language == .korean }
+    var koreanLayoutActive = false
     /// The last toggle-input tap: key row in KeyboardKanaLayout.keys, what it entered, and when.
     var kanaToggle: (key: Int, output: Character, time: TimeInterval)?
 

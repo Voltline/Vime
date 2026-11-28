@@ -430,5 +430,17 @@
     "revision": "2026-311",
     "modified": "用音读与训读把词语读音按字切分；衍生数据以 CC BY-SA 4.0 分发",
     "noticeFile": "kanjidic2"
+  },
+  {
+    "id": "mecabkodic",
+    "name": "mecab-ko-dic",
+    "use": "韩语名词词性与补充词表",
+    "category": "语言与表情数据",
+    "license": "Apache 2.0",
+    "copyright": "Eunjeon Project (은전한잎 프로젝트)",
+    "source": "https://bitbucket.org/eunjeon/mecab-ko-dic",
+    "revision": "2.1.1-20180720",
+    "modified": "提取名词与动词/形容词词性标注及高频名词，与 wordfreq、Tatoeba 合并编译为按需映射的韩语词库 KoreanLexicon.bin",
+    "noticeFile": "mecabkodic"
   }
 ]

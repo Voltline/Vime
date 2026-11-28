@@ -65,6 +65,7 @@ final class KeyboardTouchSurface: UIView {
         let origin: CGPoint
         var swipe = KeySwipeSelection()
         var alternateLocked = false
+        var swipeOptionIndex: Int?
         var flick = KeyFlick.center
         let sequence: Int
     }
@@ -283,13 +284,36 @@ final class KeyboardTouchSurface: UIView {
             if press.key.repeats, delta.y <= -30 * scale, abs(delta.x) < 30 * scale {
                 startGesture(.deleteLine, owner: id, at: point); return
             }
-            if !press.key.repeats, !press.alternateLocked, abs(delta.x) >= 60 * scale,
+            if !press.key.repeats, !press.alternateLocked, press.key.swipeOptions == nil, abs(delta.x) >= 60 * scale,
                abs(delta.x) > abs(delta.y) * 1.6, allowsSwipeCursor() {
                 startGesture(.horizontalCursor, owner: id, at: point)
                 onCursorMove?(delta.x > 0 ? 1 : -1, 0)
                 return
             }
             if hypot(delta.x, delta.y) > 12 * scale { spaceTimer?.invalidate(); spaceTimer = nil }
+        }
+        if let options = press.key.swipeOptions, options.count == 2 {
+            let up = -Double(delta.y) / max(0.01, Double(scale))
+            let sideways = abs(Double(delta.x)) / max(0.01, Double(scale))
+            let aboveKey = point.y <= (press.touched ?? press.key).frame.minY - 2 * scale
+            let active: Bool
+            if press.swipeOptionIndex != nil {
+                active = up >= KeySwipeSelection.Policy.retentionDistance
+            } else {
+                // Allow single-motion diagonal swipe up-left or up-right.
+                active = allowsActivation && aboveKey
+                    && up >= KeySwipeSelection.Policy.activationDistance
+                    && up >= sideways * 0.55
+            }
+            if active {
+                press.swipeOptionIndex = delta.x > 0 ? 1 : 0
+                press.alternateLocked = true
+            } else {
+                press.swipeOptionIndex = nil
+            }
+            presses[id] = press
+            press.key.presentSwipeOptions(selectedIndex: press.swipeOptionIndex)
+            return
         }
         if press.key.alternateAction != nil {
             press.swipe.move(x: Double(delta.x), y: Double(delta.y), scale: Double(scale),
@@ -356,7 +380,8 @@ final class KeyboardTouchSurface: UIView {
         }
         let stillPressed = presses.values.contains { $0.key === press.key }
         press.key.finishResolvedPress(cancelled: cancelled, alternate: press.swipe.alternate,
-            stillPressed: stillPressed, deferredRepeat: press.key.repeats, flick: press.flick)
+            stillPressed: stillPressed, deferredRepeat: press.key.repeats, flick: press.flick,
+            swipeOptionIndex: press.swipeOptionIndex)
         // Actions can rebuild the layout/cancel every other touch. Re-read the
         // owners after the action before restoring a held finger's preview.
         if let remaining = presses.values.filter({ $0.key === press.key }).max(by: { $0.sequence < $1.sequence }) {

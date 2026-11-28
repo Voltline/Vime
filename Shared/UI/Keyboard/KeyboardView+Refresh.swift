@@ -54,7 +54,7 @@ extension KeyboardView {
         // host keyboard type) swaps the flick pad and QWERTY.
         if !rebuildingKeys && page == .letters
             && (kanaLayoutActive != usesKanaLayout || chineseNineKeyActive != usesChineseNineKey
-                || shuangpinActive != wantedShuangpin) { rebuildKeys(); return }
+                || koreanLayoutActive != usesKoreanLayout || shuangpinActive != wantedShuangpin) { rebuildKeys(); return }
         let traits = session.inputTraits
         let composing = session.isComposing
         refreshLanguageKey(traits)
@@ -98,8 +98,10 @@ extension KeyboardView {
         neuralStatusLabel.isHidden = state.hidesNeuralStatus
         if panel == .settings {
             settingsPanel?.showsOneHanded = !pad && !compact
-            settingsPanel?.showsLiveConversion = !(session is ChineseInputSession)
+            settingsPanel?.showsLiveConversion = !(session is ChineseInputSession) && !(session is KoreanInputSession)
             settingsPanel?.showsChineseLayout = session is ChineseInputSession
+            settingsPanel?.enabledLanguages = enabledPrimaryLanguages
+            settingsPanel?.showsInputLanguage = enabledPrimaryLanguages.count > 1 && followsInputLanguage
             settingsPanel?.update(hasFullAccess: hasFullAccess, neuralPaused: neuralPaused)
         }
         header.isHidden = state.hidesHeader

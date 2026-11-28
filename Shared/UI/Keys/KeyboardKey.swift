@@ -15,6 +15,17 @@ final class KeyboardKey: UIButton {
     /// Recheck the host before each repeat, including accessibility activation.
     var canRepeat: (() -> Bool)?
     var alternateAction: (() -> Void)?
+    /// Two-option swipe-up selector (used when 3 primary languages are enabled:
+    /// swipe up-left picks index 0, swipe up-right picks index 1).
+    struct SwipeOption {
+        let title: String
+        let accessibilityName: String
+        let action: () -> Void
+    }
+    var swipeOptions: [SwipeOption]?
+    private var swipeOptionPopup: UIView?
+    private var swipeOptionLabels: [UILabel] = []
+    private var selectedSwipeOptionIndex: Int?
     /// Runs once the key has been held for `holdDelay`; when it returns
     /// true the release does nothing more, otherwise `action` runs as usual.
     var holdAction: (() -> Bool)?
@@ -334,8 +345,77 @@ final class KeyboardKey: UIButton {
         showPreview(outputs[flick.rawValue], alternate: flick != .center)
     }
 
+    /// Presents or hides the 2-option square swipe popup above the key.
+    func presentSwipeOptions(selectedIndex: Int?) {
+        guard let options = swipeOptions, options.count == 2, let selectedIndex, options.indices.contains(selectedIndex) else {
+            swipeOptionPopup?.removeFromSuperview()
+            swipeOptionPopup = nil
+            swipeOptionLabels = []
+            selectedSwipeOptionIndex = nil
+            return
+        }
+        let changed = selectedSwipeOptionIndex != selectedIndex
+        selectedSwipeOptionIndex = selectedIndex
+        previewHideWork?.cancel(); previewHideWork = nil
+        preview?.removeFromSuperview(); preview = nil
+
+        let container = previewContainer ?? superview?.superview ?? self
+        let popupSize = CGSize(width: 84, height: 76)
+        var rect = convert(CGRect(x: (bounds.width - popupSize.width) / 2, y: -popupSize.height - 8,
+                                  width: popupSize.width, height: popupSize.height), to: container)
+        rect.origin.y = max(container.bounds.minY + 2, rect.minY)
+        rect.origin.x = min(max(container.bounds.minX + 4, rect.minX), max(container.bounds.minX + 4, container.bounds.maxX - rect.width - 4))
+
+        let popup: UIView
+        if let existing = swipeOptionPopup {
+            popup = existing
+        } else {
+            let box = UIView()
+            box.isUserInteractionEnabled = false
+            box.accessibilityIdentifier = "vime.language.swipePopup"
+            box.layer.cornerRadius = 12
+            box.layer.cornerCurve = .continuous
+            box.layer.shadowColor = UIColor.black.cgColor
+            box.layer.shadowOpacity = Float(skin?.document.style.shadowOpacity ?? 0.30)
+            box.layer.shadowOffset = CGSize(width: 0, height: 3)
+            box.layer.shadowRadius = 6
+            var labels: [UILabel] = []
+            for idx in 0..<2 {
+                let lbl = UILabel()
+                lbl.textAlignment = .center
+                lbl.font = .systemFont(ofSize: 22, weight: .semibold)
+                lbl.layer.cornerRadius = 8
+                lbl.layer.cornerCurve = .continuous
+                lbl.layer.masksToBounds = true
+                lbl.accessibilityIdentifier = "vime.language.swipeOption.\(idx)"
+                box.addSubview(lbl)
+                labels.append(lbl)
+            }
+            swipeOptionPopup = box
+            swipeOptionLabels = labels
+            popup = box
+        }
+
+        popup.frame = rect
+        popup.backgroundColor = KeyboardPalette.key.withAlphaComponent(1).resolvedColor(with: traitCollection)
+        let pad: CGFloat = 5
+        let gap: CGFloat = 4
+        let cellW = (rect.width - pad * 2 - gap) / 2
+        let cellH = rect.height - pad * 2
+        for (idx, lbl) in swipeOptionLabels.enumerated() {
+            lbl.frame = CGRect(x: pad + CGFloat(idx) * (cellW + gap), y: pad, width: cellW, height: cellH)
+            lbl.text = options[idx].title
+            let active = idx == selectedIndex
+            lbl.backgroundColor = active ? KeyboardPalette.accent : .clear
+            lbl.textColor = active ? .white : KeyboardPalette.text.withAlphaComponent(0.65)
+        }
+        if popup.superview !== container { container.addSubview(popup) }
+        container.bringSubviewToFront(popup)
+        if changed { onAlternateActivate?() }
+    }
+
     func finishResolvedPress(cancelled: Bool, alternate: Bool, stillPressed: Bool, deferredRepeat: Bool = false,
-                             flick: KeyFlick = .center) {
+                             flick: KeyFlick = .center, swipeOptionIndex: Int? = nil) {
         KeyboardTouchDiagnostics.record("KeyboardKey.resolvedRelease", view: self,
             detail: "cancelled=\(cancelled) alternate=\(alternate) stillPressed=\(stillPressed)")
         if !stillPressed {
@@ -345,7 +425,9 @@ final class KeyboardKey: UIButton {
         // The surface owns selection per finger; UIButton's shared swipe/up
         // state must not decide another simultaneous finger's character.
         if !cancelled && !repeats && !holdFired {
-            if let flickAction { flickAction(flick) }
+            if let swipeOptionIndex, let options = swipeOptions, options.indices.contains(swipeOptionIndex) {
+                options[swipeOptionIndex].action()
+            } else if let flickAction { flickAction(flick) }
             else if alternate { alternateAction?() }
             else { action?() }
         }
@@ -363,6 +445,15 @@ final class KeyboardKey: UIButton {
                         guard let self, let flickAction = self.flickAction else { return false }
                         self.feedback?()
                         flickAction(flick)
+                        return true
+                    })
+                }
+            } else if let options = swipeOptions, !options.isEmpty {
+                for option in options {
+                    actions.append(UIAccessibilityCustomAction(name: option.accessibilityName) { [weak self] _ in
+                        guard let self else { return false }
+                        self.feedback?()
+                        option.action()
                         return true
                     })
                 }
@@ -590,6 +681,10 @@ final class KeyboardKey: UIButton {
         repeatTimer = nil
         accelerateTimer = nil
         previewWasAlternate = false
+        swipeOptionPopup?.removeFromSuperview()
+        swipeOptionPopup = nil
+        swipeOptionLabels = []
+        selectedSwipeOptionIndex = nil
         previewHideWork?.cancel(); previewHideWork = nil
         guard holdingPreview, previewHold > 0, let bubble = preview else {
             preview?.removeFromSuperview()

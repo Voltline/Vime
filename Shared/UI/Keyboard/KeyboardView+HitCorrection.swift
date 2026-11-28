@@ -8,6 +8,10 @@ extension KeyboardView {
         switch session.inputTraits.language {
         case .japanese: return KeyHitCorrection.romajiPrior(after: session.raw + held)
         case .chinese: return chinesePrior(after: session.raw + held)
+        case .korean:
+            guard let koreanSession = session as? KoreanInputSession else { return nil }
+            let jamos = HangulComposer.decomposeToJamo(koreanSession.composition) + Array(held)
+            return KoreanKeyPrior.prior(afterJamos: jamos, activeState: koreanSession.activeSyllableState)
         case .english:
             let word = Self.trailingWord(in: session.leftContextProvider?() ?? "") + held
             return englishPrior(after: word)
@@ -60,6 +64,7 @@ extension KeyboardView {
             let body: CGRect
             let bucket: KeyHitCalibration.LayoutBucket
             let prolongedRow: Bool
+            let korean: Bool
             let timestamp: TimeInterval
         }
         var pendingTaps: [PendingTap] = []
@@ -83,7 +88,8 @@ extension KeyboardView {
             return .init(dx: 0, dy: 0, varX: KeyHitCalibration.defaultVarX, varY: KeyHitCalibration.defaultVarY, weight: 0, count: 0)
         }
         return hitCalibration.effectiveModel(for: letter, in: hitCalibrationBucket,
-                                             prolongedRow: lettersRowHasProlongedKey)
+                                             prolongedRow: lettersRowHasProlongedKey,
+                                             korean: koreanLayoutActive)
     }
 
     func recordCalibratedLetterTap(_ outcome: KeyboardTouchSurface.LetterTapOutcome) {
@@ -91,12 +97,14 @@ extension KeyboardView {
         let now = Date().timeIntervalSince1970
         let bucket = hitCalibrationBucket
         let prolongedRow = lettersRowHasProlongedKey
+        let korean = koreanLayoutActive
 
         // Check if this tap corrects the earliest backspaced key in a 1–3 key rollback.
         if let entry = hitCalibrationTracker.deletedStack.last,
            now - entry.deletedAt <= HitCalibrationTracker.neighborFixWindow,
            entry.tap.bucket == bucket,
            entry.tap.prolongedRow == prolongedRow,
+           entry.tap.korean == korean,
            entry.tap.letter != outcome.letter,
            outcome.body.width > 0, outcome.body.height > 0,
            abs(entry.tap.body.midX - outcome.body.midX) <= outcome.body.width * 1.6,
@@ -108,6 +116,7 @@ extension KeyboardView {
                 intendedBody: outcome.body,
                 bucket: bucket,
                 prolongedRow: prolongedRow,
+                korean: korean,
                 timestamp: now
             )
         }
@@ -125,6 +134,7 @@ extension KeyboardView {
             body: outcome.body,
             bucket: bucket,
             prolongedRow: prolongedRow,
+            korean: korean,
             timestamp: now
         ))
         if hitCalibrationTracker.pendingTaps.count > 64 {
@@ -174,6 +184,7 @@ extension KeyboardView {
                 body: tap.body,
                 bucket: tap.bucket,
                 prolongedRow: tap.prolongedRow,
+                korean: tap.korean,
                 timestamp: tap.timestamp
             )
         }

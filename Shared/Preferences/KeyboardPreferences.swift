@@ -57,7 +57,7 @@ struct KeyboardPreferences {
     }
     private static let sharedKeys = ["vime.sound", "vime.hapticLevel", "vime.hapticIntensity", "vime.nineKeyNumbers", "vime.kanaLayout",
         "vime.prolongedKey", "vime.previews", "vime.previewHold", "vime.theme", "vime.candidateRanking", "vime.phraseSuggestions", "vime.clipboardSuggestions", "vime.autoPairBrackets", "vime.autoCapitalize", "vime.doubleSpacePeriod", "vime.undoConversionOnBackspace", "vime.fullWidthSpace", "vime.liveConversion", "vime.textReplacements", "vime.englishCompletion", "vime.oneHanded", "vime.customSkinID", "vime.skinRevision", "vime.numberSymbols", "vime.inputLanguage",
-        "vime.chineseInputEnabled", "vime.japaneseInputEnabled", "vime.pinyinLookupInJapanese", "vime.traditionalChinese", "vime.chineseLanguageModel", "vime.chineseModelVersion",
+        "vime.chineseInputEnabled", "vime.japaneseInputEnabled", "vime.koreanInputEnabled", "vime.pinyinLookupInJapanese", "vime.traditionalChinese", "vime.chineseLanguageModel", "vime.chineseModelVersion",
         "vime.fuzzyRetroflex", "vime.fuzzyNasal", "vime.fuzzyInitials", "vime.chinesePunctuation", "vime.japaneseFullWidthSymbols", "vime.correctionSpellingHints",
         "vime.chineseDateFormat", "vime.chineseTimeFormat", "vime.chineseLayout", "vime.shuangpinScheme"]
     var store: UserDefaults { defaults }
@@ -92,6 +92,7 @@ struct KeyboardPreferences {
         let inputLanguage: KeyboardInputLanguage
         let chineseInputEnabled: Bool
         let japaneseInputEnabled: Bool
+        let koreanInputEnabled: Bool
         let pinyinLookupInJapanese: Bool
         let traditionalChinese: Bool
         let chineseLanguageModel: Bool
@@ -118,6 +119,7 @@ struct KeyboardPreferences {
             learningResetID: [learningResetRequests.requestID, learningResetRequests.chinese.requestID]
                 .map { $0 ?? "" }.joined(separator: "|"),
             inputLanguage: inputLanguage, chineseInputEnabled: chineseInputEnabled, japaneseInputEnabled: japaneseInputEnabled,
+            koreanInputEnabled: koreanInputEnabled,
             pinyinLookupInJapanese: pinyinLookupInJapanese, traditionalChinese: traditionalChinese,
             chineseLanguageModel: chineseLanguageModel, chineseModelVersion: chineseModelVersion, fuzzyPinyin: fuzzyPinyin,
             chinesePunctuation: chinesePunctuation, japaneseFullWidthSymbols: japaneseFullWidthSymbols,
@@ -168,26 +170,37 @@ struct KeyboardPreferences {
     }
     /// The keyboard's primary language, one of the input methods turned on.
     /// Chinese also needs the bundled Rime data. A stored language that is
-    /// turned off reads as the other and comes back when it is turned on again.
+    /// turned off reads as the first enabled language and comes back when turned on again.
     var inputLanguage: KeyboardInputLanguage {
         get {
             let stored = KeyboardInputLanguage(rawValue: defaults.string(forKey: "vime.inputLanguage") ?? "") ?? .japanese
-            if stored == .chinese && !chineseInputEnabled { return .japanese }
-            if stored == .japanese && !japaneseInputEnabled { return .chinese }
-            return stored
+            switch stored {
+            case .japanese where japaneseInputEnabled: return .japanese
+            case .chinese where chineseInputEnabled: return .chinese
+            case .korean where koreanInputEnabled: return .korean
+            default:
+                if japaneseInputEnabled { return .japanese }
+                if chineseInputEnabled { return .chinese }
+                if koreanInputEnabled { return .korean }
+                return .japanese
+            }
         }
         nonmutating set { defaults.set(newValue.rawValue, forKey: "vime.inputLanguage") }
     }
-    /// Offers Chinese pinyin input. Off, the keyboard is Japanese and English
-    /// only, as before Chinese input, and never starts the Rime engine.
+    /// Offers Chinese pinyin input. Off, the keyboard never starts the Rime engine.
     var chineseInputEnabled: Bool {
         get { defaults.object(forKey: "vime.chineseInputEnabled") as? Bool ?? true }
         nonmutating set { defaults.set(newValue, forKey: "vime.chineseInputEnabled") }
     }
+    /// Offers Korean 2-beolsik input. Off by default; never loads Korean lexicon data while off.
+    var koreanInputEnabled: Bool {
+        get { defaults.object(forKey: "vime.koreanInputEnabled") as? Bool ?? false }
+        nonmutating set { defaults.set(newValue, forKey: "vime.koreanInputEnabled") }
+    }
     /// Offers Japanese input, in the romaji or kana layout. It is off only
-    /// while Chinese input is on: one input method always stays.
+    /// while at least one other primary input method is on: one input method always stays.
     var japaneseInputEnabled: Bool {
-        get { !chineseInputEnabled || (defaults.object(forKey: "vime.japaneseInputEnabled") as? Bool ?? true) }
+        get { (!chineseInputEnabled && !koreanInputEnabled) || (defaults.object(forKey: "vime.japaneseInputEnabled") as? Bool ?? true) }
         nonmutating set { defaults.set(newValue, forKey: "vime.japaneseInputEnabled") }
     }
     /// Japanese mode: a kanji word's Mandarin pinyin, alone or mixed with

@@ -16,14 +16,14 @@ nonisolated struct KeyboardCalculation: Equatable, Sendable {
                 return ["。", "？", "！", "…", "-", "&", ".", "%", "：", "=", "@", "¥", "€", "$", "〜", "#", "（", "）", "「", "」", "[", "]"]
             case .japanese:
                 return ["。", "？", "！", "…", "「", "」", "-", "：", "%", "&", ".", "=", "@", "¥", "€", "$", "〜", "#", "（", "）", "[", "]"]
-            case .english:
+            case .korean, .english:
                 return [".", "?", "!", "…", "-", "&", ",", "%", ":", "=", "@", "¥", "€", "$", "~", "#", "(", ")", "[", "]"]
             }
         }
         switch language {
         case .chinese, .japanese:
             return symbols
-        case .english:
+        case .korean, .english:
             return ["+", "−", "×", "÷", "%", "=", "@", "¥", "€", "$", "…", "~", "#", "(", ")", "[", "]"]
         }
     }
