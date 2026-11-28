@@ -36,9 +36,8 @@ nonisolated enum KoreanKeyPrior {
             case nil:
                 // Start of syllable: consonants are normal, bare vowels are rare.
                 return isConsonant ? 1.0 : 0.1
-            case .consonant, .compoundConsonant:
-                // After an initial consonant (e.g. ㄱ) or standalone compound consonant (e.g. ㄺ),
-                // a vowel forms a syllable; another consonant is rare.
+            case .consonant:
+                // After an initial consonant (e.g. ㄱ), a vowel forms a syllable; another consonant is rare.
                 return isVowel ? 1.0 : 0.05
             case .vowel:
                 // After a bare vowel, a consonant starts a normal syllable; another bare vowel is rare.

@@ -109,7 +109,6 @@ nonisolated struct HangulComposer: Equatable, Sendable {
 
     enum ActiveSyllable: Equatable, Sendable {
         case consonant(cho: Int)
-        case compoundConsonant(jong: Int)
         case vowel(jung: Int)
         case syllable(cho: Int, jung: Int, jong: Int)
 
@@ -117,8 +116,6 @@ nonisolated struct HangulComposer: Equatable, Sendable {
             switch self {
             case .consonant(let cho):
                 return String(HangulComposer.choseong[cho])
-            case .compoundConsonant(let jong):
-                return String(HangulComposer.jongseong[jong] ?? " ")
             case .vowel(let jung):
                 return String(HangulComposer.jungseong[jung])
             case .syllable(let cho, let jung, let jong):
@@ -184,18 +181,8 @@ nonisolated struct HangulComposer: Equatable, Sendable {
             return
         }
         switch current {
-        case .consonant(let curCho):
-            // Standalone consonants combine into compound jongseong when valid (e.g. ㄱ+ㅅ -> ㄳ, ㄹ+ㄱ -> ㄺ).
-            let curChar = Self.choseong[curCho]
-            if let firstJong = Self.jongseongIndex[curChar],
-               let combined = Self.compoundJongseong[firstJong]?[cho] {
-                active = .compoundConsonant(jong: combined)
-            } else {
-                committedSyllables.append(current.rendered)
-                active = .consonant(cho: cho)
-            }
-
-        case .compoundConsonant:
+        case .consonant:
+            // Matches iOS system 2-Set: standalone consonants stay separate (e.g. ㄱ+ㅅ -> ㄱㅅ, ㄹ+ㄱ -> ㄹㄱ).
             committedSyllables.append(current.rendered)
             active = .consonant(cho: cho)
 
@@ -230,19 +217,8 @@ nonisolated struct HangulComposer: Equatable, Sendable {
         case .consonant(let curCho):
             active = .syllable(cho: curCho, jung: jung, jong: 0)
 
-        case .compoundConsonant(let curJong):
-            // Split standalone compound consonant: ㄺ + ㅏ -> ㄹ가, ㄳ + ㅏ -> ㄱ사.
-            if let (firstJong, secondCho) = Self.splitCompoundJongseong[curJong],
-               let firstChar = Self.jongseong[firstJong] {
-                committedSyllables.append(String(firstChar))
-                active = .syllable(cho: secondCho, jung: jung, jong: 0)
-            } else {
-                committedSyllables.append(current.rendered)
-                active = .vowel(jung: jung)
-            }
-
         case .vowel(let curJung):
-            // Standalone vowels combine into compound vowels when valid (e.g. ㅗ+ㅏ -> ㅘ).
+            // Matches iOS system 2-Set: standalone vowels combine into compound vowels (e.g. ㅗ+ㅏ -> ㅘ).
             if let combined = Self.compoundVowel[curJung]?[jung] {
                 active = .vowel(jung: combined)
             } else {
@@ -282,13 +258,6 @@ nonisolated struct HangulComposer: Equatable, Sendable {
             switch current {
             case .consonant:
                 active = nil
-            case .compoundConsonant(let jong):
-                if let (firstJong, _) = Self.splitCompoundJongseong[jong],
-                   let firstCho = Self.jongseongToChoseong[firstJong] {
-                    active = .consonant(cho: firstCho)
-                } else {
-                    active = nil
-                }
             case .vowel(let jung):
                 if let (firstJung, _) = Self.splitCompoundVowel[jung] {
                     active = .vowel(jung: firstJung)
