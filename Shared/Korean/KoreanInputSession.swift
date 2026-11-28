@@ -274,12 +274,18 @@ final class KoreanInputSession: KeyboardInputSession {
             hostEpoch += 1
             previousWord = nil
             lastRecordedCommit = nil
+            pendingDeletionUndo = nil
         }
         composer.clear()
         clearCandidates()
         clearSuggestions()
+        learning.reloadIfModified()
         exclusionsActive = exclusionsApply()
         onCandidatesChange?()
+    }
+
+    func prepareForInput() {
+        learning.reloadIfModified()
     }
 
     func handleMemoryPressure() {

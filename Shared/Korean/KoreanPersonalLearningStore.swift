@@ -44,6 +44,8 @@ nonisolated final class KoreanPersonalLearningStore: @unchecked Sendable {
     private var bigrams: [String: BigramRecord] = [:]
     private var lastResetID: String?
     private var pendingResetID: String?
+    private var lastLoadedMtime: Date?
+    private var lastLoadedExisted = false
     private var dirty = false
     private var pendingFlushWork: DispatchWorkItem?
 
@@ -110,6 +112,107 @@ nonisolated final class KoreanPersonalLearningStore: @unchecked Sendable {
         if let url {
             ioQueue.async { try? FileManager.default.removeItem(at: url) }
         }
+    }
+
+    /// Synchronously clears all learned words and removes the backing file so the
+    /// keyboard extension observes the deletion on its next `reloadIfModified()`.
+    func clearAllAndPersist() {
+        lock.lock()
+        loaded = true
+        words.removeAll(keepingCapacity: false)
+        bigrams.removeAll(keepingCapacity: false)
+        dirty = false
+        pendingFlushWork?.cancel()
+        pendingFlushWork = nil
+        let url = fileURL
+        lastLoadedMtime = nil
+        lastLoadedExisted = false
+        lock.unlock()
+        if let url {
+            ioQueue.sync { try? FileManager.default.removeItem(at: url) }
+        }
+    }
+
+    /// Returns all learned words sorted by usage count descending, reloading from disk
+    /// if another process modified the backing file.
+    func allWords() -> [WordRecord] {
+        reloadIfModified()
+        lock.lock()
+        ensureLoadedLocked()
+        let result = words.values.sorted { lhs, rhs in
+            if lhs.count != rhs.count { return lhs.count > rhs.count }
+            if lhs.updatedAt != rhs.updatedAt { return lhs.updatedAt > rhs.updatedAt }
+            return lhs.surface < rhs.surface
+        }
+        lock.unlock()
+        return result
+    }
+
+    /// Whether the backing JSON file currently holds at least one learned word.
+    var hasStoredRecords: Bool {
+        guard let url = fileURL, FileManager.default.fileExists(atPath: url.path) else { return false }
+        return !allWords().isEmpty
+    }
+
+    /// Exports learned words as UTF-8 text: each line is `word\tcount`.
+    func exportText() -> Data {
+        let lines = allWords().map { "\($0.surface)\t\($0.count)" }
+        let body = lines.isEmpty ? "" : lines.joined(separator: "\n") + "\n"
+        return Data(body.utf8)
+    }
+
+    /// Deletes a word and synchronously persists the updated JSON file so another
+    /// process (keyboard extension) sees the new modification timestamp and never
+    /// resurrects the deleted entry from stale in-memory state.
+    func forgetAndPersist(word: String) {
+        reloadIfModified()
+        lock.lock()
+        ensureLoadedLocked()
+        let removedWord = words.removeValue(forKey: word) != nil
+        let before = bigrams.count
+        bigrams = bigrams.filter { $0.value.next != word }
+        guard removedWord || bigrams.count != before else {
+            lock.unlock()
+            return
+        }
+        pendingFlushWork?.cancel()
+        pendingFlushWork = nil
+        dirty = false
+        let archive = Archive(resetID: lastResetID, words: Array(words.values), bigrams: Array(bigrams.values))
+        let url = fileURL
+        lock.unlock()
+        if let url {
+            ioQueue.sync { Self.write(archive, to: url) }
+            lock.lock()
+            let (exists, mtime) = Self.diskState(at: url)
+            lastLoadedExisted = exists
+            lastLoadedMtime = mtime
+            lock.unlock()
+        }
+    }
+
+    /// Checks whether the backing file was modified or deleted by another process
+    /// (e.g. the containing app deleting a word or clearing all records) and reloads
+    /// from disk when needed. Does nothing if the store has not been loaded yet.
+    func reloadIfModified() {
+        lock.lock()
+        guard loaded, let url = fileURL else {
+            lock.unlock()
+            return
+        }
+        let (exists, mtime) = Self.diskState(at: url)
+        let changed = (exists != lastLoadedExisted) || (exists && mtime != lastLoadedMtime)
+        guard changed else {
+            lock.unlock()
+            return
+        }
+        pendingFlushWork?.cancel()
+        pendingFlushWork = nil
+        dirty = false
+        words.removeAll(keepingCapacity: false)
+        bigrams.removeAll(keepingCapacity: false)
+        loadFromDiskLocked(url: url, exists: exists, mtime: mtime)
+        lock.unlock()
     }
 
     @discardableResult
@@ -272,6 +375,11 @@ nonisolated final class KoreanPersonalLearningStore: @unchecked Sendable {
         dirty = false
         lock.unlock()
         ioQueue.sync { Self.write(archive, to: url) }
+        lock.lock()
+        let (exists, mtime) = Self.diskState(at: url)
+        lastLoadedExisted = exists
+        lastLoadedMtime = mtime
+        lock.unlock()
     }
 
     private func flushIfNeeded() {
@@ -282,10 +390,28 @@ nonisolated final class KoreanPersonalLearningStore: @unchecked Sendable {
             lock.unlock()
             return
         }
+        // Guard against overwriting an external edit/delete from the containing app.
+        let (exists, mtime) = Self.diskState(at: url)
+        if (exists != lastLoadedExisted) || (exists && mtime != lastLoadedMtime) {
+            dirty = false
+            words.removeAll(keepingCapacity: false)
+            bigrams.removeAll(keepingCapacity: false)
+            loadFromDiskLocked(url: url, exists: exists, mtime: mtime)
+            lock.unlock()
+            return
+        }
         let archive = Archive(resetID: lastResetID, words: Array(words.values), bigrams: Array(bigrams.values))
         dirty = false
         lock.unlock()
-        ioQueue.async { Self.write(archive, to: url) }
+        ioQueue.async { [weak self] in
+            Self.write(archive, to: url)
+            guard let self else { return }
+            let (newExists, newMtime) = Self.diskState(at: url)
+            self.lock.lock()
+            self.lastLoadedExisted = newExists
+            self.lastLoadedMtime = newMtime
+            self.lock.unlock()
+        }
     }
 
     private func scheduleFlushLocked() {
@@ -299,14 +425,31 @@ nonisolated final class KoreanPersonalLearningStore: @unchecked Sendable {
     private func ensureLoadedLocked() {
         guard !loaded else { return }
         loaded = true
-        if let url = fileURL,
-           let data = try? Data(contentsOf: url),
-           let archive = try? JSONDecoder().decode(Archive.self, from: data) {
-            lastResetID = archive.resetID
-            words = Dictionary(uniqueKeysWithValues: archive.words.map { ($0.surface, $0) })
-            bigrams = Dictionary(uniqueKeysWithValues: archive.bigrams.map { ("\($0.prevHash)|\($0.next)", $0) })
+        if let url = fileURL {
+            let (exists, mtime) = Self.diskState(at: url)
+            loadFromDiskLocked(url: url, exists: exists, mtime: mtime)
         }
         applyPendingResetLocked()
+    }
+
+    private func loadFromDiskLocked(url: URL, exists: Bool, mtime: Date?) {
+        lastLoadedExisted = exists
+        lastLoadedMtime = mtime
+        guard exists,
+              let data = try? Data(contentsOf: url),
+              let archive = try? JSONDecoder().decode(Archive.self, from: data) else {
+            return
+        }
+        lastResetID = archive.resetID
+        words = Dictionary(uniqueKeysWithValues: archive.words.map { ($0.surface, $0) })
+        bigrams = Dictionary(uniqueKeysWithValues: archive.bigrams.map { ("\($0.prevHash)|\($0.next)", $0) })
+    }
+
+    private static func diskState(at url: URL) -> (exists: Bool, mtime: Date?) {
+        guard let attrs = try? FileManager.default.attributesOfItem(atPath: url.path) else {
+            return (false, nil)
+        }
+        return (true, attrs[.modificationDate] as? Date)
     }
 
     private func trimWordsLocked() {
