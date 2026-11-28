@@ -120,7 +120,7 @@ final class KeyboardCandidateReplayTests: XCTestCase {
     }
 
     func testUnsupportedAlternativeHasItsOwnStageAndCompletedScoresRemainVisible() throws {
-        let model = try VimeLanguageModel()
+        let model = try requireBundledV42Model()
         let surfaces = ["買う", String(repeating: "東京", count: 200), "飲む"]
         let values = surfaces.enumerated().map { index, text in
             CandidateSnapshot(candidate: Candidate(text: text, value: -1, composingCount: .inputCount(3),
@@ -210,7 +210,7 @@ final class KeyboardCandidateReplayTests: XCTestCase {
         XCTAssertTrue(warmed.modelLoaded)
         // Separate untimed reference arm: quality comparison only. This test
         // host owns another model and must not be used as an extension RAM test.
-        let model = try VimeLanguageModel()
+        let model = try requireBundledV42Model()
         let engine = JapaneseCandidateEngine(memoryDirectoryURL: directory)
         var rows: [Row] = []
         var revision = 0

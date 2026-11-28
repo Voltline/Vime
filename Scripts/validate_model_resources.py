@@ -44,12 +44,12 @@ def validate_v42(resources):
     return manifest["model_version"]
 
 
-def validate_zh_kvbatch4(resources, manifest_name, resource_name, label):
+def validate_kvbatch4(resources, manifest_name, resource_name, tokenizer_name, expected_format, label):
     manifest = json.loads((resources / manifest_name).read_text())
     v4 = manifest["kv_batch_v4"]
     variant = v4.get("variant", {})
     functions = v4.get("functions", {})
-    if (manifest["format"] != "vime_ios_lm_zh_kv_batch_v4"
+    if (manifest["format"] != expected_format
             or v4["resource"] != resource_name
             or variant.get("name") != "fp32kv"
             or variant.get("kv") != "fp32" or variant.get("compute") != "fp32"
@@ -58,27 +58,39 @@ def validate_zh_kvbatch4(resources, manifest_name, resource_name, label):
             or functions["prefix"].get("batch_range") != [1, 1]
             or not {"atol", "rtol"} <= set(v4["alignment_tolerance"])):
         raise ValueError(f"{label} kvbatch-v4 manifest identity is invalid")
-    if digest(resources / "VimeChineseTokenizerV1.model") != manifest["tokenizer_sha256"]:
+    if digest(resources / tokenizer_name) != manifest["tokenizer_sha256"]:
         raise ValueError(f"{label} tokenizer checksum mismatch")
     validate_compiled(resources / resource_name, v4["compiled_files_sha256"], f"{label} kvbatch-v4")
 
 
-def validate_zh_v1(resources):
-    """The Chinese keyboard's models: zh-v2-20m (default) and zh-v1 (fallback),
-    both as kvbatch-v4 fp32kv packages (logits, scored, score and prefix in one
-    package, up to 16 rows, a shared prefix built without the output head) and
-    their shared tokenizer. Keyboard extension only."""
-    validate_zh_kvbatch4(resources, "VimeLMManifestZhKVBatchV4-fp32kv.json",
-                         "TinyChineseKVBatchV4FP32KVINT8.mlmodelc", "zh-v1")
-    validate_zh_kvbatch4(resources, "VimeLMManifestZhV2KVBatchV4-fp32kv.json",
-                         "TinyChineseV2KVBatchV4FP32KVINT8.mlmodelc", "zh-v2-20m")
+def validate_ja_v6(resources):
+    """Runtime Japanese vimeml-ja-v6-20m kvbatch-v4 fp32kv package, tokenizer, and kana index."""
+    validate_kvbatch4(resources, "VimeLMManifestJaKVBatchV4-fp32kv.json",
+                      "TinyJapaneseV6KVBatchV4FP32KVINT8.mlmodelc",
+                      "VimeJapaneseTokenizerV6.model",
+                      "vime_ios_lm_ja_kv_batch_v4", "ja-v6-20m")
+    index = json.loads((resources / "VimeJapaneseKanaIndexV6.json").read_text())
+    if index.get("format") != "vimeml_ja_kana_index_v1" or not index.get("by_reading"):
+        raise ValueError("ja-v6-20m kana index identity is invalid")
+    return "vimeml-ja-v6-20m kvbatch-v4-fp32kv"
+
+
+def validate_zh_v2(resources):
+    """The Chinese keyboard's model: zh-v2-20m as kvbatch-v4 fp32kv package
+    and its tokenizer. Keyboard extension only."""
+    validate_kvbatch4(resources, "VimeLMManifestZhV2KVBatchV4-fp32kv.json",
+                      "TinyChineseV2KVBatchV4FP32KVINT8.mlmodelc",
+                      "VimeChineseTokenizerV1.model",
+                      "vime_ios_lm_zh_kv_batch_v4", "zh-v2-20m")
     retired = [name for name in ("VimeLMManifestZhV1.json", "VimeLMManifestZhV1KVBatchV3.json",
+                                 "VimeLMManifestZhKVBatchV4-fp32kv.json",
                                  "TinyChineseV1INT8.mlmodelc", "TinyChineseV1KVChunkINT8.mlmodelc",
                                  "TinyChineseV1KVBatchV2INT8.mlmodelc", "TinyChineseV1KVBatchV3INT8.mlmodelc",
-                                 "TinyChineseV1KVSequenceINT8.mlmodelc") if (resources / name).exists()]
+                                 "TinyChineseV1KVSequenceINT8.mlmodelc",
+                                 "TinyChineseKVBatchV4FP32KVINT8.mlmodelc") if (resources / name).exists()]
     if retired:
         raise ValueError(f"retired zh-v1 packages are still bundled: {', '.join(retired)}")
-    return "vimeml-zh-v2-20m + vimeml-tiny-zh-v1 kvbatch-v4-fp32kv"
+    return "vimeml-zh-v2-20m kvbatch-v4-fp32kv"
 
 
 def validate_compiled(model, expected, label):
@@ -100,17 +112,18 @@ def main():
                         default=Path(__file__).resolve().parents[1] / "Shared/Resources")
     args = parser.parse_args()
     try:
-        runtime = validate_v42(args.resources)
+        ja_v6 = validate_ja_v6(args.resources)
         retired_ja = [name for name in ("VimeLMManifestV21.json", "VimeJapaneseTokenizerV2.model",
-                                        "TinyJapaneseV21INT8.mlmodelc") if (args.resources / name).exists()]
+                                        "TinyJapaneseV21INT8.mlmodelc",
+                                        "VimeLMManifestV42.json", "VimeJapaneseTokenizerV4.model",
+                                        "TinyJapaneseV42INT8.mlmodelc") if (args.resources / name).exists()]
         if retired_ja:
-            raise ValueError(f"retired Japanese V2.1 files are still bundled: {', '.join(retired_ja)}")
-        chinese = validate_zh_v1(args.resources)
+            raise ValueError(f"retired Japanese model files are still bundled: {', '.join(retired_ja)}")
+        chinese = validate_zh_v2(args.resources)
     except (OSError, ValueError, KeyError) as error:
-        print(f"error: Vime model preflight failed: {error}. Install the matching payload with "
-              "Scripts/install_v42_resources.py or Scripts/install_zh_v1_resources.py.", file=sys.stderr)
+        print(f"error: Vime model preflight failed: {error}.", file=sys.stderr)
         return 1
-    print(f"Vime model preflight passed: runtime {runtime}; Chinese {chinese}")
+    print(f"Vime model preflight passed: Japanese {ja_v6}; Chinese {chinese}")
     return 0
 
 

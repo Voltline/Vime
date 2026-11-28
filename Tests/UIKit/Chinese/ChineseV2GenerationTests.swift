@@ -60,11 +60,8 @@ final class ChineseV2GenerationTests: XCTestCase {
 
     func testDefaultVersionAndSwitch() throws {
         XCTAssertEqual(ChineseLanguageModel.defaultVersion, .v2)
-        let v1 = try ChineseLanguageModel(bundle: Bundle(for: Self.self), version: .v1)
         let v2 = try ChineseLanguageModel(bundle: Bundle(for: Self.self), version: .v2)
-        XCTAssertEqual(v1.decodingMode, .lm)
         XCTAssertEqual(v2.decodingMode, .task)
-        XCTAssertTrue(v1.modelVersion.hasPrefix("vimeml-tiny-zh-v1-kvbatch-v4-"))
         XCTAssertTrue(v2.modelVersion.hasPrefix("vimeml-zh-v2-20m-kvbatch-v4-"))
     }
 
@@ -355,38 +352,22 @@ final class ChineseV2GenerationTests: XCTestCase {
             for item in genSentences {
                 let context = VimeLanguageModel.sentenceContext(item.context)
                 model.batch.forgetPrefix()
-                if version == .v1 {
-                    let prompt = try Generation.prompt(.lm, context: context, keys: "", tokenizer: model.tokenizer)
-                    let session = try ChineseIncrementalGeneration(
-                        model: generator.model, vocabulary: generator.vocabulary,
-                        lexicon: generator.lexicon, prompt: prompt, parameters: ChineseSentenceGeneration.parameters)
-                    for end in 1...item.keys.count {
-                        let sub = String(item.keys.prefix(end))
-                        guard let typed = ChinesePinyinKeys(sub) else { continue }
-                        let t0 = ProcessInfo.processInfo.systemUptime
-                        let generated = try autoreleasepool { try session.update(typed) }
-                        let elapsed = (ProcessInfo.processInfo.systemUptime - t0) * 1000
-                        keyByKeyGenMS.append(elapsed)
-                        if !generated.isEmpty { keyByKeyFirstListMS.append(elapsed) }
+                for end in 1...item.keys.count {
+                    let sub = String(item.keys.prefix(end))
+                    guard let typed = ChinesePinyinKeys(sub) else { continue }
+                    let t0 = ProcessInfo.processInfo.systemUptime
+                    let candidates = try autoreleasepool { () -> [ChineseSentenceGeneration.Candidate]? in
+                        let parts = try Generation.taskPromptParts(context: context, keys: sub, tokenizer: model.tokenizer)
+                        let output = try Generation.generateTask(
+                            model: generator.model, vocabulary: generator.vocabulary, lexicon: generator.lexicon,
+                            keys: typed, contextPrefix: parts.contextPrefix, keySuffix: parts.keySuffix,
+                            parameters: ChineseSentenceGeneration.parameters)
+                        return ChineseSentenceGeneration.finished(
+                            output.results, context: context, scorer: model, allows: { _ in true }, cancelled: { false })
                     }
-                } else {
-                    for end in 1...item.keys.count {
-                        let sub = String(item.keys.prefix(end))
-                        guard let typed = ChinesePinyinKeys(sub) else { continue }
-                        let t0 = ProcessInfo.processInfo.systemUptime
-                        let candidates = try autoreleasepool { () -> [ChineseSentenceGeneration.Candidate]? in
-                            let parts = try Generation.taskPromptParts(context: context, keys: sub, tokenizer: model.tokenizer)
-                            let output = try Generation.generateTask(
-                                model: generator.model, vocabulary: generator.vocabulary, lexicon: generator.lexicon,
-                                keys: typed, contextPrefix: parts.contextPrefix, keySuffix: parts.keySuffix,
-                                parameters: ChineseSentenceGeneration.parameters)
-                            return ChineseSentenceGeneration.finished(
-                                output.results, context: context, scorer: model, allows: { _ in true }, cancelled: { false })
-                        }
-                        let elapsed = (ProcessInfo.processInfo.systemUptime - t0) * 1000
-                        keyByKeyGenMS.append(elapsed)
-                        if let candidates, !candidates.isEmpty { keyByKeyFirstListMS.append(elapsed) }
-                    }
+                    let elapsed = (ProcessInfo.processInfo.systemUptime - t0) * 1000
+                    keyByKeyGenMS.append(elapsed)
+                    if let candidates, !candidates.isEmpty { keyByKeyFirstListMS.append(elapsed) }
                 }
             }
 
@@ -437,9 +418,6 @@ final class ChineseV2GenerationTests: XCTestCase {
 
         let only = ProcessInfo.processInfo.environment["VIME_V2_BENCHMARK_ONLY"]
         var full: [String: Any] = [:]
-        if only == nil || only == "v1" {
-            full["v1"] = try autoreleasepool { try measureVersion(.v1) }
-        }
         if only == nil || only == "v2" {
             full["v2"] = try autoreleasepool { try measureVersion(.v2) }
         }

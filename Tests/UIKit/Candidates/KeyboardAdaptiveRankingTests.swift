@@ -21,7 +21,7 @@ final class KeyboardAdaptiveRankingTests: XCTestCase {
     }
 
     func testDiverseHomophoneChoicesSurviveModelAndDiskReload() throws {
-        let model = try VimeLanguageModel()
+        let model = try requireBundledV42Model()
         for input in ["hashi", "kami", "ame", "ishi", "kikai", "kikou", "katei", "kansei", "taishou", "shiyou", "kaeru", "koushou"] {
             let directory = isolatedLearningDirectory()
             defer { try? FileManager.default.removeItem(at: directory) }
@@ -194,7 +194,7 @@ final class KeyboardAdaptiveRankingTests: XCTestCase {
     }
 
     func testOverlongAlternativeDoesNotDisableValidComparison() throws {
-        let model = try VimeLanguageModel()
+        let model = try requireBundledV42Model()
         let values = pool([0, 0, 0], surfaces: ["買う", String(repeating: "東京", count: 200), "飲む"])
         let ranked = model.rerank(values, context: "コーヒーを", katakana: false, cancelled: { false })
         XCTAssertEqual(ranked.first?.text, "飲む")
@@ -203,7 +203,7 @@ final class KeyboardAdaptiveRankingTests: XCTestCase {
     }
 
     func testCompletedCoreSurvivesCancellationDuringExpansion() throws {
-        let model = try VimeLanguageModel()
+        let model = try requireBundledV42Model()
         let values = pool([0, 0, 0], surfaces: ["買う", "飲む", "飲みたい"])
         var stopped = false
         var completed: [CandidateSnapshot]?
@@ -244,7 +244,7 @@ final class KeyboardAdaptiveRankingTests: XCTestCase {
             if revision == 3 {
                 XCTAssertEqual(ranked.first?.text, learned.text)
                 XCTAssertGreaterThanOrEqual(learned.userPreferenceConfidence, 0.65)
-                let neural = try VimeLanguageModel().rerank(ranked, context: context, katakana: false, cancelled: { false })
+                let neural = try requireBundledV42Model().rerank(ranked, context: context, katakana: false, cancelled: { false })
                 XCTAssertEqual(neural.first?.text, learned.text)
             }
         }

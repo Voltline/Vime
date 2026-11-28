@@ -219,7 +219,7 @@ final class KeyboardPersonalizationTests: XCTestCase {
     func testLearningSurvivesNeuralRerankingAndConverterRestart() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }
-        let lm = try VimeLanguageModel()
+        let lm = try requireBundledV42Model()
         var query = ComposingText(); RomajiConverter.insert("hashi", into: &query)
         var engine = JapaneseCandidateEngine(memoryDirectoryURL: directory, learningEnabled: true)
         let initial = lm.rerank(engine.candidates(for: query, revision: 1, includeCorrections: false), context: "", katakana: false, cancelled: { false })
@@ -350,7 +350,7 @@ final class KeyboardPersonalizationTests: XCTestCase {
         XCTAssertEqual(admitted.first?.text, "テスト")
         XCTAssertEqual(admitted.first?.modelScore, -2)
         XCTAssertLessThanOrEqual(try XCTUnwrap(admitted.first?.userScore), CandidatePreferenceMemory.Policy.maximumBonus)
-        let lm = try VimeLanguageModel()
+        let lm = try requireBundledV42Model()
         KeyboardPerformance.configure(enabled: true, reset: true)
         defer { KeyboardPerformance.configure(enabled: false) }
         for prompt in ["プログラムを", "明日の会議までに", "朝起きたら、コーヒーを"] {
@@ -386,7 +386,7 @@ final class KeyboardPersonalizationTests: XCTestCase {
         XCTAssertGreaterThan(clause.features.total, complete.features.total, "The learned clause scores higher on its own")
         XCTAssertEqual(values.first?.text, "では")
         XCTAssertTrue(try XCTUnwrap(values.first).fullConsumption)
-        let lm = try VimeLanguageModel()
+        let lm = try requireBundledV42Model()
         let reranked = lm.rerank(values, context: "", katakana: false,
             maximumCandidates: JapaneseCandidateWorker.initialRankingCandidateLimit, cancelled: { false })
         XCTAssertTrue(try XCTUnwrap(reranked.first).fullConsumption, reranked.prefix(3).map(\.text).description)

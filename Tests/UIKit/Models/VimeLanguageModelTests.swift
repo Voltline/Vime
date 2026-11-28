@@ -4,6 +4,10 @@ import KanaKanjiConverterModuleWithDefaultDictionary
 
 @MainActor
 final class VimeLanguageModelTests: XCTestCase {
+    override func setUpWithError() throws {
+        try XCTSkipUnless(Bundle.main.url(forResource: "VimeLMManifestV42", withExtension: "json") != nil,
+                          "V4.2 model retired")
+    }
     private struct Fixtures: Decodable {
         struct Token: Decodable { let text: String; let ids: [Int32]; let decoded: String }
         struct Score: Decodable { let context: String; let candidates: [String]; let sums: [Double] }

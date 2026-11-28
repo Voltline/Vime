@@ -83,10 +83,12 @@
 				Resources/DictionarySource.json,
 				Resources/JapaneseLexicon.tsv,
 				Resources/PinyinKanjiLookupSource.json,
-				Resources/TinyChineseKVBatchV4FP32KVINT8.mlmodelc,
 				Resources/TinyChineseV2KVBatchV4FP32KVINT8.mlmodelc,
+				Resources/TinyJapaneseV6KVBatchV4FP32KVINT8.mlmodelc,
 				Resources/VimeChineseTokenizerV1.model,
-				Resources/VimeLMManifestZhKVBatchV4-fp32kv.json,
+				Resources/VimeJapaneseKanaIndexV6.json,
+				Resources/VimeJapaneseTokenizerV6.model,
+				Resources/VimeLMManifestJaKVBatchV4-fp32kv.json,
 				Resources/VimeLMManifestZhV2KVBatchV4-fp32kv.json,
 			);
 			target = B2ED4C073071EF7600C73DB0 /* Vime */;
@@ -103,10 +105,12 @@
 		F10000000000000000000003 /* Exceptions for "Shared" folder in "VimeKeyboardTests" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				Resources/TinyChineseKVBatchV4FP32KVINT8.mlmodelc,
 				Resources/TinyChineseV2KVBatchV4FP32KVINT8.mlmodelc,
+				Resources/TinyJapaneseV6KVBatchV4FP32KVINT8.mlmodelc,
 				Resources/VimeChineseTokenizerV1.model,
-				Resources/VimeLMManifestZhKVBatchV4-fp32kv.json,
+				Resources/VimeJapaneseKanaIndexV6.json,
+				Resources/VimeJapaneseTokenizerV6.model,
+				Resources/VimeLMManifestJaKVBatchV4-fp32kv.json,
 				Resources/VimeLMManifestZhV2KVBatchV4-fp32kv.json,
 			);
 			target = D10000000000000000000004 /* VimeKeyboardTests */;

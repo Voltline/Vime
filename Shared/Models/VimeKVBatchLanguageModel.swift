@@ -60,20 +60,27 @@ nonisolated final class VimeKVBatchLanguageModel {
     enum Function: String, CaseIterable { case logits, scored, score, prefix }
 
     enum Variant: String, CaseIterable, Sendable {
-        case v1
         case v2
+        case jaV6
 
         var manifestResource: String {
             switch self {
-            case .v1: "VimeLMManifestZhKVBatchV4-fp32kv"
             case .v2: "VimeLMManifestZhV2KVBatchV4-fp32kv"
+            case .jaV6: "VimeLMManifestJaKVBatchV4-fp32kv"
+            }
+        }
+
+        var manifestFormat: String {
+            switch self {
+            case .v2: "vime_ios_lm_zh_kv_batch_v4"
+            case .jaV6: "vime_ios_lm_ja_kv_batch_v4"
             }
         }
 
         var releaseName: String {
             switch self {
-            case .v1: "vimeml-tiny-zh-v1"
             case .v2: "vimeml-zh-v2-20m"
+            case .jaV6: "vimeml-ja-v6-20m"
             }
         }
     }
@@ -87,7 +94,7 @@ nonisolated final class VimeKVBatchLanguageModel {
         var capacity: Int { keys.shape[3].intValue }
     }
 
-    static let manifestResource = Variant.v1.manifestResource
+    static let manifestResource = Variant.v2.manifestResource
     static let manifestFormat = "vime_ios_lm_zh_kv_batch_v4"
     /// Most allowed ids in one call.
     static let maximumAllowed = 1024
@@ -166,13 +173,13 @@ nonisolated final class VimeKVBatchLanguageModel {
     /// The functions loaded so far.
     var loadedFunctions: Set<Function> { Set(models.keys) }
 
-    init(bundle: Bundle = .main, variant: Variant = .v1, computeUnits: MLComputeUnits = .cpuOnly) throws {
+    init(bundle: Bundle = .main, variant: Variant = .v2, computeUnits: MLComputeUnits = .cpuOnly) throws {
         guard let manifestURL = bundle.url(forResource: variant.manifestResource, withExtension: "json")
         else { throw VimeLanguageModel.Failure.resources }
         let manifest = try JSONDecoder().decode(Manifest.self, from: Data(contentsOf: manifestURL))
         let batch = manifest.kv_batch_v4
         let batchedFunctions: [Function] = [.logits, .scored, .score]
-        guard manifest.format == Self.manifestFormat,
+        guard manifest.format == variant.manifestFormat,
               batch.variant.name == "fp32kv", batch.variant.kv == "fp32", batch.variant.compute == "fp32",
               Set(batch.functions.keys) == Set(Function.allCases.map(\.rawValue)),
               let scoreRange = batch.functions[Function.score.rawValue]?.batch_range,

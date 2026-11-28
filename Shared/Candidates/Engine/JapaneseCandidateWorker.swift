@@ -11,7 +11,7 @@ final class JapaneseCandidateWorker {
     // dictionary candidates behind a cold model or an unbounded scoring request.
     // Give contextual disambiguation enough time for multiple complete scores;
     // first publication still freezes order for the current composition revision.
-    nonisolated static let initialRankingWindow: TimeInterval = 0.060
+    nonisolated(unsafe) static var initialRankingWindow: TimeInterval = 0.060
     nonisolated static let initialRankingCandidateLimit = 8
     /// Early corrections must leave time to reach the main queue before the
     /// first display's deadline.
@@ -35,6 +35,9 @@ final class JapaneseCandidateWorker {
     nonisolated final class LanguageModelStorage: @unchecked Sendable {
         enum Language: Sendable { case japanese, chinese }
         static let shared = LanguageModelStorage()
+        /// Overridden by `VimeTestEnvironment` so unit tests load keyboard-extension-only
+        /// model packages from the test bundle instead of the host app's `Bundle.main`.
+        nonisolated(unsafe) static var testBundle: Bundle?
         // Readiness and the pressure gate cross queues; model access remains
         // confined to modelQueue. Never wait for cold initialization to publish.
         private let lock = NSLock()
@@ -85,17 +88,25 @@ final class JapaneseCandidateWorker {
             return true
         }
         private var loadedChineseVersion: ChineseLanguageModel.Version?
+        private var loadedJapaneseVersion: JapaneseLanguageModelV6.Version?
         var chineseModelVersion: ChineseLanguageModel.Version? {
             lock.lock(); defer { lock.unlock() }
             return readyLanguage == .chinese ? loadedChineseVersion : nil
         }
-        private func setReady(_ value: Language?, chineseVersion: ChineseLanguageModel.Version? = nil) {
+        var japaneseModelVersion: JapaneseLanguageModelV6.Version? {
+            lock.lock(); defer { lock.unlock() }
+            return readyLanguage == .japanese ? loadedJapaneseVersion : nil
+        }
+        private func setReady(_ value: Language?, chineseVersion: ChineseLanguageModel.Version? = nil,
+                              japaneseVersion: JapaneseLanguageModelV6.Version? = nil) {
             lock.lock()
             readyLanguage = value
             loadedChineseVersion = value == .chinese ? chineseVersion : nil
+            loadedJapaneseVersion = value == .japanese ? japaneseVersion : nil
             lock.unlock()
         }
         private var cachedModel: VimeLanguageModel?
+        private var cachedJapaneseV6: JapaneseLanguageModelV6?
         private var cachedChinese: ChineseLanguageModel?
         private var cachedLanguage: Language = .japanese
         private var attempted = false
@@ -103,7 +114,7 @@ final class JapaneseCandidateWorker {
         func release() {
             dispatchPrecondition(condition: .onQueue(JapaneseCandidateWorker.modelQueue))
             setReady(nil)
-            cachedModel = nil; cachedChinese = nil; attempted = false
+            cachedModel = nil; cachedJapaneseV6 = nil; cachedChinese = nil; attempted = false
         }
         /// Releases the model only when it is `language`'s.
         func release(_ language: Language) {
@@ -112,13 +123,19 @@ final class JapaneseCandidateWorker {
         }
         func resourceState(engineLoaded: Bool) -> ResourceState {
             dispatchPrecondition(condition: .onQueue(JapaneseCandidateWorker.modelQueue))
-            return ResourceState(engineLoaded: engineLoaded, modelLoaded: cachedModel != nil && cachedLanguage == .japanese,
+            return ResourceState(engineLoaded: engineLoaded,
+                modelLoaded: (cachedModel != nil || cachedJapaneseV6 != nil) && cachedLanguage == .japanese,
                 modelSuspendedForMemoryPressure: isSuspended, modelLoadCount: loadCount)
         }
-        /// The Japanese model.
+        /// The Japanese V4.2 model (when V4.2 is active or fell back to).
         var model: VimeLanguageModel? {
             load(.japanese)
             return isSuspended ? nil : cachedModel
+        }
+        /// The Japanese V6 (`vimeml-ja-v6-20m`) model (when V6 is active).
+        var japaneseV6Model: JapaneseLanguageModelV6? {
+            load(.japanese)
+            return isSuspended ? nil : cachedJapaneseV6
         }
         /// The Chinese model.
         var chineseModel: ChineseLanguageModel? {
@@ -135,12 +152,26 @@ final class JapaneseCandidateWorker {
             cachedChinese = model
             setReady(.chinese, chineseVersion: model.version)
         }
+        /// Uses `model` as the loaded Japanese V6 model, for tests.
+        func useJapaneseV6(_ model: JapaneseLanguageModelV6) {
+            dispatchPrecondition(condition: .onQueue(JapaneseCandidateWorker.modelQueue))
+            release()
+            cachedLanguage = .japanese
+            attempted = true
+            cachedJapaneseV6 = model
+            setReady(.japanese, japaneseVersion: .v6)
+        }
         private func load(_ language: Language) {
             dispatchPrecondition(condition: .onQueue(JapaneseCandidateWorker.modelQueue))
             guard !isSuspended else { return }
             if language != cachedLanguage {
                 release()
                 cachedLanguage = language
+            }
+            if language == .japanese, let loadedVersion = japaneseModelVersion,
+               loadedVersion != JapaneseLanguageModelV6.configuredVersion {
+                release()
+                cachedLanguage = .japanese
             }
             if language == .chinese, let loaded = cachedChinese, loaded.version != ChineseLanguageModel.effectiveVersion {
                 release()
@@ -152,33 +183,17 @@ final class JapaneseCandidateWorker {
             let log = Logger(subsystem: "com.Voltline.Vime", category: "LanguageModel")
             let started = ProcessInfo.processInfo.systemUptime
             do {
-                var japanese: VimeLanguageModel?, chinese: ChineseLanguageModel?
+                let resourceBundle = Self.testBundle ?? .main
+                var japaneseV6: JapaneseLanguageModelV6?, chinese: ChineseLanguageModel?
                 try autoreleasepool {
                     switch language {
                     case .japanese:
-                        japanese = try VimeLanguageModel.runtime { variant, error in
-                            log.error("Model \(variant.rawValue, privacy: .public) unavailable (\(String(describing: error), privacy: .public)); trying fallback.")
-                        }
+                        japaneseV6 = try JapaneseLanguageModelV6(bundle: resourceBundle, preload: true)
                     case .chinese:
-                        let fallback = ChineseModelFallback.shared
-                        var target = ChineseLanguageModel.effectiveVersion
-                        if target == .v2, !fallback.beginV2Load() {
-                            target = .v1
-                        }
-                        if target == .v2 {
-                            do {
-                                chinese = try ChineseLanguageModel(version: .v2, preload: true)
-                                fallback.finishV2LoadSuccess()
-                            } catch {
-                                fallback.recordRuntimeFailure(reason: "load_error: \(error)")
-                                chinese = try ChineseLanguageModel(version: .v1, preload: true)
-                            }
-                        } else {
-                            chinese = try ChineseLanguageModel(version: .v1, preload: true)
-                        }
+                        chinese = try ChineseLanguageModel(bundle: resourceBundle, version: .v2, preload: true)
                     }
                 }
-                let version = japanese?.modelVersion ?? chinese?.modelVersion ?? ""
+                let version = japaneseV6?.modelVersion ?? chinese?.modelVersion ?? ""
                 loadCount += 1
                 let milliseconds = Int((ProcessInfo.processInfo.systemUptime - started) * 1000)
                 VimeExtensionAudit.recordModelLoad(version: version, milliseconds: milliseconds)
@@ -186,8 +201,9 @@ final class JapaneseCandidateWorker {
                 // A warning received during synchronous loading must not
                 // publish the new model or start its first prediction.
                 guard !isSuspended else { return }
-                cachedModel = japanese; cachedChinese = chinese
-                setReady(language, chineseVersion: chinese?.version)
+                cachedModel = nil; cachedJapaneseV6 = japaneseV6; cachedChinese = chinese
+                let jaVersion: JapaneseLanguageModelV6.Version? = japaneseV6 != nil ? .v6 : nil
+                setReady(language, chineseVersion: chinese?.version, japaneseVersion: jaVersion)
                 KeyboardExtensionStatus.update { $0.modelVersion = version; $0.modelPaused = false }
             } catch {
                 log.error("Model unavailable (\(String(describing: error), privacy: .public)); retaining dictionary candidates.")
@@ -377,9 +393,13 @@ final class JapaneseCandidateWorker {
         preparation = nil
     }
 
+    /// Delay after the last keystroke before V6 runs background constrained generation.
+    nonisolated static let generationPauseDelay: TimeInterval = 0.22
+
     func candidates(for composing: ComposingText, katakana: Bool, revision: Int, leftContext: String?, continuity: CandidateContinuity?,
                     ranking: CandidateRankingMode = .languageModel, conversionLength: Int? = nil, expanded: Bool = false,
                     trace: CandidatePipelineTrace? = nil,
+                    onPauseMerge: (@MainActor @Sendable ([CandidateSnapshot]) -> Void)? = nil,
                     completion: @escaping @MainActor @Sendable ([CandidateSnapshot], TimeInterval?, Bool) -> Void) {
         pending?.cancel()
         // The budget includes queueing, context reconciliation and dictionary
@@ -507,6 +527,8 @@ final class JapaneseCandidateWorker {
             }
             if neuralRanking {
                 let modelQueuedAt = KeyboardPerformance.start()
+                let reading = JapaneseLanguageModelV6.toHiragana(composing.convertTarget)
+                let originalInputCount = composing.input.count
                 Self.modelQueue.async {
                     KeyboardPerformance.record(.modelQueueWait, since: modelQueuedAt)
                     guard !request.isCancelled, !LanguageModelStorage.shared.isSuspended else { return }
@@ -517,12 +539,49 @@ final class JapaneseCandidateWorker {
                         if waitForRanking { trace?.setModelGate(.deadlineExpired) }
                         return
                     }
-                    let model = LanguageModelStorage.shared.model
-                    if model == nil { trace?.setModelGate(.modelUnavailable) }
+                    let v6Model = LanguageModelStorage.shared.japaneseV6Model
+                    let v42Model = v6Model == nil ? LanguageModelStorage.shared.model : nil
+                    if v6Model == nil && v42Model == nil { trace?.setModelGate(.modelUnavailable) }
                     guard waitForRanking, !request.isCancelled,
                           ProcessInfo.processInfo.systemUptime < initialDeadline else { return }
                     KeyboardPerformance.record(.candidateModelScoringStarted, since: requestStartedAt)
-                    _ = model?.rerank(values, context: sentence,
+                    if let v6Model, conversionLength == nil, !katakana, !reading.isEmpty {
+                        let reordered = Self.rerankWithV6(values, reading: reading, context: sentence, model: v6Model,
+                                                          cancelled: {
+                            request.isCancelled || LanguageModelStorage.shared.isSuspended
+                                || ProcessInfo.processInfo.systemUptime >= initialDeadline
+                        })
+                        if let reordered, !request.isCancelled, ProcessInfo.processInfo.systemUptime < initialDeadline {
+                            KeyboardPerformance.record(.candidateModelRefinementReady, since: requestStartedAt)
+                            if prepare(reordered) {
+                                if ProcessInfo.processInfo.systemUptime >= initialDeadline {
+                                    KeyboardPerformance.record(.candidateModelRefinementPreparationExpired, since: requestStartedAt)
+                                }
+                                request.refine(reordered, before: initialDeadline)
+                            }
+                        }
+                        let rankedReadyAt = KeyboardPerformance.start()
+                        if request.finishModel() { DispatchQueue.main.async { publishInitial(rankedReadyAt) } }
+                        if let onPauseMerge, !request.isCancelled {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + Self.generationPauseDelay) {
+                                guard !request.isCancelled, !LanguageModelStorage.shared.isSuspended else { return }
+                                Self.modelQueue.async {
+                                    guard !request.isCancelled, !LanguageModelStorage.shared.isSuspended,
+                                          let activeV6 = LanguageModelStorage.shared.japaneseV6Model else { return }
+                                    guard let merged = Self.generateAndMergeWithV6(
+                                        values, reading: reading, context: sentence, revision: revision,
+                                        originalInputCount: originalInputCount, model: activeV6,
+                                        cancelled: { request.isCancelled || LanguageModelStorage.shared.isSuspended }
+                                    ), !request.isCancelled, prepare(merged) else { return }
+                                    DispatchQueue.main.async {
+                                        if !request.isCancelled { onPauseMerge(merged) }
+                                    }
+                                }
+                            }
+                        }
+                        return
+                    }
+                    _ = v42Model?.rerank(values, context: sentence,
                         katakana: katakana, maximumCandidates: Self.initialRankingCandidateLimit, trace: trace, onRefinement: {
                             guard !request.isCancelled, ProcessInfo.processInfo.systemUptime < initialDeadline else { return }
                             KeyboardPerformance.record(.candidateModelRefinementReady, since: requestStartedAt)
@@ -717,6 +776,83 @@ final class JapaneseCandidateWorker {
         cancelPending()
         let storage = self.storage
         queue.async { storage.engine.clearLearning() }
+    }
+
+    /// V6 Step 1: reranks AzooKey's full-consumption top 20 candidates using
+    /// `gen_score + 1.6 * lm_score` while preserving remaining candidates after them.
+    private nonisolated static func rerankWithV6(
+        _ values: [CandidateSnapshot], reading: String, context: String,
+        model: JapaneseLanguageModelV6, cancelled: () -> Bool
+    ) -> [CandidateSnapshot]? {
+        var topSlots: [Int] = []
+        var topTexts: [String] = []
+        var seen: Set<String> = []
+        for (idx, snap) in values.enumerated() where snap.fullConsumption && !snap.text.isEmpty {
+            if seen.insert(snap.text).inserted {
+                topSlots.append(idx)
+                topTexts.append(snap.text)
+                if topSlots.count == JapaneseLanguageModelV6.azookeyLimit { break }
+            }
+        }
+        guard topSlots.count > 1 else { return nil }
+        guard let result = try? model.rerankAzooKey(reading: reading, context: context, candidates: topTexts, cancelled: cancelled)
+        else { return nil }
+        var byText: [String: CandidateSnapshot] = [:]
+        for idx in topSlots { byText[values[idx].text] = values[idx] }
+        let orderedTop = result.ordered.compactMap { byText[$0] }
+        guard orderedTop.count == topSlots.count else { return nil }
+        var reordered = values
+        for (slot, snap) in zip(topSlots, orderedTop) { reordered[slot] = snap }
+        return reordered
+    }
+
+    /// V6 Step 2 (pause-triggered): runs constrained beam-16 generation, merges
+    /// generated top 10 with AzooKey top 20, scores the union, and returns the
+    /// newly ranked list with synthesized snapshots for generated-only candidates.
+    private nonisolated static func generateAndMergeWithV6(
+        _ values: [CandidateSnapshot], reading: String, context: String,
+        revision: Int, originalInputCount: Int, model: JapaneseLanguageModelV6,
+        cancelled: () -> Bool
+    ) -> [CandidateSnapshot]? {
+        var azookeyTexts: [String] = []
+        var existingByText: [String: CandidateSnapshot] = [:]
+        var topSlotSet: Set<Int> = []
+        for (idx, snap) in values.enumerated() where snap.fullConsumption && !snap.text.isEmpty {
+            if existingByText[snap.text] == nil {
+                existingByText[snap.text] = snap
+                azookeyTexts.append(snap.text)
+                topSlotSet.insert(idx)
+                if azookeyTexts.count == JapaneseLanguageModelV6.azookeyLimit { break }
+            }
+        }
+        guard let result = try? model.generateAndMerge(
+            reading: reading, context: context, azookey: azookeyTexts, cancelled: cancelled
+        ), !result.shown.isEmpty else { return nil }
+
+        var merged: [CandidateSnapshot] = []
+        merged.reserveCapacity(result.shown.count + values.count)
+        var emitted: Set<String> = []
+        for (rank, text) in result.shown.enumerated() where emitted.insert(text).inserted {
+            if let existing = existingByText[text] {
+                merged.append(existing)
+            } else {
+                let candidate = Candidate(text: text, value: 0, composingCount: .inputCount(originalInputCount),
+                                          lastMid: 0, data: [])
+                merged.append(CandidateSnapshot(
+                    candidate: candidate, revision: revision, source: .conversion,
+                    remainingComposition: ComposingText(), originalInputCount: originalInputCount,
+                    consumedInputCount: originalInputCount, queryReading: reading,
+                    engineRank: values.count + rank, engineFullConsumption: true,
+                    readingOverride: reading, predictionStatus: false
+                ))
+            }
+        }
+        for (idx, snap) in values.enumerated() where !topSlotSet.contains(idx) {
+            if !snap.fullConsumption || emitted.insert(snap.text).inserted {
+                merged.append(snap)
+            }
+        }
+        return merged
     }
 
     deinit {
