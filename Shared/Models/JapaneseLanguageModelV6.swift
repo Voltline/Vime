@@ -17,6 +17,13 @@ nonisolated final class JapaneseLanguageModelV6 {
     enum Version: String, CaseIterable, Sendable {
         case v42
         case v6
+
+        var displayVersion: String {
+            switch self {
+            case .v42: "4.2"
+            case .v6: "6"
+            }
+        }
     }
 
     struct KanaIndex: Sendable {

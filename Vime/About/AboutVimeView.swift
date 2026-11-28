@@ -27,7 +27,7 @@ struct AboutVimeView: View {
                 }.accessibilityIdentifier("vime.about.licenses")
             }
             AppInformationSection("本地模型") {
-                Text("Vime 日语模型 V\(VimeLanguageModel.Variant.runtimeDefault.displayVersion)")
+                Text("Vime 日语模型 V\(JapaneseLanguageModelV6.configuredVersion.displayVersion)")
                 Text("Vime 中文模型 V\(ChineseLanguageModel.configuredVersion.displayVersion)")
                 if ChineseLanguageModel.effectiveVersion != ChineseLanguageModel.configuredVersion {
                     Text("暂时使用 V1，稍后会自动重试").foregroundStyle(.secondary)
