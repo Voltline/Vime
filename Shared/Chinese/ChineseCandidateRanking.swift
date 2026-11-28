@@ -35,6 +35,29 @@ nonisolated enum ChineseCandidateRanking {
     /// gains up to this much, in proportion to how much of it it keeps, so
     /// the first sentence flips less between readings from key to key.
     static let keepBonus = 2.0
+    /// When none of Rime's sentences keeps all the last key's first sentence
+    /// settled, that settled text with the rest of the input converted after
+    /// it competes too: it keeps all of it, and pays this much for not being
+    /// Rime's reading.
+    nonisolated(unsafe) static var stitchCost = 1.0
+
+    /// The best value a sentence reaches in `order`: its score (with
+    /// `personal`), less its place's cost, plus its share of `keepBonus`.
+    static func bestSentenceValue(slots: Slots, scores: [Double], kept: [Int: Double],
+                                  personal: [Int: Double]) -> Double? {
+        guard scores.count == slots.all.count else { return nil }
+        return slots.sentences.indices.map { place in
+            let index = slots.sentences[place]
+            return scores[place] + (personal[index] ?? 0) - sentencePlacePenalty * Double(place)
+                + keepBonus * (kept[index] ?? 0)
+        }.max()
+    }
+
+    /// Whether the stitched sentence, scored `stitched`, beats the best of
+    /// Rime's sentences, `best`.
+    static func stitchLeads(stitched: Double, best: Double) -> Bool {
+        stitched.isFinite && stitched + keepBonus - stitchCost > best
+    }
 
     /// How much of `settled` each of Rime's sentences keeps, as its share of
     /// `keepBonus`: the characters it shares from the start, of all of them.

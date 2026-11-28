@@ -107,4 +107,19 @@ final class ChineseCandidateRankingTests: XCTestCase {
         let order = ChineseCandidateRanking.order(count: list.count, sentences: 0..<2, slots: slots, scores: [-12, -10, -5])
         XCTAssertEqual(order, [2, 0, 1, 3], "the word beats the best sentence by more than a place")
     }
+
+    func testAStitchedSentenceLeadsOnlyByMoreThanItsCost() {
+        let slots = ChineseCandidateRanking.Slots(sentences: [0, 1], others: [2])
+        // The second sentence keeps half the settled text: -20.1 + 1.0.
+        let best = ChineseCandidateRanking.bestSentenceValue(slots: slots, scores: [-20, -20, -15],
+                                                             kept: [1: 0.5], personal: [:])
+        XCTAssertEqual(best ?? 0, -19.1, accuracy: 1e-9)
+        XCTAssertNil(ChineseCandidateRanking.bestSentenceValue(slots: slots, scores: [-20], kept: [:], personal: [:]))
+        let cost = ChineseCandidateRanking.stitchCost
+        defer { ChineseCandidateRanking.stitchCost = cost }
+        ChineseCandidateRanking.stitchCost = 1
+        XCTAssertTrue(ChineseCandidateRanking.stitchLeads(stitched: -20, best: -19.1))
+        XCTAssertFalse(ChineseCandidateRanking.stitchLeads(stitched: -20.2, best: -19.1))
+        XCTAssertFalse(ChineseCandidateRanking.stitchLeads(stitched: -.infinity, best: -19.1))
+    }
 }

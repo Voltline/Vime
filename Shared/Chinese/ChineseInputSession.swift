@@ -78,6 +78,9 @@ final class ChineseInputSession: KeyboardInputSession {
     /// (ChineseMixedInput), placed by `mixedPlacement`.
     private var mixed: [ChineseMixedInput.Option] = []
     private var mixedPlacement = ChineseCandidateList.MixedPlacement.none
+    /// The first reading is the last key's settled sentence with the rest
+    /// converted after it (`ChineseCandidateRanking.stitchCost`).
+    private var stitchedLead = false
     /// The candidates of the latest result on their way to the list.
     private var round: Round?
     /// What the shown list, or the one on its way, was made from.
@@ -950,6 +953,11 @@ final class ChineseInputSession: KeyboardInputSession {
         let kept: [Int: Double]
         /// What the user picked after the same text before, by slot.
         let personal: [Int: Double]
+        /// What the last key's first sentence settled, and the letters after
+        /// it, when no sentence keeps all of it.
+        let stitch: (settled: String, spelling: String)?
+        /// The settled text with the rest converted, once looked up.
+        var stitched: ChineseMixedInput.Option?
         /// The model's part may run past the window, to refine the list
         /// late (`late`); the lookup has no deadline.
         let model = ChineseCandidateRanking.Request(
@@ -961,16 +969,17 @@ final class ChineseInputSession: KeyboardInputSession {
         let startedAt = ProcessInfo.processInfo.systemUptime
         init(candidates: [RimeCandidate], run: Range<Int>, rimeOrder: [Int], slots: ChineseCandidateRanking.Slots,
              splits: [[ChineseMixedInput.Segment]], context: String, scores: Bool, kept: [Int: Double],
-             personal: [Int: Double]) {
+             personal: [Int: Double], stitch: (settled: String, spelling: String)? = nil) {
             (self.candidates, self.run, self.rimeOrder, self.slots) = (candidates, run, rimeOrder, slots)
             (self.splits, self.context, self.scores, self.kept) = (splits, context, scores, kept)
-            self.personal = personal
+            (self.personal, self.stitch) = (personal, stitch)
         }
         func cancel() { model.cancel(); lookup.cancel() }
     }
 
-    /// The first sentence shown and the input it was shown for.
-    private var shownSentence: (input: String, text: String)?
+    /// The first sentence shown, the input it was shown for and that
+    /// input's syllables.
+    private var shownSentence: (input: String, text: String, preedit: String)?
 
     /// How much of what the shown first sentence settled (all of it but its
     /// last character, the syllable being typed) each of Rime's sentences
@@ -979,6 +988,20 @@ final class ChineseInputSession: KeyboardInputSession {
         guard let shown = shownSentence, next.input.count > shown.input.count, next.input.hasPrefix(shown.input)
         else { return [:] }
         return ChineseCandidateRanking.kept(shown.text.dropLast(), by: next.candidates, run: run)
+    }
+
+    /// What the shown first sentence settled and the letters typed after
+    /// it, when none of Rime's sentences keeps all of it.
+    private func stitch(_ next: RimeState, run: Range<Int>, kept: [Int: Double]) -> (settled: String, spelling: String)? {
+        guard !nineKey, shuangpin == nil, !traditional, !run.isEmpty, kept.values.allSatisfy({ $0 < 1 }),
+              let shown = shownSentence, next.input.count > shown.input.count, next.input.hasPrefix(shown.input),
+              next.input.allSatisfy({ ("a"..."z").contains($0) }) else { return nil }
+        let settled = shown.text.dropLast()
+        guard !settled.isEmpty, settled.unicodeScalars.allSatisfy({ $0.properties.isIdeographic }) else { return nil }
+        let syllables = shown.preedit.split(whereSeparator: { $0 == " " || $0 == "'" })
+        guard syllables.count > settled.count, syllables.joined() == shown.input else { return nil }
+        let letters = syllables.prefix(settled.count).reduce(0) { $0 + $1.count }
+        return (String(settled), String(next.input.dropFirst(letters)))
     }
 
     private func startRound(_ next: RimeState, key: RoundKey) {
@@ -1014,13 +1037,18 @@ final class ChineseInputSession: KeyboardInputSession {
         guard !splits.isEmpty || (warm && slots.canReorder) else {
             mixed = []
             mixedPlacement = .none
+            stitchedLead = false
             return show(next.candidates, order: rimeOrder)
         }
+        let kept = kept(next, run: run)
+        let stitch = warm && !slots.sentences.isEmpty && ChineseCandidateRanking.stitchCost.isFinite
+            ? stitch(next, run: run, kept: kept) : nil
         let round = Round(candidates: next.candidates, run: run, rimeOrder: rimeOrder, slots: slots,
-                          splits: splits, context: context, scores: warm, kept: kept(next, run: run),
+                          splits: splits, context: context, scores: warm, kept: kept,
                           personal: warm ? ChineseCandidateRanking.personal(next.candidates, slots: slots,
                                                                            before: personalPrev,
-                                                                           input: personalInput) : [:])
+                                                                           input: personalInput) : [:],
+                          stitch: stitch)
         self.round = round
         rankingStartedAt = KeyboardPerformance.start()
         if warm {
@@ -1031,17 +1059,26 @@ final class ChineseInputSession: KeyboardInputSession {
                 if round.options != nil { self.finishRound(round, scores: nil) }
             }
         }
-        guard !splits.isEmpty else {
+        guard !splits.isEmpty || stitch != nil else {
             round.options = []
             return scoreRound(round)
         }
         let rime = Set(next.candidates.map(\.genuine))
-        engine.lookUp(ChineseMixedInput.spellings(for: splits), limit: 4,
+        engine.lookUp(ChineseMixedInput.spellings(for: splits) + (stitch.map { [$0.spelling] } ?? []), limit: 4,
                       isCancelled: { round.lookup.isCancelled }) { [weak self] converted in
             MainActor.assumeIsolated {
                 guard let self, self.round === round else { return }
                 round.options = ChineseMixedInput.options(splits, converted: converted).filter {
                     !rime.contains($0.genuine) && !self.blocklist.matches($0.genuine)
+                }
+                if let stitch, let rest = converted.last(where: { $0.spelling == stitch.spelling })?.candidates
+                    .first(where: { $0.coversInput && $0.genuine.unicodeScalars.contains { $0.properties.isIdeographic } }) {
+                    let option = ChineseMixedInput.Option(segments: [], text: stitch.settled + rest.text,
+                                                          genuine: stitch.settled + rest.genuine)
+                    if !rime.contains(option.genuine), !self.blocklist.matches(option.genuine),
+                       !(round.options ?? []).contains(where: { $0.genuine == option.genuine }) {
+                        round.stitched = option
+                    }
                 }
                 if round.scores, !round.missedWindow { return self.scoreRound(round) }
                 self.finishRound(round, scores: nil)
@@ -1055,6 +1092,7 @@ final class ChineseInputSession: KeyboardInputSession {
     /// keeping typed words together, so they compare.
     private func scoreRound(_ round: Round) {
         let texts = round.slots.all.map { round.candidates[$0].genuine } + (round.options ?? []).map(\.genuine)
+            + (round.stitched.map { [$0.genuine] } ?? [])
         guard round.scores, texts.count > 1 else { return finishRound(round, scores: nil) }
         ChineseCandidateRanking.score(texts, context: round.context, request: round.model) { [weak self] scores in
             guard let self else { return }
@@ -1122,7 +1160,7 @@ final class ChineseInputSession: KeyboardInputSession {
             weighedSentences = min(ChineseCandidateRanking.sentenceLimit, weighedSentences * 2)
         }
         let order: [Int]
-        (order, mixedPlacement, mixed) = arrange(round, scores: scores)
+        (order, mixedPlacement, mixed, stitchedLead) = arrange(round, scores: scores)
         show(round.candidates, order: order)
         if received == sent { announceCandidates() }
         finishPendingSpace()
@@ -1131,12 +1169,13 @@ final class ChineseInputSession: KeyboardInputSession {
     /// A round's display order and readings, with the model's `scores`
     /// (for Rime's slots, then the readings) or without them.
     private func arrange(_ round: Round, scores: [Double]?)
-        -> (order: [Int], placement: ChineseCandidateList.MixedPlacement, mixed: [ChineseMixedInput.Option]) {
+        -> (order: [Int], placement: ChineseCandidateList.MixedPlacement, mixed: [ChineseMixedInput.Option], stitched: Bool) {
         let options = round.options ?? []
         let count = round.slots.all.count
-        let scores = scores.flatMap { $0.count == count + options.count && $0.allSatisfy(\.isFinite) ? $0 : nil }
+        let extra = round.stitched == nil ? 0 : 1
+        let scores = scores.flatMap { $0.count == count + options.count + extra && $0.allSatisfy(\.isFinite) ? $0 : nil }
         let rimeScores = scores.map { Array($0.prefix(count)) }
-        let mixedScores = scores.map { Array($0.dropFirst(count)) }
+        let mixedScores = scores.map { Array($0.dropFirst(count).prefix(options.count)) }
         let order = rimeScores.map {
             ChineseCandidateRanking.order(count: round.candidates.count, sentences: round.run, slots: round.slots, scores: $0,
                                           kept: round.kept, personal: round.personal)
@@ -1151,19 +1190,26 @@ final class ChineseInputSession: KeyboardInputSession {
             readings: options.count, capitals: hasCapitals,
             rimeShort: lead.map { !round.candidates[$0].coversInput } ?? true,
             best: mixedScores?.max(), rival: rival)
+        if let stitched = round.stitched, let stitchedScore = scores?.last, let rimeScores,
+           placement == .none, let lead, round.slots.sentences.contains(lead),
+           let best = ChineseCandidateRanking.bestSentenceValue(slots: round.slots, scores: rimeScores,
+                                                                kept: round.kept, personal: round.personal),
+           ChineseCandidateRanking.stitchLeads(stitched: stitchedScore, best: best) {
+            return (order, .overRime, [stitched], true)
+        }
         let mixed = Array(ChineseMixedInput.ranked(options, scores: mixedScores)
             .prefix(placement == .overRime ? 1 : ChineseMixedInput.shownOptions))
-        return (order, placement, mixed)
+        return (order, placement, mixed, false)
     }
 
     /// The model's scores for a list shown without them, come late: the list
     /// takes their order once, when they change it. A sentence correction
     /// weighed against the old first sentence is weighed again.
     private func refine(_ round: Round, scores: [Double]) {
-        let (order, placement, mixed) = arrange(round, scores: scores)
+        let (order, placement, mixed, stitched) = arrange(round, scores: scores)
         guard order != self.order || placement != mixedPlacement || mixed.map(\.genuine) != self.mixed.map(\.genuine)
         else { return }
-        if order.first != self.order.first {
+        if order.first != self.order.first || stitched != stitchedLead {
             sentenceRequest?.cancel()
             sentenceRequest = nil
             sentenceCorrection = nil
@@ -1172,7 +1218,7 @@ final class ChineseInputSession: KeyboardInputSession {
             clearGeneration()
             collectCorrections()
         }
-        (mixedPlacement, self.mixed) = (placement, mixed)
+        (mixedPlacement, self.mixed, stitchedLead) = (placement, mixed, stitched)
         show(round.candidates, order: order)
         onCandidatesChange?()
     }
@@ -1192,7 +1238,9 @@ final class ChineseInputSession: KeyboardInputSession {
         generation += 1
         self.order = order
         shownCandidates = candidates
-        shownSentence = order.first.flatMap { candidates[$0].sentence ? (state.input, candidates[$0].genuine) : nil }
+        shownSentence = order.first.flatMap {
+            candidates[$0].sentence ? (state.input, candidates[$0].genuine, state.preedit) : nil
+        }
         phrases = userPhrases()
         specials = specialConversionCandidates()
         contactCandidates = systemContactCandidates()
@@ -1202,6 +1250,9 @@ final class ChineseInputSession: KeyboardInputSession {
             phrases: phrases.map(\.text), specials: specials.map(\.text), contacts: contactCandidates,
             generated: generatedCandidates, generatedLeads: generatedLeads)
         self.slots = slots
+        if stitchedLead, case .mixed(0)? = slots.first, let lead = mixed.first {
+            shownSentence = (state.input, lead.genuine, state.preedit)
+        }
         presentations = slots.enumerated().map { index, slot in
             let token = CandidateSelectionToken(sessionID: sessionID, generation: generation, index: index, kind: .composition)
             switch slot {
@@ -1954,7 +2005,8 @@ final class ChineseInputSession: KeyboardInputSession {
             return (corrections[index].candidate.genuine, true)
         case .mixed(let index):
             guard mixed.indices.contains(index) else { return nil }
-            return (mixed[index].genuine, true)
+            // A stitched sentence is a reading like Rime's, open to generation.
+            return (mixed[index].genuine, !(stitchedLead && index == 0))
         case .special(let index):
             guard specials.indices.contains(index) else { return nil }
             return (specials[index].text, true)
