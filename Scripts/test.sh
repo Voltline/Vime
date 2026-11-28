@@ -17,8 +17,10 @@
 # is installed (outside CI), the run leases a simulator no other agent holds
 # and gives it back when it ends; SIMLEASE_AGENT names the holder (default
 # test.sh). Without simlease: the booted one, else the first available
-# iPhone. VIME_DERIVED_DATA overrides the build folder. For evidence kept
-# with a review, use verify_review.sh.
+# iPhone. VIME_DERIVED_DATA overrides the build folder; while another run
+# holds it, this one builds in the same path with -2, -3… appended, so runs
+# on separate simulators never share a build or its results. For evidence
+# kept with a review, use verify_review.sh.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -26,9 +28,34 @@ scheme=Vime; target=VimeKeyboardTests
 if [ "${1:-}" = --extension ]; then scheme=VimeExtensionTests; target=VimeExtensionUITests; shift; fi
 full=0
 if [ "${1:-}" = --full ]; then full=1; shift; fi
-derived=${VIME_DERIVED_DATA:-$HOME/Library/Developer/Xcode/DerivedData/Vime-tests}
+base=${VIME_DERIVED_DATA:-$HOME/Library/Developer/Xcode/DerivedData/Vime-tests}
+lease=""; lock=""
+cleanup() {
+    if [ -n "$lock" ]; then rm -rf "$lock"; fi
+    if [ -n "$lease" ]; then simlease release "$lease" > /dev/null 2>&1 || true; fi
+}
+trap cleanup EXIT
+# One run per build folder: a folder another live run holds is skipped for
+# the next numbered one. A lock left by a run that died is taken over.
+slot=1; derived=$base
+mkdir -p "$(dirname "$base")"
+while :; do
+    if mkdir "$derived.test-lock" 2> /dev/null; then
+        lock=$derived.test-lock; echo $$ > "$lock/pid"; break
+    fi
+    owner=$(cat "$derived.test-lock/pid" 2> /dev/null || true)
+    if [ -n "$owner" ] && ! kill -0 "$owner" 2> /dev/null; then rm -rf "$derived.test-lock"; continue; fi
+    # No pid yet: the owner is still writing it, unless the lock is stale.
+    if [ -z "$owner" ] && [ -z "$(find "$derived.test-lock" -maxdepth 0 -mmin -1 2> /dev/null)" ]; then
+        rm -rf "$derived.test-lock"; continue
+    fi
+    slot=$((slot + 1)); derived=$base-$slot
+done
+if [ "$slot" != 1 ]; then echo "Another run holds $base; building in $derived" >&2; fi
 results=$derived/Results
-mkdir -p "$results"
+mkdir -p "$results" "$base/Results"
+# What failed last, whichever folder the run used, for --failed.
+failed_list=$base/Results/failed-$target.txt
 
 simulator=${VIME_SIMULATOR:-}
 if [ -z "$simulator" ] && [ -z "${CI:-}" ] && command -v simlease > /dev/null; then
@@ -39,7 +66,7 @@ if [ -z "$simulator" ] && [ -z "${CI:-}" ] && command -v simlease > /dev/null; t
         echo "simlease could not lease a simulator (exit $lease_status); see simlease list, or set VIME_SIMULATOR" >&2
         exit 2
     fi
-    trap 'simlease release "$simulator" > /dev/null 2>&1 || true' EXIT
+    lease=$simulator
 fi
 if [ -z "$simulator" ]; then
     simulator=$(xcrun simctl list devices booted -j | python3 -c '
@@ -59,8 +86,8 @@ else destination="platform=iOS Simulator,name=$simulator"; fi
 
 selectors=()
 if [ "${1:-}" = --failed ]; then
-    [ -s "$results/failed-$target.txt" ] || { echo "No failures recorded for $target" >&2; exit 0; }
-    while read -r test; do selectors+=("-only-testing:$test"); done < "$results/failed-$target.txt"
+    [ -s "$failed_list" ] || { echo "No failures recorded for $target" >&2; exit 0; }
+    while read -r test; do selectors+=("-only-testing:$test"); done < "$failed_list"
     shift
 fi
 while [ $# -gt 0 ]; do
@@ -118,7 +145,7 @@ open(failed_path, "w").write("".join(name + "\n" for name in failed))
 print(", ".join(f"{count} {result.lower()}" for result, count in sorted(counts.items())) or "no tests ran")
 for name in failed:
     print("  failed:", name)
-' "$target" "$results/failed-$target.txt"
+' "$target" "$failed_list"
 fi
 # KeyboardBudgetTests prints one line per latency or memory budget.
 grep -h "^VIME_BUDGET " "$results/$target.log" | sed 's/^VIME_BUDGET /  budget: /' || true
