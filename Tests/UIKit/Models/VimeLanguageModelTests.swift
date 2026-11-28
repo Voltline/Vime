@@ -328,6 +328,7 @@ final class VimeLanguageModelTests: XCTestCase {
         }
     }
     func testNativeBeamMatchesTwentyMacINT8Prefixes() throws {
+        try skipSlowTestUnlessFullRun()
         let lm = try VimeLanguageModel(variant: .v42)
         let corpus = try fixtures().phrases
         XCTAssertEqual(corpus.count, 20, "All twenty frozen prefixes must be checked")

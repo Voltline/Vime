@@ -151,6 +151,7 @@ final class ChineseInputSessionTests: XCTestCase {
     }
 
     func testCommittedWordsOfferWhatFollowsThem() throws {
+        try skipSlowTestUnlessFullRun()
         let session = try session()
         _ = session.type("dianhua")
         XCTAssertEqual(session.space(), [])
@@ -406,6 +407,7 @@ final class ChineseInputSessionTests: XCTestCase {
     /// shows once; at most the model's late scores and a correction found
     /// after a pause move it again, and never back to what it showed.
     func testEachKeyShowsItsListOnce() throws {
+        try skipSlowTestUnlessFullRun()
         for model in [false, true] {
             let session = try session()
             if model { try useModel() } else { session.setChineseLanguageModel(false) }

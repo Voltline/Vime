@@ -414,6 +414,7 @@ final class KeyboardFeatureTests: XCTestCase {
     }
 
     func testEmojiScrollContinuouslyAndSymbolsTurnPages() async throws {
+        try skipSlowTestUnlessFullRun()
         let panel = KeyboardSymbolPanel(frame: CGRect(x: 0, y: 0, width: 440, height: 350))
         let window = UIWindow(frame: UIScreen.main.bounds)
         window.rootViewController = UIViewController(); window.makeKeyAndVisible()
@@ -576,6 +577,7 @@ final class KeyboardFeatureTests: XCTestCase {
     }
 
     func testEmbeddedEmojiBitmapsCoverSupportedCatalog() async throws {
+        try skipSlowTestUnlessFullRun()
         defer { KeyboardEmojiImages.clear() }
         for group in KeyboardSymbolCatalog.emojiGroups {
             let items = await withCheckedContinuation { continuation in

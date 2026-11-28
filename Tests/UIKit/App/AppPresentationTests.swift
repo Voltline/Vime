@@ -218,6 +218,7 @@ final class AppPresentationTests: XCTestCase {
         withExtendedLifetime((errorSubscription, decoderSubscription, sheetSubscription)) {}
     }
     func testBundledComponentNoticesCoverOriginalBytesAndPolicyLoadsOffline() async throws {
+        try skipSlowTestUnlessFullRun()
         let catalog = try Vime.LicenseCatalog()
         XCTAssertEqual(catalog.components.count, 36)
         let url = try XCTUnwrap(Bundle.main.url(forResource: "ThirdPartyNotices", withExtension: "txt"))
