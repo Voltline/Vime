@@ -2,12 +2,10 @@
 
 VimeML Japanese language model (GPL-3.0-or-later with additional permission)
 Source: https://github.com/Voltline/VimeML
-Model: https://huggingface.co/Voltline/vimeml-ja-v6 (and V4.2 fallback https://huggingface.co/Voltline/vimeml-tiny-ja-v4.2)
-Bundled: ja-v6-20m TinyJapaneseV6KVBatchV4FP32KVINT8.mlmodelc,
+Model: https://huggingface.co/Voltline/vimeml-ja-v6
+Bundled in the keyboard extension: ja-v6-20m TinyJapaneseV6KVBatchV4FP32KVINT8.mlmodelc,
 VimeJapaneseTokenizerV6.model, VimeJapaneseKanaIndexV6.json and
-VimeLMManifestJaKVBatchV4-fp32kv.json (keyboard extension); V4.2 fallback
-TinyJapaneseV42INT8.mlmodelc, VimeJapaneseTokenizerV4.model and
-VimeLMManifestV42.json.
+VimeLMManifestJaKVBatchV4-fp32kv.json.
 Modified: Core ML conversion of the published weights with INT8 block-32
 weight compression. The published weights, tokenizer and the conversion
 code in the VimeML repository are their corresponding source.
@@ -37,14 +35,12 @@ model license. This app contains no training text.
 
 VimeML Chinese language model (GPL-3.0-or-later with additional permission)
 Source: https://github.com/Voltline/VimeML
-Model: https://huggingface.co/Voltline/vimeml-tiny-zh-v1
-Bundled in the keyboard extension: zh-v2-20m TinyChineseV2KVBatchV4FP32KVINT8.mlmodelc
-and VimeLMManifestZhV2KVBatchV4-fp32kv.json; zh-v1 fallback
-TinyChineseKVBatchV4FP32KVINT8.mlmodelc and VimeLMManifestZhKVBatchV4-fp32kv.json;
-shared tokenizer VimeChineseTokenizerV1.model.
-Modified: Core ML conversion of the vimeml-zh-v2-20m and vimeml-tiny-zh-v1 weights
-with INT8 block-32 weight compression. The weights, tokenizer and the conversion code
-in the VimeML repository are their corresponding source.
+Model: https://huggingface.co/Voltline/vimeml-zh-v2
+Bundled in the keyboard extension: zh-v2-20m TinyChineseV2KVBatchV4FP32KVINT8.mlmodelc,
+VimeLMManifestZhV2KVBatchV4-fp32kv.json and VimeChineseTokenizerV1.model.
+Modified: Core ML conversion of the vimeml-zh-v2-20m weights with INT8 block-32
+weight compression. The weights, tokenizer and the conversion code in the VimeML
+repository are their corresponding source.
 
 Copyright (C) 2026 Voltline
 

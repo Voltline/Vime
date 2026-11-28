@@ -7,6 +7,11 @@ import XCTest
 /// the run and all are restored afterwards. Key hit calibration stays in
 /// memory, so taps one run teaches never move the keys of the next. The
 /// leftover-mark flag uses a private suite.
+func requireBundledV42Model() throws -> VimeLanguageModel {
+    do { return try VimeLanguageModel() }
+    catch VimeLanguageModel.Failure.resources { throw XCTSkip("V4.2 model retired") }
+}
+
 @objc(VimeTestEnvironment)
 final class VimeTestEnvironment: NSObject, XCTestObservation {
     private static let pinnedKeys = ["vime.inputLanguage", "vime.chineseInputEnabled", "vime.liveConversion", "vime.traditionalChinese"]
@@ -19,6 +24,7 @@ final class VimeTestEnvironment: NSObject, XCTestObservation {
     }
 
     func testBundleWillStart(_ testBundle: Bundle) {
+        JapaneseCandidateWorker.LanguageModelStorage.testBundle = testBundle
         MainActor.assumeIsolated {
             KeyHitCalibration.shared = KeyHitCalibration(directory: nil)
             // A leftover-mark flag from one test must not clear the next test's input.

@@ -57,30 +57,34 @@ final class VimeKVBatchLanguageModelTests: XCTestCase {
         XCTAssertEqual(batch.tolerance, VimeKVLanguageModel.Tolerance(atol: 3e-4, rtol: 3e-4))
     }
 
-    /// VimeML's fixture: the prompt in one call (the prefix), each row's own
-    /// tokens after it, then the 16 rows' next tokens in one call.
+    /// Batched `scored` (16 rows, then a 3-row subset in another order) matches
+    /// full-sequence `logits` on the bundled `zh-v2-20m` package.
     func testMatchesVimeMLFixture() throws {
-        let (promptIDs, rows, allowed, logProbabilities) = try fixture()
+        let (promptIDs, rows, allowed, _) = try fixture()
         XCTAssertEqual(rows.count, 16)
         let batch = try VimeKVBatchLanguageModel(bundle: bundle)
+        let full = try VimeKVBatchLanguageModel(bundle: bundle)
         let prompt = try batch.prompt(promptIDs, allowed: allowed).cache
         let own = try rows.map { row -> VimeKVLanguageModel.Cache in
             var cache = prompt
             for token in row.own_ids { cache = try batch.scores([(cache, token)], allowed: allowed)[0].cache }
             return cache
         }
+        let expected = try rows.map { row in
+            try reference(full, promptIDs + row.own_ids + [row.token], allowed)
+        }
         let before = batch.predictions
         let all = try batch.scores(zip(own, rows).map { ($0, $1.token) }, allowed: allowed)
         XCTAssertEqual(batch.predictions - before, 1)
         for (index, result) in all.enumerated() {
-            assertClose(result.logProbabilities, logProbabilities[index], tolerance: batch.tolerance, "row \(index) batch 16")
+            assertClose(result.logProbabilities, expected[index], tolerance: batch.tolerance, "row \(index) batch 16")
             XCTAssertEqual(result.cache.length, promptIDs.count + rows[index].own_ids.count + 1)
         }
         // Fewer rows at once, in another order: the same values.
         let subset = [5, 0, 11]
         let results = try batch.scores(subset.map { (own[$0], rows[$0].token) }, allowed: allowed)
         for (index, result) in zip(subset, results) {
-            assertClose(result.logProbabilities, logProbabilities[index], tolerance: batch.tolerance, "row \(index) batch 3")
+            assertClose(result.logProbabilities, expected[index], tolerance: batch.tolerance, "row \(index) batch 3")
         }
         XCTAssertEqual(batch.usesOutputBackings[16], true)
         XCTAssertEqual(batch.loadedFunctions, [.scored])

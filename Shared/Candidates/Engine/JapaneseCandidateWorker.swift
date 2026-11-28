@@ -11,7 +11,7 @@ final class JapaneseCandidateWorker {
     // dictionary candidates behind a cold model or an unbounded scoring request.
     // Give contextual disambiguation enough time for multiple complete scores;
     // first publication still freezes order for the current composition revision.
-    nonisolated static let initialRankingWindow: TimeInterval = 0.060
+    nonisolated(unsafe) static var initialRankingWindow: TimeInterval = 0.060
     nonisolated static let initialRankingCandidateLimit = 8
     /// Early corrections must leave time to reach the main queue before the
     /// first display's deadline.
@@ -35,6 +35,9 @@ final class JapaneseCandidateWorker {
     nonisolated final class LanguageModelStorage: @unchecked Sendable {
         enum Language: Sendable { case japanese, chinese }
         static let shared = LanguageModelStorage()
+        /// Overridden by `VimeTestEnvironment` so unit tests load keyboard-extension-only
+        /// model packages from the test bundle instead of the host app's `Bundle.main`.
+        nonisolated(unsafe) static var testBundle: Bundle?
         // Readiness and the pressure gate cross queues; model access remains
         // confined to modelQueue. Never wait for cold initialization to publish.
         private let lock = NSLock()
@@ -180,44 +183,17 @@ final class JapaneseCandidateWorker {
             let log = Logger(subsystem: "com.Voltline.Vime", category: "LanguageModel")
             let started = ProcessInfo.processInfo.systemUptime
             do {
-                var japanese: VimeLanguageModel?, japaneseV6: JapaneseLanguageModelV6?, chinese: ChineseLanguageModel?
+                let resourceBundle = Self.testBundle ?? .main
+                var japaneseV6: JapaneseLanguageModelV6?, chinese: ChineseLanguageModel?
                 try autoreleasepool {
                     switch language {
                     case .japanese:
-                        if JapaneseLanguageModelV6.configuredVersion == .v6 {
-                            do {
-                                japaneseV6 = try JapaneseLanguageModelV6(preload: true)
-                            } catch {
-                                log.error("Japanese V6 model unavailable (\(String(describing: error), privacy: .public)); falling back to V4.2.")
-                                japanese = try VimeLanguageModel.runtime { variant, err in
-                                    log.error("Model \(variant.rawValue, privacy: .public) unavailable (\(String(describing: err), privacy: .public)); trying fallback.")
-                                }
-                            }
-                        } else {
-                            japanese = try VimeLanguageModel.runtime { variant, error in
-                                log.error("Model \(variant.rawValue, privacy: .public) unavailable (\(String(describing: error), privacy: .public)); trying fallback.")
-                            }
-                        }
+                        japaneseV6 = try JapaneseLanguageModelV6(bundle: resourceBundle, preload: true)
                     case .chinese:
-                        let fallback = ChineseModelFallback.shared
-                        var target = ChineseLanguageModel.effectiveVersion
-                        if target == .v2, !fallback.beginV2Load() {
-                            target = .v1
-                        }
-                        if target == .v2 {
-                            do {
-                                chinese = try ChineseLanguageModel(version: .v2, preload: true)
-                                fallback.finishV2LoadSuccess()
-                            } catch {
-                                fallback.recordRuntimeFailure(reason: "load_error: \(error)")
-                                chinese = try ChineseLanguageModel(version: .v1, preload: true)
-                            }
-                        } else {
-                            chinese = try ChineseLanguageModel(version: .v1, preload: true)
-                        }
+                        chinese = try ChineseLanguageModel(bundle: resourceBundle, version: .v2, preload: true)
                     }
                 }
-                let version = japaneseV6?.modelVersion ?? japanese?.modelVersion ?? chinese?.modelVersion ?? ""
+                let version = japaneseV6?.modelVersion ?? chinese?.modelVersion ?? ""
                 loadCount += 1
                 let milliseconds = Int((ProcessInfo.processInfo.systemUptime - started) * 1000)
                 VimeExtensionAudit.recordModelLoad(version: version, milliseconds: milliseconds)
@@ -225,8 +201,8 @@ final class JapaneseCandidateWorker {
                 // A warning received during synchronous loading must not
                 // publish the new model or start its first prediction.
                 guard !isSuspended else { return }
-                cachedModel = japanese; cachedJapaneseV6 = japaneseV6; cachedChinese = chinese
-                let jaVersion: JapaneseLanguageModelV6.Version? = japaneseV6 != nil ? .v6 : (japanese != nil ? .v42 : nil)
+                cachedModel = nil; cachedJapaneseV6 = japaneseV6; cachedChinese = chinese
+                let jaVersion: JapaneseLanguageModelV6.Version? = japaneseV6 != nil ? .v6 : nil
                 setReady(language, chineseVersion: chinese?.version, japaneseVersion: jaVersion)
                 KeyboardExtensionStatus.update { $0.modelVersion = version; $0.modelPaused = false }
             } catch {

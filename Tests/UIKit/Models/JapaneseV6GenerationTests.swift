@@ -73,10 +73,9 @@ final class JapaneseV6GenerationTests: XCTestCase {
 
     func testDefaultVersionAndSwitch() throws {
         XCTAssertEqual(JapaneseLanguageModelV6.defaultVersion, .v6)
+        XCTAssertEqual(JapaneseLanguageModelV6.configuredVersion.displayVersion, "6")
         let v6 = try setupV6()
         XCTAssertTrue(v6.modelVersion.hasPrefix("vimeml-ja-v6-20m-kvbatch-v4-"))
-        let v42 = try VimeLanguageModel(bundle: .main)
-        XCTAssertFalse(v42.modelVersion.isEmpty)
     }
 
     /// Full 125-case fixture parity gate from `mac-ja-v6-20m.md`:

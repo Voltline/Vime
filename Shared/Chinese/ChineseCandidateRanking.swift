@@ -190,43 +190,17 @@ nonisolated enum ChineseCandidateRanking {
             var scores: [Double]?
             let cancelled = { request.isCancelled || storage.isSuspended }
             if !cancelled(), let model = storage.chineseModel, warm, !texts.isEmpty {
-                let started = ProcessInfo.processInfo.systemUptime
                 do {
                     let result = try model.scores(context: context, candidates: texts, cancelled: cancelled)
-                    let elapsedMS = (ProcessInfo.processInfo.systemUptime - started) * 1000
                     if result.count == texts.count, !result.isEmpty, result.allSatisfy(\.isFinite) {
                         scores = result
-                        if model.version == .v2,
-                           ChineseModelFallback.shared.recordKeyLatency(milliseconds: elapsedMS) {
-                            storage.release(.chinese)
-                            ChineseSentenceGeneration.Storage.shared.release()
-                        }
-                    } else if model.version == .v2 {
-                        scores = fallbackScoreToV1(texts, context: context, reason: "invalid_scores",
-                                                   storage: storage, cancelled: cancelled)
                     }
-                } catch VimeLanguageModel.Failure.cancelled, VimeLanguageModel.Failure.ineligible {
-                    scores = nil
                 } catch {
-                    if model.version == .v2 {
-                        scores = fallbackScoreToV1(texts, context: context, reason: "runtime_error: \(error)",
-                                                   storage: storage, cancelled: cancelled)
-                    }
+                    scores = nil
                 }
             }
             DispatchQueue.main.async { MainActor.assumeIsolated { completion(scores) } }
         }
-    }
-
-    private static func fallbackScoreToV1(
-        _ texts: [String], context: String, reason: String,
-        storage: JapaneseCandidateWorker.LanguageModelStorage, cancelled: () -> Bool
-    ) -> [Double]? {
-        ChineseModelFallback.shared.recordRuntimeFailure(reason: reason)
-        storage.release(.chinese)
-        ChineseSentenceGeneration.Storage.shared.release()
-        guard !cancelled(), let v1 = storage.chineseModel, v1.version == .v1 else { return nil }
-        return try? v1.scores(context: context, candidates: texts, cancelled: cancelled)
     }
 
     /// Warms up a cold Chinese model on the model queue for later requests.

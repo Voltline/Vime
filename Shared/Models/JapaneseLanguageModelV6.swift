@@ -15,15 +15,9 @@ import Foundation
 /// Confined to `JapaneseCandidateWorker.modelQueue`.
 nonisolated final class JapaneseLanguageModelV6 {
     enum Version: String, CaseIterable, Sendable {
-        case v42
         case v6
 
-        var displayVersion: String {
-            switch self {
-            case .v42: "4.2"
-            case .v6: "6"
-            }
-        }
+        var displayVersion: String { "6" }
     }
 
     struct KanaIndex: Sendable {
@@ -112,11 +106,7 @@ nonisolated final class JapaneseLanguageModelV6 {
 
     static let defaultVersion: Version = .v6
     static let versionPreferenceKey = "vime.japaneseModelVersion"
-    static var configuredVersion: Version {
-        guard let raw = UserDefaults(suiteName: KeyboardPreferences.appGroup)?.string(forKey: versionPreferenceKey),
-              let version = Version(rawValue: raw) else { return defaultVersion }
-        return version
-    }
+    static var configuredVersion: Version { .v6 }
 
     let batch: VimeKVBatchLanguageModel
     let tokenizer: VimeSentenceTokenizer

@@ -26,7 +26,6 @@ final class ChinesePauseGenerationTests: XCTestCase {
     }
 
     private func injectV2Model() throws {
-        ChineseModelFallback.shared.resetForManualV2Selection()
         let model = try ChineseLanguageModel(bundle: Bundle(for: Self.self), version: .v2, preload: true)
         JapaneseCandidateWorker.modelQueue.sync {
             JapaneseCandidateWorker.LanguageModelStorage.shared.useChinese(model)
@@ -172,8 +171,6 @@ final class ChinesePauseGenerationTests: XCTestCase {
         XCTAssertLessThanOrEqual(generatedIdx, 1, "Generated sentence should be at rank 1 or 2")
         // One changed character is below LateCorrectionMark.minimumChanges.
         XCTAssertTrue(session.candidatePresentations.allSatisfy { $0.lateCorrection == nil })
-        XCTAssertFalse(ChineseModelFallback.shared.isFallenBackToV1,
-                       "Pause generation must not trigger v2->v1 latency fallback")
 
         let token = try XCTUnwrap(session.candidatePresentations[generatedIdx].selectionToken)
         let edits = session.chooseCandidate(token)

@@ -45,6 +45,7 @@ final class KeyboardReviewFixTests: XCTestCase {
     }
 
     func testLateNeuralSuggestionsPreserveOrderTokensAndHeldButton() async throws {
+        _ = try requireBundledV42Model()
         let gate = JapaneseCandidateWorker()
         let wasSuspended = JapaneseCandidateWorker.isLanguageModelSuspendedForMemoryPressure
         gate.allowLanguageModel()

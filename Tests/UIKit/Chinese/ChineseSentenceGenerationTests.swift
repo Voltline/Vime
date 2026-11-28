@@ -21,7 +21,7 @@ final class ChineseSentenceGenerationTests: XCTestCase {
     func setup() throws -> Setup {
         if let cached = Self.cached { return cached }
         XCTAssertNotNil(ChinesePinyinLexicon.bundled, "RimeData.bundle is not bundled")
-        let model = try ChineseLanguageModel(bundle: Bundle(for: Self.self), version: .v1)
+        let model = try ChineseLanguageModel(bundle: Bundle(for: Self.self), version: .v2)
         let setup = Setup(model: model, generator: try XCTUnwrap(ChineseSentenceGeneration.Storage.generator(for: model)))
         Self.cached = setup
         return setup
@@ -113,18 +113,15 @@ final class ChineseSentenceGenerationTests: XCTestCase {
     }
 
     func testRescoringUsesTheContextAndKeepsGenerationScores() throws {
-        let generated = try generate("shiyan", context: "我们明天去")
+        let alone = try XCTUnwrap(try candidates("shiyan", context: "我们明天去", scorer: false))
         let rescored = try XCTUnwrap(try candidates("shiyan", context: "我们明天去"))
-        XCTAssertEqual(Set(rescored.map(\.text)), Set(generated.map(\.text)))
+        XCTAssertEqual(Set(rescored.map(\.text)), Set(alone.map(\.text)))
         let model = try setup().model.scores(context: "我们明天去", candidates: rescored.map(\.text))
         for (candidate, score) in zip(rescored, model) {
             XCTAssertEqual(try XCTUnwrap(candidate.modelScore), score, accuracy: 1e-9)
             XCTAssertEqual(candidate.score, candidate.generationScore + 1.6 * score, accuracy: 1e-9)
         }
         XCTAssertEqual(rescored.map(\.score), rescored.map(\.score).sorted(by: >))
-        // Without the reranking model, the generation alone orders them.
-        let alone = try XCTUnwrap(try candidates("shiyan", context: "我们明天去", scorer: false))
-        XCTAssertEqual(alone.map(\.text), generated.map(\.text))
         XCTAssertTrue(alone.allSatisfy { $0.modelScore == nil })
     }
 

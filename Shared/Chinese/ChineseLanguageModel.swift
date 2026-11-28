@@ -10,46 +10,19 @@ import Foundation
 /// Model queue, like the package.
 nonisolated final class ChineseLanguageModel {
     enum Version: String, CaseIterable, Sendable {
-        case v1
         case v2
 
-        var variant: VimeKVBatchLanguageModel.Variant {
-            switch self {
-            case .v1: .v1
-            case .v2: .v2
-            }
-        }
-
-        var decodingMode: ChineseConstrainedGeneration.Mode {
-            switch self {
-            case .v1: .lm
-            case .v2: .task
-            }
-        }
-
-        var displayVersion: String {
-            switch self {
-            case .v1: "1"
-            case .v2: "2"
-            }
-        }
+        var variant: VimeKVBatchLanguageModel.Variant { .v2 }
+        var decodingMode: ChineseConstrainedGeneration.Mode { .task }
+        var displayVersion: String { "2" }
     }
 
     static let tokenizerResource = "VimeChineseTokenizerV1"
     static let vocabulary = 12288
     static let defaultVersion: Version = .v2
     static let versionPreferenceKey = "vime.chineseModelVersion"
-    static var configuredVersion: Version {
-        guard let raw = UserDefaults(suiteName: KeyboardPreferences.appGroup)?.string(forKey: versionPreferenceKey),
-              let version = Version(rawValue: raw) else { return defaultVersion }
-        return version
-    }
-    /// Effective version taking automatic v2→v1 fallback into account.
-    static var effectiveVersion: Version {
-        let configured = configuredVersion
-        guard configured == .v2 else { return .v1 }
-        return ChineseModelFallback.shared.isFallenBackToV1 ? .v1 : .v2
-    }
+    static var configuredVersion: Version { .v2 }
+    static var effectiveVersion: Version { .v2 }
     /// <CTX>, <READ> and <OUT>: the three-task model's markers, never part of a scored sentence.
     static let reservedTokens: Set<Int32> = [4, 5, 6]
 

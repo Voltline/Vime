@@ -228,24 +228,13 @@ struct KeyboardPreferences {
     /// Which bundled Chinese model (and matching decoding mode) is active:
     /// v2 (task mode + self rescoring, default) or v1 (lm mode fallback).
     var chineseModelVersion: ChineseLanguageModel.Version {
-        get {
-            guard let raw = defaults.string(forKey: ChineseLanguageModel.versionPreferenceKey),
-                  let version = ChineseLanguageModel.Version(rawValue: raw) else { return ChineseLanguageModel.defaultVersion }
-            return version
-        }
+        get { .v2 }
         nonmutating set {
             defaults.set(newValue.rawValue, forKey: ChineseLanguageModel.versionPreferenceKey)
-            if newValue == .v2 { ChineseModelFallback.shared.resetForManualV2Selection() }
         }
     }
-    /// Which bundled Japanese model (and matching pipeline) is active:
-    /// v6 (`vimeml-ja-v6-20m` rerank + pause generation, default) or v42 (`V4.2` rerank fallback).
     var japaneseModelVersion: JapaneseLanguageModelV6.Version {
-        get {
-            guard let raw = defaults.string(forKey: JapaneseLanguageModelV6.versionPreferenceKey),
-                  let version = JapaneseLanguageModelV6.Version(rawValue: raw) else { return JapaneseLanguageModelV6.defaultVersion }
-            return version
-        }
+        get { .v6 }
         nonmutating set {
             defaults.set(newValue.rawValue, forKey: JapaneseLanguageModelV6.versionPreferenceKey)
         }

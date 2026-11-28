@@ -107,7 +107,7 @@ final class KeyboardLongTermLearningTests: XCTestCase {
     }
 
     func testRealConverterCorrectionsReplaceSixtyOldChoicesAndRecoverFromOneMistake() throws {
-        let directory = try directory(), model = try VimeLanguageModel()
+        let directory = try directory(), model = try requireBundledV42Model()
         var engine = JapaneseCandidateEngine(memoryDirectoryURL: directory, learningEnabled: true)
         var input = ComposingText(); RomajiConverter.insert("hashi", into: &input)
         let context = "川を渡るための", otherContext = "食事に使う"

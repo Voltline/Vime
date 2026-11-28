@@ -21,7 +21,7 @@ final class KeyboardPersonalizationReplayTests: XCTestCase {
     ]
 
     func testContextContrastAfterLearningAnOppositeHabit() throws {
-        let model = try VimeLanguageModel()
+        let model = try requireBundledV42Model()
         var baselineHits = 0, learnedHits = 0, frozen = 0
         for probe in probes {
             let directory = isolatedLearningDirectory()
@@ -81,6 +81,9 @@ final class KeyboardPersonalizationReplayTests: XCTestCase {
     }
 
     func testProductionWorkerUsesContextModelAfterEachKeyDespiteGlobalHabit() async throws {
+        let savedWindow = JapaneseCandidateWorker.initialRankingWindow
+        JapaneseCandidateWorker.initialRankingWindow = 5.0
+        defer { JapaneseCandidateWorker.initialRankingWindow = savedWindow }
         let probe = probes[0], directory = isolatedLearningDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
         let memory = CandidatePreferenceMemory(directory: directory)
