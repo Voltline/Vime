@@ -112,6 +112,7 @@ nonisolated final class KoreanPersonalLearningStore: @unchecked Sendable {
         }
     }
 
+    @discardableResult
     func record(
         word: String,
         previousWord: String? = nil,
@@ -119,12 +120,12 @@ nonisolated final class KoreanPersonalLearningStore: @unchecked Sendable {
         exclusionsActive: Bool = LearningExclusionPolicy.isActive(),
         exclusionList: LearningExclusionList = .shared,
         blocklist: LearningExclusionList = PredictionBlocklist.korean
-    ) {
+    ) -> Bool {
         let trimmed = word.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, trimmed.count <= 20, HangulComposer.isHangul(trimmed) else { return }
+        guard !trimmed.isEmpty, trimmed.count <= 20, HangulComposer.isHangul(trimmed) else { return false }
         guard !blocklist.matches(trimmed),
               LearningExclusionPolicy.allowsLearning(trimmed, active: exclusionsActive, list: exclusionList) else {
-            return
+            return false
         }
         let jamo = String(HangulComposer.decomposeToJamo(trimmed))
         let ts = now.timeIntervalSince1970
@@ -158,6 +159,7 @@ nonisolated final class KoreanPersonalLearningStore: @unchecked Sendable {
         dirty = true
         scheduleFlushLocked()
         lock.unlock()
+        return true
     }
 
     /// Reverts a single recorded occurrence of `word` (and optional bigram from `previousWord`),

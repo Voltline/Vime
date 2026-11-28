@@ -157,12 +157,15 @@ final class KoreanInputSession: KeyboardInputSession {
         if isComposing {
             let word = composer.flush()
             clearCandidates()
-            recordWord(word, insertedLength: word.count + 1)
+            // After a newline the caret moves to the next line, so deleteToLineStart
+            // on the new line must not revert the word committed on the previous line.
+            recordWord(word, insertedLength: word.count, trackForUndo: false)
             previousWord = nil
             onCandidatesChange?()
             return [.insert(word), .returnKey]
         }
         lastRecordedCommit = nil
+        pendingDeletionUndo = nil
         previousWord = nil
         return [.returnKey]
     }
@@ -329,16 +332,20 @@ final class KoreanInputSession: KeyboardInputSession {
         return [.insert(word)]
     }
 
-    private func recordWord(_ word: String, insertedLength: Int) {
+    private func recordWord(_ word: String, insertedLength: Int, trackForUndo: Bool = true) {
         let prev = previousWord
-        learning.record(
+        let recorded = learning.record(
             word: word,
             previousWord: prev,
             exclusionsActive: exclusionsActive,
             exclusionList: exclusions,
             blocklist: blocklist
         )
-        lastRecordedCommit = (word: word, previousWord: prev, remainingChars: max(1, insertedLength))
+        if recorded && trackForUndo {
+            lastRecordedCommit = (word: word, previousWord: prev, remainingChars: max(1, insertedLength))
+        } else {
+            lastRecordedCommit = nil
+        }
         previousWord = word
     }
 
