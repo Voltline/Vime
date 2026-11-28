@@ -15,4 +15,5 @@ import Foundation
 nonisolated enum PredictionBlocklist {
     static let shared = LearningExclusionList(bundle: .main, resource: "PredictionBlocklist")
     static let japanese = LearningExclusionList(bundle: .main, resource: "PredictionBlocklistJapanese")
+    static let korean = LearningExclusionList(bundle: .main, resource: "PredictionBlocklistKorean")
 }

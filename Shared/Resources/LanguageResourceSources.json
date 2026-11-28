@@ -16,5 +16,48 @@
       "count": 2000,
       "sha256": "e2420ff42a8aef9c139cbfdec4f1cb4db41f1cc1c94ba890a401db26a8b94687"
     }
+  },
+  "korean": {
+    "updateCommand": "python3 Scripts/build_korean_lexicon.py --wordfreq wordfreq-3.1.1-py3-none-any.whl --mecab python_mecab_ko_dic-2.1.1.post2-py3-none-any.whl --tatoeba kor_sentences.tsv.bz2 --output Shared/Resources/KoreanLexicon.bin",
+    "sources": [
+      {
+        "name": "wordfreq (ko)",
+        "source": "https://github.com/rspeer/wordfreq",
+        "version": "3.1.1 (small_ko.msgpack.gz)",
+        "license": "CC-BY-SA-4.0",
+        "copyright": "Robyn Speer",
+        "sha256": "01014287a9e779d232f965d054a9cb5eb10b0bc46ee464fbd42935a5df7c8319"
+      },
+      {
+        "name": "mecab-ko-dic",
+        "source": "https://bitbucket.org/eunjeon/mecab-ko-dic",
+        "version": "2.1.1-20180720 (python-mecab-ko-dic 2.1.1.post2)",
+        "license": "Apache-2.0",
+        "copyright": "Eunjeon Project",
+        "sha256": "ef8f4e80c8976f1340a7264abb0c96f384fe059fd897584aeba0151753c6ae9b"
+      },
+      {
+        "name": "Tatoeba Korean sentences",
+        "source": "https://downloads.tatoeba.org/exports/per_language/kor/kor_sentences.tsv.bz2",
+        "version": "2026-11-28 export",
+        "license": "CC-BY-2.0-FR",
+        "copyright": "Tatoeba contributors",
+        "sha256": "453d31fcd3e0b70b113f18048d143352dc2582a5aeb5981c50eb2f0246ef652c"
+      }
+    ],
+    "packs": {
+      "KoreanLexicon.bin": {
+        "wordCount": 42000,
+        "nounCount": 25467,
+        "bigramCount": 2854,
+        "bytes": 1957707,
+        "sha256": "6837b3a99a99f92de21f4bdabc037df4dac4b551730381660a986119f12e5bb8"
+      },
+      "PredictionBlocklistKorean.bin": {
+        "blockedCount": 32,
+        "bytes": 284,
+        "sha256": "1b8676fa88cc411247e2a41a3dacdb1cf07e590070bc018f1f9fff22d607929b"
+      }
+    }
   }
 }
