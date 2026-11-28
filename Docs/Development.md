@@ -64,7 +64,7 @@ App 与键盘支持简体中文（源语言）、繁体中文、日语、英语�
 
 ## 日常测试
 
-开发时用 [test.sh](../Scripts/test.sh)。它固定使用一个构建目录做增量构建，模拟器默认取已启动的那台，没有就取第一台 iPhone，也可以用 `VIME_SIMULATOR` 指定名称或 UDID：
+开发时用 [test.sh](../Scripts/test.sh)。它固定使用一个构建目录做增量构建。模拟器可以用 `VIME_SIMULATOR` 指定名称或 UDID；不指定时，本机装了 simlease（模拟器租约工具）就租一台别的 agent 没在用的，运行结束后归还，`SIMLEASE_AGENT` 可以写明占用者；没装 simlease 时取已启动的那台，没有就取第一台 iPhone：
 
 ```sh
 bash Scripts/test.sh                                   # 全部单元测试，慢测试除外

@@ -13,9 +13,12 @@
 # Slow tests (corpus guards, model parity; see Tests/UIKit/Support/SlowTests.swift)
 # also run whenever classes or methods are named.
 #
-# VIME_SIMULATOR picks the simulator by name or UDID; otherwise the booted
-# one, else the first available iPhone. VIME_DERIVED_DATA overrides the
-# build folder. For evidence kept with a review, use verify_review.sh.
+# VIME_SIMULATOR picks the simulator by name or UDID. Otherwise, when simlease
+# is installed (outside CI), the run leases a simulator no other agent holds
+# and gives it back when it ends; SIMLEASE_AGENT names the holder (default
+# test.sh). Without simlease: the booted one, else the first available
+# iPhone. VIME_DERIVED_DATA overrides the build folder. For evidence kept
+# with a review, use verify_review.sh.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -28,6 +31,16 @@ results=$derived/Results
 mkdir -p "$results"
 
 simulator=${VIME_SIMULATOR:-}
+if [ -z "$simulator" ] && [ -z "${CI:-}" ] && command -v simlease > /dev/null; then
+    # Leased for as long as this script runs, so agents never share a simulator.
+    lease_status=0
+    simulator=$(simlease acquire --agent "${SIMLEASE_AGENT:-test.sh}" --pid $$ --ttl 4h) || lease_status=$?
+    if [ "$lease_status" != 0 ] || [ -z "$simulator" ]; then
+        echo "simlease could not lease a simulator (exit $lease_status); see simlease list, or set VIME_SIMULATOR" >&2
+        exit 2
+    fi
+    trap 'simlease release "$simulator" > /dev/null 2>&1 || true' EXIT
+fi
 if [ -z "$simulator" ]; then
     simulator=$(xcrun simctl list devices booted -j | python3 -c '
 import json, sys
