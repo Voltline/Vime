@@ -182,7 +182,7 @@ nonisolated struct HangulComposer: Equatable, Sendable {
         }
         switch current {
         case .consonant:
-            // Two consecutive consonants do not merge in KS X 5002 2-beolsik.
+            // Matches iOS system 2-Set: standalone consonants stay separate (e.g. ㄱ+ㅅ -> ㄱㅅ, ㄹ+ㄱ -> ㄹㄱ).
             committedSyllables.append(current.rendered)
             active = .consonant(cho: cho)
 
@@ -217,10 +217,14 @@ nonisolated struct HangulComposer: Equatable, Sendable {
         case .consonant(let curCho):
             active = .syllable(cho: curCho, jung: jung, jong: 0)
 
-        case .vowel:
-            // Standalone vowels without choseong stay separate on iOS 2-beolsik.
-            committedSyllables.append(current.rendered)
-            active = .vowel(jung: jung)
+        case .vowel(let curJung):
+            // Matches iOS system 2-Set: standalone vowels combine into compound vowels (e.g. ㅗ+ㅏ -> ㅘ).
+            if let combined = Self.compoundVowel[curJung]?[jung] {
+                active = .vowel(jung: combined)
+            } else {
+                committedSyllables.append(current.rendered)
+                active = .vowel(jung: jung)
+            }
 
         case .syllable(let curCho, let curJung, let curJong):
             if curJong == 0 {
@@ -252,8 +256,14 @@ nonisolated struct HangulComposer: Equatable, Sendable {
     mutating func backspace() -> Bool {
         if let current = active {
             switch current {
-            case .consonant, .vowel:
+            case .consonant:
                 active = nil
+            case .vowel(let jung):
+                if let (firstJung, _) = Self.splitCompoundVowel[jung] {
+                    active = .vowel(jung: firstJung)
+                } else {
+                    active = nil
+                }
             case .syllable(let cho, let jung, let jong):
                 if jong != 0 {
                     if let (firstJong, _) = Self.splitCompoundJongseong[jong] {
@@ -348,7 +358,16 @@ nonisolated struct HangulComposer: Equatable, Sendable {
                     }
                 }
             } else {
-                result.append(Character(scalar))
+                let ch = Character(scalar)
+                if let jong = jongseongIndex[ch], let (j1, c2) = splitCompoundJongseong[jong] {
+                    if let first = jongseong[j1] { result.append(first) }
+                    result.append(choseong[c2])
+                } else if let jung = jungseongIndex[ch], let (v1, v2) = splitCompoundVowel[jung] {
+                    result.append(jungseong[v1])
+                    result.append(jungseong[v2])
+                } else {
+                    result.append(ch)
+                }
             }
         }
         return result

@@ -124,14 +124,39 @@ final class HangulComposerTests: XCTestCase {
         c.input("ㄱ")
         XCTAssertEqual(c.text, "ㄱ")
         XCTAssertEqual(c.text.unicodeScalars.first?.value, 0x3131)
+        // Non-combining consonant pair stays separate.
         c.input("ㄱ")
         XCTAssertEqual(c.text, "ㄱㄱ")
 
+        // Verified against iOS system Korean 2-Set: standalone consonants stay separate (ㄱ+ㅅ -> ㄱㅅ, ㄹ+ㄱ -> ㄹㄱ).
+        var cc = HangulComposer()
+        cc.input("ㄱ"); cc.input("ㅅ")
+        XCTAssertEqual(cc.text, "ㄱㅅ")
+        XCTAssertTrue(cc.text.unicodeScalars.allSatisfy { HangulComposer.isCompatibilityJamo($0) })
+        XCTAssertTrue(cc.backspace()); XCTAssertEqual(cc.text, "ㄱ")
+        XCTAssertTrue(cc.backspace()); XCTAssertEqual(cc.text, "")
+
+        var split = HangulComposer()
+        split.input("ㄹ"); split.input("ㄱ")
+        XCTAssertEqual(split.text, "ㄹㄱ")
+        split.input("ㅏ")
+        XCTAssertEqual(split.text, "ㄹ가")
+        XCTAssertTrue(split.backspace()); XCTAssertEqual(split.text, "ㄹㄱ")
+        XCTAssertTrue(split.backspace()); XCTAssertEqual(split.text, "ㄹ")
+
+        // Verified against iOS system Korean 2-Set: standalone vowels combine into compound vowels (ㅗ+ㅏ -> ㅘ, ㅜ+ㅓ -> ㅝ).
         var v = HangulComposer()
-        v.input("ㅗ")
-        v.input("ㅏ")
-        XCTAssertEqual(v.text, "ㅗㅏ")
+        v.input("ㅗ"); v.input("ㅏ")
+        XCTAssertEqual(v.text, "ㅘ")
         XCTAssertTrue(v.text.unicodeScalars.allSatisfy { HangulComposer.isCompatibilityJamo($0) })
+        XCTAssertTrue(v.backspace()); XCTAssertEqual(v.text, "ㅗ")
+        XCTAssertTrue(v.backspace()); XCTAssertEqual(v.text, "")
+
+        var v2 = HangulComposer()
+        v2.input("ㅜ"); v2.input("ㅓ")
+        XCTAssertEqual(v2.text, "ㅝ")
+        v2.input("ㅏ")
+        XCTAssertEqual(v2.text, "ㅝㅏ")
 
         var syl = HangulComposer()
         XCTAssertTrue(syl.input(string: "ㅎㅏㄴ"))

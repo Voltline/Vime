@@ -23,6 +23,7 @@ The companion app handles setup, typing practice, appearance and settings. The k
 - **Two Japanese layouts**: full romaji QWERTY, or a 12-key kana pad. On the pad, tap for the あ-column kana and flick left, up, right or down for the others; tapping the same key repeatedly cycles through its kana (toggle input). The pad has `↶` (step back), `゛゜小` (voiced / semi-voiced / small) and `→` (end the toggle) keys, plus a two-row 確定 key that is easy to hit.
 - **Instant kana draft**: kana appear as you type, and unfinished consonants stay as romaji. Conversion and predictions update in the background without blocking input.
 - **Direct English input** with a one-tap Japanese/English switch and word completion in the candidate bar; auto-capitalization and the double-space period can be turned on in Settings. The number page can be a 3×3 pad or a full row layout.
+- **Korean 2-Set input**: word and particle completions, next-word suggestions, jamo-level typo correction, and on-device learning, switching alongside Japanese, Chinese and English in one keyboard.
 
 ### Conversion and candidates
 

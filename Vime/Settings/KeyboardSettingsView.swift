@@ -738,6 +738,8 @@ struct KeyboardDataPrivacyView: View {
     @AppStorage private var chineseResetRequest: String
     @AppStorage private var chineseResetCompleted: String
     @AppStorage private var chineseInput: Bool
+    @AppStorage private var koreanInput: Bool
+    @State private var hasKoreanRecords = false
     init() {
         let prefs = KeyboardPreferences(), store = prefs.store, chinese = prefs.learningResetRequests.chinese
         _resetRequest = AppStorage(wrappedValue: "", "vime.learningReset.request", store: store)
@@ -745,6 +747,7 @@ struct KeyboardDataPrivacyView: View {
         _chineseResetRequest = AppStorage(wrappedValue: "", chinese.requestKey, store: store)
         _chineseResetCompleted = AppStorage(wrappedValue: "", chinese.completedKey, store: store)
         _chineseInput = AppStorage(wrappedValue: prefs.chineseInputEnabled, "vime.chineseInputEnabled", store: store)
+        _koreanInput = AppStorage(wrappedValue: prefs.koreanInputEnabled, "vime.koreanInputEnabled", store: store)
     }
     private var chineseLearningResetMessage: String? {
         if chineseResetRequest.isEmpty { return nil }
@@ -780,6 +783,12 @@ struct KeyboardDataPrivacyView: View {
                         Button { confirmChineseLearningReset = true } label: {
                             AppSettingsActionRow(title: "清空中文学习记录", subtitle: "只重置拼音的词语偏好，日语学习保留", symbol: "arrow.counterclockwise.circle")
                         }.accessibilityIdentifier("vime.privacy.resetChineseLearning")
+                    }
+                    if koreanInput || hasKoreanRecords {
+                        Divider().padding(.leading, 52)
+                        NavigationLink { KoreanLearnedWordsView() } label: {
+                            AppSettingsActionRow(title: "韩语学到的词", subtitle: "查看、删除或导出韩语学习记录", symbol: "brain")
+                        }.accessibilityIdentifier("vime.privacy.koreanLearnedWords")
                     }
                 }
                 Text(learningResetMessage)
@@ -827,6 +836,7 @@ struct KeyboardDataPrivacyView: View {
             .font(.subheadline)
         }
         .navigationTitle("学习与隐私").navigationBarTitleDisplayMode(.inline)
+        .onAppear { hasKoreanRecords = KoreanPersonalLearningStore.shared.hasStoredRecords }
         .confirmationDialog("清空所有学习记录？", isPresented: $confirmLearningReset, titleVisibility: .visible) {
             Button("清空学习记录", role: .destructive) {
                 ChineseLearnedWords.shared().discardPending(); KoreanPersonalLearningStore.shared.reset(); KeyboardPreferences().learningResetRequests.request()

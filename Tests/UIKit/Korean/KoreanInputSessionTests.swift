@@ -229,6 +229,60 @@ final class KoreanInputSessionTests: XCTestCase {
         XCTAssertFalse(learning.isLearned("삭제테스트"))
     }
 
+    func testSkippedRecordDoesNotDecrementPreviousWordOnDelete() {
+        let exclusionData = LearningExclusionList.encode(blocked: ["비밀단어"], allowed: [])
+        let exclusions = LearningExclusionList(data: exclusionData)
+        let learning = KoreanPersonalLearningStore(directory: tempDir)
+        let session = KoreanInputSession(
+            lexicon: KoreanLexicon.shared,
+            learning: learning,
+            exclusions: exclusions,
+            exclusionsApply: { true },
+            blocklist: PredictionBlocklist.korean
+        )
+
+        // Commit a valid word first.
+        for ch in HangulComposer.decomposeToJamo("정상단어") { _ = session.type(String(ch)) }
+        _ = session.space()
+        XCTAssertEqual(learning.frequency(of: "정상단어"), 1)
+
+        // Submit an excluded word (record() returns false) then immediately delete line:
+        // must not decrement previously learned "정상단어".
+        for ch in HangulComposer.decomposeToJamo("비밀단어") { _ = session.type(String(ch)) }
+        _ = session.space()
+        session.didApplyEdits([.deleteToLineStart])
+        XCTAssertEqual(learning.frequency(of: "정상단어"), 1)
+        XCTAssertEqual(learning.frequency(of: "비밀단어"), 0)
+
+        // Overlong word (> 20 chars) also returns false and does not arm undo.
+        let overlong = String(repeating: "가", count: 21)
+        XCTAssertFalse(learning.record(word: overlong))
+        for ch in HangulComposer.decomposeToJamo(overlong) { _ = session.type(String(ch)) }
+        _ = session.space()
+        session.didApplyEdits([.deleteToLineStart])
+        XCTAssertEqual(learning.frequency(of: "정상단어"), 1)
+    }
+
+    func testEnterClearsUndoSoDeleteToLineStartDoesNotRevertPreviousLineWord() {
+        let learning = KoreanPersonalLearningStore(directory: tempDir)
+        let session = KoreanInputSession(
+            lexicon: KoreanLexicon.shared,
+            learning: learning,
+            exclusions: LearningExclusionList(data: Data()),
+            exclusionsApply: { false },
+            blocklist: PredictionBlocklist.korean
+        )
+
+        for ch in HangulComposer.decomposeToJamo("이전줄단어") { _ = session.type(String(ch)) }
+        let edits = session.enter()
+        XCTAssertEqual(edits, [.insert("이전줄단어"), .returnKey])
+        XCTAssertEqual(learning.frequency(of: "이전줄단어"), 1)
+
+        // Deleting on the new line after Return must not revert the word on the previous line.
+        session.didApplyEdits([.deleteToLineStart])
+        XCTAssertEqual(learning.frequency(of: "이전줄단어"), 1)
+    }
+
     func testResetIDDoesNotLoadLearningStoreWhenKoreanIsUnused() {
         let learning = KoreanPersonalLearningStore(directory: tempDir)
         XCTAssertFalse(learning.isLoaded)
