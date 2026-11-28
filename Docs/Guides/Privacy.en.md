@@ -1,12 +1,12 @@
 # Vime Privacy Policy
 
-Updated: 2026-11-17
+Updated: 2026-11-28
 
-Effective: 2026-11-17
+Effective: 2026-11-28
 
 This policy applies to the Vime app (the “app”) and its iOS keyboard extension (the “keyboard”), together “Vime”.
 
-Vime is a multilingual keyboard for Japanese, Chinese and English provided by the developer Voltline (“we”). We take your personal information seriously and handle it lawfully, fairly, only as necessary and in good faith. This policy explains what information Vime handles when you use it, why, where it is kept, for how long, and how you can manage it. **Please read this policy before using Vime, especially the parts in bold**. Declining or withdrawing optional permissions does not affect basic typing.
+Vime is a multilingual keyboard for Japanese, Chinese, Korean and English provided by the developer Voltline (“we”). We take your personal information seriously and handle it lawfully, fairly, only as necessary and in good faith. This policy explains what information Vime handles when you use it, why, where it is kept, for how long, and how you can manage it. **Please read this policy before using Vime, especially the parts in bold**. Declining or withdrawing optional permissions does not affect basic typing.
 
 ## Key Points
 
@@ -39,6 +39,7 @@ Vime is a multilingual keyboard for Japanese, Chinese and English provided by th
 | Smart ranking and next-word suggestions | The text before the cursor in the current sentence, and candidate words | Let the on-device language model order candidates and suggest following words | Processed in memory only; not stored separately |
 | Personal learning (Japanese) | Words and readings you confirm, how often and when; preceding text is kept only as hashes | Rank the words you use often higher | On this device; up to 2,048 preference records and 8,192 conversion records, kept until you clear them or delete the app |
 | Personal learning (Chinese) | Words you choose in pinyin input, their pinyin and how often you choose them | Rank the words you use often higher; you can view, delete, import or export them in the app | On this device; kept until you clear or delete them or delete the app |
+| Personal learning (Korean) | Korean words you commit, how often and when, and hashed adjacent-word pairs | Rank frequently used words higher and offer next-word suggestions; you can view, delete or export them in the app | On this device; up to 1,024 words and 512 adjacent-word pairs, kept until you clear them or delete the app |
 | User dictionary | Readings or pinyin, words and phrases you add | Offer them as conversion candidates | On this device; up to 1,024 entries each for Japanese and Chinese, kept until you delete them |
 | Clipboard (off by default) | Text on the clipboard and when it was read | Offer paste suggestions in the candidate bar and keep recent history | On this device; only the last 24 hours, up to 100 entries and 1 MB in total; excluded from system backups |
 | Skins | Skins you create or import, and images you choose | Display the keyboard's appearance | On this device; kept until you delete them |
